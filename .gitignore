@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+
+# Per-developer agent state
+.claude/settings.local.json
+.claude/*.local.json
+
+# Field notes written by the loop at runtime (see docs/design-notes.md)
+.revloop/

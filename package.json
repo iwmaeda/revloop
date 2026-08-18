@@ -1,0 +1,37 @@
+{
+  "name": "revloop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Branch to merge review automation for Claude Code and Codex",
+  "license": "MIT",
+  "scripts": {
+    "format": "prettier --write \"**/*.{json,jsonc,yml,yaml,md}\"",
+    "format:check": "prettier --check \"**/*.{json,jsonc,yml,yaml,md}\"",
+    "lint:md": "markdownlint-cli2 \"**/*.md\"",
+    "lint:md:fix": "markdownlint-cli2 --fix \"**/*.md\"",
+    "lint:sh": "tests/lint-shell.sh",
+    "test": "tests/run-all.sh",
+    "audit": "npm audit --audit-level=high",
+    "check:docs": "npm run format:check && npm run lint:md",
+    "check:all": "npm run check:docs && npm run lint:sh && npm test",
+    "fix:all": "npm run format && npm run lint:md:fix"
+  },
+  "prettier": {
+    "printWidth": 100,
+    "proseWrap": "preserve",
+    "embeddedLanguageFormatting": "off",
+    "overrides": [
+      {
+        "files": "*.jsonc",
+        "options": {
+          "trailingComma": "none"
+        }
+      }
+    ]
+  },
+  "devDependencies": {
+    "ajv-cli": "^5.0.0",
+    "markdownlint-cli2": "^0.23.2",
+    "prettier": "^3.9.6"
+  }
+}

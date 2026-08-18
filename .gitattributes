@@ -1,0 +1,28 @@
+# Line-ending normalization
+#
+# This repo previously had core.autocrlf=true and no .gitattributes, so on
+# Windows Git flagged unchanged files as "modified" whenever a checkout
+# touched their mtimes (phantom CRLF / stat-cache churn). The committed blobs
+# are already LF; pinning the working tree to LF as well makes line-ending
+# handling deterministic and overrides any per-user core.autocrlf setting.
+#
+# Prettier (no endOfLine override -> default "lf") and the Python/Astro
+# toolchain all expect LF, so LF everywhere keeps formatters and Git in sync.
+* text=auto eol=lf
+
+# Binary assets — never normalize line endings or attempt text diffs.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.avif  binary
+*.ico   binary
+*.pdf   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.eot   binary
+*.mp4   binary
+*.webm  binary

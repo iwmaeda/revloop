@@ -1,0 +1,7 @@
+// markdownlint-cli2 configuration (shared by the CLI and the VS Code extension).
+// Rules live in .markdownlint.json. This `ignores` list is the single source of
+// ignore patterns: markdownlint-cli2 and DavidAnson.vscode-markdownlint both honor
+// it, so a separate .markdownlintignore is unnecessary.
+{
+  "ignores": ["node_modules/**", ".git/**", "tests/fixtures/**"]
+}

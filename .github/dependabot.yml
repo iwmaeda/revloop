@@ -1,0 +1,21 @@
+version: 2
+
+# One grouped PR per ecosystem per month. This repository is maintained by one
+# person; a stream of single-dependency PRs would cost more review rounds than
+# it saves.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      npm-dev:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

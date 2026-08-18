@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Supersede in-flight runs on the same ref. Note that this turns a push made
+# during a CI wait into a CANCELLED conclusion, which revloop reads as a failure
+# — fail-closed, and avoided entirely by not pushing while a wait is armed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# No job writes to the repository.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Prettier and markdownlint
+        run: npm run check:docs
+      - name: shellcheck the extracted fences
+        run: npm run lint:sh
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # jq is present on the runner, so the fixtures exercise the real jq
+      # program in the wait fence, not only the replayed rows.
+      - name: Fence and schema tests
+        run: npm test

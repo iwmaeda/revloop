@@ -1,0 +1,8 @@
+# Dependencies
+node_modules/
+
+# Machine-generated lockfiles
+package-lock.json
+
+# Recorded API responses — byte-exact fixtures, never reformat
+tests/fixtures/
