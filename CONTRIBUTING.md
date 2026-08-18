@@ -1,0 +1,50 @@
+# Contributing
+
+## Run the checks
+
+```console
+npm ci
+npm run check:all   # prettier + markdownlint + shellcheck + fence and schema tests
+```
+
+`.claude/**` and `.agents/**` are linted too — `markdownlint-cli2` runs with `dot: true` and descends
+into dot-directories.
+
+## The procedure is the product
+
+[`commands/review-loop.md`](commands/review-loop.md) is the single source of truth. It is read **in
+full** by an agent before it touches git, so:
+
+- **English only.** A second language guarantees drift, and drift in this file is a safety defect.
+- **Every rule states the failure that motivated it.** "Do X" is not useful; "do X, because Y silently
+  produced Z" is. If you cannot name the failure, the rule probably is not one.
+- **Separate what was measured from what was assumed.** The `## Unexercised paths` section exists to
+  be honest about the second category. Shrinking it with real observations is one of the most
+  valuable contributions possible; quietly deleting entries is the opposite.
+- **Do not copy it.** The Codex side is a router that reads this file. If you find yourself restating
+  a step, stop.
+
+## Editing a shell fence
+
+The fences carry a cost no other change has: **their bytes are what users grant standing permission
+to**, so any edit forces every user to re-approve. That is intentional — the prompt is how they learn
+the bytes changed — but it means an edit must be deliberate.
+
+1. Make the change.
+2. Re-run the affected branches **against real data**, not only against fixtures. Add a fixture for
+   whatever you learned.
+3. Add a `CHANGELOG.md` entry saying the fence changed and that it costs one re-approval.
+4. `tests/update-fence-hashes.sh`
+5. `npm test`
+
+CI fails if a fence changes without step 4, which is the point.
+
+## Adding a reviewer preset
+
+Drive it end to end on a real PR first. A card whose `status` is `verified` means someone watched it
+work; a card written from vendor documentation is worse than no card, because it looks measured.
+See [`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md).
+
+## Commits
+
+Conventional Commits, English subjects. State what was true, not what you did.
