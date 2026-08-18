@@ -9,6 +9,20 @@ text, so editing one costs every user a single re-approval. See
 
 ## [Unreleased]
 
+### Fixed
+
+- **wait-verdict fence**: revloop's own trigger comment matched both trigger
+  classes at once, so a single comment emitted two `TRIG` rows with identical
+  timestamps. `tail -1` then took the compatibility row, discarding the marker —
+  and with it the `bot=` filter that excludes other bots and the `head=` value
+  the runaway check depends on. The compatibility class now excludes bodies that
+  already carry a marker. Found by running the fence's jq program against a raw
+  GraphQL payload; the row-level fixtures could not see it, because they were
+  written by hand with one row per comment.
+
+  This changes fence bytes. No re-approval is owed to anyone yet — nothing is
+  released — but the entry is recorded because that is the rule.
+
 ### Added
 
 - Initial extraction of the review loop into a standalone, reviewer-agnostic tool.

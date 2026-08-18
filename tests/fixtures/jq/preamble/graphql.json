@@ -1,0 +1,35 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "comments": {
+          "nodes": [
+            {
+              "createdAt": "2026-08-19T10:00:00Z",
+              "databaseId": 111,
+              "body": "@gemini review\n\n<!-- revloop:trigger v=1 reviewer=gemini bot=gemini-code-assist head=1a2b3c4d round=1 -->",
+              "author": {
+                "login": "iwmaeda",
+                "__typename": "User"
+              },
+              "reactionGroups": []
+            },
+            {
+              "createdAt": "2026-08-19T10:02:00Z",
+              "databaseId": 700,
+              "body": "## Summary of Changes\n\nThis PR does things.",
+              "author": {
+                "login": "gemini-code-assist",
+                "__typename": "Bot"
+              },
+              "reactionGroups": []
+            }
+          ]
+        },
+        "reviews": {
+          "nodes": []
+        }
+      }
+    }
+  }
+}

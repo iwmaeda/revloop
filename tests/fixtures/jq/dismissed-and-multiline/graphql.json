@@ -1,0 +1,48 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "comments": {
+          "nodes": [
+            {
+              "createdAt": "2026-08-19T10:00:00Z",
+              "databaseId": 111,
+              "body": "@codex review\n\n<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=1a2b3c4d round=1 -->",
+              "author": {
+                "login": "iwmaeda",
+                "__typename": "User"
+              },
+              "reactionGroups": []
+            },
+            {
+              "createdAt": "2026-08-19T10:05:00Z",
+              "databaseId": 800,
+              "body": "first line of the body\nsecond line should not appear",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "reactionGroups": []
+            }
+          ]
+        },
+        "reviews": {
+          "nodes": [
+            {
+              "submittedAt": "2026-08-19T10:04:00Z",
+              "databaseId": 900,
+              "state": "DISMISSED",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "commit": {
+                "oid": "1a2b3c4dabcdef"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

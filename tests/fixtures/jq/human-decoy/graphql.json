@@ -1,0 +1,35 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "comments": {
+          "nodes": [
+            {
+              "createdAt": "2026-08-19T10:00:00Z",
+              "databaseId": 111,
+              "body": "@codex review\n\n<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=1a2b3c4d round=1 -->",
+              "author": {
+                "login": "iwmaeda",
+                "__typename": "User"
+              },
+              "reactionGroups": []
+            },
+            {
+              "createdAt": "2026-08-19T10:06:00Z",
+              "databaseId": 555,
+              "body": "@someone review this before merging",
+              "author": {
+                "login": "someone-else",
+                "__typename": "User"
+              },
+              "reactionGroups": []
+            }
+          ]
+        },
+        "reviews": {
+          "nodes": []
+        }
+      }
+    }
+  }
+}
