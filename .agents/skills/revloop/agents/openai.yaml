@@ -1,0 +1,6 @@
+interface:
+  display_name: "revloop"
+  short_description: "Split commits, open a PR, trigger a reviewer, fix findings — until the review converges"
+  default_prompt: "Use $revloop to put the current work up for review and iterate until it converges."
+policy:
+  allow_implicit_invocation: false

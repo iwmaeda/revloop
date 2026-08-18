@@ -1,0 +1,17 @@
+{
+  "name": "revloop",
+  "interface": {
+    "displayName": "revloop"
+  },
+  "plugins": [
+    {
+      "name": "revloop",
+      "version": "0.1.0",
+      "source": {
+        "source": "local",
+        "path": "../.."
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
