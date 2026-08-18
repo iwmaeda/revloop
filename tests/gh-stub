@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Fake `gh`, placed first on PATH by the test harness. It replays a fixture
+# directory ($REVLOOP_FIXTURE) according to the argv the fences actually use.
+#
+# Files it reads, all optional:
+#   repo        nameWithOwner, one line. "FAIL" makes the call exit non-zero.
+#   pr          PR number, one line. "FAIL" exits non-zero; "EMPTY" prints nothing.
+#   graphql.json  raw GraphQL payload. Used only when a real jq is available.
+#   rows        post-jq rows, used when jq is not available.
+#   graphql-fail  if present, every graphql call exits non-zero.
+#   checks      statusCheckRollup rows ("<status> <conclusion> <name...>").
+#   checks-fail if present, `pr view --json statusCheckRollup` exits non-zero.
+#   state       "<state> <mergedAt>" for `pr view --json state,mergedAt`.
+#   merge-rc    exit code for the merge PUT (default 0).
+#   merge-resp  body printed by the merge PUT.
+set -uo pipefail
+F="${REVLOOP_FIXTURE:?gh-stub: REVLOOP_FIXTURE is unset}"
+
+read_or() { [ -f "$F/$1" ] && cat "$F/$1" || printf '%s' "${2-}"; }
+
+case "${1:-}" in
+  repo)
+    v=$(read_or repo "acme/widgets")
+    [ "$v" = FAIL ] && exit 1
+    printf '%s\n' "$v"; exit 0;;
+  pr)
+    case "${2:-}" in
+      list)
+        v=$(read_or pr "7")
+        [ "$v" = FAIL ] && exit 1
+        [ "$v" = EMPTY ] && exit 0
+        printf '%s\n' "$v"; exit 0;;
+      view)
+        if printf '%s\n' "$@" | grep -q statusCheckRollup; then
+          [ -f "$F/checks-fail" ] && exit 1
+          read_or checks ""; exit 0
+        fi
+        if printf '%s\n' "$@" | grep -q 'state,mergedAt'; then
+          read_or state "OPEN null"; exit 0
+        fi
+        exit 0;;
+    esac
+    exit 0;;
+  api)
+    if [ "${2:-}" = graphql ]; then
+      [ -f "$F/graphql-fail" ] && exit 1
+      # Prefer exercising the real jq program when a jq binary exists (CI does);
+      # otherwise replay the rows the program is expected to produce.
+      prog=""
+      while [ $# -gt 0 ]; do
+        case "$1" in --jq) prog="$2"; shift 2;; *) shift;; esac
+      done
+      if [ -f "$F/graphql.json" ] && command -v jq >/dev/null 2>&1 && [ -n "$prog" ]; then
+        jq -r "$prog" < "$F/graphql.json"; exit 0
+      fi
+      read_or rows ""; exit 0
+    fi
+    if printf '%s\n' "$@" | grep -q '/merge'; then
+      [ -n "${REVLOOP_PUT_LOG:-}" ] && printf 'PUT %s\n' "$*" >> "$REVLOOP_PUT_LOG"
+      read_or merge-resp ""
+      exit "$(read_or merge-rc 0)"
+    fi
+    exit 0;;
+esac
+exit 0

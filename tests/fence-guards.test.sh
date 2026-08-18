@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Structural guards on the fences. These catch the failures that are invisible
+# to a reader and to `bash -n`.
+set -uo pipefail
+# shellcheck source=tests/lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+SRC="$ROOT/commands/review-loop.md"
+IDS=$("$ROOT/tests/extract-fences.sh" --list)
+
+echo "fence-guards:"
+
+for id in $IDS; do
+  "$ROOT/tests/extract-fences.sh" "$id" > "$TMP/$id.sh"
+
+  if bash -n "$TMP/$id.sh" 2>"$TMP/err"; then
+    PASS=$((PASS + 1)); printf '  ok   %s parses\n' "$id"
+  else
+    FAIL=$((FAIL + 1)); printf '  FAIL %s does not parse\n%s\n' "$id" "$(cat "$TMP/err")"
+  fi
+
+  # An unsubstituted placeholder is read by the shell as a redirect from a file
+  # of that name. It runs, it does the wrong thing, and `bash -n` says nothing.
+  ph=$(grep -oE '<[a-z][a-z_-]*>' "$TMP/$id.sh" || true)
+  refute "$id has no unsubstituted placeholder" "$ph" "<"
+
+  # A literal owner/repo makes the fence non-portable; {owner}/{repo} is the form.
+  sl=$(grep -oE 'repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/' "$TMP/$id.sh" || true)
+  refute "$id uses no literal repo slug" "$sl" "repos/"
+
+  # gh embeds a jq implementation; a standalone jq binary is not guaranteed.
+  jqpipe=$(grep -E '\|[[:space:]]*jq([[:space:]]|$)' "$TMP/$id.sh" || true)
+  refute "$id never pipes to jq" "$jqpipe" "jq"
+
+  # Globbing would let a bot-authored body expand into filenames during `set --`.
+  gl=$(grep -c '^set -f$' "$TMP/$id.sh" || true)
+  expect "$id disables globbing" "$gl" "1"
+done
+
+# A failure token that contains the success token as a substring makes every
+# `grep -q ALL_PASS` true on failure. Checked against the fences only: the Notes
+# section names the bad token on purpose, to explain why it is not used.
+bad=$(cat "$TMP"/*.sh | grep -oE '[A-Za-z_]+ALL_PASS|ALL_PASS[A-Za-z_]+' | sort -u || true)
+refute "no emitted token contains ALL_PASS" "$bad" "ALL_PASS"
+
+# The procedure itself must carry no repository-specific slug.
+slug=$(grep -oE 'repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(issues|pulls)' "$SRC" | grep -v 'repos/{owner}/{repo}/' || true)
+refute "procedure uses no literal repo slug" "$slug" "repos/"
+
+# Fence bytes are a permission-relevant surface: a change costs every user one
+# re-approval, so it has to be a deliberate, recorded act.
+HASHES="$ROOT/tests/fence-hashes.txt"
+if [ -f "$HASHES" ]; then
+  for id in $IDS; do
+    want=$(awk -v i="$id" '$2==i{print $1}' "$HASHES")
+    got=$(sha256sum < "$TMP/$id.sh" | cut -d' ' -f1)
+    if [ "$want" = "$got" ]; then
+      PASS=$((PASS + 1)); printf '  ok   %s matches its recorded hash\n' "$id"
+    else
+      FAIL=$((FAIL + 1))
+      printf '  FAIL %s changed.\n       Recording a new hash costs every user one re-approval.\n' "$id"
+      printf '       Add a CHANGELOG entry, then run: tests/update-fence-hashes.sh\n'
+      printf '       want %s\n       got  %s\n' "${want:-<none>}" "$got"
+    fi
+  done
+else
+  printf '  note tests/fence-hashes.txt is absent; run tests/update-fence-hashes.sh\n'
+fi
+
+summary "fence-guards"
