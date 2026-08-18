@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/revloop.schema.json",
+  "version": 1,
+  "project": {
+    "verify": ["uv run ruff format . --check", "uv run ruff check .", "uv run pytest"],
+    "branchPrefixes": ["feat", "fix", "docs", "chore", "ci"],
+    "commit": { "style": "conventional", "subjectLanguage": "en" }
+  },
+  "defaults": { "reviewer": "codex" }
+}

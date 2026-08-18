@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/revloop.schema.json",
+  "version": 1,
+  "project": {
+    "baseBranch": "develop",
+    "verify": ["make check", "make test"],
+    "verifyNotes": "make check does not run the license scan; CI does that in a separate job",
+    "commit": {
+      "style": "conventional",
+      "subjectLanguage": "ja",
+      "scopes": ["api", "web", "infra"],
+      "embedRoundNumber": false,
+      "verifiedLabel": "検証:"
+    },
+    "pr": { "titleLanguage": "ja", "bodyUpdateMethod": "gh-api-patch", "mergeMethod": "squash" },
+    "roundSource": "trigger-comments"
+  },
+  "defaults": { "reviewer": "acme", "maxRounds": 15, "timeout": "45m" },
+  "reviewers": {
+    "acme": {
+      "displayName": "Acme Reviewer",
+      "triggerKind": "comment",
+      "trigger": "@acme review --deep",
+      "botLogin": "acme-reviewer[bot]",
+      "verdictOn": ["reviews", "comments"],
+      "cleanPatterns": ["^Acme Review: no issues found"],
+      "rateLimitPatterns": ["quota exceeded", "rate limit"],
+      "ignoreCommentPatterns": ["^Acme is analysing"],
+      "severityLevels": ["blocker", "major", "minor"],
+      "expectedLatency": "2-8m",
+      "markerTolerated": "unverified",
+      "status": "unverified"
+    }
+  }
+}

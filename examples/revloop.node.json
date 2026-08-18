@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/revloop.schema.json",
+  "version": 1,
+  "project": {
+    "verify": ["npm run check:all", "npm test"],
+    "verifyNotes": "check:all does not run the tests; CI splits them into a check job and a test job",
+    "branchPrefixes": ["feat", "fix", "docs", "chore", "ci", "build"],
+    "commit": {
+      "style": "conventional",
+      "subjectLanguage": "en",
+      "verifiedLabel": "Verified:",
+      "trailers": ["Co-Authored-By: {model}"],
+      "onePerRound": true
+    },
+    "pr": { "mergeMethod": "merge", "requireCleanCiForMerge": true }
+  },
+  "defaults": { "reviewer": "codex", "maxRounds": 10, "timeout": "30m" }
+}

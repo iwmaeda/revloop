@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/revloop.schema.json",
+  "version": 1,
+  "project": {
+    "baseBranch": "main",
+    "verify": ["npm run check:all"],
+    "verifyNotes": "check:all covers every CI job; there is no gap in this repository",
+    "branchPrefixes": ["feat", "fix", "docs", "chore", "ci", "test"],
+    "roundSource": "trigger-comments",
+    "commit": {
+      "style": "conventional",
+      "subjectLanguage": "en",
+      "bodyLanguage": "en",
+      "verifiedLabel": "Verified:",
+      "trailers": ["Co-Authored-By: {model}"],
+      "onePerRound": true
+    },
+    "pr": {
+      "titleLanguage": "en",
+      "bodyUpdateMethod": "gh-pr-edit",
+      "mergeMethod": "merge",
+      "requireCleanCiForMerge": true
+    }
+  },
+  "defaults": { "reviewer": "codex", "maxRounds": 10, "timeout": "30m", "merge": false }
+}

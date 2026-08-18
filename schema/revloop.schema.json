@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/revloop.schema.json",
+  "title": ".revloop.json",
+  "description": "Project configuration for revloop. Every field is optional; anything absent is auto-detected and shown in the resolved-configuration table with source=detected.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Config format version. An unknown major version aborts rather than degrading."
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "baseBranch": {
+          "type": ["string", "null"],
+          "description": "Null or absent: read from gh repo view --json defaultBranchRef."
+        },
+        "branchPrefixes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Absent: derived from the repository's own commit subjects."
+        },
+        "verify": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Commands run before pushing. Shown in the resolved table BEFORE they run, and deliberately excluded from allowed-tools so the permission system always sees them."
+        },
+        "verifyNotes": {
+          "type": "string",
+          "description": "Which CI job the umbrella verify command does not reproduce, if any. The shape of this gap is universal; its answer differs per project and may be empty."
+        },
+        "roundSource": {
+          "type": "string",
+          "enum": ["trigger-comments", "git-log-grep"],
+          "description": "How the round number is derived when resuming. trigger-comments counts what was actually fired and does not require the round number in commit subjects."
+        },
+        "commit": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "style": { "type": "string", "enum": ["conventional", "free"] },
+            "subjectLanguage": { "type": "string" },
+            "bodyLanguage": { "type": "string" },
+            "scopes": { "type": "array", "items": { "type": "string" } },
+            "embedRoundNumber": { "type": "boolean" },
+            "verifiedLabel": {
+              "type": "string",
+              "description": "Label introducing the list of commands actually run, e.g. \"Verified:\"."
+            },
+            "trailers": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "{model} expands to the running model's name. No vendor address is stamped by default."
+            },
+            "onePerRound": { "type": "boolean" }
+          }
+        },
+        "pr": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "titleTemplate": { "type": "string" },
+            "titleLanguage": { "type": "string" },
+            "bodyUpdateMethod": { "type": "string", "enum": ["gh-pr-edit", "gh-api-patch"] },
+            "mergeMethod": { "type": "string", "enum": ["merge", "squash", "rebase"] },
+            "requireCleanCiForMerge": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Defaults for the command flags. A flag always overrides its default.",
+      "properties": {
+        "reviewer": { "type": "string" },
+        "maxRounds": { "type": "integer", "minimum": 1 },
+        "timeout": { "type": "string", "pattern": "^[0-9]+[smh]$" },
+        "merge": { "type": "boolean" },
+        "auto": { "type": "boolean" }
+      }
+    },
+    "reviewers": {
+      "type": "object",
+      "description": "Adds to, or overrides, the built-in presets. Every pattern here is used model-side only; none of it reaches a shell or a jq program.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["botLogin"],
+        "properties": {
+          "displayName": { "type": "string" },
+          "triggerKind": { "type": "string", "enum": ["comment", "reviewer-request"] },
+          "trigger": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f]*$",
+            "description": "Posted verbatim to GitHub. Control characters are rejected; a value already containing 'revloop:trigger' is rejected."
+          },
+          "announce": { "type": "boolean" },
+          "focusSuffix": { "type": "boolean" },
+          "botLogin": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*(\\[bot\\])?$",
+            "description": "Write it with the [bot] suffix. It is stripped before comparing against GraphQL, which omits it."
+          },
+          "verdictOn": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["reviews", "comments"] }
+          },
+          "cleanPatterns": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Anchor these at the start. A reviewer's clean phrase often has a varying tail, so equality tests break."
+          },
+          "rateLimitPatterns": { "type": "array", "items": { "type": "string" } },
+          "ignoreCommentPatterns": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Non-terminal comments, such as a preamble posted before the real review."
+          },
+          "severityLevels": { "type": "array", "items": { "type": "string" } },
+          "expectedLatency": { "type": "string" },
+          "markerTolerated": { "type": "string", "enum": ["verified", "unverified", "no"] },
+          "status": {
+            "type": "string",
+            "enum": ["verified", "reported", "unverified", "unsupported"]
+          }
+        }
+      }
+    }
+  }
+}
