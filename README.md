@@ -125,6 +125,20 @@ npm run check:all # docs + shellcheck + tests
 The procedure is also explicit about what has **not** been exercised against live data — see its
 `## Unexercised paths` section. That list is meant to shrink, and PRs that shrink it are welcome.
 
+## Documentation
+
+| Guide                                                        | What it covers                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| [Install](docs/install.md)                                   | Claude Code, Codex, requirements, verifying the install          |
+| [Permissions](docs/permissions.md)                           | The rules to grant, and why they are narrower than usual         |
+| [Configuration](docs/configuration.md)                       | `.revloop.json` reference and what is detected when it is absent |
+| [Adding a reviewer](docs/adding-a-reviewer.md)               | Measuring a new reviewer and writing it up                       |
+| [Design notes](docs/design-notes.md)                         | Why the loop is shaped this way                                  |
+| [Known environment quirks](docs/known-environment-quirks.md) | Non-normative observations, attributed and dated                 |
+| [Contributing](CONTRIBUTING.md)                              | Running the checks, and the protocol for editing a fence         |
+| [Security](SECURITY.md)                                      | Threat model: untrusted config, untrusted reviewer output        |
+| [日本語の概要](docs/ja/README.ja.md)                         | Japanese overview (non-canonical)                                |
+
 ## License
 
 MIT
