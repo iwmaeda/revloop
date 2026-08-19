@@ -1,0 +1,14 @@
+# Single source of truth for the toolchain. CI reads this file through
+# jdx/mise-action, so a version is stated once and cannot drift between the
+# runner and a developer's machine.
+#
+# The granularity is deliberate. Node's version does not change what the tests
+# decide, so it floats on the major. shellcheck's and jq's versions ARE the
+# verdict — a new shellcheck release adds checks, and the jq program inside the
+# wait-verdict fence is exercised against recorded payloads — so both are pinned
+# exactly, at the versions ubuntu-latest carried when this was written
+# (jq 1.7, ShellCheck 0.9.0). Raise them deliberately, in their own commit.
+[tools]
+node = "24"
+jq = "1.7.1"
+shellcheck = "0.9.0"

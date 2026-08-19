@@ -117,10 +117,14 @@ The classification logic is pinned by tests that **extract the shell fences out 
 rather than restating them, and replay recorded GitHub responses through a `gh` stub:
 
 ```console
+mise install      # node, jq, shellcheck — pinned in mise.toml, same versions CI uses
 npm ci
 npm test          # fence + schema tests
 npm run check:all # docs + shellcheck + tests
 ```
+
+Skip `mise install` and the suite still passes, quietly weaker: the shellcheck and jq tests announce a
+skip and exit zero when their binary is absent.
 
 The procedure is also explicit about what has **not** been exercised against live data — see its
 `## Unexercised paths` section. That list is meant to shrink, and PRs that shrink it are welcome.

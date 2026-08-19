@@ -9,6 +9,21 @@ text, so editing one costs every user a single re-approval. See
 
 ## [Unreleased]
 
+### Changed
+
+- **Toolchain versions are stated once, in `mise.toml`.** CI installs them with
+  `jdx/mise-action`, replacing `actions/setup-node` and the `node-version: 24`
+  that was duplicated across both jobs. `jq` and `shellcheck` are now pinned
+  there too, at the versions `ubuntu-latest` happened to carry (jq 1.7,
+  ShellCheck 0.9.0), so a runner image update can no longer change a lint
+  verdict on its own.
+
+  This closes a real gap rather than only removing duplication.
+  `tests/lint-shell.sh` and `tests/jq-program.test.sh` skip themselves when
+  their binary is absent, so a contributor without `jq` and `shellcheck` saw
+  `npm run check:all` pass having run neither — while CI ran both. After
+  `mise install` the two agree. No fence bytes changed; no re-approval is owed.
+
 ### Fixed
 
 - **wait-verdict fence**: revloop's own trigger comment matched both trigger
