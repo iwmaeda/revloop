@@ -29,7 +29,14 @@ did not exist.
 Promoted principle: **never pipe to `jq`**. This one graduated fully — a missing `jq` is common enough
 that it is a design rule, not a quirk.
 
-Observed 2026-08.
+The `mise exec -- jq` failure had a dull cause: `jq` was not in that repository's `mise.toml`, so there
+was nothing for mise to exec. Declaring it and running `mise install` makes the same command return
+`jq-1.7.1`. This repository now does exactly that — see [`../mise.toml`](../mise.toml) — but only for
+its **test harness**, which needs a real `jq` to exercise the wait-verdict fence's jq program against
+recorded payloads. The procedure itself still never pipes to `jq`, and [`install.md`](install.md)
+still lists `jq` as not required for running revloop. Those are two different audiences.
+
+Observed 2026-08; the mise resolution re-checked 2026-08-19.
 
 ## Repository facts that used to be asserted
 

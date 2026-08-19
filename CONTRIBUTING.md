@@ -3,9 +3,16 @@
 ## Run the checks
 
 ```console
+mise install
 npm ci
 npm run check:all   # prettier + markdownlint + shellcheck + fence and schema tests
 ```
+
+[`mise.toml`](mise.toml) pins node, `jq`, and `shellcheck`, and CI installs from the same file — so the
+comment above describes what runs on your machine and what runs in CI alike. The last two pins matter
+more than they look: `tests/lint-shell.sh` and `tests/jq-program.test.sh` **skip themselves** when
+their binary is missing, announcing it but exiting zero. Without `mise install` the line above is a
+lie — `check:all` goes green having never run shellcheck and never exercised the fence's jq program.
 
 `.claude/**` and `.agents/**` are linted too — `markdownlint-cli2` runs with `dot: true` and descends
 into dot-directories.
