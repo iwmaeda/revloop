@@ -3,9 +3,10 @@
 # GraphQL payloads. The other suites replay the rows this program is expected to
 # produce; this one checks that it actually produces them.
 #
-# Needs a jq binary. gh embeds gojq rather than jq, so a difference between the
-# two would show up here as a false failure; the constructs used (select, test,
-# contains, split, gsub) behave identically in both.
+# Needs a jq binary — pinned in mise.toml; `mise install` puts it on PATH.
+# gh embeds gojq rather than jq, so a difference between the two would show up
+# here as a false failure; the constructs used (select, test, contains, split,
+# gsub) behave identically in both.
 set -uo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -14,7 +15,7 @@ echo "jq-program:"
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "  note jq not installed; the fence's jq program is not exercised here."
-  echo "       (CI runners have jq. Locally the row fixtures still cover the shell.)"
+  echo "       (run 'mise install'. Locally the row fixtures still cover the shell.)"
   exit 0
 fi
 

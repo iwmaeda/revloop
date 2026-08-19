@@ -14,9 +14,11 @@ text, so editing one costs every user a single re-approval. See
 - **Toolchain versions are stated once, in `mise.toml`.** CI installs them with
   `jdx/mise-action`, replacing `actions/setup-node` and the `node-version: 24`
   that was duplicated across both jobs. `jq` and `shellcheck` are now pinned
-  there too, at the versions `ubuntu-latest` happened to carry (jq 1.7,
-  ShellCheck 0.9.0), so a runner image update can no longer change a lint
-  verdict on its own.
+  there too — jq at 1.7.1 (the final patch of the 1.7.x series `ubuntu-latest`
+  carried when this was written) and shellcheck at 0.9.0 (matching the image
+  exactly) — so a runner image update can no longer change a lint verdict on
+  its own. Dependabot does not track mise pins, so raising them stays a manual,
+  deliberate step.
 
   This closes a real gap rather than only removing duplication.
   `tests/lint-shell.sh` and `tests/jq-program.test.sh` skip themselves when

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Static analysis over the extracted fences and the harness itself.
-# The shellcheck binary is not universally installed; CI runners have it, so a
-# local skip is announced rather than silent.
+# The shellcheck binary is not universally installed; it's pinned in
+# mise.toml and `mise install` puts it on PATH, so a local skip is announced
+# rather than silent.
 #
 # Note: a comment whose first word is "shellcheck" is parsed as a directive, so
 # lines here are worded to avoid starting that way.
@@ -9,7 +10,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if ! command -v shellcheck >/dev/null 2>&1; then
-  echo "lint:sh  SKIPPED (shellcheck not installed; CI runs it)"
+  echo "lint:sh  SKIPPED (shellcheck not installed; run 'mise install')"
   exit 0
 fi
 
