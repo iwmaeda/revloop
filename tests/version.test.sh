@@ -29,7 +29,11 @@ MANIFESTS=(
 )
 
 REF=$(read_json "$ROOT/package.json" version)
-expect "package.json carries a semver version" "$REF" "."
+if [[ "$REF" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+  PASS=$((PASS + 1)); printf '  ok   package.json carries a semver version (%s)\n' "$REF"
+else
+  FAIL=$((FAIL + 1)); printf '  FAIL package.json version is not semver: %s\n' "${REF:-<missing>}"
+fi
 
 for entry in "${MANIFESTS[@]}"; do
   file=${entry%%|*}
