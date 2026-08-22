@@ -34,11 +34,16 @@ Once `codex plugin install` is generally available, `.codex-plugin/plugin.json` 
 
 ## Requirements
 
-| Tool  | Floor                | Note                                                               |
-| ----- | -------------------- | ------------------------------------------------------------------ |
-| `gh`  | **2.4.0** (verified) | Authenticated. Only stable REST and GraphQL surfaces are used      |
-| `git` | any modern version   | —                                                                  |
-| `jq`  | **not required**     | `gh` embeds a jq implementation; the procedure never pipes to `jq` |
+| Tool  | Floor                | Note                                                                                          |
+| ----- | -------------------- | --------------------------------------------------------------------------------------------- |
+| `gh`  | **2.4.0** (verified) | Authenticated. Only stable REST and GraphQL surfaces are used                                 |
+| `git` | **2.22** (derived)   | `git branch --show-current`, 2019-06. Verified against 2.34.1; the floor itself is by feature |
+| `jq`  | **not required**     | `gh` embeds a jq implementation; the procedure never pipes to `jq`                            |
+
+The two floors are stated differently on purpose. `gh` 2.4.0 is where the procedure was actually
+driven — the version a machine had, not a version chosen from a changelog. `git` 2.22 is the release
+that introduced the one command every fence depends on, so it is a derived claim, and it is labelled
+as one. The optional `git switch` alternative in step 2 needs 2.23.
 
 A reviewer bot must be installed on the repository. revloop posts the trigger; it does not install
 anything.

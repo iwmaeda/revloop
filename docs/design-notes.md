@@ -60,7 +60,12 @@ Consequences, in rough order of value:
 
 1. **Reviewer-agnostic without widening.** A reviewer you invented gets the same exact matching the
    built-in presets get. A preset alternation is kept as a compatibility class so a hand-typed
-   `@codex review` still anchors a baseline.
+   `@codex review` still anchors a baseline. **Anchoring is the whole of what it does.** A
+   compatibility trigger carries no `head=`, so the fence reports `marker_head=none` and step 9
+   aborts instead of adopting the verdict. That is the correct trade: the baseline is a _safety_
+   function — it stops an older round's "no issues" from being read as this round's — while binding a
+   verdict to a commit needs the marker, and no amount of pattern-matching on a human's comment can
+   supply one.
 2. **`bot=` filters every other bot at fetch time.** Deploy-preview bots, coverage bots, a second
    reviewer — all discarded before classification. This matters more than it sounds: a bot that
    comments on every push satisfies the wait's exit condition on its first iteration, so the wait

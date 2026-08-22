@@ -4,9 +4,8 @@
   "project": {
     "baseBranch": "main",
     "verify": ["npm run check:all"],
-    "verifyNotes": "check:all covers every CI job; there is no gap in this repository",
+    "verifyNotes": "check:all does not run npm audit; CI runs it as its own job. Run `npm run audit` before pushing.",
     "branchPrefixes": ["feat", "fix", "docs", "chore", "ci", "test"],
-    "roundSource": "trigger-comments",
     "commit": {
       "style": "conventional",
       "subjectLanguage": "en",
@@ -15,12 +14,7 @@
       "trailers": ["Co-Authored-By: {model}"],
       "onePerRound": true
     },
-    "pr": {
-      "titleLanguage": "en",
-      "bodyUpdateMethod": "gh-pr-edit",
-      "mergeMethod": "merge",
-      "requireCleanCiForMerge": true
-    }
+    "pr": { "titleLanguage": "en" }
   },
-  "defaults": { "reviewer": "codex", "maxRounds": 10, "timeout": "30m", "merge": false }
+  "defaults": { "reviewer": "codex", "maxRounds": 10, "timeout": "30m" }
 }

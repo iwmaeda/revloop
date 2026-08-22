@@ -5,15 +5,14 @@
 | `triggerKind` | `comment`        |
 | `trigger`     | `@claude review` |
 | `botLogin`    | `claude[bot]`    |
-| `verdictOn`   | unknown          |
+| verdict on    | unknown          |
 | `status`      | `unverified`     |
 | `lastChecked` | 2026-08          |
 
 ```json
 {
   "trigger": "@claude review",
-  "botLogin": "claude[bot]",
-  "verdictOn": ["reviews", "comments"]
+  "botLogin": "claude[bot]"
 }
 ```
 

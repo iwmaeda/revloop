@@ -9,23 +9,18 @@
       "style": "conventional",
       "subjectLanguage": "ja",
       "scopes": ["api", "web", "infra"],
-      "embedRoundNumber": false,
       "verifiedLabel": "検証:"
     },
-    "pr": { "titleLanguage": "ja", "bodyUpdateMethod": "gh-api-patch", "mergeMethod": "squash" },
-    "roundSource": "trigger-comments"
+    "pr": { "titleLanguage": "ja" }
   },
   "defaults": { "reviewer": "acme", "maxRounds": 15, "timeout": "45m" },
   "reviewers": {
     "acme": {
       "displayName": "Acme Reviewer",
-      "triggerKind": "comment",
       "trigger": "@acme review --deep",
       "botLogin": "acme-reviewer[bot]",
-      "verdictOn": ["reviews", "comments"],
       "cleanPatterns": ["^Acme Review: no issues found"],
       "rateLimitPatterns": ["quota exceeded", "rate limit"],
-      "ignoreCommentPatterns": ["^Acme is analysing"],
       "severityLevels": ["blocker", "major", "minor"],
       "expectedLatency": "2-8m",
       "markerTolerated": "unverified",

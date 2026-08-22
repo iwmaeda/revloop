@@ -5,7 +5,7 @@
 | `triggerKind` | `comment`                                                         |
 | `trigger`     | `@codex review`                                                   |
 | `botLogin`    | `chatgpt-codex-connector[bot]`                                    |
-| `verdictOn`   | `comments` (findings arrive as a review; terminal signals do not) |
+| verdict on    | `comments` (findings arrive as a review; terminal signals do not) |
 | `status`      | `verified`                                                        |
 | `lastChecked` | 2026-08                                                           |
 
@@ -13,7 +13,6 @@
 {
   "trigger": "@codex review",
   "botLogin": "chatgpt-codex-connector[bot]",
-  "verdictOn": ["reviews", "comments"],
   "cleanPatterns": ["^Codex Review: Didn't find any major issues\\."],
   "rateLimitPatterns": ["You have reached your Codex usage limits"],
   "severityLevels": ["P1", "P2", "P3"],

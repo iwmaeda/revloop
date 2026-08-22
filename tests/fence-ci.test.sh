@@ -29,6 +29,10 @@ o=$(r empty);   expect "zero rows -> timeout, never green"       "$o" "CI_WAIT=t
 refute "  zero rows is not green"                                "$o" "ALL_PASS"
 o=$(r no-pr);   expect "no open PR -> no-pr"                     "$o" "CI_WAIT=error reason=no-pr"
 
+o=$(run_fence_detached "$TMP/f.sh" "$FX/all-pass")
+expect "detached HEAD -> no-branch"                              "$o" "CI_WAIT=error reason=no-branch"
+refute "  a stranger's green CI is not adopted"                  "$o" "ALL_PASS"
+
 o=$(ACCEL_CI_ITERS=20 bash -c '. "$1"; extract_accelerated wait-ci "$2/f2.sh"; run_fence "$2/f2.sh" "$3/api-fail"' _ "$ROOT/tests/lib.sh" "$TMP" "$FX")
 expect "5 consecutive fetch failures -> api"                     "$o" "CI_WAIT=error reason=api"
 

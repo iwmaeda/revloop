@@ -12,7 +12,7 @@
       "trailers": ["Co-Authored-By: {model}"],
       "onePerRound": true
     },
-    "pr": { "mergeMethod": "merge", "requireCleanCiForMerge": true }
+    "pr": { "titleLanguage": "en" }
   },
   "defaults": { "reviewer": "codex", "maxRounds": 10, "timeout": "30m" }
 }

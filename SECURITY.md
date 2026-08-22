@@ -20,7 +20,14 @@ It is worth being explicit about what is trusted.
   `allowed-tools`, so your permission system sees each one, and step 1 prints them **before** running
   anything.
 - **Fields are constrained by schema**: `botLogin` is pattern-matched, `trigger` rejects control
-  characters and is length-capped, and safety rules cannot be switched off from config.
+  characters and is length-capped.
+- **`--merge` and `--auto` have no configuration key.** Every other default can come from
+  `.revloop.json`; these two cannot, because a repository that could set `auto` would delete both of
+  your confirmation points and one that could set `merge` would grant its own merge. **The flag is
+  the approval**, so it has to come from the person typing it. `tests/schema.test.sh` asserts that
+  both are rejected — this was a real hole, closed before the first release.
+- **Safety rules cannot be switched off from config.** `docs/configuration.md` lists everything that
+  is deliberately fixed, and why.
 
 ### Reviewer output is untrusted
 

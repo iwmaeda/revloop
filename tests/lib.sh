@@ -28,6 +28,21 @@ run_fence() { # run_fence <script> <fixture-dir>
   REVLOOP_FIXTURE="$2" PATH="$ROOT/tests/bin:$PATH" bash "$1" 2>/dev/null
 }
 
+# Same, but from a throwaway repository with a detached HEAD, where
+# `git branch --show-current` prints nothing. That is the state the no-branch
+# guard exists for: `gh pr list --head ""` drops the filter instead of matching
+# nothing, and answers with an unrelated open PR. The fixture is irrelevant —
+# a fence that reaches `gh` at all has already failed the assertion.
+run_fence_detached() { # run_fence_detached <script> <fixture-dir>
+  local d
+  d=$(mktemp -d)
+  git init -q "$d"
+  git -C "$d" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init
+  git -C "$d" checkout -q --detach
+  (cd "$d" && REVLOOP_FIXTURE="$2" PATH="$ROOT/tests/bin:$PATH" bash "$1" 2>/dev/null)
+  rm -rf "$d"
+}
+
 expect() { # expect <label> <actual> <expected-substring>
   if printf '%s' "$2" | grep -qF -- "$3"; then
     PASS=$((PASS + 1)); printf '  ok   %s\n' "$1"
