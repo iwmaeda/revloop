@@ -2,7 +2,7 @@
 description: Branch → split commits → push → PR → trigger a reviewer → fix findings, until it converges
 argument-hint: "[--reviewer <name>] [--merge] [--auto] [--max-rounds <n>] [--timeout <dur>]"
 disable-model-invocation: true
-allowed-tools: Bash(gh api repos/{owner}/{repo}/:*), Bash(gh api -X POST repos/{owner}/{repo}/:*), Bash(gh api -X PUT repos/{owner}/{repo}/:*), Bash(gh api graphql:*), Bash(gh pr:*), Bash(gh repo view:*), Bash(git:*), Read, Edit, Write, Grep, Glob
+allowed-tools: Bash(gh api repos/{owner}/{repo}/:*), Bash(gh api -X POST repos/{owner}/{repo}/:*), Bash(gh api -X PUT repos/{owner}/{repo}/:*), Bash(gh api --paginate repos/{owner}/{repo}/:*), Bash(gh api graphql:*), Bash(gh pr:*), Bash(gh repo view:*), Bash(git:*), Read, Edit, Write, Grep, Glob
 ---
 
 # revloop — the review-and-fix loop
@@ -601,6 +601,9 @@ repos/{owner}/{repo}/:*` does not match `gh api -X POST "repos/{owner}/{repo}/..
   or `gh api -X PUT "repos/{owner}/{repo}/.../merge"` (the merge fence) — the string starts with the
   verb, not with `repos/`. Both need their own rule, scoped the same way:
   `Bash(gh api -X POST repos/{owner}/{repo}/:*)` and `Bash(gh api -X PUT repos/{owner}/{repo}/:*)`.
+- **`--paginate` sits before the path too.** The findings read (step 10, line 334) and the reply
+  verification (step 11, line 371) both call `gh api --paginate "repos/{owner}/{repo}/..."` — same
+  prefix problem, one more rule: `Bash(gh api --paginate repos/{owner}/{repo}/:*)`.
 - **`-f` and `-F` are not interchangeable.** `-F` treats a leading `@` as a file read, so
   `-F body='@codex review'` dies with `open codex review: no such file`. Post the trigger from a file
   with `-F body=@file`, and use `-f` for literal values. **Both forms appear in this procedure.**

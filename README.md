@@ -39,6 +39,7 @@ Then grant the permissions in [`docs/permissions.md`](docs/permissions.md). revl
       "Bash(gh api repos/{owner}/{repo}/:*)",
       "Bash(gh api -X POST repos/{owner}/{repo}/:*)",
       "Bash(gh api -X PUT repos/{owner}/{repo}/:*)",
+      "Bash(gh api --paginate repos/{owner}/{repo}/:*)",
       "Bash(gh api graphql:*)",
       "Bash(gh pr:*)",
       "Bash(gh repo view:*)",

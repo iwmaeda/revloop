@@ -116,6 +116,12 @@ convenient is not one.
   `Bash(gh api -X POST repos/{owner}/{repo}/:*)` and `Bash(gh api -X PUT repos/{owner}/{repo}/:*)` —
   cover them. Found in review before release.
 
+  The same gap existed one flag over: reading findings (step 10) and verifying a reply (step 11)
+  both call `gh api --paginate "repos/{owner}/{repo}/..."`, and `--paginate` sits before the path
+  the same way `-X POST`/`-X PUT` do, so none of the existing rules matched either. One more rule,
+  `Bash(gh api --paginate repos/{owner}/{repo}/:*)`, covers them. Also found in review before
+  release.
+
 - **A hand-typed trigger produced a misleading abort.** A compatibility-class trigger carries no
   marker, so `marker_head=none`, which step 9's check (c) reported as "the runaway invariant is
   violated, or someone else pushed" — sending the reader hunting for a push that never happened. It
