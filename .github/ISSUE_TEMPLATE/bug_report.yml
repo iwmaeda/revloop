@@ -1,0 +1,67 @@
+name: Bug report
+description: A round behaved in a way the procedure does not describe
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The fences answer in one line, and that line carries almost everything needed to
+        diagnose a round. Please paste it verbatim rather than describing it — a rewritten
+        `VERDICT=` line loses exactly the keys that distinguish the cases.
+
+  - type: textarea
+    id: fence-output
+    attributes:
+      label: The fence output, verbatim
+      description: >-
+        The `VERDICT=`, `CI_WAIT=` or `MERGE=` line, plus any `EXTRA=` second line.
+        Do not trim it and do not drop the second line.
+      placeholder: VERDICT=comment pr=12 trigger=2026-08-19T10:00:00Z reviewer=codex marker_head=1a2b3c4d round=3 head=1a2b3c4d at=... login=... cid=... body=...
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected the loop to do with it
+      description: Which row of step 9's decision table did you expect, and which did it take?
+    validations:
+      required: true
+
+  - type: input
+    id: reviewer
+    attributes:
+      label: Reviewer
+      placeholder: codex / gemini / claude / a name from .revloop.json
+    validations:
+      required: true
+
+  - type: input
+    id: gh-version
+    attributes:
+      label: Output of `gh --version`
+      placeholder: gh version 2.4.0 (2022-03-23)
+    validations:
+      required: true
+
+  - type: input
+    id: host
+    attributes:
+      label: Agent and OS
+      placeholder: Claude Code on WSL2 / Codex on macOS
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Your `.revloop.json`, if any
+      description: Redact anything private. If you have none, say so — that is the common case.
+      render: json
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: >-
+        A PR link is worth more than a paragraph if the repository is public. If the round took
+        a path listed under `## Unexercised paths`, say which one.
