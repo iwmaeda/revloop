@@ -34,6 +34,25 @@ procedure needs a literal slug or a `$(...)` substitution. That is what makes th
 
 Prefer the narrow one.
 
+## What `Bash(git:*)` still allows
+
+The narrowness argument above is about `gh api`. It does not extend to the `git` rule, and pretending
+otherwise would be the kind of half-true claim this project exists to avoid.
+
+`Bash(git:*)` matches **every** git subcommand, including `git push --force`, `git reset --hard`, and
+`git remote add`. The procedure forbids force-pushing and says why — a rebase re-anchors every inline
+comment and makes the `commit_id` comparison meaningless — but **that is a rule the model follows, not
+a rule the permission system enforces.** The blast radius is your working tree and the branches your
+token can write.
+
+Two things bound it in practice: the procedure never constructs a `--force` push, and step 1 aborts on
+a fork so the branches in question are your own. If that is not enough for your repository, grant the
+subcommands individually — `Bash(git status:*)`, `Bash(git diff:*)`, `Bash(git log:*)`,
+`Bash(git add:*)`, `Bash(git commit:*)`, `Bash(git checkout:*)`, `Bash(git branch:*)`,
+`Bash(git push:*)`, `Bash(git rev-parse:*)`, `Bash(git merge-base:*)`, `Bash(git pull:*)` — and accept
+that the list will need extending the first time a step reaches for something not on it. Nobody has
+measured which repositories need which subset, so this document does not claim one.
+
 ## Why the wait scripts take no arguments
 
 Permission rules match on a command-string **prefix**. If the wait script embedded the PR number, a

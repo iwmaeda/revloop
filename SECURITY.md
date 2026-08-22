@@ -32,8 +32,13 @@ line, so a body cannot forge a machine-readable key.
 ### Permissions
 
 revloop asks for `Bash(gh api repos/{owner}/{repo}/:*)` rather than `Bash(gh api *)`. The narrow rule
-**cannot address a repository other than the one you are in**. See
-[`docs/permissions.md`](docs/permissions.md).
+**cannot address a repository other than the one you are in**. The command's own `allowed-tools`
+grants exactly the rules the docs tell you to grant and nothing wider — a test fails if that ever
+stops being true, because it once was not.
+
+The `Bash(git:*)` rule is **not** narrow, and
+[`docs/permissions.md`](docs/permissions.md) says what it still allows rather than leaving the
+narrowness claim to cover it by association.
 
 Fences are inline rather than shipped as scripts specifically so that changing them costs a
 re-approval — a path-based call would let a plugin update ship new code under a grant you gave once.

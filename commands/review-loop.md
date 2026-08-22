@@ -2,7 +2,7 @@
 description: Branch → split commits → push → PR → trigger a reviewer → fix findings, until it converges
 argument-hint: "[--reviewer <name>] [--merge] [--auto] [--max-rounds <n>] [--timeout <dur>]"
 disable-model-invocation: true
-allowed-tools: Bash(git *), Bash(gh api *), Bash(gh pr *), Bash(gh repo *), Read, Edit, Write, Grep, Glob
+allowed-tools: Bash(gh api repos/{owner}/{repo}/:*), Bash(gh api graphql:*), Bash(gh pr:*), Bash(gh repo view:*), Bash(git:*), Read, Edit, Write, Grep, Glob
 ---
 
 # revloop — the review-and-fix loop
