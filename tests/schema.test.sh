@@ -7,16 +7,23 @@ set -uo pipefail
 
 echo "schema:"
 
-# ajv-cli has no --version that exits zero, so probe for the binary itself.
-AJV="$ROOT/node_modules/.bin/ajv"
-if [ ! -x "$AJV" ]; then
-  echo "  note ajv-cli not installed; run npm ci. Skipping."
+if [ ! -d "$ROOT/node_modules/ajv" ]; then
+  echo "  note ajv not installed; run npm ci. Skipping."
   exit 0
 fi
 
 S="$ROOT/schema/revloop.schema.json"
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-v() { "$AJV" validate --spec=draft2020 --strict=false -s "$S" -d "$1" >/dev/null 2>&1; }
+
+# Exit 2 means the validator never ran (unreadable file, schema that does not
+# compile). Folding that into "invalid" would let every reject case below pass
+# for the wrong reason, so it is reported instead of counted.
+v() {
+  node "$ROOT/tests/validate-schema.mjs" "$S" "$1" >/dev/null 2>&1
+  local rc=$?
+  [ "$rc" -eq 2 ] && { printf '  FAIL validator could not run on %s\n' "$1"; FAIL=$((FAIL + 1)); }
+  return "$rc"
+}
 
 for f in "$ROOT"/examples/*.json; do
   if v "$f"; then
