@@ -10,6 +10,8 @@ Put these in `.claude/settings.local.json` (per-developer, git-ignored) or `.cla
   "permissions": {
     "allow": [
       "Bash(gh api repos/{owner}/{repo}/:*)",
+      "Bash(gh api -X POST repos/{owner}/{repo}/:*)",
+      "Bash(gh api -X PUT repos/{owner}/{repo}/:*)",
       "Bash(gh api graphql:*)",
       "Bash(gh pr:*)",
       "Bash(gh repo view:*)",
@@ -27,12 +29,23 @@ your settings, which is why this is a copy-and-paste list rather than something 
 `gh api` expands `{owner}` and `{repo}` from the current repository's remote, so no call in the
 procedure needs a literal slug or a `$(...)` substitution. That is what makes the narrow rule possible:
 
-| Rule                                   | Reach                                     |
-| -------------------------------------- | ----------------------------------------- |
-| `Bash(gh api *)`                       | **every repository your token can touch** |
-| `Bash(gh api repos/{owner}/{repo}/:*)` | only the repository you are in            |
+| Rule                                           | Reach                                     |
+| ---------------------------------------------- | ----------------------------------------- |
+| `Bash(gh api *)`                               | **every repository your token can touch** |
+| `Bash(gh api repos/{owner}/{repo}/:*)`         | only the repository you are in            |
+| `Bash(gh api -X POST repos/{owner}/{repo}/:*)` | only the repository you are in            |
+| `Bash(gh api -X PUT repos/{owner}/{repo}/:*)`  | only the repository you are in            |
 
-Prefer the narrow one.
+Prefer the narrow ones.
+
+## Why POST and PUT get their own rule
+
+A rule matches a command-string **prefix** (see below). `Bash(gh api repos/{owner}/{repo}/:*)` matches
+a call whose string literally starts with `gh api repos/{owner}/{repo}/` — a plain `GET`, which is
+`gh api`'s default. It does **not** match `gh api -X POST "repos/{owner}/{repo}/..."` or
+`gh api -X PUT "repos/{owner}/{repo}/..."`: the verb sits before the path, so the string starts with
+`gh api -X POST` / `gh api -X PUT`, not with `repos/`. The procedure uses both — posting a reply to a
+finding, and merging the pull request — so each needs its own rule, narrowed the same way.
 
 ## What `Bash(git:*)` still allows
 

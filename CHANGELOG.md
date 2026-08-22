@@ -105,9 +105,16 @@ convenient is not one.
 - **The command granted itself the wide permission rule its own docs warn against.** The frontmatter
   carried `Bash(gh api *)` — which reaches every repository the token can touch, and which
   `README.md`, `docs/permissions.md` and `SECURITY.md` all name as the rule to avoid — in a syntax
-  (`Bash(git *)`) that did not match the documented one either. It is now the same five rules the
-  docs tell you to grant, and `tests/fence-guards.test.sh` fails if the frontmatter ever grants
-  something `docs/permissions.md` does not list.
+  (`Bash(git *)`) that did not match the documented one either. It is now the same rules the docs
+  tell you to grant, and `tests/fence-guards.test.sh` fails if the frontmatter ever grants something
+  `docs/permissions.md` does not list.
+
+  The first pass narrowed to a single `Bash(gh api repos/{owner}/{repo}/:*)` rule and missed that a
+  rule matches a command-string **prefix**: the reply-to-finding call and the merge fence both put
+  `-X POST`/`-X PUT` before the path, so neither matched. Under `--merge --auto` that reintroduced
+  exactly the stall the narrowing was meant to avoid. Two more rules, scoped the same way —
+  `Bash(gh api -X POST repos/{owner}/{repo}/:*)` and `Bash(gh api -X PUT repos/{owner}/{repo}/:*)` —
+  cover them. Found in review before release.
 
 - **A hand-typed trigger produced a misleading abort.** A compatibility-class trigger carries no
   marker, so `marker_head=none`, which step 9's check (c) reported as "the runaway invariant is
