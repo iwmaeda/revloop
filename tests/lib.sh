@@ -25,7 +25,16 @@ extract_accelerated() {
 }
 
 run_fence() { # run_fence <script> <fixture-dir>
-  REVLOOP_FIXTURE="$2" PATH="$ROOT/tests/bin:$PATH" bash "$1" 2>/dev/null
+  # Run from a throwaway repository with a real branch, rather than depending
+  # on the branch of the checkout the tests run in. That ambient state is a
+  # real branch locally but a detached HEAD under GitHub Actions' default PR
+  # checkout, which would otherwise make every fence hit the no-branch guard.
+  local d
+  d=$(mktemp -d)
+  git init -q "$d"
+  git -C "$d" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init
+  (cd "$d" && REVLOOP_FIXTURE="$2" PATH="$ROOT/tests/bin:$PATH" bash "$1" 2>/dev/null)
+  rm -rf "$d"
 }
 
 # Same, but from a throwaway repository with a detached HEAD, where
