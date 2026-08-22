@@ -28,8 +28,16 @@ MANIFESTS=(
   ".agents/plugins/marketplace.json|plugins.0.version"
 )
 
+# Shared SemVer grammar (semver.org grammar, ERE form) so the manifest check
+# and the changelog-heading check can never drift apart the way they did
+# before: a prerelease/build version like 0.2.0-beta.1 must match both.
+SEMVER_CORE='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+SEMVER_PRERELEASE='(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?'
+SEMVER_BUILD='(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?'
+SEMVER_RE="^${SEMVER_CORE}${SEMVER_PRERELEASE}${SEMVER_BUILD}\$"
+
 REF=$(read_json "$ROOT/package.json" version)
-if [[ "$REF" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$ ]]; then
+if [[ "$REF" =~ $SEMVER_RE ]]; then
   PASS=$((PASS + 1)); printf '  ok   package.json carries a semver version (%s)\n' "$REF"
 else
   FAIL=$((FAIL + 1)); printf '  FAIL package.json version is not semver: %s\n' "${REF:-<missing>}"
@@ -49,8 +57,10 @@ done
 
 # The changelog's newest RELEASED heading, ignoring [Unreleased]. Before the
 # first release there is none, and that is not a failure — it is the state the
-# repository is in until a version is cut.
-CL=$(grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' "$ROOT/CHANGELOG.md" | head -1 | tr -d '#[] ')
+# repository is in until a version is cut. Uses the same SEMVER_* grammar as
+# REF above, so a prerelease/build heading like [0.2.0-beta.1] is recognized
+# instead of silently falling through to "no release heading found".
+CL=$(grep -oE "^## \[${SEMVER_CORE}${SEMVER_PRERELEASE}${SEMVER_BUILD}\]" "$ROOT/CHANGELOG.md" | head -1 | tr -d '#[] ')
 if [ -z "$CL" ]; then
   printf '  note CHANGELOG.md has no released version heading yet; nothing to compare\n'
 elif [ "$CL" = "$REF" ]; then
