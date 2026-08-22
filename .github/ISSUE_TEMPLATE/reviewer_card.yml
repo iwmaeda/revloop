@@ -1,0 +1,108 @@
+name: Reviewer measurement
+description: You drove a reviewer end to end and measured how it behaves
+labels: [reviewer-card]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A card records what was **measured**, when, and where — never what a vendor's
+        documentation claims. A card written from documentation is worse than no card,
+        because it looks measured. See
+        [docs/adding-a-reviewer.md](https://github.com/iwmaeda/revloop/blob/main/docs/adding-a-reviewer.md).
+
+  - type: input
+    id: name
+    attributes:
+      label: Reviewer name
+      placeholder: acme
+    validations:
+      required: true
+
+  - type: input
+    id: trigger
+    attributes:
+      label: What text triggers it
+      placeholder: "@acme review"
+    validations:
+      required: true
+
+  - type: input
+    id: bot-login
+    attributes:
+      label: The login it posts as
+      description: Write it with the `[bot]` suffix. revloop strips it before comparing against GraphQL.
+      placeholder: acme-reviewer[bot]
+    validations:
+      required: true
+
+  - type: input
+    id: clean
+    attributes:
+      label: What it says when it finds nothing
+      description: Quote the prefix. Reviewers append chatter that varies between rounds.
+      placeholder: "Acme Review: no issues found"
+    validations:
+      required: true
+
+  - type: input
+    id: rate-limit
+    attributes:
+      label: What it says when it is rate-limited
+      placeholder: quota exceeded
+
+  - type: dropdown
+    id: verdict-on
+    attributes:
+      label: Where the verdict arrived
+      options:
+        - a review
+        - an issue comment
+        - both, in the same round
+        - something else (explain below)
+    validations:
+      required: true
+
+  - type: input
+    id: latency
+    attributes:
+      label: How long it took
+      placeholder: 3-4m
+    validations:
+      required: true
+
+  - type: input
+    id: findings
+    attributes:
+      label: Findings per round
+      description: The number that decides whether sweeping for siblings is worth a round.
+      placeholder: 1-4
+
+  - type: dropdown
+    id: marker
+    attributes:
+      label: Did it still answer with the revloop marker appended?
+      options:
+        - "yes — measured"
+        - "no — it ignored the trigger"
+        - "not tested"
+    validations:
+      required: true
+
+  - type: input
+    id: preamble
+    attributes:
+      label: Does it post anything before the real review?
+      description: >-
+        Quote the first line. This is the one reviewer property that costs a fence edit,
+        so an exact prefix matters.
+      placeholder: "## Summary of Changes"
+
+  - type: textarea
+    id: provenance
+    attributes:
+      label: Where this was measured
+      description: >-
+        A public PR link if you can (`owner/repo#8`), otherwise "repo B, 2026-08".
+        Provenance is not decoration — a reader has to be able to go and check.
+    validations:
+      required: true

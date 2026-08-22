@@ -48,6 +48,17 @@ refute "no emitted token contains ALL_PASS" "$bad" "ALL_PASS"
 slug=$(grep -oE 'repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(issues|pulls)' "$SRC" | grep -v 'repos/{owner}/{repo}/' || true)
 refute "procedure uses no literal repo slug" "$slug" "repos/"
 
+# The command's own `allowed-tools` is a grant like any other. Shipping a rule
+# there that the docs tell users NOT to grant hands it out silently for this
+# command — which is how `Bash(gh api *)`, named in permissions.md as the rule
+# that reaches every repository your token can touch, once sat in the frontmatter
+# while three files explained why nobody should use it.
+granted=$(awk 'NR>1 && /^---$/{exit} /^allowed-tools:/{print}' "$SRC" | grep -oE 'Bash\([^)]*\)' | sort -u)
+documented=$(grep -oE '"Bash\([^)]*\)"' "$ROOT/docs/permissions.md" | tr -d '"' | sort -u)
+extra=$(comm -23 <(printf '%s\n' "$granted") <(printf '%s\n' "$documented"))
+expect "allowed-tools grants at least one Bash rule" "$granted" "Bash("
+refute "allowed-tools grants nothing docs/permissions.md does not" "$extra" "Bash("
+
 # Fence bytes are a permission-relevant surface: a change costs every user one
 # re-approval, so it has to be a deliberate, recorded act.
 HASHES="$ROOT/tests/fence-hashes.txt"

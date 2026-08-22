@@ -7,16 +7,23 @@ set -uo pipefail
 
 echo "schema:"
 
-# ajv-cli has no --version that exits zero, so probe for the binary itself.
-AJV="$ROOT/node_modules/.bin/ajv"
-if [ ! -x "$AJV" ]; then
-  echo "  note ajv-cli not installed; run npm ci. Skipping."
+if [ ! -d "$ROOT/node_modules/ajv" ]; then
+  echo "  note ajv not installed; run npm ci. Skipping."
   exit 0
 fi
 
 S="$ROOT/schema/revloop.schema.json"
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-v() { "$AJV" validate --spec=draft2020 --strict=false -s "$S" -d "$1" >/dev/null 2>&1; }
+
+# Exit 2 means the validator never ran (unreadable file, schema that does not
+# compile). Folding that into "invalid" would let every reject case below pass
+# for the wrong reason, so it is reported instead of counted.
+v() {
+  node "$ROOT/tests/validate-schema.mjs" "$S" "$1" >/dev/null 2>&1
+  local rc=$?
+  [ "$rc" -eq 2 ] && { printf '  FAIL validator could not run on %s\n' "$1"; FAIL=$((FAIL + 1)); }
+  return "$rc"
+}
 
 for f in "$ROOT"/examples/*.json; do
   if v "$f"; then
@@ -43,8 +50,19 @@ reject "botLogin with a slash"      '{"version":1,"reviewers":{"a":{"botLogin":"
 reject "trigger with a newline"     '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","trigger":"@a review\nrm -rf /"}}}'
 reject "malformed timeout"          '{"version":1,"defaults":{"timeout":"30x"}}'
 reject "maxRounds below 1"          '{"version":1,"defaults":{"maxRounds":0}}'
-reject "unknown verdict endpoint"   '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","verdictOn":["emails"]}}}'
-reject "unknown merge method"       '{"version":1,"project":{"pr":{"mergeMethod":"fast-forward"}}}'
+reject "unknown markerTolerated"    '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","markerTolerated":"maybe"}}}'
+
+# Keys that were removed because nothing consumed them. A schema that still
+# accepted them would let a user configure something and watch it be ignored.
+reject "verdictOn (fence watches both)"  '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","verdictOn":["reviews"]}}}'
+reject "ignoreCommentPatterns (in fence)" '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","ignoreCommentPatterns":["^x"]}}}'
+reject "a configured merge method"       '{"version":1,"project":{"pr":{"mergeMethod":"squash"}}}'
+
+# The two that matter most: .revloop.json comes from the repository you are in.
+# A repository that could set these would grant its own merge and delete both
+# human confirmation points. The flag is the approval.
+reject "merge defaulted from config" '{"version":1,"defaults":{"merge":true}}'
+reject "auto defaulted from config"  '{"version":1,"defaults":{"auto":true}}'
 
 accept() { # accept <label> <json>
   printf '%s' "$2" > "$TMP/good.json"

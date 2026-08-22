@@ -1,12 +1,17 @@
 # revloop
 
+[![ci](https://github.com/iwmaeda/revloop/actions/workflows/ci.yaml/badge.svg)](https://github.com/iwmaeda/revloop/actions/workflows/ci.yaml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Carry a finished change to a pull request and back: **branch → verify → split commits → push → open a
 PR → trigger an AI reviewer → classify and fix its findings → repeat until it converges → merge**.
 
 revloop does not write your change. It is the layer that puts a finished change in front of a
 reviewer and drives the resulting conversation to a conclusion, without you babysitting it.
 
-Works with **Claude Code** and **Codex**, against any GitHub repository, with any reviewer bot.
+Works with **Claude Code** and **Codex**, against any GitHub repository you can push a branch to, with
+any reviewer bot that answers a comment. The [limitations](#limitations) are listed rather than
+discovered.
 
 ```console
 /revloop:review-loop
@@ -32,6 +37,9 @@ Then grant the permissions in [`docs/permissions.md`](docs/permissions.md). revl
   "permissions": {
     "allow": [
       "Bash(gh api repos/{owner}/{repo}/:*)",
+      "Bash(gh api -X POST repos/{owner}/{repo}/:*)",
+      "Bash(gh api -X PUT repos/{owner}/{repo}/:*)",
+      "Bash(gh api --paginate repos/{owner}/{repo}/:*)",
       "Bash(gh api graphql:*)",
       "Bash(gh pr:*)",
       "Bash(gh repo view:*)",
@@ -75,21 +83,36 @@ To pin any of it, or to add your own reviewer, write `.revloop.json`
 }
 ```
 
-Adding a reviewer needs **no change to the procedure and no change to its fences** — see
-[`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md).
+A reviewer that answers a comment and posts its verdict as its first reply needs **no change to the
+procedure and no change to its fences**. One that posts a preamble before the real review is the
+exception — see [`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md).
 
 ## Built-in reviewers
 
-| Preset    | Trigger                         | Status     |
-| --------- | ------------------------------- | ---------- |
-| `codex`   | `@codex review`                 | verified   |
-| `gemini`  | `@gemini review` (see the card) | verified   |
-| `claude`  | `@claude review`                | unverified |
-| `copilot` | reviewer request, not a comment | unverified |
+| Preset    | Trigger                         | Status                      |
+| --------- | ------------------------------- | --------------------------- |
+| `codex`   | `@codex review`                 | verified                    |
+| `gemini`  | `@gemini review` (see the card) | verified                    |
+| `claude`  | `@claude review`                | unverified                  |
+| `copilot` | reviewer request, not a comment | **unsupported** (see below) |
 
 Each [card](reviewers/) records what was measured, when, and where — latency, findings per round,
 which endpoint the verdict arrives on, and the exact terminal phrases. Reviewer products change, so a
 dated card is the difference between a stale claim and a silently false one.
+
+## Limitations
+
+The loop is not general-purpose, and each of these is a deliberate stop rather than a rough edge:
+
+| Limitation                                        | Why                                                                                                                                                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Forks are unsupported**                         | `{owner}` resolves to your fork while the PR lives upstream, so every call would address the wrong repository. Step 1 aborts                                        |
+| **Same-repo topic branches only**                 | One open PR per branch; a detached HEAD aborts rather than guessing which PR you meant                                                                              |
+| **Merge commits only**                            | The merge fence takes no arguments so its command string never changes. Squash and rebase are not available                                                         |
+| **`copilot` cannot be driven**                    | It has no comment trigger, and the reviewer-request path is not implemented. The card is kept for what it measured                                                  |
+| **A reviewer with a preamble needs a fence edit** | The list of non-terminal bot comments to drop lives inside the wait fence, because config never reaches a fence — and a fence edit costs every user one re-approval |
+
+Nothing here fails open. Each one stops the loop and says which one it was.
 
 ## Why it is built the way it is
 
@@ -140,6 +163,7 @@ The procedure is also explicit about what has **not** been exercised against liv
 | [Design notes](docs/design-notes.md)                         | Why the loop is shaped this way                                  |
 | [Known environment quirks](docs/known-environment-quirks.md) | Non-normative observations, attributed and dated                 |
 | [Contributing](CONTRIBUTING.md)                              | Running the checks, and the protocol for editing a fence         |
+| [Code of conduct](CODE_OF_CONDUCT.md)                        | Contributor Covenant 2.1                                         |
 | [Security](SECURITY.md)                                      | Threat model: untrusted config, untrusted reviewer output        |
 | [日本語の概要](docs/ja/README.ja.md)                         | Japanese overview (non-canonical)                                |
 

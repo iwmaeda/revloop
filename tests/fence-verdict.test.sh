@@ -60,6 +60,10 @@ expect "keys survive a key-shaped body"         "$o" "VERDICT=comment pr=7 trigg
 expect "  the real pr= is intact"               "$o" "pr=7"
 refute "  the body's fake pr= did not parse"    "$o" "pr=999"
 
+o=$(run_fence_detached "$TMP/f.sh" "$FX/clean-comment")
+expect "detached HEAD -> no-branch"             "$o" "VERDICT=error reason=no-branch"
+refute "  never reaches a PR"                   "$o" "pr="
+
 o=$(r no-pr);      expect "empty PR list -> no-pr"        "$o" "VERDICT=error reason=no-pr"
 o=$(r setup-fail); expect "repo lookup fails -> setup"    "$o" "VERDICT=error reason=api stage=setup"
 o=$(r pr-fail);    expect "pr lookup fails -> setup"      "$o" "VERDICT=error reason=api stage=setup"

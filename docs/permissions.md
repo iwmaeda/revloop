@@ -10,6 +10,9 @@ Put these in `.claude/settings.local.json` (per-developer, git-ignored) or `.cla
   "permissions": {
     "allow": [
       "Bash(gh api repos/{owner}/{repo}/:*)",
+      "Bash(gh api -X POST repos/{owner}/{repo}/:*)",
+      "Bash(gh api -X PUT repos/{owner}/{repo}/:*)",
+      "Bash(gh api --paginate repos/{owner}/{repo}/:*)",
       "Bash(gh api graphql:*)",
       "Bash(gh pr:*)",
       "Bash(gh repo view:*)",
@@ -27,12 +30,45 @@ your settings, which is why this is a copy-and-paste list rather than something 
 `gh api` expands `{owner}` and `{repo}` from the current repository's remote, so no call in the
 procedure needs a literal slug or a `$(...)` substitution. That is what makes the narrow rule possible:
 
-| Rule                                   | Reach                                     |
-| -------------------------------------- | ----------------------------------------- |
-| `Bash(gh api *)`                       | **every repository your token can touch** |
-| `Bash(gh api repos/{owner}/{repo}/:*)` | only the repository you are in            |
+| Rule                                              | Reach                                     |
+| ------------------------------------------------- | ----------------------------------------- |
+| `Bash(gh api *)`                                  | **every repository your token can touch** |
+| `Bash(gh api repos/{owner}/{repo}/:*)`            | only the repository you are in            |
+| `Bash(gh api -X POST repos/{owner}/{repo}/:*)`    | only the repository you are in            |
+| `Bash(gh api -X PUT repos/{owner}/{repo}/:*)`     | only the repository you are in            |
+| `Bash(gh api --paginate repos/{owner}/{repo}/:*)` | only the repository you are in            |
 
-Prefer the narrow one.
+Prefer the narrow ones.
+
+## Why POST, PUT, and --paginate get their own rule
+
+A rule matches a command-string **prefix** (see below). `Bash(gh api repos/{owner}/{repo}/:*)` matches
+a call whose string literally starts with `gh api repos/{owner}/{repo}/` — a plain `GET`, which is
+`gh api`'s default. It does **not** match `gh api -X POST "repos/{owner}/{repo}/..."`,
+`gh api -X PUT "repos/{owner}/{repo}/..."`, or `gh api --paginate "repos/{owner}/{repo}/..."`: the
+flag sits before the path, so the string starts with `gh api -X POST` / `gh api -X PUT` /
+`gh api --paginate`, not with `repos/`. The procedure uses all three — posting a reply to a finding,
+merging the pull request, and paging through findings and replies — so each needs its own rule,
+narrowed the same way.
+
+## What `Bash(git:*)` still allows
+
+The narrowness argument above is about `gh api`. It does not extend to the `git` rule, and pretending
+otherwise would be the kind of half-true claim this project exists to avoid.
+
+`Bash(git:*)` matches **every** git subcommand, including `git push --force`, `git reset --hard`, and
+`git remote add`. The procedure forbids force-pushing and says why — a rebase re-anchors every inline
+comment and makes the `commit_id` comparison meaningless — but **that is a rule the model follows, not
+a rule the permission system enforces.** The blast radius is your working tree and the branches your
+token can write.
+
+Two things bound it in practice: the procedure never constructs a `--force` push, and step 1 aborts on
+a fork so the branches in question are your own. If that is not enough for your repository, grant the
+subcommands individually — `Bash(git status:*)`, `Bash(git diff:*)`, `Bash(git log:*)`,
+`Bash(git add:*)`, `Bash(git commit:*)`, `Bash(git checkout:*)`, `Bash(git branch:*)`,
+`Bash(git push:*)`, `Bash(git rev-parse:*)`, `Bash(git merge-base:*)`, `Bash(git pull:*)` — and accept
+that the list will need extending the first time a step reaches for something not on it. Nobody has
+measured which repositories need which subset, so this document does not claim one.
 
 ## Why the wait scripts take no arguments
 

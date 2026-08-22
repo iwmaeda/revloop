@@ -5,7 +5,8 @@
 ```console
 mise install
 npm ci
-npm run check:all   # prettier + markdownlint + shellcheck + fence and schema tests
+npm run check:all   # prettier + markdownlint + shellcheck + fence, schema and version tests
+npm run audit       # the one CI job check:all does not cover — see below
 ```
 
 [`mise.toml`](mise.toml) pins node, `jq`, and `shellcheck`, and CI installs from the same file — so the
@@ -13,6 +14,11 @@ comment above describes what runs on your machine and what runs in CI alike. The
 more than they look: `tests/lint-shell.sh` and `tests/jq-program.test.sh` **skip themselves** when
 their binary is missing, announcing it but exiting zero. Without `mise install` the line above is a
 lie — `check:all` goes green having never run shellcheck and never exercised the fence's jq program.
+
+`npm audit` is deliberately outside `check:all`: it needs the network, and `check:all` has to stay
+runnable offline. That makes it the one CI job the umbrella command does not reproduce, which is
+exactly the gap [`.revloop.json`](.revloop.json)'s `verifyNotes` exists to record — this repository
+runs into its own feature.
 
 `.claude/**` and `.agents/**` are linted too — `markdownlint-cli2` runs with `dot: true` and descends
 into dot-directories.

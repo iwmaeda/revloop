@@ -46,4 +46,16 @@ refute "  never reported as merged"              "$out" "MERGE=ok"
 expect "  surfaces the response body"            "$out" "Head branch was modified"
 expect "  reports the state it read back"        "$out" "state=OPEN null"
 
+# A detached HEAD leaves `--head` empty, which gh reads as "no filter" and
+# answers with an unrelated open PR. The gate must not get as far as its CI
+# re-check, let alone the PUT.
+: > "$TMP/put.log"
+export REVLOOP_PUT_LOG="$TMP/put.log"
+out=$(run_fence_detached "$TMP/f.sh" "$FX/ok")
+unset REVLOOP_PUT_LOG
+puts=$(wc -l < "$TMP/put.log")
+expect "detached HEAD -> abort"                  "$out" "MERGE=abort reason=no-branch"
+expect "  the PUT was NOT fired"                 "$puts" "0"
+refute "  never reported as merged"              "$out" "MERGE=ok"
+
 summary "merge"

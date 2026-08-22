@@ -2,7 +2,7 @@
 description: Branch → split commits → push → PR → trigger a reviewer → fix findings, until it converges
 argument-hint: "[--reviewer <name>] [--merge] [--auto] [--max-rounds <n>] [--timeout <dur>]"
 disable-model-invocation: true
-allowed-tools: Bash(git *), Bash(gh api *), Bash(gh pr *), Bash(gh repo *), Read, Edit, Write, Grep, Glob
+allowed-tools: Bash(gh api repos/{owner}/{repo}/:*), Bash(gh api -X POST repos/{owner}/{repo}/:*), Bash(gh api -X PUT repos/{owner}/{repo}/:*), Bash(gh api --paginate repos/{owner}/{repo}/:*), Bash(gh api graphql:*), Bash(gh pr:*), Bash(gh repo view:*), Bash(git:*), Read, Edit, Write, Grep, Glob
 ---
 
 # revloop — the review-and-fix loop
@@ -15,16 +15,22 @@ reviewer → classify and fix its findings**, and repeat until the reviewer stop
 carries a finished change to a pull request and back. **Every step checks whether it is already done**,
 so an interrupted run resumes with the same command.
 
-| Flag                | Default | Effect                                                                           |
-| ------------------- | ------- | -------------------------------------------------------------------------------- |
-| `--reviewer <name>` | config  | A preset (`codex`, `gemini`, `claude`, `copilot`) or a name from `.revloop.json` |
-| `--merge`           | off     | After convergence, wait for green CI and **then** merge                          |
-| `--auto`            | off     | Do not stop for confirmation. **The flag itself is the approval**                |
-| `--max-rounds <n>`  | `10`    | Abort if the loop has not converged within this many rounds                      |
-| `--timeout <dur>`   | `30m`   | **Cumulative** cap on waiting for one round's verdict. Abort when exceeded       |
+| Flag                | Default        | Effect                                                                     |
+| ------------------- | -------------- | -------------------------------------------------------------------------- |
+| `--reviewer <name>` | config         | A preset (`codex`, `gemini`, `claude`) or a name from `.revloop.json`      |
+| `--merge`           | off, flag only | After convergence, wait for green CI and **then** merge                    |
+| `--auto`            | off, flag only | Do not stop for confirmation. **The flag itself is the approval**          |
+| `--max-rounds <n>`  | `10`           | Abort if the loop has not converged within this many rounds                |
+| `--timeout <dur>`   | `30m`          | **Cumulative** cap on waiting for one round's verdict. Abort when exceeded |
 
 There are exactly two stop points — **the commit-split proposal** and **just before merging** — and
 `--auto` suppresses both. **An abort is a stop, not a question**: in either mode, report and finish.
+
+**`--merge` and `--auto` have no configuration key, and adding one would be a defect.** Every other
+default can come from `.revloop.json`, but that file belongs to whatever repository you are working
+in, including one you just cloned. A repository that could set `auto` would delete both of your
+confirmation points, and one that could set `merge` would grant its own merge. The flag is the
+approval, so it has to come from the person typing it.
 
 `--max-rounds 10` is a **circuit breaker, not a target**. Real PRs have needed 20+ rounds. Hitting the
 cap is not success and never merges.
@@ -56,7 +62,9 @@ cap is not success and never merges.
 
    Print a resolved-configuration table with a `source` column whose value is one of
    `flag` / `config` / `detected` / `builtin`, covering at least: reviewer, base branch, verify
-   commands, branch prefixes, commit style, max rounds, timeout, merge.
+   commands, branch prefixes, commit style, max rounds, timeout, merge. Give the reviewer row as
+   `<name> (<status>, <expectedLatency>)` — a preset whose card says `unverified` is a fact the
+   operator wants before the round starts, not after it fails.
 
    **Judgements:**
 
@@ -73,6 +81,15 @@ cap is not success and never merges.
    - **If no verify commands were configured or detected**, ask before continuing, and record "no
      verification ran" in the final report. **With `--merge`, abort instead** — do not merge code that
      nothing checked.
+   - **If the resolved reviewer has no `trigger`, abort with `reason=no-comment-trigger`.** Step 7
+     posts a comment; that is the only way this procedure starts a review. A reviewer that is
+     summoned as a requested reviewer instead is not supported.
+   - **If the resolved reviewer's `markerTolerated` is `no`, abort with
+     `reason=marker-not-tolerated`.** There is no path that posts the trigger without the marker,
+     and steps 8 and 9 read the round's whole identity out of it. There is no degraded mode.
+   - **If the resolved reviewer's `status` is not `verified`, say so in the table and repeat it in
+     the final report.** Continue — an unverified preset is a starting point, not a fault — but the
+     reader of the report should not have to open a card to learn that nobody has watched it work.
 
 2. If you are on the base branch, cut a topic branch (**never commit on the base branch**). If you are
    already on a topic branch, do nothing. Name it from the prefixes in the resolved configuration:
@@ -137,6 +154,9 @@ cap is not success and never merges.
    gh pr edit <n> --body-file <scratch>/body.md                                  # updates go here
    ```
 
+   Write the title and body in the languages from the resolved configuration (`pr.titleLanguage`,
+   `commit.bodyLanguage`) — they are detected from the repository's own history, not imposed.
+
 7. Trigger the review. **Do not fire if HEAD has not changed since the last trigger** (the runaway
    invariant, below). Compose the trigger as the reviewer's trigger text, a blank line, and a
    **revloop marker** — an HTML comment, which GitHub does not render:
@@ -161,7 +181,12 @@ cap is not success and never merges.
    | `reviewer` | The resolved reviewer name                                            |
    | `bot`      | The reviewer's login **with any `[bot]` suffix stripped** (see Notes) |
    | `head`     | `git rev-parse --short=8 HEAD` at trigger time                        |
-   | `round`    | The round number                                                      |
+   | `round`    | The round number — see below                                          |
+
+   **The round number is the count of `revloop:trigger` markers already on this PR, plus one.**
+   Count them from GitHub, never from local state: an interrupted run resumes in a fresh session
+   with nothing on disk, and a round that ended with no findings still cost a wait, so parsing commit
+   subjects undercounts. This is the same argument as `head=` — the PR is the memory.
 
    **The marker is what makes step 8 reviewer-agnostic without widening its matching.** The fence
    never matches a reviewer's name; it matches a string revloop itself wrote, and reads the reviewer's
@@ -198,7 +223,9 @@ cap is not success and never merges.
    set -f
    S=$(timeout 25 gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) || { echo "VERDICT=error reason=api stage=setup"; exit 0; }
    [ -n "${S:-}" ] || { echo "VERDICT=error reason=api stage=setup"; exit 0; }
-   PR=$(timeout 25 gh pr list --head "$(git branch --show-current)" --state open --json number -q '.[0].number' 2>/dev/null) || { echo "VERDICT=error reason=api stage=setup"; exit 0; }
+   B=$(git branch --show-current 2>/dev/null) || B=
+   [ -n "$B" ] || { echo "VERDICT=error reason=no-branch"; exit 0; }
+   PR=$(timeout 25 gh pr list --head "$B" --state open --json number -q '.[0].number' 2>/dev/null) || { echo "VERDICT=error reason=api stage=setup"; exit 0; }
    case "${PR:-}" in ''|*[!0-9]*) echo "VERDICT=error reason=no-pr"; exit 0;; esac
    H=$(git rev-parse --short=8 HEAD 2>/dev/null) || H=unknown
    Q='query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){
@@ -254,7 +281,10 @@ cap is not success and never merges.
    (b) `trigger=` matches the `SINCE` from step 7.
    (c) `marker_head=` equals `head=`. If they differ, the newest trigger was fired against a
    different commit than the one checked out now — the runaway invariant is violated, or someone
-   else pushed. Abort.
+   else pushed. Abort. **`marker_head=none` is not that case**: it means the newest trigger is a
+   hand-typed one carrying no marker, so it never had a head binding to compare against. It gets its
+   own row below, because reporting it as "someone else pushed" sends the reader hunting for a push
+   that never happened.
    (d) `login=` matches the reviewer's configured login **after stripping a trailing `[bot]` from the
    configured value**. GraphQL returns `chatgpt-codex-connector`; REST and most documentation
    write `chatgpt-codex-connector[bot]`. **Comparing those two for equality rejects every
@@ -272,27 +302,29 @@ cap is not success and never merges.
    `128` into `1`**, diagnosing "history diverged" when the answer is "run `git fetch`". Rows 3 and 4
    below are exactly that distinction.
 
-   | Signal                                                           | Verdict                    | Next action                                                                                |
-   | ---------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------ |
-   | `review` + `commit` equals HEAD                                  | continue                   | Go to 10                                                                                   |
-   | `review` + `commit` is an ancestor of HEAD                       | continue (once)            | **Discard** the findings and re-fire step 8 only. A second time aborts                     |
-   | `review` + `commit` absent locally (`128`)                       | **abort**                  | `git fetch`; if still absent, someone else pushed. Stop                                    |
-   | `review` + `commit` not an ancestor (`1`)                        | **abort**                  | History diverged (reset / force push). Stop                                                |
-   | `review` with zero inline comments                               | **finish (clean)**         | **Decide after fetching in 10** — step 8 does not count them                               |
-   | `comment` whose body **starts with** the reviewer's clean phrase | **finish (clean)**         | Go to 12                                                                                   |
-   | `comment` matching the reviewer's rate-limit pattern             | **abort**                  | **Do not retry.** The quota recovers with time; retrying only burns rounds                 |
-   | `comment` with any other bot body                                | **abort**                  | Print the body in full and hand it to a human. Do not guess                                |
-   | `comment` whose `cid=` you already classified as non-terminal    | **abort** (`interim-loop`) | The reviewer emits an interim comment this fence does not know. Report `cid=` and the body |
-   | `reaction`                                                       | **finish (clean)**         | An unexercised path — say so in the report                                                 |
-   | `pending` (within `--timeout`)                                   | continue                   | Re-fire **step 8 only**, never step 7                                                      |
-   | `pending` (exceeding `--timeout`)                                | **abort**                  | Look for a different cause than slowness                                                   |
-   | `login=` not the configured reviewer                             | **abort**                  | Do not read another bot's verdict as this round's. Report the login                        |
-   | `EXTRA=` second line present                                     | follow the above           | A bot comment from the same round. **Rate limit takes precedence**                         |
-   | `error reason=untriggered-verdict`                               | **abort**                  | **A verdict exists but no trigger does.** Read `bot=` for the reason                       |
-   | `error reason=no-pr` / `no-trigger`                              | **abort**                  | Report verbatim. Suspect step 6 and whether a PR exists                                    |
-   | `error reason=api` (no `stage=setup`)                            | **abort**                  | Five consecutive fetch failures inside the loop. Suspect `gh` connectivity                 |
-   | `error reason=api stage=setup`                                   | **abort**                  | **Failed before resolving the PR.** Suspect auth or network, not a missing PR              |
-   | `--max-rounds` reached                                           | **abort**                  | Not success. Do not merge                                                                  |
+   | Signal                                                           | Verdict                    | Next action                                                                                                                                                                                                |
+   | ---------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `review` + `commit` equals HEAD                                  | continue                   | Go to 10                                                                                                                                                                                                   |
+   | `review` + `commit` is an ancestor of HEAD                       | continue (once)            | **Discard** the findings and re-fire step 8 only. A second time aborts                                                                                                                                     |
+   | `review` + `commit` absent locally (`128`)                       | **abort**                  | `git fetch`; if still absent, someone else pushed. Stop                                                                                                                                                    |
+   | `review` + `commit` not an ancestor (`1`)                        | **abort**                  | History diverged (reset / force push). Stop                                                                                                                                                                |
+   | `review` with zero inline comments                               | **finish (clean)**         | **Decide after fetching in 10** — step 8 does not count them                                                                                                                                               |
+   | `comment` whose body **starts with** the reviewer's clean phrase | **finish (clean)**         | Go to 12                                                                                                                                                                                                   |
+   | `comment` matching the reviewer's rate-limit pattern             | **abort**                  | **Do not retry.** The quota recovers with time; retrying only burns rounds                                                                                                                                 |
+   | `comment` with any other bot body                                | **abort**                  | Print the body in full and hand it to a human. Do not guess                                                                                                                                                |
+   | `comment` whose `cid=` you already classified as non-terminal    | **abort** (`interim-loop`) | The reviewer emits an interim comment this fence does not know. Report `cid=` and the body. Recovering means adding its pattern to the fence's drop list — a fence edit, so one re-approval for every user |
+   | `reaction`                                                       | **finish (clean)**         | An unexercised path — say so in the report                                                                                                                                                                 |
+   | `pending` (within `--timeout`)                                   | continue                   | Re-fire **step 8 only**, never step 7                                                                                                                                                                      |
+   | `pending` (exceeding `--timeout`)                                | **abort**                  | Look for a different cause than slowness                                                                                                                                                                   |
+   | `login=` not the configured reviewer                             | **abort**                  | Do not read another bot's verdict as this round's. Report the login                                                                                                                                        |
+   | `marker_head=none` (a hand-typed trigger won the baseline)       | **abort**                  | The compatibility class anchors a baseline; it cannot bind a verdict to a commit. Let revloop fire its own trigger in step 7, then re-run step 8                                                           |
+   | `EXTRA=` second line present                                     | follow the above           | A bot comment from the same round. **Rate limit takes precedence**                                                                                                                                         |
+   | `error reason=untriggered-verdict`                               | **abort**                  | **A verdict exists but no trigger does.** Read `bot=` for the reason                                                                                                                                       |
+   | `error reason=no-pr` / `no-trigger`                              | **abort**                  | Report verbatim. Suspect step 6 and whether a PR exists                                                                                                                                                    |
+   | `error reason=no-branch`                                         | **abort**                  | Detached HEAD, so the fence refused to resolve a PR. Check out the topic branch and re-fire                                                                                                                |
+   | `error reason=api` (no `stage=setup`)                            | **abort**                  | Five consecutive fetch failures inside the loop. Suspect `gh` connectivity                                                                                                                                 |
+   | `error reason=api stage=setup`                                   | **abort**                  | **Failed before resolving the PR.** Suspect auth or network, not a missing PR                                                                                                                              |
+   | `--max-rounds` reached                                           | **abort**                  | Not success. Do not merge                                                                                                                                                                                  |
 
 10. Read the findings. **A review body is boilerplate or empty; the findings are inline review
     comments.** Severity comes from the badge at the head of each body. **Step 8 already emitted
@@ -363,7 +395,9 @@ cap is not success and never merges.
     set -uo pipefail
     set -f
     V='CI_WAIT=timeout'; F=0; out=
-    PR=$(timeout 25 gh pr list --head "$(git branch --show-current)" --state open --json number -q '.[0].number' 2>/dev/null) || { echo "CI_WAIT=error reason=api stage=setup"; exit 0; }
+    B=$(git branch --show-current 2>/dev/null) || B=
+    [ -n "$B" ] || { echo "CI_WAIT=error reason=no-branch"; exit 0; }
+    PR=$(timeout 25 gh pr list --head "$B" --state open --json number -q '.[0].number' 2>/dev/null) || { echo "CI_WAIT=error reason=api stage=setup"; exit 0; }
     case "${PR:-}" in ''|*[!0-9]*) echo "CI_WAIT=error reason=no-pr"; exit 0;; esac
     for _ in $(seq 1 20); do
       out=$(timeout 25 gh pr view "$PR" --json statusCheckRollup \
@@ -382,9 +416,11 @@ cap is not success and never merges.
     ```
 
     The outputs are `ALL_PASS`, `CHECKS_FAILED`, `CI_WAIT=timeout`, `CI_WAIT=error reason=api`
-    (with or without `stage=setup`), and `CI_WAIT=error reason=no-pr`. `no-pr` means **the branch has
-    no open PR**, so suspect step 6 rather than the merge. `api` means **the fetch itself failed**, so
-    suspect `gh` connectivity rather than slow CI.
+    (with or without `stage=setup`), `CI_WAIT=error reason=no-pr`, and
+    `CI_WAIT=error reason=no-branch`. `no-pr` means **the branch has no open PR**, so suspect step 6
+    rather than the merge. `api` means **the fetch itself failed**, so suspect `gh` connectivity
+    rather than slow CI. `no-branch` means **HEAD is detached**, so there is no branch to resolve a
+    PR from — check one out rather than looking at CI.
 
     **Naming the failure `CHECKS_FAILED` is deliberate.** A name like `NOT_ALL_PASS` **contains
     `ALL_PASS` as a substring**, so `grep -q ALL_PASS` and `[[ "$V" == *ALL_PASS* ]]` would both be
@@ -401,7 +437,9 @@ cap is not success and never merges.
     ```bash
     set -uo pipefail
     set -f
-    PR=$(timeout 25 gh pr list --head "$(git branch --show-current)" --state open --json number -q '.[0].number' 2>/dev/null) || { echo "MERGE=abort reason=api stage=setup"; exit 0; }
+    B=$(git branch --show-current 2>/dev/null) || B=
+    [ -n "$B" ] || { echo "MERGE=abort reason=no-branch"; exit 0; }
+    PR=$(timeout 25 gh pr list --head "$B" --state open --json number -q '.[0].number' 2>/dev/null) || { echo "MERGE=abort reason=api stage=setup"; exit 0; }
     case "${PR:-}" in ''|*[!0-9]*) echo "MERGE=abort reason=no-pr"; exit 0;; esac
     SHA=$(git rev-parse HEAD 2>/dev/null) || { echo "MERGE=abort reason=no-head"; exit 0; }
     out=$(timeout 25 gh pr view "$PR" --json statusCheckRollup \
@@ -418,9 +456,11 @@ cap is not success and never merges.
     esac
     ```
 
-    **`MERGE=abort` means the CI gate stopped it and the PUT was never fired; `MERGE=failed` means the
-    PUT was fired and did not take.** Only `MERGE=ok` is a merge. On anything else, stop here and put
-    the response body in the report. Only after `MERGE=ok`:
+    **`MERGE=abort` means the gate stopped it and the PUT was never fired; `MERGE=failed` means the
+    PUT was fired and did not take.** The abort reasons are `no-branch`, `no-pr`, `no-head`,
+    `api stage=setup`, `api stage=recheck`, `ci-not-ready`, and `ci-failed`. Only `MERGE=ok` is a
+    merge. On anything else, stop here and put the response body in the report. Only after
+    `MERGE=ok`:
 
     ```bash
     git checkout <base> && git pull
@@ -505,6 +545,13 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   array count but is a key count. Step 8 therefore decides failure **from `gh`'s exit code alone**:
   "the fetch failed" and "there really is no trigger" are different conclusions, and an empty string
   looks like both.
+- **An empty `--head` is not "no branch", it is "no filter".** `git branch --show-current` prints
+  nothing on a detached HEAD, and `gh pr list --head ""` then drops the filter and returns **the
+  first open PR in the repository** — measured on this repository, where it returned an unrelated
+  Dependabot PR. Every fence therefore resolves the branch first and exits `no-branch` when it is
+  empty. Without that guard the wait fence reads a stranger's comments, step 12 reports a stranger's
+  CI as green, and only the merge fence's `sha=` pin keeps the mistake from becoming a merge — one
+  interlock deep is not enough for a gate.
 - **"No bad marks" is not "good", and the remedy differs by fence.** Step 8 judges from the exit code
   (a failure's output is not necessarily empty, per the previous point). Step 12 judges from the shape
   of the rows it did get: green only when every row is `COMPLETED` and every conclusion is `SUCCESS`;
@@ -549,6 +596,14 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   command substitution. This also allows a narrower permission rule —
   `Bash(gh api repos/{owner}/{repo}/:*)` cannot reach an arbitrary repository, unlike
   `Bash(gh api *)`. Prefer the narrow rule.
+- **A rule matches a command-string prefix, and `-X POST`/`-X PUT` sit before the path.** `gh api
+repos/{owner}/{repo}/:*` does not match `gh api -X POST "repos/{owner}/{repo}/..."` (the reply call)
+  or `gh api -X PUT "repos/{owner}/{repo}/.../merge"` (the merge fence) — the string starts with the
+  verb, not with `repos/`. Both need their own rule, scoped the same way:
+  `Bash(gh api -X POST repos/{owner}/{repo}/:*)` and `Bash(gh api -X PUT repos/{owner}/{repo}/:*)`.
+- **`--paginate` sits before the path too.** The findings read (step 10, line 334) and the reply
+  verification (step 11, line 371) both call `gh api --paginate "repos/{owner}/{repo}/..."` — same
+  prefix problem, one more rule: `Bash(gh api --paginate repos/{owner}/{repo}/:*)`.
 - **`-f` and `-F` are not interchangeable.** `-F` treats a leading `@` as a file read, so
   `-F body='@codex review'` dies with `open codex review: no such file`. Post the trigger from a file
   with `-F body=@file`, and use `-f` for literal values. **Both forms appear in this procedure.**

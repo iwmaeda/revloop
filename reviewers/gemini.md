@@ -5,7 +5,7 @@
 | `triggerKind` | `comment`                        |
 | `trigger`     | **`@gemini review`** — see below |
 | `botLogin`    | `gemini-code-assist[bot]`        |
-| `verdictOn`   | `reviews`                        |
+| verdict on    | `reviews`                        |
 | `status`      | `verified`                       |
 | `lastChecked` | 2026-08                          |
 
@@ -13,8 +13,6 @@
 {
   "trigger": "@gemini review",
   "botLogin": "gemini-code-assist[bot]",
-  "verdictOn": ["reviews", "comments"],
-  "ignoreCommentPatterns": ["^## Summary of Changes"],
   "severityLevels": ["P1", "P2", "P3"]
 }
 ```
@@ -28,7 +26,10 @@
   forever on one reviewer or the other — which is why the loop watches both in one call.
 - **It posts a `## Summary of Changes` preamble before the review.** This is a _non-terminal_ comment.
   The wait fence drops it inside the jq program: treating it as terminal makes the fence exit on its
-  first iteration every time it is re-fired, an infinite loop that never sleeps.
+  first iteration every time it is re-fired, an infinite loop that never sleeps. **The pattern is in
+  the fence, not in this card's config** — config never reaches a fence, so a preamble is the one
+  reviewer property that costs a fence edit. See
+  [`../docs/adding-a-reviewer.md`](../docs/adding-a-reviewer.md).
 - **30–50 findings per round** (repo C, 2026-08; one PR returned 50). That is an order of magnitude
   more than codex. Switching reviewers trades round count against per-round reading cost — budget for
   it deliberately.

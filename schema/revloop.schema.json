@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/revloop.schema.json",
   "title": ".revloop.json",
-  "description": "Project configuration for revloop. Every field is optional; anything absent is auto-detected and shown in the resolved-configuration table with source=detected.",
+  "description": "Project configuration for revloop. Every field is optional; anything absent is auto-detected and shown in the resolved-configuration table with source=detected. Every key here has a consumer in commands/review-loop.md — a key with no consumer is a promise the procedure does not keep, so it is removed rather than left in place.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -34,11 +34,6 @@
           "type": "string",
           "description": "Which CI job the umbrella verify command does not reproduce, if any. The shape of this gap is universal; its answer differs per project and may be empty."
         },
-        "roundSource": {
-          "type": "string",
-          "enum": ["trigger-comments", "git-log-grep"],
-          "description": "How the round number is derived when resuming. trigger-comments counts what was actually fired and does not require the round number in commit subjects."
-        },
         "commit": {
           "type": "object",
           "additionalProperties": false,
@@ -47,7 +42,6 @@
             "subjectLanguage": { "type": "string" },
             "bodyLanguage": { "type": "string" },
             "scopes": { "type": "array", "items": { "type": "string" } },
-            "embedRoundNumber": { "type": "boolean" },
             "verifiedLabel": {
               "type": "string",
               "description": "Label introducing the list of commands actually run, e.g. \"Verified:\"."
@@ -63,12 +57,9 @@
         "pr": {
           "type": "object",
           "additionalProperties": false,
+          "description": "The merge method is not configurable: the merge fence sends merge_method=merge, and it takes no arguments so that its command string never changes. Squash and rebase are not supported. CI cleanliness is likewise not configurable — the gate cannot be loosened from a file.",
           "properties": {
-            "titleTemplate": { "type": "string" },
-            "titleLanguage": { "type": "string" },
-            "bodyUpdateMethod": { "type": "string", "enum": ["gh-pr-edit", "gh-api-patch"] },
-            "mergeMethod": { "type": "string", "enum": ["merge", "squash", "rebase"] },
-            "requireCleanCiForMerge": { "type": "boolean" }
+            "titleLanguage": { "type": "string" }
           }
         }
       }
@@ -76,41 +67,32 @@
     "defaults": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Defaults for the command flags. A flag always overrides its default.",
+      "description": "Defaults for the command flags. A flag always overrides its default. --merge and --auto are deliberately absent: this file comes from whatever repository you are working in, and a repository must not be able to turn on merging or to remove the two human confirmation points. Those two are settable by flag only, because the flag is the approval.",
       "properties": {
         "reviewer": { "type": "string" },
         "maxRounds": { "type": "integer", "minimum": 1 },
-        "timeout": { "type": "string", "pattern": "^[0-9]+[smh]$" },
-        "merge": { "type": "boolean" },
-        "auto": { "type": "boolean" }
+        "timeout": { "type": "string", "pattern": "^[0-9]+[smh]$" }
       }
     },
     "reviewers": {
       "type": "object",
-      "description": "Adds to, or overrides, the built-in presets. Every pattern here is used model-side only; none of it reaches a shell or a jq program.",
+      "description": "Adds to, or overrides, the built-in presets. Every pattern here is used model-side only; none of it reaches a shell or a jq program. That is also the limit of what config can express: the wait fence watches reviews and comments unconditionally, and its list of non-terminal bot comments to drop lives inside the fence, so a reviewer that posts a preamble before its verdict needs a fence edit rather than a config key.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
         "required": ["botLogin"],
         "properties": {
           "displayName": { "type": "string" },
-          "triggerKind": { "type": "string", "enum": ["comment", "reviewer-request"] },
           "trigger": {
             "type": "string",
             "maxLength": 200,
             "pattern": "^[^\\u0000-\\u001f]*$",
-            "description": "Posted verbatim to GitHub. Control characters are rejected; a value already containing 'revloop:trigger' is rejected."
+            "description": "Posted verbatim to GitHub. Control characters are rejected; a value already containing 'revloop:trigger' is rejected. A reviewer with no comment trigger cannot be driven: the procedure has only the comment path."
           },
-          "announce": { "type": "boolean" },
-          "focusSuffix": { "type": "boolean" },
           "botLogin": {
             "type": "string",
             "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*(\\[bot\\])?$",
             "description": "Write it with the [bot] suffix. It is stripped before comparing against GraphQL, which omits it."
-          },
-          "verdictOn": {
-            "type": "array",
-            "items": { "type": "string", "enum": ["reviews", "comments"] }
           },
           "cleanPatterns": {
             "type": "array",
@@ -118,17 +100,21 @@
             "description": "Anchor these at the start. A reviewer's clean phrase often has a varying tail, so equality tests break."
           },
           "rateLimitPatterns": { "type": "array", "items": { "type": "string" } },
-          "ignoreCommentPatterns": {
-            "type": "array",
-            "items": { "type": "string" },
-            "description": "Non-terminal comments, such as a preamble posted before the real review."
-          },
           "severityLevels": { "type": "array", "items": { "type": "string" } },
-          "expectedLatency": { "type": "string" },
-          "markerTolerated": { "type": "string", "enum": ["verified", "unverified", "no"] },
+          "expectedLatency": {
+            "type": "string",
+            "description": "Printed in the step-1 table. A verdict far below this range is usually a failure, not a review."
+          },
+          "markerTolerated": {
+            "type": "string",
+            "enum": ["verified", "unverified", "no"],
+            "description": "Whether the reviewer still answers when the revloop marker is appended to the trigger. 'no' aborts in step 1: there is no fallback path.",
+            "default": "unverified"
+          },
           "status": {
             "type": "string",
-            "enum": ["verified", "reported", "unverified", "unsupported"]
+            "enum": ["verified", "reported", "unverified", "unsupported"],
+            "description": "Printed in the step-1 table and repeated in the final report when it is not 'verified'."
           }
         }
       }
