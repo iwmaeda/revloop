@@ -7,9 +7,14 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
-## [Unreleased]
+## [0.1.0] - 2026-08-23
 
-Added:
+First release. Everything below happened before it, so **no re-approval is owed to anyone**: there
+was no earlier version for a fence to have changed from. The fence-related entries are recorded
+anyway, because "record every fence edit" is the rule, and a rule that is skipped when it is
+convenient is not one.
+
+### Added
 
 - **Both READMEs now describe the loop's flow, and say how long the wait is.** `## How it works` /
   `## 動作の流れ` sits ahead of the install section in each, giving the run as seven phases and then
@@ -41,7 +46,21 @@ Added:
   was previously one sentence at the tail of `## Requirements`, where the person who most needed it
   had already stopped reading; that sentence moved rather than being duplicated.
 
-Changed:
+- Initial extraction of the review loop into a standalone, reviewer-agnostic tool.
+- `.revloop.json` configuration with auto-detection for base branch, verify commands, branch
+  prefixes, and commit conventions; JSON Schema and four worked examples.
+- Reviewer presets for `codex`, `gemini`, `claude`, and `copilot`, each as a dated card recording
+  what was measured and where.
+- Fence tests that extract the shell fences from the procedure and replay recorded GitHub responses
+  through a `gh` stub, plus structural guards and a fence-hash gate.
+- Codex router under `.agents/skills/revloop/`, resolving the same procedure file.
+- A **Limitations** section in the README. Forks, detached HEAD, squash and rebase merges, `copilot`,
+  and reviewers that post a preamble are all outside what this drives; each is a stop with a named
+  reason rather than something a user discovers.
+- `tests/version.test.sh`, pinning the version string across the five manifests and the changelog.
+- Issue templates (bug report, reviewer measurement), a pull request template, and a code of conduct.
+
+### Changed
 
 - **The install section is now structured identically in both READMEs**, as
   `### Claude Code` / `### Codex`. The English side had a flat `## Install` with Codex reduced to a
@@ -59,47 +78,6 @@ Changed:
   only reference in this repository was the README's own documentation table, and it was updated.
   The procedure itself is unchanged and still English-only, and no fence changed, so **no
   re-approval is owed**.
-
-Removed:
-
-- **`README.md` no longer carries `## Why it is built the way it is`, `## Tests`, or the
-  `### The wait is the slowest part of the loop` subsection.** Each was English-only, and keeping them
-  is what made the two READMEs impossible to diff. Nothing was lost, only relocated to the file that
-  already owned it: the design rationale is in [`docs/design-notes.md`](docs/design-notes.md), the
-  check commands and the warning that `check:all` **goes green having skipped shellcheck and jq**
-  without `mise install` are in [`CONTRIBUTING.md`](CONTRIBUTING.md), and the wait budgets are in
-  `commands/review-loop.md`. All three are still reachable from the README's documentation table or
-  from `docs/install.md`. **`--timeout` is the one flag no longer named anywhere in either README** —
-  it remains in the procedure's flag table and in the command's `argument-hint`.
-
-**Everything under Unreleased is documentation.** No fence changed and `commands/review-loop.md` is
-untouched, so **no re-approval is owed**. The new Codex section describes settings you already had;
-it grants nothing on your behalf.
-
-## [0.1.0] - 2026-08-19
-
-First release. Everything below happened before it, so **no re-approval is owed to anyone**: there
-was no earlier version for a fence to have changed from. The fence-related entries are recorded
-anyway, because "record every fence edit" is the rule, and a rule that is skipped when it is
-convenient is not one.
-
-### Added
-
-- Initial extraction of the review loop into a standalone, reviewer-agnostic tool.
-- `.revloop.json` configuration with auto-detection for base branch, verify commands, branch
-  prefixes, and commit conventions; JSON Schema and four worked examples.
-- Reviewer presets for `codex`, `gemini`, `claude`, and `copilot`, each as a dated card recording
-  what was measured and where.
-- Fence tests that extract the shell fences from the procedure and replay recorded GitHub responses
-  through a `gh` stub, plus structural guards and a fence-hash gate.
-- Codex router under `.agents/skills/revloop/`, resolving the same procedure file.
-- A **Limitations** section in the README. Forks, detached HEAD, squash and rebase merges, `copilot`,
-  and reviewers that post a preamble are all outside what this drives; each is a stop with a named
-  reason rather than something a user discovers.
-- `tests/version.test.sh`, pinning the version string across the five manifests and the changelog.
-- Issue templates (bug report, reviewer measurement), a pull request template, and a code of conduct.
-
-### Changed
 
 - **Toolchain versions are stated once, in `mise.toml`.** CI installs them with
   `jdx/mise-action`, replacing `actions/setup-node` and the `node-version: 24` that was duplicated
@@ -140,6 +118,18 @@ convenient is not one.
   by downgrading four major versions. The wrapper was the problem; the wrapper is now forty lines in
   this repository, and it distinguishes "the schema rejected it" from "the validator never ran" —
   the reject cases would otherwise pass for the wrong reason after a typo in a path.
+
+### Removed
+
+- **`README.md` no longer carries `## Why it is built the way it is`, `## Tests`, or the
+  `### The wait is the slowest part of the loop` subsection.** Each was English-only, and keeping them
+  is what made the two READMEs impossible to diff. Nothing was lost, only relocated to the file that
+  already owned it: the design rationale is in [`docs/design-notes.md`](docs/design-notes.md), the
+  check commands and the warning that `check:all` **goes green having skipped shellcheck and jq**
+  without `mise install` are in [`CONTRIBUTING.md`](CONTRIBUTING.md), and the wait budgets are in
+  `commands/review-loop.md`. All three are still reachable from the README's documentation table or
+  from `docs/install.md`. **`--timeout` is the one flag no longer named anywhere in either README** —
+  it remains in the procedure's flag table and in the command's `argument-hint`.
 
 ### Fixed
 
