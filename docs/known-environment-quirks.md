@@ -1,47 +1,54 @@
 # Known environment quirks
 
-Observations that were true of a specific machine or repository at a specific time. They are **not
-normative** — nothing in the procedure depends on them. They are recorded because each one cost
-somebody an afternoon, and because a reader hitting the same symptom deserves the shortcut.
+Observations that were true of a specific machine or repository at a specific time. They are not
+normative — nothing in the procedure depends on them. They are recorded because each one cost
+somebody an afternoon, and a reader hitting the same symptom deserves the shortcut.
 
 Where a quirk contained a portable principle, the principle was promoted into the procedure's
 `## Notes` and only the specifics stayed here.
 
 ## Version-manager prefixes: the polarity flips
 
-One repository required every Node command to be prefixed with `mise exec --`, because on WSL the
-PATH resolved `node` and `npm` to Windows shims. Two other repositories on the same machine required
-the **opposite** — the mise-provided Linux binaries were already ahead on PATH, and prefixing made the
-local invocation differ from CI's.
+**Observed:** One repository required every Node command to be prefixed with `mise exec --`, because
+on WSL the PATH resolved `node` and `npm` to Windows shims. Two other repositories on the same
+machine required the opposite — the mise-provided Linux binaries were already ahead on PATH, and
+prefixing made the local invocation differ from CI's.
 
-Promoted principle: **invoke verify commands exactly the way CI invokes them.** Whether a prefix is
+**Promoted principle:** Invoke verify commands exactly the way CI invokes them. Whether a prefix is
 needed is a property of the project, not of this procedure, which is why `verify` is a plain list of
 command strings and revloop never adds anything to them.
 
-Observed in iwmaeda/iwmaeda and two private repositories, 2026-08.
+**Attribution:** iwmaeda/iwmaeda and two private repositories, 2026-08.
 
 ## `jq` is not where you expect it
 
-`command -v jq` was empty on the machine this was derived on, while `gh api --jq` worked fine — `gh`
-embeds a jq implementation. `mise exec -- jq` failed with `couldn't exec process`, and `/usr/bin/jq`
-did not exist.
+**Observed:** `command -v jq` was empty on the machine this was derived on, while `gh api --jq` worked
+fine — `gh` embeds a jq implementation. `mise exec -- jq` failed with `couldn't exec process` and
+`/usr/bin/jq` did not exist, for the dull reason that `jq` was not in that repository's `mise.toml`.
+Declaring it and running `mise install` makes the same command return `jq-1.7.1`.
 
-Promoted principle: **never pipe to `jq`**. This one graduated fully — a missing `jq` is common enough
-that it is a design rule, not a quirk.
+**Promoted principle:** Never pipe to `jq`. A missing `jq` is common enough to be a design rule, not a
+quirk. This repository does declare `jq` in [`../mise.toml`](../mise.toml), but only for its test
+harness; [`install.md`](install.md) still lists `jq` as not required for running revloop, and both are
+true because they address different audiences.
 
-The `mise exec -- jq` failure had a dull cause: `jq` was not in that repository's `mise.toml`, so there
-was nothing for mise to exec. Declaring it and running `mise install` makes the same command return
-`jq-1.7.1`. This repository now does exactly that — see [`../mise.toml`](../mise.toml) — but only for
-its **test harness**, which needs a real `jq` to exercise the wait-verdict fence's jq program against
-recorded payloads. The procedure itself still never pipes to `jq`, and [`install.md`](install.md)
-still lists `jq` as not required for running revloop. Those are two different audiences.
+**Attribution:** 2026-08; the mise resolution re-checked 2026-08-19.
 
-Observed 2026-08; the mise resolution re-checked 2026-08-19.
+## CI concurrency cancels superseded runs
+
+**Observed:** A workflow with `concurrency: cancel-in-progress: true` turns a push made during a CI
+wait into a `CANCELLED` conclusion, which reads as `CHECKS_FAILED`. Two of three repositories set
+`concurrency`.
+
+**Promoted principle:** Never push while a wait is armed. That rule prevents this entirely, and the
+misreading is fail-closed, so this is a footnote rather than a hazard.
+
+**Attribution:** three repositories, 2026-08.
 
 ## Repository facts that used to be asserted
 
 Earlier versions stated these as facts. They are true of one repository at one time, so the procedure
-now **probes and prints them** in step 1 instead:
+now probes and prints them in step 1 instead:
 
 | Assertion that used to be in the text                          | What replaced it                                        |
 | -------------------------------------------------------------- | ------------------------------------------------------- |
@@ -52,15 +59,9 @@ now **probes and prints them** in step 1 instead:
 
 The reasoning those facts supported was worth keeping; the facts were not.
 
-## markdownlint descends into dot-directories
+## Related docs
 
-`markdownlint-cli2` runs with `dot: true`, so `.claude/**` and `.agents/**` are linted. This is about
-maintaining a repository that contains agent configuration, not about running the loop, so it lives in
-[`../CONTRIBUTING.md`](../CONTRIBUTING.md).
-
-## CI concurrency cancels superseded runs
-
-A workflow with `concurrency: cancel-in-progress: true` turns a push made during a CI wait into a
-`CANCELLED` conclusion, which reads as `CHECKS_FAILED`. That is fail-closed, and the "never push
-while a wait is armed" rule prevents it entirely — so this is a footnote rather than a hazard. Not
-every repository sets `concurrency`; two of three did.
+- [Install](install.md) — the version floors, and what is actually required
+- [Configuration](configuration.md) — `verify`, and why revloop never rewrites your commands
+- [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — quirks of maintaining this repository, rather than of
+  running the loop
