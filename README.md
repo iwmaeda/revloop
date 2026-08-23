@@ -8,8 +8,9 @@ English ・ [日本語](README.ja.md)
 A Claude Code / Codex plugin that runs the whole AI review-and-fix loop on a pull request from one
 command, repeating it until the review converges.
 
-**revloop assumes a reviewer that already answers.** The Codex or Claude GitHub integration must
-already be installed on the repository and responding to comments.
+**revloop assumes a reviewer that already answers.** Whichever reviewer you select — Codex, Claude,
+Gemini, or a custom preset — its GitHub integration must already be installed on the repository and
+responding to comments.
 
 The commands are:
 
@@ -118,13 +119,14 @@ To change any of it, or to add your own reviewer, write `.revloop.json`. The det
 
 ## Built-in reviewers
 
-| Preset   | Trigger          | Status     |
-| -------- | ---------------- | ---------- |
-| `codex`  | `@codex review`  | verified   |
-| `gemini` | `@gemini review` | verified   |
-| `claude` | `@claude review` | unverified |
+| Preset   | Trigger                         | Status     |
+| -------- | ------------------------------- | ---------- |
+| `codex`  | `@codex review`                 | verified   |
+| `gemini` | `@gemini review` (see the card) | verified   |
+| `claude` | `@claude review`                | unverified |
 
-copilot (which is asked for a review by reviewer request) is not supported at present.
+Each [card](reviewers/) records what was measured, when, and where. copilot (which is asked for a
+review by reviewer request) is not supported at present.
 
 ## Limitations
 

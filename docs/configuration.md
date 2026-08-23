@@ -36,15 +36,15 @@ is how you tell a value you chose from a value revloop guessed, without reading 
 
 ## When config is missing or wrong
 
-| Situation                             | Behaviour                                                         |
-| ------------------------------------- | ----------------------------------------------------------------- |
-| No `.revloop.json`                    | Detect everything. Normal                                         |
-| Malformed JSON                        | **Abort.** No fallback                                            |
-| Unknown key                           | Rejected — the schema is `additionalProperties: false` throughout |
-| Unknown `version`                     | **Abort**                                                         |
-| `--reviewer` names nothing known      | **Abort** and list the available names. Never guess               |
-| No verify command found or configured | Ask before continuing; record "no verification ran" in the report |
-| ...and `--merge` was passed           | **Abort.** Do not merge code that nothing checked                 |
+| Situation                             | Behaviour                                                                                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| No `.revloop.json`                    | Detect everything. Normal                                                                                                                   |
+| Malformed JSON                        | **Abort.** No fallback                                                                                                                      |
+| Unknown key                           | Not validated at runtime; ignored. `tests/schema.test.sh` rejects it in CI against fixtures, per the schema's `additionalProperties: false` |
+| Unknown `version`                     | **Abort**                                                                                                                                   |
+| `--reviewer` names nothing known      | **Abort** and list the available names. Never guess                                                                                         |
+| No verify command found or configured | Ask before continuing; record "no verification ran" in the report                                                                           |
+| ...and `--merge` was passed           | **Abort.** Do not merge code that nothing checked                                                                                           |
 
 Malformed config aborts rather than falling back, because a silent fallback to the presets would
 ignore exactly the custom reviewer a user configured, while the run still looked healthy.

@@ -44,14 +44,15 @@ allowlist; see
 
 revloop assumes a reviewer that already answers. It posts a trigger and waits for a verdict only the
 reviewer can produce; it installs nothing. A `@codex review` comment goes to
-`chatgpt-codex-connector[bot]`, which reads the pushed diff and reviews it independently — it is not
-the Codex or Claude Code session you are running, and that session cannot answer on its behalf.
-Installing the integration happens on the reviewer's own GitHub App page, outside this project's
-scope.
+`chatgpt-codex-connector[bot]`, a `@gemini review` comment to `gemini-code-assist[bot]`, and so on for
+whichever reviewer you selected — never to the Codex or Claude Code session you are running, and that
+session cannot answer on its behalf. Installing the integration happens on the reviewer's own GitHub
+App page, outside this project's scope.
 
-To confirm it works, comment `@codex review` by hand on any open pull request and check that the bot
-replies. For how long the loop then waits, see [How it works](../README.md#how-it-works); the budgets
-that bound it are in [`commands/review-loop.md`](../commands/review-loop.md).
+To confirm it works, comment your reviewer's trigger (`@codex review`, `@gemini review`, or your
+custom trigger) by hand on any open pull request and check that the bot replies. For how long the loop
+then waits, see [How it works](../README.md#how-it-works); the budgets that bound it are in
+[`commands/review-loop.md`](../commands/review-loop.md).
 
 ## Requirements
 

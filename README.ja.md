@@ -7,8 +7,9 @@
 
 AI による PR のレビューと修正のループを収束するまで繰り返すワークフローをワンコマンドで実現する Claude Code / Codex 対応プラグインです。レビューのループ回数の増加を防止するフェンス機構を整備し、処理時間やトークン消費を抑えるように動作します。
 
-**revloop は、レビュアーが既に応答することを前提にします。** codex や claude の GitHub 連携が
-リポジトリにインストール済みで、コメントに応答する状態になっている必要があります。
+**revloop は、レビュアーが既に応答することを前提にします。** 選択したレビュアー
+（codex・claude・gemini・カスタムのいずれか）の GitHub 連携がリポジトリにインストール済みで、
+コメントに応答する状態になっている必要があります。
 
 基本的な実行コマンドは以下の通りです。
 
@@ -114,13 +115,14 @@ maxRounds        10                                 builtin
 
 ## 対応済みレビュアー
 
-| プリセット | トリガー         | ステータス |
-| ---------- | ---------------- | ---------- |
-| `codex`    | `@codex review`  | verified   |
-| `gemini`   | `@gemini review` | verified   |
-| `claude`   | `@claude review` | unverified |
+| プリセット | トリガー                      | ステータス |
+| ---------- | ----------------------------- | ---------- |
+| `codex`    | `@codex review`               | verified   |
+| `gemini`   | `@gemini review` (カード参照) | verified   |
+| `claude`   | `@claude review`              | unverified |
 
-現時点で copilot (reviewer request でレビュー依頼)には対応していません。
+各[カード](reviewers/)には計測内容・計測日時・出典が記録されています。現時点で copilot
+(reviewer request でレビュー依頼)には対応していません。
 
 ## 対応していないこと
 
