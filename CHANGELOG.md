@@ -7,6 +7,75 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
+## [Unreleased]
+
+Added:
+
+- **Both READMEs now describe the loop's flow, and say how long the wait is.** `## How it works` /
+  `## 動作の流れ` sits ahead of the install section in each, giving the run as seven phases and then
+  stating the part nobody was told: **after the trigger comment, several minutes pass in which nothing
+  happens**, because the reviewer is a GitHub app and the loop can only poll it. A first-time user had
+  no way to tell that from a hung command — the arrow chain that used to open the English README read
+  as if the steps ran back to back. codex's **3–4 minutes to a verdict is measured and dated**
+  ([`reviewers/codex.md`](reviewers/codex.md), 2026-08); gemini and claude are given no latency at all
+  rather than codex's. The section summarises the procedure at phase level and does not restate it;
+  `commands/review-loop.md` remains the only place the steps are written out, and the only place the
+  shipped budgets — the 30-second poll, the 480-second chunk, the cumulative `--timeout 30m`, the
+  `--max-rounds` circuit breaker, and the CI wait's ~18-minute worst case — are stated. Neither README
+  repeats those numbers; `docs/install.md` links to both files from `## Prerequisites` instead.
+- **`docs/permissions.md` now covers Codex.** It described only Claude Code's allowlist and never
+  said so, which left Codex users to infer their setup from a note in the skill. There is now a
+  `## Codex: approval policy and sandbox` section covering `approval_policy`, `sandbox_mode`,
+  `sandbox_workspace_write.network_access`, and per-project `trust_level`, and the file opens by
+  saying which sections belong to which host. The section states the failure it exists to prevent:
+  **a `workspace-write` sandbox commonly runs with `network_access = false`, and every `gh` call in
+  the procedure needs the network.** Its key names and value sets were read out of an installed
+  `codex-cli 0.147.0` rather than from vendor documentation, and the claim that the configuration
+  carries the loop end to end is **labelled derived**, because it has not been driven against a live
+  pull request.
+- **Both READMEs now state the reviewer prerequisite up front**, above the command block: the Codex or
+  Claude GitHub integration must already be installed on the repository and answering comments. Why
+  that is a separate thing to install — a `@codex review` comment goes to
+  `chatgpt-codex-connector[bot]`, not to the session you are running — is spelled out once, in the new
+  `## Prerequisites` section of `docs/install.md`, which the READMEs link rather than restate. This
+  was previously one sentence at the tail of `## Requirements`, where the person who most needed it
+  had already stopped reading; that sentence moved rather than being duplicated.
+
+Changed:
+
+- **The install section is now structured identically in both READMEs**, as
+  `### Claude Code` / `### Codex`. The English side had a flat `## Install` with Codex reduced to a
+  single link, and the Japanese side had an **empty** `## Codex` heading at the wrong level, which
+  broke `npm run check:docs`. Both now carry the same two subsections in the same order, and the
+  permission setup lives inside the host it belongs to — the allowlist JSON under `### Claude Code`,
+  the approval-policy-and-sandbox pointer under `### Codex` — rather than in a third section that had
+  to name both.
+- **The Japanese README moved to the repository root, and the English one was cut down to match it.**
+  It was `docs/ja/README.ja.md`, a partial overview that covered install and design intent; it is
+  `README.ja.md`, a standalone README, and `README.md` now mirrors it section for section — same
+  headings in the same order, same tables, same examples — so the two can be compared line by line and
+  drift is visible rather than quiet. **The parity was reached by shortening the English side, not by
+  expanding the Japanese one.** **The old path is gone, not redirected**, so a link to it 404s; the
+  only reference in this repository was the README's own documentation table, and it was updated.
+  The procedure itself is unchanged and still English-only, and no fence changed, so **no
+  re-approval is owed**.
+
+Removed:
+
+- **`README.md` no longer carries `## Why it is built the way it is`, `## Tests`, or the
+  `### The wait is the slowest part of the loop` subsection.** Each was English-only, and keeping them
+  is what made the two READMEs impossible to diff. Nothing was lost, only relocated to the file that
+  already owned it: the design rationale is in [`docs/design-notes.md`](docs/design-notes.md), the
+  check commands and the warning that `check:all` **goes green having skipped shellcheck and jq**
+  without `mise install` are in [`CONTRIBUTING.md`](CONTRIBUTING.md), and the wait budgets are in
+  `commands/review-loop.md`. All three are still reachable from the README's documentation table or
+  from `docs/install.md`. **`--timeout` is the one flag no longer named anywhere in either README** —
+  it remains in the procedure's flag table and in the command's `argument-hint`.
+
+**Everything under Unreleased is documentation.** No fence changed and `commands/review-loop.md` is
+untouched, so **no re-approval is owed**. The new Codex section describes settings you already had;
+it grants nothing on your behalf.
+
 ## [0.1.0] - 2026-08-19
 
 First release. Everything below happened before it, so **no re-approval is owed to anyone**: there

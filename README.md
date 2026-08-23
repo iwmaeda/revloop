@@ -3,15 +3,16 @@
 [![ci](https://github.com/iwmaeda/revloop/actions/workflows/ci.yaml/badge.svg)](https://github.com/iwmaeda/revloop/actions/workflows/ci.yaml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Carry a finished change to a pull request and back: **branch → verify → split commits → push → open a
-PR → trigger an AI reviewer → classify and fix its findings → repeat until it converges → merge**.
+English ・ [日本語](README.ja.md)
 
-revloop does not write your change. It is the layer that puts a finished change in front of a
-reviewer and drives the resulting conversation to a conclusion, without you babysitting it.
+A Claude Code / Codex plugin that runs the whole AI review-and-fix loop on a pull request from one
+command, repeating it until the review converges.
 
-Works with **Claude Code** and **Codex**, against any GitHub repository you can push a branch to, with
-any reviewer bot that answers a comment. The [limitations](#limitations) are listed rather than
-discovered.
+**revloop assumes a reviewer that already answers.** Whichever reviewer you select — Codex, Claude,
+Gemini, or a custom preset — its GitHub integration must already be installed on the repository and
+responding to comments.
+
+The commands are:
 
 ```console
 /revloop:review-loop
@@ -19,18 +20,41 @@ discovered.
 /revloop:review-loop --merge --auto
 ```
 
+## How it works
+
+A run usually takes tens of minutes. **Most of that is time spent waiting for the reviewer.**
+
+| Phase       | Steps | What happens                                                                                                                  | Roughly how long             |
+| ----------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| **Resolve** | 1     | Probe the repository and print the resolved-configuration table with its `source` column                                      | seconds                      |
+| **Prepare** | 2–6   | Cut a topic branch, run the verify commands, propose a commit split (**first stop point**), push, open the PR                 | as long as your verify takes |
+| **Trigger** | 7     | Post the trigger comment, carrying a `revloop:trigger` marker that records the reviewer, the bot, the head sha, and the round | seconds                      |
+| **Wait**    | 8     | Poll GitHub until the verdict for _this_ trigger appears                                                                      | **minutes — see below**      |
+| **Decide**  | 9     | Classify the verdict as continue / finish / abort                                                                             | seconds                      |
+| **Fix**     | 10–11 | Read the inline findings, fix them, sweep the codebase for siblings, reply to every one                                       | minutes                      |
+| **Finish**  | 12    | Report; with `--merge`, wait for green CI and then merge (**second stop point**)                                              | CI-bound                     |
+
+If even one finding was fixed, step 11 goes back to step 3 and the next round begins. `--auto` keeps
+the loop running through both stop points instead of halting at them.
+
+**A pull request carrying a large change can sit in the wait for tens of minutes.** codex returns a
+verdict in **3–4 minutes** on average ([`reviewers/codex.md`](reviewers/codex.md), 2026-08).
+
+If the review fails because of a rate limit or a similar API restriction, the loop aborts.
+
 ## Install
+
+The details are in [`docs/install.md`](docs/install.md).
+
+### Claude Code
 
 ```console
 /plugin marketplace add iwmaeda/revloop
 /plugin install revloop@revloop
 ```
 
-Codex, and the manual layout, are covered in [`docs/install.md`](docs/install.md).
-
-Then grant the permissions in [`docs/permissions.md`](docs/permissions.md). revloop asks for a
-**narrower** rule than a hand-written version of this workflow needs, because every API call uses
-`gh`'s `{owner}`/`{repo}` placeholders:
+Grant the permissions the work needs at the same time, by adding the following to
+`.claude/settings.local.json`. The details are in [`docs/permissions.md`](docs/permissions.md).
 
 ```json
 {
@@ -49,13 +73,22 @@ Then grant the permissions in [`docs/permissions.md`](docs/permissions.md). revl
 }
 ```
 
-`Bash(gh api repos/{owner}/{repo}/:*)` **cannot address a repository other than the one you are in**.
+### Codex
+
+```console
+git clone https://github.com/iwmaeda/revloop.git ~/.revloop
+mkdir -p .agents/skills
+cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
+export REVLOOP_PROCEDURE=~/.revloop/commands/review-loop.md
+```
+
+Codex controls permissions with an approval policy and a sandbox instead. The details are in
+[`docs/permissions.md`](docs/permissions.md).
 
 ## Configure
 
-Nothing is required. With no config, revloop detects the base branch, the verify commands, the branch
-prefixes, and the commit conventions from the repository itself, and prints a resolved-configuration
-table with a `source` column before it does anything:
+By default, revloop detects the base branch, the verify commands, the branch prefixes, and the commit
+conventions from the repository itself, and builds a configuration table with a `source` column:
 
 ```text
 key              value                              source
@@ -66,8 +99,9 @@ commitStyle      conventional (en)                  detected
 maxRounds        10                                 builtin
 ```
 
-To pin any of it, or to add your own reviewer, write `.revloop.json`
-([reference](docs/configuration.md), [examples](examples/)):
+To change any of it, or to add your own reviewer, write `.revloop.json`. The details are in
+[`docs/configuration.md`](docs/configuration.md) and
+[`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md).
 
 ```json
 {
@@ -83,81 +117,34 @@ To pin any of it, or to add your own reviewer, write `.revloop.json`
 }
 ```
 
-A reviewer that answers a comment and posts its verdict as its first reply needs **no change to the
-procedure and no change to its fences**. One that posts a preamble before the real review is the
-exception — see [`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md).
-
 ## Built-in reviewers
 
-| Preset    | Trigger                         | Status                      |
-| --------- | ------------------------------- | --------------------------- |
-| `codex`   | `@codex review`                 | verified                    |
-| `gemini`  | `@gemini review` (see the card) | verified                    |
-| `claude`  | `@claude review`                | unverified                  |
-| `copilot` | reviewer request, not a comment | **unsupported** (see below) |
+| Preset   | Trigger                         | Status     |
+| -------- | ------------------------------- | ---------- |
+| `codex`  | `@codex review`                 | verified   |
+| `gemini` | `@gemini review` (see the card) | verified   |
+| `claude` | `@claude review`                | unverified |
 
-Each [card](reviewers/) records what was measured, when, and where — latency, findings per round,
-which endpoint the verdict arrives on, and the exact terminal phrases. Reviewer products change, so a
-dated card is the difference between a stale claim and a silently false one.
+Each [card](reviewers/) records what was measured, when, and where. copilot (which is asked for a
+review by reviewer request) is not supported at present.
 
 ## Limitations
 
 The loop is not general-purpose, and each of these is a deliberate stop rather than a rough edge:
 
-| Limitation                                        | Why                                                                                                                                                                 |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Forks are unsupported**                         | `{owner}` resolves to your fork while the PR lives upstream, so every call would address the wrong repository. Step 1 aborts                                        |
-| **Same-repo topic branches only**                 | One open PR per branch; a detached HEAD aborts rather than guessing which PR you meant                                                                              |
-| **Merge commits only**                            | The merge fence takes no arguments so its command string never changes. Squash and rebase are not available                                                         |
-| **`copilot` cannot be driven**                    | It has no comment trigger, and the reviewer-request path is not implemented. The card is kept for what it measured                                                  |
-| **A reviewer with a preamble needs a fence edit** | The list of non-terminal bot comments to drop lives inside the wait fence, because config never reaches a fence — and a fence edit costs every user one re-approval |
-
-Nothing here fails open. Each one stops the loop and says which one it was.
-
-## Why it is built the way it is
-
-The interesting problems here are not "call the GitHub API". They are:
-
-- **A wait loop that cannot lie.** A failed fetch produces empty output, and empty output contains
-  neither "pending" nor "fail" — so every naive negative check turns a failure into a pass. Green is
-  asserted only from the positive shape of the data.
-- **A merge gate that cannot be bypassed by forgetting.** Shell state does not survive between tool
-  calls, so the merge step re-runs its own CI check rather than trusting an earlier result, and pins
-  the sha it checked. A 409 is read back and reported as a failure, never as a merge.
-- **A trigger that is reviewer-agnostic without being permissive.** revloop marks its own triggers,
-  so the wait loop matches a string it wrote rather than a reviewer's name. A stray
-  `@someone review this before merging` cannot become the baseline, and a reviewer you invented gets
-  the same exactness the built-in presets get.
-- **A permission surface that stays constant.** The wait scripts take no arguments and resolve the
-  repository and PR themselves, so the command string never changes and "always allow" sticks once.
-
-The reasoning is written down in [`docs/design-notes.md`](docs/design-notes.md), and the procedure's
-own `## Notes` section states each invariant next to the failure that motivated it.
-
-## Tests
-
-The classification logic is pinned by tests that **extract the shell fences out of the procedure**
-rather than restating them, and replay recorded GitHub responses through a `gh` stub:
-
-```console
-mise install      # node, jq, shellcheck — pinned in mise.toml, same versions CI uses
-npm ci
-npm test          # fence + schema tests
-npm run check:all # docs + shellcheck + tests
-```
-
-Skip `mise install` and the suite still passes, quietly weaker: the shellcheck and jq tests announce a
-skip and exit zero when their binary is absent.
-
-The procedure is also explicit about what has **not** been exercised against live data — see its
-`## Unexercised paths` section. That list is meant to shrink, and PRs that shrink it are welcome.
+| Limitation                        | Why                                                                                                                      |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Forks are unsupported**         | `{owner}` resolves to your fork while the PR lives upstream, so every call addresses the wrong repository. Step 1 aborts |
+| **Same-repo topic branches only** | One open PR per branch. A detached HEAD aborts rather than guessing which PR you meant                                   |
+| **Merge commits only**            | The merge fence takes no arguments so its command string never changes. Squash and rebase are not available              |
+| **`copilot` unsupported**         | It has no comment trigger, and the reviewer-request path is not implemented.                                             |
 
 ## Documentation
 
 | Guide                                                        | What it covers                                                   |
 | ------------------------------------------------------------ | ---------------------------------------------------------------- |
-| [Install](docs/install.md)                                   | Claude Code, Codex, requirements, verifying the install          |
-| [Permissions](docs/permissions.md)                           | The rules to grant, and why they are narrower than usual         |
+| [Install](docs/install.md)                                   | Prerequisites, Claude Code, Codex, requirements, verifying it    |
+| [Permissions](docs/permissions.md)                           | Claude Code's rules to grant, and Codex's approval and sandbox   |
 | [Configuration](docs/configuration.md)                       | `.revloop.json` reference and what is detected when it is absent |
 | [Adding a reviewer](docs/adding-a-reviewer.md)               | Measuring a new reviewer and writing it up                       |
 | [Design notes](docs/design-notes.md)                         | Why the loop is shaped this way                                  |
@@ -165,7 +152,7 @@ The procedure is also explicit about what has **not** been exercised against liv
 | [Contributing](CONTRIBUTING.md)                              | Running the checks, and the protocol for editing a fence         |
 | [Code of conduct](CODE_OF_CONDUCT.md)                        | Contributor Covenant 2.1                                         |
 | [Security](SECURITY.md)                                      | Threat model: untrusted config, untrusted reviewer output        |
-| [日本語の概要](docs/ja/README.ja.md)                         | Japanese overview (non-canonical)                                |
+| [日本語版 README](README.ja.md)                              | This README in Japanese                                          |
 
 ## License
 
