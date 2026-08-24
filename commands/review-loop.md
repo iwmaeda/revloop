@@ -52,8 +52,8 @@ approval, so it has to come from the person typing it.
    git branch --show-current
    git status --porcelain -uall
    git log -20 --format='%s'                    # subject language and scope vocabulary
-   git log -20 --format='%b' | grep -E '^[A-Za-z][A-Za-z-]*: '   # trailer style, over the same 20
-   git log -3 --format='%b'                     # body shape, read in full rather than sampled
+   git log -20 --format='%b'                    # body language and shape, unfiltered
+   git log -20 --format='%b' | grep -E '^[A-Za-z0-9][A-Za-z0-9-]*: '   # a trailer-only view of those
    git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo '(no upstream = normal)'
    gh --version | head -1
    gh repo view --json nameWithOwner,defaultBranchRef,isFork,deleteBranchOnMerge \
@@ -71,8 +71,15 @@ approval, so it has to come from the person typing it.
 
    **A row can only say `detected` if something detected it.** Steps 4 and 6 both assert that commit
    style and the two languages are "detected from the repository's own history, not imposed", and the
-   two `git log` calls above are the only thing in this procedure that reads that history. Without
-   them the row is a guess wearing a `source` label, which is worse than an honest `builtin`.
+   `git log` calls above are the only thing in this procedure that reads that history. Without them
+   the row is a guess wearing a `source` label, which is worse than an honest `builtin`.
+
+   **All three read the same twenty commits**, so nothing here is a sample that could be
+   unrepresentative — an earlier version read three bodies, which is a sample of shape and not
+   evidence of a convention. The unfiltered body read is the authority and the trailer view is a
+   convenience on top of it: **a trailer token that pattern fails to match still appears in the line
+   above it**, so a narrow pattern there cannot hide a convention. That is deliberate — the pattern
+   was already too narrow once, dropping tokens containing digits.
 
    **Judgements:**
 

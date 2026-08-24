@@ -90,6 +90,13 @@ Added:
   And step 1's trailer detection read three bodies, which is a sample of shape and not evidence of a
   convention; trailers are now grepped out of twenty.
 
+  Round 4 closed the probe properly. All three `git log` calls read **the same twenty commits**, so
+  there is no sample left to be unrepresentative — round 3 had bumped the trailer read to twenty while
+  keeping a three-body read and labelling it "read in full rather than sampled", which was a label
+  contradicting its own command. The unfiltered body read is now the authority and the trailer grep is
+  a convenience view of the same twenty, so **a token that grep fails to match still appears in the
+  line above it**; the pattern had in fact been too narrow, dropping trailer tokens containing digits.
+
 - **Step 7's focus asks for every sibling in one comment.** The focus already named the class; it did
   not say what to ask for. That this raises findings per round is **derived, not measured** — what is
   measured is only that codex accepts the suffix — and the paragraph says so.
@@ -121,8 +128,17 @@ Added:
   "LINE 132"), the separator (a literal space passed "line: 132", "line:132", "line number 132"), the
   notation (matching the word alone passed "#L132" and "review-loop.md:132"), and the file cited
   (matching only `.md:` passed "procedure-refs.test.sh:40", though the rule forbids citing any file by
-  line). All six are closed and each member has its own case: 28 assertions, 18 forms that must be
-  caught and 9 that must not. The assertion was widened alongside the pattern — keying on a literal
+  line). Round 4 added two more: the filename form (a 1–4 letter extension passed
+  `package.jsonc:12`, and requiring an extension at all passed `Dockerfile:40` and `Makefile:12`) and
+  case sensitivity — folding the filename half into the `grep -i` half **re-broke it**, because `-i`
+  does not spare a bracket expression, and `floor: 2.4.0` matched again. Case is noise in `LINE 132`
+  and signal in `Dockerfile:40`, so the guard is now two patterns, one grep each. The extensionless
+  branch is the one axis with no syntax to derive from — an extensionless filename is lexically just a
+  word — so it is derived from the corpus instead: every `word: digits` phrase the procedure really
+  contains (`floor: 2.4.0`, `measured: 0 resolved`, and two `(last:40)` forms inside untouchable
+  fences) is lowercase or has no dot or slash, and all four are pinned as must-not-match cases. All
+  eight axes are closed and each member has its own case: 36 assertions, 22 forms that must be caught
+  and 13 that must not. The assertion was widened alongside the pattern — keying on a literal
   `line` would have let an `#L132` hit through unseen, the same defect one level up. The guard stays
   scoped to `commands/review-loop.md` so that this file can go on quoting the citations it records
   removing.

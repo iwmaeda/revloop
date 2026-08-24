@@ -26,6 +26,22 @@
 #                      and "review-loop.md: 132" pass
 #   the file cited     matching only `.md:` let "procedure-refs.test.sh:40"
 #                      pass, though the rule forbids citing any file by line
+#   the filename form  a 1-4 letter extension let "package.jsonc:12" pass, and
+#                      requiring an extension at all let "Dockerfile:40" and
+#                      "Makefile:12" pass
+#
+# The last axis is the one with no syntax to derive from: an extensionless
+# filename is lexically just a word, so nothing separates `Dockerfile:40` from
+# prose except the capital. That is measured rather than assumed — the corpus
+# holds `floor: 2.4.0`, `measured: 0 resolved`, and two `(last:40)` forms inside
+# fences that must not be touched, and every one of them is lowercase or has no
+# dot or slash before the colon. So the file branch is two rules: a path-shaped
+# token (one containing `.` or `/`, any extension length) and a capitalised bare
+# word. A single broad `word: digits` rule was tried first and matched all four
+# of those corpus lines.
+#
+#   case sensitivity   folding the filename half into the -i grep let
+#                      "floor: 2.4.0" and "measured: 0 resolved" match again
 #
 # Every member is pinned by its own case below. A guard is a predicate, and the
 # corpus cannot witness the forms a predicate fails to reject, so the cases are
@@ -43,16 +59,26 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "procedure-refs"
 
-CITATION='\blines?[[:space:]:#]+((numbers?|nos?\.?)[[:space:]:#]+)?[0-9]|(^|[^[:alnum:]])#?l[0-9]+\b|[A-Za-z0-9_-]\.[a-z]{1,4}:[[:space:]]*[0-9]'
+# Two patterns, because case is noise in one half and signal in the other.
+# "LINE 132" and "line 132" are the same citation, so that half is matched with
+# grep -i. "Dockerfile:40" is a citation and "floor: 2.4.0" is prose, and the
+# only thing between them is the capital, so that half must be case-sensitive.
+# Folding both into one -i grep was tried and it matched all three of the
+# lowercase corpus phrases below — -i does not spare a bracket expression.
+CITATION_I='\blines?[[:space:]:#]+((numbers?|nos?\.?)[[:space:]:#]+)?[0-9]|(^|[^[:alnum:]])#?l[0-9]+\b'
+CITATION_S='[A-Za-z0-9_-][./][A-Za-z0-9_./-]*:[[:space:]]*[0-9]|\b[A-Z][A-Za-z]+:[[:space:]]*[0-9]'
 
 caught() { # caught <text> -> CAUGHT | MISSED
-  if printf '%s\n' "$1" | grep -qiE "$CITATION"; then echo CAUGHT; else echo MISSED; fi
+  if printf '%s\n' "$1" | grep -qiE "$CITATION_I"; then echo CAUGHT
+  elif printf '%s\n' "$1" | grep -qE "$CITATION_S"; then echo CAUGHT
+  else echo MISSED; fi
 }
 
 # Marked with a literal the pattern itself cannot produce, so the assertion is
 # not narrower than the pattern. Matching on "line " would have let a `#L132`
 # or a `path.md:132` hit pass unseen — the same defect one level up.
-HITS=$(grep -niE "$CITATION" "$ROOT/commands/review-loop.md" | sed 's/^/CITATION /') || true
+PROC="$ROOT/commands/review-loop.md"
+HITS=$( { grep -niE "$CITATION_I" "$PROC"; grep -nE "$CITATION_S" "$PROC"; } | sed 's/^/CITATION /' ) || true
 refute "commands/review-loop.md cites no line numbers" "$HITS" "CITATION "
 
 expect "singular, two digits"     "$(caught 'see line 132 for the rule')"        CAUGHT
@@ -73,6 +99,10 @@ expect "the word number"          "$(caught 'see line number 132')"             
 expect "the abbreviation no."     "$(caught 'see line no. 132')"                 CAUGHT
 expect "path.md, space after :"   "$(caught 'review-loop.md: 132 has it')"       CAUGHT
 expect "a non-md path cited"      "$(caught 'tests/procedure-refs.test.sh:40')"  CAUGHT
+expect "a 5-letter extension"     "$(caught 'package.jsonc:12 says so')"         CAUGHT
+expect "an extensionless file"    "$(caught 'Dockerfile:40 sets it')"            CAUGHT
+expect "another bare filename"    "$(caught 'Makefile:12 has the rule')"         CAUGHT
+expect "an all-caps bare file"    "$(caught 'LICENSE:3 states it')"              CAUGHT
 
 # The backticks are the corpus form: the procedure writes both of these inside
 # code spans, and a case that drops them stops being a quotation of the text it
@@ -88,5 +118,9 @@ expect "a severity badge"         "$(caught 'a P1 finding and a P2 finding')"   
 expect "a table row citation"     "$(caught 'Rows 3 and 4 below')"               MISSED
 expect "a word ending in -line"   "$(caught 'the deadline 3 days out')"          MISSED
 expect "read the last line only"  "$(caught 'do not read the last line only')"   MISSED
+expect "lowercase word, colon, N" "$(caught 'Verified gh floor: 2.4.0 (2022-03)')" MISSED
+expect "a measured: N phrase"     "$(caught 'measured: 0 resolved, 31 outdated')" MISSED
+expect "a jq slice in a fence"    "$(caught 'comments(last:40){nodes{createdAt')"  MISSED
+expect "an ISO timestamp"         "$(caught 'SINCE=2026-08-24T07:59:33Z')"       MISSED
 
 summary "procedure-refs"
