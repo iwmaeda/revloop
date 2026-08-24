@@ -7,6 +7,83 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
+## [Unreleased]
+
+**No fence changed, so no re-approval is owed.** All three fences still match the hashes recorded in
+`tests/fence-hashes.txt`; `tests/fence-guards.test.sh` proves it on every run.
+
+Everything here comes from one measurement: seven pull requests driven through this loop with codex
+in a single repository (private, so `reviewers/codex.md` anonymises it as repo C, 2026-08). Their
+round counts were 2, 3, 3, 8, 10, 21, and 30, and **a round returns roughly one finding** — 23
+finding-bearing rounds on one PR at a mean of 1.22, never more than 2. **The rounds a pull request
+needs is therefore roughly the number of defects present when the trigger fires**, which is
+arithmetic on the measurement rather than a separate observation, and is labelled derived wherever
+it appears.
+
+Added:
+
+- **Step 10 now names three sweeps instead of one, and asks which one matches the class.** The old
+  advice was "sweep the whole codebase for its shape", and for the class that dominates the
+  measurement it is wrong: **about 20 of one PR's 30 rounds were successive members of a single
+  predicate's input space** — a particle, a comma-joined form, leading whitespace, whitespace around
+  a joiner, an em dash, a compound particle — one form per round. **A codebase sweep returns zero for
+  that class**, because the missing forms are inputs the predicate could receive and not text that
+  exists in the tree, so the author concludes the class is closed and the reviewer names the next
+  member next round. The three are a **corpus sweep** (instances exist; grep, fix, report count and
+  method — the old bullet, now named), an **input-space sweep** (enumerate the form space along
+  stated axes, close it as a set in one round, and pin every member with a synthetic case, because
+  the corpus cannot witness this class and a test is the only evidence there is), and a **definition
+  sweep** (find every other implementation of the predicate just changed and make them agree, or
+  delete one — measured: a splitter and its consumer carried two grammars, and one of two gates read
+  a different rule). Two guards ship with them: the input-space sweep is **bounded by what the
+  predicate's real inputs can contain**, so the rule cannot generate speculative work of its own, and
+  **a location already fixed in an earlier round of this PR means the class was named too narrowly**
+  — widen and sweep again rather than patch in the new member (measured: four commit subjects on one
+  PR name a prior round, and one line was fixed four separate times).
+- **Step 3 now reads the diff before step 4.** The procedure already asserted that the only way to
+  spend fewer rounds is to have fewer defects at fire time, and then fired anyway. Step 3 already
+  argued the same thing about CI — a red run wastes a round, so pay for it before pushing — and the
+  measurement makes the reviewer the more expensive of the two. **It is deliberately not a generic
+  self-review**: on the measured PR the author was an LLM that had already missed those findings
+  once, so a second general reading by the same reader is not supported by anything. It is step 10's
+  sweeps aimed at the diff, one step earlier. The pass must be reported, because a self-review nobody
+  can see is indistinguishable from one that never happened.
+- **Step 7's focus asks for every sibling in one comment.** The focus already named the class; it did
+  not say what to ask for. That this raises findings per round is **derived, not measured** — what is
+  measured is only that codex accepts the suffix — and the paragraph says so.
+- **Step 7 forbids the literal `revloop:trigger` in the focus text.** The wait fence reads the marker
+  as the text after the first occurrence of that literal, and the focus precedes the marker, so a
+  focus containing it wins the split. Measured against the fence's own jq program: the marker string
+  becomes `markers in the diff--`, carrying no `bot=`, `head=`, `reviewer=`, or `round=`. Step 9 then
+  aborts on `marker_head=none` (fail-closed, one wait spent) — but **an empty `bot=` disables the
+  fence's bot filter**, so any other bot on the pull request would have satisfied the wait had the
+  round continued. The schema already rejects a configured `trigger` containing the literal; the
+  focus is composed in the procedure, so the rule now exists there too.
+  `tests/fixtures/jq/focus-carrying-marker` pins it, with the existing clean-comment fixture as the
+  control that proves the assertions discriminate.
+- **`reviewers/codex.md` carries a second findings-per-round sample** and four new measurements:
+  findings concentrate (28 in 3 files, 30 in 5) and the next one repeats the previous file 39–52% of
+  the time across four PRs; severity predicts nothing (15/15 P2 on one PR, 15/15 P1 on another,
+  25 P1 + 3 P2 on a third, P3 zero throughout); the per-PR round counts; and the input-form-per-round
+  shape. **The second sample is not independent of the existing 37-round one** — same repository,
+  same account — and is written as corroborating the centre rather than the range, because presenting
+  two samples from one source as two sources is the "looks measured" failure `CONTRIBUTING.md` warns
+  about.
+- **`tests/procedure-refs.test.sh`** fails if the procedure cites one of its own line numbers, and
+  `CONTRIBUTING.md` states the rule beside it.
+
+Changed:
+
+- **`commands/review-loop.md` no longer cites its own line numbers.** `## Notes` named "step 10, line
+  334" and "step 11, line 371". Both were correct when written and both were one insertion away from
+  being silently wrong; the step numbers were already there, so the line numbers carried nothing.
+- **Two copies of a measured number now point at the card that owns it** rather than restating it:
+  the flags table said real PRs have needed 20+ rounds (the measured maximum is 30), and step 10's
+  lead declared codex at 1–4 and gemini at 30–50 a second time.
+- **Both README phase tables** describe the Prepare and Fix phases as they now behave — Prepare sweeps
+  the diff before pushing, and Fix runs the sweep that matches the class rather than "the codebase
+  sweep", which is now one of three and the one that does not apply to the dominant class.
+
 ## [0.1.0] - 2026-08-23
 
 First release. Everything below happened before it, so **no re-approval is owed to anyone**: there
