@@ -71,14 +71,23 @@ done
 # The prose names `Bash(gh api *)` in order to discourage it, and a grep over
 # the page would read that discouragement as a grant — the same prose-versus-
 # code distinction the git half above relies on.
-# `-X ?` and `gh api +` are not cosmetic. `gh api -XPOST …` and `gh api  -X PUT …`
-# are both valid spellings, and a pattern requiring exactly one space and a
-# separated verb reads each of them as the bare form — which is granted, so the
-# check would pass while the rule it implies does not match at runtime. That is
-# fail-open, the one direction a permission check must never take. Widened, the
-# joined spelling extracts as `-XPOST`, matches no rule, and fails loudly.
+# THE SPELLING OF A METHOD IS THE WHOLE PROBLEM HERE, so the pattern covers the
+# way gh accepts one rather than the way this procedure happens to write it.
+# `gh api --help` documents `-X, --method string`, which admits `-X POST`,
+# `-XPOST`, `-X=POST`, `--method POST` and `--method=POST`, and gh takes a
+# lowercase verb too. A pattern matching only `-X ` plus capitals reads every
+# other spelling as the **bare** form — and the bare form is granted, so the
+# check goes green beside a rule that will not match at runtime. **That is
+# fail-open, the one direction a permission check must never take.**
+#
+# The verb is deliberately extracted as written rather than normalised. A rule
+# matches a literal command-string prefix, so `Bash(gh api -X PATCH …)` does not
+# cover `gh api -X patch …`; normalising would hide exactly the mismatch this
+# exists to catch. Any non-canonical spelling therefore extracts as itself,
+# matches no rule, and fails — which also keeps one spelling canonical.
 GH_USED=$(awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "$PROC" \
-  | grep -oE 'gh api +(-X ?[A-Z]+|--paginate|graphql)?' | sed -E 's/^gh api +//; s/^$/repos/' | sort -u)
+  | grep -oE 'gh api +(--method[= ]?[A-Za-z]+|-X[= ]?[A-Za-z]+|--paginate|graphql)?' \
+  | sed -E 's/^gh api +//; s/^$/repos/' | sort -u)
 GH_GRANTED=$(awk '/^```json$/{inj=1;next} /^```$/{inj=0} inj' "$DOC" \
   | grep -oE '"Bash\(gh api (-X [A-Z]+|--paginate|graphql|repos)' | sed -E 's/^"Bash\(gh api //' | sort -u)
 
@@ -95,10 +104,25 @@ refute "  the prose-only Bash(gh api *) is not read as a grant" "$GH_GRANTED" "*
 
 # The extractor is a predicate, so the spellings it must not mis-read get their
 # own cases; the procedure cannot witness a form it does not currently contain.
-verb() { printf '%s\n' "$1" | grep -oE 'gh api +(-X ?[A-Z]+|--paginate|graphql)?' | sed -E 's/^gh api +//; s/^$/repos/'; }
-expect "a separated verb reads as itself" "$(verb 'gh api -X POST "repos/x"')"  "-X POST"
-expect "a joined verb does not read bare" "$(verb 'gh api -XPOST "repos/x"')"   "-XPOST"
-expect "extra spaces do not read bare"    "$(verb 'gh api  -X PUT "repos/x"')"  "-X PUT"
-expect "a bare call reads as the path"    "$(verb 'gh api "repos/x"')"          "repos"
+verb() {
+  printf '%s\n' "$1" \
+    | grep -oE 'gh api +(--method[= ]?[A-Za-z]+|-X[= ]?[A-Za-z]+|--paginate|graphql)?' \
+    | sed -E 's/^gh api +//; s/^$/repos/'
+}
+expect "a separated verb reads as itself" "$(verb 'gh api -X POST "repos/x"')"        "-X POST"
+expect "a joined verb does not read bare" "$(verb 'gh api -XPOST "repos/x"')"         "-XPOST"
+expect "an = separator does not either"   "$(verb 'gh api -X=POST "repos/x"')"        "-X=POST"
+expect "a lowercase verb does not either" "$(verb 'gh api -X patch "repos/x"')"       "-X patch"
+expect "the --method long form does not"  "$(verb 'gh api --method PATCH "repos/x"')" "--method PATCH"
+expect "nor --method with an ="           "$(verb 'gh api --method=PATCH "repos/x"')" "--method=PATCH"
+expect "extra spaces do not read bare"    "$(verb 'gh api  -X PUT "repos/x"')"        "-X PUT"
+expect "a bare call reads as the path"    "$(verb 'gh api "repos/x"')"                "repos"
+
+# Every spelling above except the canonical one is ungranted by construction, so
+# reading it as itself is what makes the subset check fail rather than pass.
+for spelling in '-XPOST' '-X=POST' '-X patch' '--method PATCH' '--method=PATCH'; do
+  expect "  '$spelling' is not in the granted list" \
+    "$(printf '%s\n' "$GH_GRANTED" | grep -cx -- "$spelling")" "0"
+done
 
 summary "permissions"

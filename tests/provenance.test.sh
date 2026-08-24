@@ -10,9 +10,14 @@
 #
 # Provenance is the half that actually failed. Two bullets in `gemini.md` stated
 # observations with no citation at all and survived several reviews; the rule had
-# required a citation the entire time. A citation is a PR reference (`#123`), a
-# `repo X` tag, or a `YYYY-MM` date — the three forms the Provenance section
-# names.
+# required a citation the entire time.
+#
+# The Provenance section gives two forms, and they are not interchangeable
+# fragments: a public observation cites the pull request directly, and a private
+# one is anonymised as `repo X` **with the month it was taken**. So the check is
+# a PR reference, or a repo tag AND a month — not any one of three. Written as a
+# flat alternation it accepted `repo C` with no month, and a bare `2026-08` with
+# no source at all, either of which is a bullet nobody can go and check.
 #
 # One exemption, and it is the one the rule already documents because it is
 # mechanical rather than a judgement: a bullet opening `**Derived from …**` names
@@ -25,10 +30,17 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "provenance"
 
-CITATION='#[0-9]+|repo [A-Z]|[0-9]{4}-[0-9]{2}'
+PR_REF='#[0-9]+'
+REPO_TAG='repo [A-Z]'
+MONTH='[0-9]{4}-[0-9]{2}'
+
+has() { printf '%s\n' "$2" | grep -qE "$1"; }
 
 cited() { # cited <text> -> CITED | UNCITED
-  if printf '%s\n' "$1" | grep -qE "$CITATION"; then echo CITED; else echo UNCITED; fi
+  if has "$PR_REF" "$1"; then echo CITED
+  elif has "$REPO_TAG" "$1" && has "$MONTH" "$1"; then echo CITED
+  else echo UNCITED
+  fi
 }
 
 # Pin the predicate before turning it on the corpus: the cards cannot witness a
@@ -36,10 +48,11 @@ cited() { # cited <text> -> CITED | UNCITED
 # The backticks are the corpus form — every card writes a PR reference inside a
 # code span — and a case that drops them stops quoting the text it protects.
 # shellcheck disable=SC2016
-expect "a PR reference is provenance" "$(cited 'seen on `iwmaeda/revloop#8`')" CITED
-expect "a repo tag is provenance"     "$(cited 'seen in repo C, one PR')"      CITED
-expect "a bare year-month is too"     "$(cited 'observed 2026-08 on a PR')"    CITED
-expect "an unsourced claim is not"    "$(cited 'the connector does this')"     UNCITED
+expect "a PR reference is provenance"  "$(cited 'seen on `iwmaeda/revloop#8`')"   CITED
+expect "a repo tag with its month is"  "$(cited 'seen in repo C, 2026-08')"       CITED
+expect "a repo tag without one is not" "$(cited 'seen in repo C, on one PR')"     UNCITED
+expect "a bare month is not either"    "$(cited 'observed 2026-08 on a PR')"      UNCITED
+expect "an unsourced claim is not"     "$(cited 'the connector does this')"       UNCITED
 
 cards=0
 bullets=0

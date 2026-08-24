@@ -55,11 +55,18 @@ Added:
   document would read that discouragement as a grant. A case pins that scoping. Verified by
   deleting the `-X PATCH` rule and watching the suite go red.
 
-  **The extractor is itself a predicate, and its first spelling was fail-open.** `gh api -XPOST …`
-  and `gh api  -X PUT …` are both valid, and a pattern wanting exactly one space and a separated verb
-  read each of them as the bare form — which is granted, so the check would have passed while the
-  rule it implies did not match at runtime. A permission check may fail closed and never open.
-  Widened, with the four spellings pinned by their own cases.
+  **The extractor is itself a predicate, and it was fail-open twice.** A pattern wanting exactly one
+  space and a separated capitalised verb reads `gh api -XPOST …`, `gh api  -X PUT …`,
+  `gh api -X patch …`, `gh api --method PATCH …` and `gh api --method=PATCH …` as the **bare** form —
+  and the bare form is granted, so the check goes green beside a rule that will not match at runtime.
+  A permission check may fail closed and never open. The pattern now covers the way `gh` accepts a
+  method (`gh api --help`: `-X, --method string`) rather than the way this procedure happens to write
+  one, and **the verb is extracted as written rather than normalised**: a rule matches a literal
+  prefix, so `Bash(gh api -X PATCH …)` does not cover `-X patch`, and normalising would hide the
+  mismatch. Each non-canonical spelling extracts as itself, matches nothing, and fails — which also
+  keeps one spelling canonical. All eight forms are pinned, and the five ungranted ones are asserted
+  ungranted. Verified end to end by rewriting step 6 as `--method PATCH` and watching the suite go
+  red.
 
 - **`tests/provenance.test.sh` holds the reviewer cards to the grammar `reviewers/README.md`
   states.** **It checks the provenance half only, and says so**: deciding whether a sentence is an
@@ -68,6 +75,13 @@ Added:
   half that failed anyway — two `gemini.md` bullets stated observations with no citation and survived
   several reviews. The one exemption is the documented mechanical one, for a bullet opening
   `**Derived from …**`. Verified by injecting an uncited bullet and watching it fail.
+
+  **The two provenance forms are not interchangeable fragments, and the first draft treated them as
+  three.** The section gives a public form — cite the pull request — and a private one: anonymise as
+  `repo X` **with the month**. Written as a flat alternation the check accepted `repo C` with no
+  month, and a bare `2026-08` with no source at all, either of which is a bullet nobody can go and
+  check. It is now a PR reference, or a repo tag and a month together. Every existing bullet on all
+  four cards satisfies the stricter rule, so it starts green.
 
 Changed:
 
