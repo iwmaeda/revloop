@@ -67,32 +67,59 @@ done
 # Step 6 gained exactly that verb after `gh pr edit` turned out not to work at
 # the documented floor, and nothing would have noticed the missing rule.
 #
-# GRANTED is read from the fenced ```json block alone, not the whole document.
-# The prose names `Bash(gh api *)` in order to discourage it, and a grep over
-# the page would read that discouragement as a grant — the same prose-versus-
-# code distinction the git half above relies on.
-# THE SPELLING OF A METHOD IS THE WHOLE PROBLEM HERE, so the pattern covers the
-# way gh accepts one rather than the way this procedure happens to write it.
-# `gh api --help` documents `-X, --method string`, which admits `-X POST`,
-# `-XPOST`, `-X=POST`, `--method POST` and `--method=POST`, and gh takes a
-# lowercase verb too. A pattern matching only `-X ` plus capitals reads every
-# other spelling as the **bare** form — and the bare form is granted, so the
-# check goes green beside a rule that will not match at runtime. **That is
-# fail-open, the one direction a permission check must never take.**
+# THIS CHECK REJECTS RATHER THAN FALLS BACK, and that is the whole design. Two
+# earlier versions matched a *method group* and made it optional, so any line
+# the group failed to recognise quietly became the bare form — which is granted.
+# Each round then widened the alphabet (`-XPOST`, then `--method`, then
+# lowercase) and the next spelling walked straight through: `-X  DELETE` with two
+# spaces, `gh  api`, a tab, `-X 'DELETE'`. The alphabet was never the class. **An
+# optional group with a granted default is fail-open by construction**, which is
+# the one direction a permission check must never take.
 #
-# The verb is deliberately extracted as written rather than normalised. A rule
-# matches a literal command-string prefix, so `Bash(gh api -X PATCH …)` does not
-# cover `gh api -X patch …`; normalising would hide exactly the mismatch this
-# exists to catch. Any non-canonical spelling therefore extracts as itself,
-# matches no rule, and fails — which also keeps one spelling canonical.
-GH_USED=$(awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "$PROC" \
-  | grep -oE 'gh api +(--method[= ]?[A-Za-z]+|-X[= ]?[A-Za-z]+|--paginate|graphql)?' \
-  | sed -E 's/^gh api +//; s/^$/repos/' | sort -u)
+# So: find every line that invokes gh api in *any* spelling, classify each
+# against the canonical forms only, and treat anything unclassified as a
+# failure. Widening the alphabet is no longer how a new spelling is handled —
+# rewriting it canonically is.
+#
+# GRANTED is read from the fenced ```json block alone, not the whole document.
+# The prose names `Bash(gh api *)` in order to discourage it, and a grep over the
+# page would read that discouragement as a grant.
 GH_GRANTED=$(awk '/^```json$/{inj=1;next} /^```$/{inj=0} inj' "$DOC" \
   | grep -oE '"Bash\(gh api (-X [A-Z]+|--paginate|graphql|repos)' | sed -E 's/^"Bash\(gh api //' | sort -u)
 
-expect "the procedure's blocks do call gh api" "$(nz "$(printf '%s\n' "$GH_USED" | grep -c .)")" NONEMPTY
+# Any spelling at all — this is the denominator, so nothing can be dropped.
+GH_LINES=$(awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "$PROC" | grep -cE 'gh[[:space:]]+api')
+
+# Canonical only: exactly one space, an uppercase verb, a quoted path.
+canon() { # canon <line> -> form | UNCLASSIFIED
+  f=$(printf '%s' "$1" | grep -oE 'gh api (-X [A-Z]+ |--paginate |graphql |"repos/)' | head -1 \
+      | sed -E 's/^gh api //; s/^"repos\/$/repos/; s/ $//')
+  printf '%s' "${f:-UNCLASSIFIED}"
+}
+
+GH_USED=; GH_BAD=; GH_SEEN=0
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  GH_SEEN=$((GH_SEEN + 1))
+  form=$(canon "$line")
+  if [ "$form" = UNCLASSIFIED ]; then
+    GH_BAD="$GH_BAD
+UNCLASSIFIED $(printf '%s' "$line" | sed -E 's/^ +//' | cut -c1-70)"
+  else
+    GH_USED="$GH_USED
+$form"
+  fi
+done <<INNER
+$(awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "$PROC" | grep -E 'gh[[:space:]]+api')
+INNER
+GH_USED=$(printf '%s\n' "$GH_USED" | grep -v '^$' | sort -u)
+
+nz() { if [ "$1" -gt 0 ]; then echo NONEMPTY; else echo EMPTY; fi; }
+expect "the procedure's blocks do call gh api" "$(nz "$GH_LINES")" NONEMPTY
+expect "  every gh api line was accounted for" "$GH_SEEN" "$GH_LINES"
 expect "the doc grants a gh api list"          "$(nz "$(printf '%s\n' "$GH_GRANTED" | grep -c .)")" NONEMPTY
+
+refute "every gh api line is a canonical spelling" "$GH_BAD" "UNCLASSIFIED "
 
 GH_MISSING=$(comm -23 <(printf '%s\n' "$GH_USED") <(printf '%s\n' "$GH_GRANTED") | sed 's/^/UNGRANTED /')
 refute "every gh api verb in a bash block has its own rule" "$GH_MISSING" "UNGRANTED "
@@ -102,27 +129,20 @@ refute "every gh api verb in a bash block has its own rule" "$GH_MISSING" "UNGRA
 # json block and the subset check has stopped meaning anything.
 refute "  the prose-only Bash(gh api *) is not read as a grant" "$GH_GRANTED" "*"
 
-# The extractor is a predicate, so the spellings it must not mis-read get their
-# own cases; the procedure cannot witness a form it does not currently contain.
-verb() {
-  printf '%s\n' "$1" \
-    | grep -oE 'gh api +(--method[= ]?[A-Za-z]+|-X[= ]?[A-Za-z]+|--paginate|graphql)?' \
-    | sed -E 's/^gh api +//; s/^$/repos/'
-}
-expect "a separated verb reads as itself" "$(verb 'gh api -X POST "repos/x"')"        "-X POST"
-expect "a joined verb does not read bare" "$(verb 'gh api -XPOST "repos/x"')"         "-XPOST"
-expect "an = separator does not either"   "$(verb 'gh api -X=POST "repos/x"')"        "-X=POST"
-expect "a lowercase verb does not either" "$(verb 'gh api -X patch "repos/x"')"       "-X patch"
-expect "the --method long form does not"  "$(verb 'gh api --method PATCH "repos/x"')" "--method PATCH"
-expect "nor --method with an ="           "$(verb 'gh api --method=PATCH "repos/x"')" "--method=PATCH"
-expect "extra spaces do not read bare"    "$(verb 'gh api  -X PUT "repos/x"')"        "-X PUT"
-expect "a bare call reads as the path"    "$(verb 'gh api "repos/x"')"                "repos"
-
-# Every spelling above except the canonical one is ungranted by construction, so
-# reading it as itself is what makes the subset check fail rather than pass.
-for spelling in '-XPOST' '-X=POST' '-X patch' '--method PATCH' '--method=PATCH'; do
-  expect "  '$spelling' is not in the granted list" \
-    "$(printf '%s\n' "$GH_GRANTED" | grep -cx -- "$spelling")" "0"
-done
+# The classifier is a predicate. The corpus holds only canonical spellings, so
+# it cannot witness a single one of the forms that must be rejected.
+expect "canonical -X reads as itself"   "$(canon 'gh api -X POST "repos/x"')"        "-X POST"
+expect "a quoted path reads as repos"   "$(canon 'gh api "repos/x"')"                "repos"
+expect "graphql reads as graphql"       "$(canon 'gh api graphql -F o=x')"           "graphql"
+expect "--paginate reads as itself"     "$(canon 'gh api --paginate "repos/x"')"     "--paginate"
+expect "a joined verb is rejected"      "$(canon 'gh api -XPOST "repos/x"')"         UNCLASSIFIED
+expect "an = separator is rejected"     "$(canon 'gh api -X=POST "repos/x"')"        UNCLASSIFIED
+expect "a lowercase verb is rejected"   "$(canon 'gh api -X patch "repos/x"')"       UNCLASSIFIED
+expect "--method is rejected"           "$(canon 'gh api --method PATCH "repos/x"')" UNCLASSIFIED
+expect "--method= is rejected"          "$(canon 'gh api --method=PATCH "repos/x"')" UNCLASSIFIED
+expect "a doubled inner space is too"   "$(canon 'gh api -X  DELETE "repos/x"')"     UNCLASSIFIED
+expect "a doubled gh/api space is too"  "$(canon 'gh  api -X DELETE "repos/x"')"     UNCLASSIFIED
+expect "a tab between tokens is too"    "$(canon 'gh	api -X DELETE "repos/x"')"      UNCLASSIFIED
+expect "a quoted verb is rejected"      "$(canon "gh api -X 'DELETE' \"repos/x\"")"  UNCLASSIFIED
 
 summary "permissions"

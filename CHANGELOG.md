@@ -55,18 +55,22 @@ Added:
   document would read that discouragement as a grant. A case pins that scoping. Verified by
   deleting the `-X PATCH` rule and watching the suite go red.
 
-  **The extractor is itself a predicate, and it was fail-open twice.** A pattern wanting exactly one
-  space and a separated capitalised verb reads `gh api -XPOST …`, `gh api  -X PUT …`,
-  `gh api -X patch …`, `gh api --method PATCH …` and `gh api --method=PATCH …` as the **bare** form —
-  and the bare form is granted, so the check goes green beside a rule that will not match at runtime.
-  A permission check may fail closed and never open. The pattern now covers the way `gh` accepts a
-  method (`gh api --help`: `-X, --method string`) rather than the way this procedure happens to write
-  one, and **the verb is extracted as written rather than normalised**: a rule matches a literal
-  prefix, so `Bash(gh api -X PATCH …)` does not cover `-X patch`, and normalising would hide the
-  mismatch. Each non-canonical spelling extracts as itself, matches nothing, and fails — which also
-  keeps one spelling canonical. All eight forms are pinned, and the five ungranted ones are asserted
-  ungranted. Verified end to end by rewriting step 6 as `--method PATCH` and watching the suite go
-  red.
+  **The extractor rejects rather than falls back, and it took three rounds to get there because the
+  first two answers were the wrong shape.** Both matched a _method group_ and made it optional, so
+  any line the group failed to recognise quietly became the bare form — which is granted. Each round
+  then widened the alphabet and the next spelling walked straight through: `-XPOST`, then
+  `--method PATCH` and a lowercase verb, then `-X  DELETE` with two spaces, `gh  api`, a tab, and
+  `-X 'DELETE'`. **The alphabet was never the class. An optional group with a granted default is
+  fail-open by construction**, and a permission check may fail closed and never open.
+
+  So it now finds every line invoking `gh api` in any spelling, classifies each against the canonical
+  forms alone, and treats anything unclassified as a failure — with the line count asserted equal to
+  the number classified, so nothing can be dropped on the way to green. **The verb is matched as
+  written, never normalised**: a rule matches a literal prefix, so `Bash(gh api -X PATCH …)` does not
+  cover `-X patch`, and normalising would hide exactly that mismatch. Widening the alphabet is no
+  longer how a new spelling is handled; rewriting it canonically is. Thirteen forms pinned, four
+  accepted and nine rejected. Verified end to end by rewriting step 6 as `--method PATCH` and
+  watching the suite go red.
 
 - **`tests/provenance.test.sh` holds the reviewer cards to the grammar `reviewers/README.md`
   states.** **It checks the provenance half only, and says so**: deciding whether a sentence is an
@@ -80,18 +84,36 @@ Added:
   three.** The section gives a public form — cite the pull request — and a private one: anonymise as
   `repo X` **with the month**. Written as a flat alternation the check accepted `repo C` with no
   month, and a bare `2026-08` with no source at all, either of which is a bullet nobody can go and
-  check. It is now a PR reference, or a repo tag and a month together. Every existing bullet on all
-  four cards satisfies the stricter rule, so it starts green.
+  check. It is now a PR reference, or a repo tag and a month together.
+
+  **Each form is matched whole rather than as a substring**, which a later round caught: a bare
+  `#[0-9]+` is satisfied by `C#8` in ordinary prose, `repo [A-Z]` by `repo GitHub` — a name, not an
+  anonymisation — and an unbounded month by `2026-99`. A PR reference now needs its `owner/name`, a
+  repo tag needs a lone capital, and a month has to be one that exists. **The exemption was loose the
+  same way**: `- **Derived from** …` closed the marker without naming anything and skipped the check
+  entirely, so the bold span must now contain a source.
+
+  **And a card the extractor could not parse used to pass in silence.** A `*` list marker or a
+  `##  Measured` heading with two spaces yielded zero bullets, while the aggregate count stayed
+  non-empty from the other cards — an entirely uncited new card would have gone green. Both markers
+  are recognised now, and **each card asserts its own parseable section** rather than contributing to
+  a total. Every existing bullet on all four cards satisfies the stricter rule, checked before it was
+  tightened, so the guard starts green.
 
 Changed:
 
-- **Step 3's untracked-file whitespace loop reports a status instead of only printing.** The
-  procedure already recorded that `--no-index` exits 1 for a clean new file and 3 for a dirty one, so
-  the whitespace signal is the `2` bit; the loop now accumulates it and ends on `2` or `0`. The
-  braces around the loop body are load-bearing for the same reason `-z` is — the `while` is the last
-  stage of a pipeline and therefore a subshell, so a bare assignment inside it would be discarded and
-  the status would always be the last file's. Verified across five cases, including a dirty file
-  followed by a clean one. The output is still the report; the status only says whether to look.
+- **Step 3's untracked-file whitespace loop reports a status instead of only printing**, and
+  **classifies that status rather than masking it with a bit test.** `--no-index` exits 1 for a clean
+  new file and 3 for a dirty one, so `2` is the whitespace bit — but `git diff` also exits 128 when it
+  cannot read a path, and `128 & 2` is zero, so a bit test calls an unreadable file clean. Measured on
+  git 2.34.1: a single `chmod 000` file that `git ls-files -o` does list gives
+  `error: open("only.txt"): Permission denied`, exit 128, and a `& 2` loop reports **status 0**. Only
+  0 and 1 are clean now, 3 is the whitespace finding, and every other status is an operational failure
+  that outranks it, because a check that could not read its input has not passed. `set -o pipefail`
+  covers the producer side for the same reason. The braces are load-bearing as `-z` is — the `while`
+  is the last stage of a pipeline and therefore a subshell, so a bare assignment would be discarded
+  and the status would be the last file's. The output is still the report; the status says only
+  whether to look, and at what.
 
 The entries here come from two sources, and the difference matters when reading them.
 

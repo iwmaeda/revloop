@@ -133,9 +133,15 @@ approval, so it has to come from the person typing it.
 
    ```bash
    git diff --check HEAD           # vs HEAD, so staged edits count; bare --check reads only unstaged
+   set -o pipefail
    git ls-files -o --exclude-standard -z |
      { bad=0; while IFS= read -r -d '' f; do
-         git diff --check --no-index -- /dev/null "$f"; [ $(( $? & 2 )) -eq 0 ] || bad=2
+         git diff --check --no-index -- /dev/null "$f"; s=$?
+         case $s in
+           0|1) ;;                            # clean, or a difference with no whitespace error
+           3)   [ "$bad" -eq 0 ] && bad=2 ;;  # the whitespace bit
+           *)   bad=$s ;;                     # anything else is a failure and outranks it
+         esac
        done; exit "$bad"; }
    ```
 
@@ -162,12 +168,21 @@ approval, so it has to come from the person typing it.
 
    **The loop's own exit status is not `--no-index`'s.** `--no-index` compares against `/dev/null`, so
    every new file is a difference: measured, a clean one exits `1` and a dirty one exits `3`. Testing
-   `$? -ne 0` would mark this preflight red whenever any untracked file exists at all. The whitespace
-   signal is the `2` bit, which is what `$(( $? & 2 ))` reads, and the loop ends on `2` if any file
-   tripped it and `0` otherwise. The braces are load-bearing for the same reason `-z` is: the `while`
-   is the last stage of a pipeline and therefore a subshell, so a bare `bad=…` inside it would be
-   discarded and the status would always be the last file's. **The report is still the output** — the
-   status says only whether to look.
+   `$? -ne 0` would mark this preflight red whenever any untracked file exists at all.
+
+   **Classify the status; do not mask it with a bit test.** `2` is the whitespace bit, but
+   `git diff` also exits `128` when it cannot read a path at all, and `128 & 2` is zero — so a bit
+   test calls an unreadable file clean. Measured on git 2.34.1: a single `chmod 000` file that
+   `git ls-files -o` does list gives `error: open("only.txt"): Permission denied`, exit `128`, and a
+   `& 2` loop reports **status 0**. Only `0` and `1` are clean, `3` is the whitespace finding, and
+   every other status is an operational failure that outranks it, because a check that cannot read
+   its input has not passed. `set -o pipefail` is there for the same reason on the producer side: a
+   failing `git ls-files` would otherwise be invisible in the pipeline's status.
+
+   The braces are load-bearing for the same reason `-z` is: the `while` is the last stage of a
+   pipeline and therefore a subshell, so a bare `bad=…` inside it would be discarded and the status
+   would always be the last file's. **The report is still the output** — the status says only whether
+   to look, and at which kind of problem.
 
    If the project's umbrella check command does not cover everything CI runs — a common gap, and its
    shape differs per repository — run the uncovered part explicitly. The resolved table's
