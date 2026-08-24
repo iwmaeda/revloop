@@ -23,7 +23,7 @@ rather than a separate observation, and is labelled derived wherever it appears.
 entries below about steps 3, 7 and 10 were **originally written from**; several of them were then
 corrected by the second source, and say so in place.
 
-**The rest comes from this pull request reviewing itself.** Six review rounds on the branch that adds
+**The rest comes from this pull request reviewing itself.** Its review rounds on the branch that adds
 these entries produced further defects in them, each fixed and recorded in place rather than as a
 separate entry, and several were measured in throwaway git repositories built for the question — the
 `--no-index` exit codes, the filename-handling table, and the `--follow` rename case. Those say
@@ -140,15 +140,24 @@ Added:
   same account — and is written as corroborating the centre rather than the range, because presenting
   two samples from one source as two sources is the "looks measured" failure `CONTRIBUTING.md` warns
   about.
-- **`reviewers/README.md` states the rule the cards are written to**: a `## Measured` bullet gives the
-  observation first and marks any consequence `Derived`. Design rationale signposted as such ("which
-  is why the loop watches both") is exempt; a declarative statement about reviewer behaviour is not.
-  Round 6 added the rule after two unmarked inferences were found in `codex.md`, and **round 7 found
-  four more, two of them in the very commit that added the rule** — an unmarked inference in the
-  bullet that commit edited, and the rule's own sentence miscounting how many there had been. All are
-  marked now: the sample-independence conclusion, the focus suffix's effect on the findings budget
-  (which the procedure already called derived and the card did not), and the inference that a
-  ten-second reply is a failure rather than a review.
+- **`reviewers/README.md` states the rule the cards are written to**: a `## Measured` bullet opens
+  with an observation and its provenance, and everything after that — inference, recommendation,
+  remedy, design consequence — sits behind a `Derived:` marker. A bullet with no observation belongs
+  under `## Not measured`, which all four cards now have; the single exception is mechanical, for a
+  bullet that opens by naming what it derives from.
+
+  **The rule took three rounds to hold, and the reason is the rule's first draft.** It exempted
+  "design rationale signposted as such", and that exemption required deciding sentence by sentence
+  whether something was rationale or a claim. The judgement went wrong in both directions in
+  consecutive rounds: first leaving inferences unmarked, then defending the exemption for four
+  sentences a later audit rejected. The exemption is gone, the rule is now mechanical, and it costs
+  some `Derived:` markers on sentences whose status was never in doubt — the cheaper side of the
+  trade. It also took three rounds because the first two applications only touched `codex.md` while
+  the rule sat in a file governing every card, which is the same "stated in one place, not held to
+  elsewhere" shape the rule exists to catch. All four cards are now written to it, `gemini.md` and
+  `claude.md` and `copilot.md` gained the `## Not measured` sections the rule implies, and the
+  focus-suffix bullet gained the provenance it never had.
+
 - **`tests/procedure-refs.test.sh`** fails if the procedure cites one of its own line numbers, and
   `CONTRIBUTING.md` states the rule beside it. **It took five review rounds to make the guard's claim
   match its behaviour, and the reason is worth more than the guard**: each round closed one axis of the

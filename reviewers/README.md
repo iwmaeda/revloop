@@ -20,14 +20,23 @@ private repositories are anonymised as `repo B` / `repo C` with the month they w
 is not decoration: this procedure is only worth trusting because it separates what was measured from
 what was assumed, and that distinction is meaningful only if a reader can go and check.
 
-**A `## Measured` bullet states an observation first, and marks any consequence drawn from it
-`Derived`.** The two are different kinds of claim — one can be checked against a PR, the other only
-against an argument — and a conclusion that inherits the heading's authority without inheriting its
-evidence is the "looks measured" failure `CONTRIBUTING.md` warns about. Design rationale signposted as
-such ("which is why the loop…") is not a derived claim and needs no marker; a declarative statement
-about reviewer behaviour does. `codex.md` carried several unmarked ones, and successive reviews of
-this repository found them a batch at a time — including two that survived the commit which added
-this rule.
+**A `## Measured` bullet opens with an observation and its provenance. Everything after that sits
+behind a `Derived:` marker** — an inference, a recommendation, a remedy, a design consequence, no
+exceptions. The two are different kinds of claim: one can be checked against a PR, the other only
+against an argument, and a conclusion that inherits the heading's authority without inheriting its
+evidence is the "looks measured" failure `CONTRIBUTING.md` warns about. **A bullet with no observation
+does not belong here at all** — it goes under `## Not measured`, which every card has. The one
+exception is mechanical rather than a judgement call: a bullet that opens by naming what it rests on
+(`**Derived from the samples above**`) is a derivation of the bullets around it and belongs beside
+them.
+
+**The first version of this rule exempted "design rationale signposted as such", and that exemption is
+gone.** It required deciding, sentence by sentence, whether something was rationale or a claim, and
+that judgement was made wrong in both directions in two consecutive review rounds — first by leaving
+inferences unmarked, then by defending the exemption for four more that a later audit rejected. A
+mechanical rule can be checked by reading; a judgement call gets re-litigated every review. The cost
+is some `Derived:` markers on sentences whose status was never really in doubt, which is the cheaper
+side of the trade.
 
 ## Adding one
 
