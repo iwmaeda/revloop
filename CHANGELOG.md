@@ -74,6 +74,22 @@ Added:
   both say commit style and the two languages are "detected" from it; two `git log` calls now do,
   because a row that says `detected` with no detector behind it is worse than an honest `builtin`.
 
+  Round 3 found four more, all of them the mechanics rather than the intent, and three measured on a
+  repository holding two awkward names — one beginning with two blanks, and `-dashfile.txt`.
+  **The untracked loop skipped exactly
+  the awkward names it existed to reach**: `read -r` without `IFS=` strips leading blanks
+  (`Could not access 'leading-space.txt'`), `git ls-files` without `-z` renders an embedded newline as
+  the quoted `"new\nline.txt"`, and a name beginning with `-` reaches `git diff` as options
+  (`unknown switch 'd'`) — both files' whitespace errors went unreported while the loop printed
+  complaints about their names. It is now `-z` with `IFS= read -r -d ''` and a `--` separator, and the
+  procedure states that the **exit status of `--no-index` is not the signal**: every new file differs
+  from `/dev/null`, so a clean one exits `1` and a dirty one `3`, and `$? -ne 0` would mark the
+  preflight red whenever any untracked file exists. **Step 10's "was this already fixed in an earlier
+  round" query gained `--follow`** — measured: a file fixed in round 1 and renamed in round 2 shows
+  only the rename, so the question that exists to detect a too-narrow class answered a confident No.
+  And step 1's trailer detection read three bodies, which is a sample of shape and not evidence of a
+  convention; trailers are now grepped out of twenty.
+
 - **Step 7's focus asks for every sibling in one comment.** The focus already named the class; it did
   not say what to ask for. That this raises findings per round is **derived, not measured** — what is
   measured is only that codex accepts the suffix — and the paragraph says so.
@@ -96,19 +112,20 @@ Added:
   two samples from one source as two sources is the "looks measured" failure `CONTRIBUTING.md` warns
   about.
 - **`tests/procedure-refs.test.sh`** fails if the procedure cites one of its own line numbers, and
-  `CONTRIBUTING.md` states the rule beside it. The guard matches the notation rather than one
-  spelling of it — singular and plural, any digit count, either case, an optional `#`, the `#L132`
-  anchor, and the `path.md:132` form — with a case pinning each member, because a guard is a
-  predicate and the corpus cannot witness the forms it fails to reject. Its first version required
-  `line` singular followed by two or more digits, so an ordinary rephrasing of the two citations it
-  was written to catch — "lines 334 and 371" — would have reintroduced the defect and passed. The
-  assertion was widened with it: keying on a literal `line` would have let an `#L132` hit
-  through unseen, the same defect one level up. Round 2 caught the case axis still being spelled by
-  hand as `[Ll]`, which covers `line` and `Line` and let `LINE 132` and `LINES 334 and 371` through —
-  the comment claimed "either case" while the pattern did not deliver it, which is the same defect the
-  pattern exists to catch. Both call sites are now `grep -i`, the all-caps forms are pinned, and the
-  suite is 20 assertions. The guard stays scoped to `commands/review-loop.md` so that this file can go
-  on quoting the citations it records removing.
+  `CONTRIBUTING.md` states the rule beside it. **It took three review rounds to make the guard cover
+  its own rule, and the reason is worth more than the guard**: each round closed one axis of the
+  notation and left the next one spelled by hand, which is the failure the procedure's own
+  input-space sweep is written to prevent. The axes, in the order they were found — number of digits
+  (`[0-9]{2,}` passed "line 9"), singular versus plural (`line` alone passed "lines 334 and 371",
+  which is just the two citations the guard was written to catch, joined), letter case (`[Ll]` passed
+  "LINE 132"), the separator (a literal space passed "line: 132", "line:132", "line number 132"), the
+  notation (matching the word alone passed "#L132" and "review-loop.md:132"), and the file cited
+  (matching only `.md:` passed "procedure-refs.test.sh:40", though the rule forbids citing any file by
+  line). All six are closed and each member has its own case: 28 assertions, 18 forms that must be
+  caught and 9 that must not. The assertion was widened alongside the pattern — keying on a literal
+  `line` would have let an `#L132` hit through unseen, the same defect one level up. The guard stays
+  scoped to `commands/review-loop.md` so that this file can go on quoting the citations it records
+  removing.
 
 Changed:
 

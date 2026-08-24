@@ -11,18 +11,25 @@
 # to quote the citations it records removing, and does; a repository-wide grep
 # would fail on that entry for saying what it fixed.
 #
-# The pattern covers the notation, not one spelling of it. An earlier version
-# matched `line` singular followed by two or more digits, so joining the very
-# two citations it was written to catch — "lines 334 and 371" — would have
-# reintroduced the defect and passed. The members below are each pinned
-# by a case, because a guard is a predicate and the corpus cannot witness the
-# forms it fails to reject: singular and plural, any digit count, any case,
-# an optional `#`, the `#L132` anchor, and the `path.md:132` notation.
+# The pattern covers the notation, not one spelling of it, and it took three
+# review rounds to get there because each round widened one axis and left the
+# next one spelled by hand. The axes, and what each cost:
 #
-# "Any case" is grep -i, not `[Ll]`. Spelling the two sentence-shaped forms by
-# hand covered `line` and `Line` and left `LINE 132` and `LINES 334 and 371`
-# through — the claim in this comment was true of the rule and false of the
-# pattern, which is the same defect the pattern exists to catch.
+#   number of digits   `[0-9]{2,}` let "line 9" pass
+#   singular / plural  `line` alone let "lines 334 and 371" pass — which is
+#                      just the two citations the guard was written to catch,
+#                      joined, so it was the likeliest reintroduction of all
+#   letter case        `[Ll]` let "LINE 132" and "LINES 334 and 371" pass
+#   the separator      a literal space let "line: 132", "line:132" and
+#                      "line number 132" pass
+#   the notation       matching only the word let "#L132", "review-loop.md:132"
+#                      and "review-loop.md: 132" pass
+#   the file cited     matching only `.md:` let "procedure-refs.test.sh:40"
+#                      pass, though the rule forbids citing any file by line
+#
+# Every member is pinned by its own case below. A guard is a predicate, and the
+# corpus cannot witness the forms a predicate fails to reject, so the cases are
+# the only evidence that any of these axes are actually closed.
 #
 # Dropping the two-digit floor costs one thing: "line 1" meaning the first line
 # of some output now trips the guard. Write "the first line" instead, which the
@@ -36,7 +43,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "procedure-refs"
 
-CITATION='\b[Ll]ines?[[:space:]]+#?[0-9]|(^|[^[:alnum:]])#?[Ll][0-9]+\b|\.md:[0-9]+'
+CITATION='\blines?[[:space:]:#]+((numbers?|nos?\.?)[[:space:]:#]+)?[0-9]|(^|[^[:alnum:]])#?l[0-9]+\b|[A-Za-z0-9_-]\.[a-z]{1,4}:[[:space:]]*[0-9]'
 
 caught() { # caught <text> -> CAUGHT | MISSED
   if printf '%s\n' "$1" | grep -qiE "$CITATION"; then echo CAUGHT; else echo MISSED; fi
@@ -60,6 +67,12 @@ expect "all caps, plural"         "$(caught 'LINES 334 and 371')"               
 expect "a lowercase l anchor"     "$(caught 'blob/main/review-loop.md#l132')"    CAUGHT
 expect "a GitHub #L anchor"       "$(caught 'blob/main/review-loop.md#L132')"    CAUGHT
 expect "the path.md:N notation"   "$(caught 'commands/review-loop.md:132 has it')" CAUGHT
+expect "a colon separator"        "$(caught 'see line: 132')"                    CAUGHT
+expect "a colon, no space"        "$(caught 'see line:132')"                     CAUGHT
+expect "the word number"          "$(caught 'see line number 132')"              CAUGHT
+expect "the abbreviation no."     "$(caught 'see line no. 132')"                 CAUGHT
+expect "path.md, space after :"   "$(caught 'review-loop.md: 132 has it')"       CAUGHT
+expect "a non-md path cited"      "$(caught 'tests/procedure-refs.test.sh:40')"  CAUGHT
 
 # The backticks are the corpus form: the procedure writes both of these inside
 # code spans, and a case that drops them stops being a quotation of the text it
@@ -73,5 +86,7 @@ expect "the first line"           "$(caught "the body's first line")"           
 expect "a step citation"          "$(caught 'see step 10 and step 11')"          MISSED
 expect "a severity badge"         "$(caught 'a P1 finding and a P2 finding')"    MISSED
 expect "a table row citation"     "$(caught 'Rows 3 and 4 below')"               MISSED
+expect "a word ending in -line"   "$(caught 'the deadline 3 days out')"          MISSED
+expect "read the last line only"  "$(caught 'do not read the last line only')"   MISSED
 
 summary "procedure-refs"

@@ -51,8 +51,9 @@ approval, so it has to come from the person typing it.
    ```bash
    git branch --show-current
    git status --porcelain -uall
-   git log -20 --format='%s'                    # commit style: subject language, scope vocabulary
-   git log -3 --format='%B'                     # ... and the body and trailer shape
+   git log -20 --format='%s'                    # subject language and scope vocabulary
+   git log -20 --format='%b' | grep -E '^[A-Za-z][A-Za-z-]*: '   # trailer style, over the same 20
+   git log -3 --format='%b'                     # body shape, read in full rather than sampled
    git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo '(no upstream = normal)'
    gh --version | head -1
    gh repo view --json nameWithOwner,defaultBranchRef,isFork,deleteBranchOnMerge \
@@ -122,7 +123,7 @@ approval, so it has to come from the person typing it.
 
    ```bash
    git diff --check HEAD           # vs HEAD, so staged edits count; bare --check reads only unstaged
-   git ls-files -o --exclude-standard | while read -r f; do git diff --check --no-index /dev/null "$f"; done
+   git ls-files -o --exclude-standard -z | while IFS= read -r -d '' f; do git diff --check --no-index -- /dev/null "$f"; done
    ```
 
    **`git diff --check` reaches tracked content only**, so a brand-new file — where a whitespace error
@@ -130,6 +131,22 @@ approval, so it has to come from the person typing it.
    check against `/dev/null`. It is written that way rather than as `git add -N .` because
    intent-to-add writes index entries for files step 4 has not decided to stage, and step 4's whole
    discipline is that nothing is staged unless it was chosen.
+
+   **Every token in that line is load-bearing, and the naive spelling fails silently** — measured, on
+   a repository holding two awkward names, both with trailing whitespace — one beginning with two
+   blanks, and `-dashfile.txt`:
+
+   | Omit             | What happens                                                                             |
+   | ---------------- | ---------------------------------------------------------------------------------------- |
+   | `-z` and `-d ''` | an embedded newline arrives quoted as `"new\nline.txt"`, which is not a path             |
+   | `IFS=`           | `read` strips the leading blanks, and git answers `Could not access 'leading-space.txt'` |
+   | `--`             | `-dashfile.txt` is parsed as options — `unknown switch 'd'`                              |
+
+   In the naive form both files' whitespace errors were **not reported at all**; the loop printed two
+   errors about the filenames and moved on. **Read the output, not the exit status.** `--no-index`
+   compares against `/dev/null`, so every new file is a difference: a clean one exits `1` and a dirty
+   one exits `3`. Testing `$? -ne 0` marks this preflight red whenever any untracked file exists; the
+   whitespace signal is the `2` bit.
 
    If the project's umbrella check command does not cover everything CI runs — a common gap, and its
    shape differs per repository — run the uncovered part explicitly. The resolved table's
@@ -448,7 +465,10 @@ approval, so it has to come from the person typing it.
       Measured: a splitter and its consumer carried two different grammars, and one of two gates read
       a different rule from the other — each drift cost its own round.
     - **Check whether this location was already fixed in an earlier round of this PR.**
-      `git log --oneline <base>..HEAD -- <path>` and your own earlier replies both answer it. If it
+      `git log --oneline --follow <base>..HEAD -- <path>` and your own earlier replies both answer it.
+      **`--follow` is what makes the answer true across a rename** — measured: without it, a file
+      fixed in round 1 and renamed in round 2 shows only the rename, so the question "was this already
+      fixed?" gets a confident No. If it
       was, **the class was named too narrowly: widen it and sweep again, rather than patching in the
       new member.** Measured: four commit subjects on one PR name a prior round, and one line was
       fixed four separate times.
