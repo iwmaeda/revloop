@@ -30,8 +30,9 @@ Fixed:
   already uses REST `PUT` and why CI status comes from `gh pr view --json`. The floor note used to
   say `gh pr create/edit --body-file` "all exist at 2.4.0"; **existing at the floor and working at
   the floor are different claims**, and it now separates them. `gh pr create` is left alone and
-  recorded as **unmeasured** — it has no existing pull request to query, so it should not reach the
-  same field, but nobody has run it there since the sunset.
+  **measured working** at the same floor (`iwmaeda/revloop#9`, 2026-08, exit 0) — it has no existing
+  pull request to query, so it never reaches the retired field. That measurement was taken by this
+  changelog's own pull request being opened, which is the cheapest experiment that was available.
 - **The procedure prescribed an artifact that broke its own verify step.** `.revloop/field-notes.md`
   is git-ignored, but neither `.markdownlint-cli2.jsonc` nor `.prettierignore` excluded it, and the
   documented "one line per event" format runs past MD013 on the first line. Writing the field note

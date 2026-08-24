@@ -256,10 +256,11 @@ approval, so it has to come from the person typing it.
    through REST `PUT` rather than `gh pr merge`: prefer the stable REST surface over a subcommand
    whose extra queries can be deprecated out from under the floor.
 
-   **`gh pr create` above is _not_ known to be affected, and is _not_ known to be safe.** It has no
-   existing pull request to query, so it does not reach the same field, but nobody has run it at the
-   floor since the sunset. If it fails the same way, `POST repos/{owner}/{repo}/pulls` is the
-   substitution — and it would need its own permission rule.
+   **`gh pr create` above is not affected**, measured at the same floor (`iwmaeda/revloop#9`,
+   2026-08): it exits 0 and creates the pull request. It has no existing pull request to query, so it
+   never reaches the retired field. It stays a subcommand for that reason — the REST substitution
+   would be `POST repos/{owner}/{repo}/pulls` and would need its own permission rule, and neither is
+   worth adding for a call that works.
 
    Write the title and body in the languages from the resolved configuration (`pr.titleLanguage`,
    `commit.bodyLanguage`) — they are detected from the repository's own history, not imposed.

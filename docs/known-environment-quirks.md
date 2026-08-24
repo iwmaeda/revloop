@@ -51,8 +51,9 @@ through REST `PUT` rather than `gh pr merge`, and why CI status comes from
 same way. **Existing at the floor and working at the floor are different claims**, and the
 procedure's floor note used to conflate them.
 
-**Not measured:** whether `gh pr create --body-file` is affected. It has no existing pull request to
-query, so it should not reach the same field, but nobody has run it at the floor since the sunset.
+**`gh pr create --body-file` is not affected**, measured at the same floor immediately afterwards
+(`iwmaeda/revloop#9`, 2026-08): exit 0, pull request created. It has no existing pull request to
+query and never reaches the retired field, which is why only the edit path moved to REST.
 
 **Attribution:** `iwmaeda/revloop#8`, 2026-08, on `gh version 2.4.0+dfsg1`.
 
