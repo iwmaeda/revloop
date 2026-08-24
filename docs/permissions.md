@@ -69,9 +69,17 @@ commands live in fenced blocks and prose does not, so extracting from the blocks
 `set` nor `show` and needs no exclusion list. The list had already drifted three times by then
 (`switch`, `fetch`, `ls-files`), which is what the test would have caught.
 
-What it still cannot catch is a command the procedure gives in prose rather than a block — `git add`
-and `git commit` in step 4's paragraph, `git fetch` in step 9's table. Those three are asserted
-present by name, which is the closest a mechanical check gets to that direction.
+**The check runs in both directions**, because there are no prose-prescribed commands left to make it
+one-way. `git add` and `git commit` used to live in step 4's paragraph and `git fetch` in step 9's
+table, invisible to any scan of the blocks; three assertions named them by hand, which was a stand-in
+rather than a check. They are written in blocks now — step 4 told you to stage explicitly and never
+showed the command, and step 9 buried its recovery in a table cell, so both were improvements on
+their own. With the sets equal, **a granted rule no block uses fails too**: it is a permission
+nobody needs and a sign the two have drifted.
+
+The `gh api` half compares the **whole** prefix, scoped path included. Matching only the verb let
+`gh api -X PATCH "users/example"` reduce to `-X PATCH`, which is granted, while
+`Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` would not authorize that call at all.
 
 ### Verify commands are not pre-approved
 

@@ -234,6 +234,11 @@ approval, so it has to come from the person typing it.
    here, not tidiness**: without it a new directory arrives as one `?? dir/` line, and staging that
    line stages everything inside it — the same blast radius `git add -A` is banned for.
 
+   ```bash
+   git add <path> [<path>...]              # name every path; never -A, never a bare directory
+   git commit -F <scratch>/message.txt     # the message is a file, so no shell quoting mangles it
+   ```
+
    ```text
    <type>(<scope>): <one line stating what was actually true>
 
@@ -435,6 +440,7 @@ approval, so it has to come from the person typing it.
 
    ```bash
    git merge-base --is-ancestor <commit> HEAD
+   git fetch                                 # row 3's recovery, before concluding someone else pushed
    ```
 
    **`--is-ancestor` returns three values, not a boolean. Read `$?`:** `0` = ancestor, `1` = a valid

@@ -79,6 +79,20 @@ Added:
   ungranted verb, the second as a non-canonical invocation, each verified by putting it into the
   procedure and watching the suite go red.
 
+  **It compares the whole prefix, scoped path included.** Matching only the verb let
+  `gh api -X PATCH "users/example"` reduce to `-X PATCH`, which is granted — while
+  `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` would not authorize that call at all. A rule is a
+  whole prefix, and comparing half of one answers a question nobody asked.
+
+  **And the direction is no longer one-way, because the reason it was is gone.** `git add` and
+  `git commit` were prescribed in step 4's paragraph and `git fetch` in step 9's table, so no block
+  held them and three hardcoded assertions named them by hand — a stand-in for a check rather than
+  one. The answer was to move the commands rather than widen the grep: they are in fenced blocks now,
+  which both steps wanted anyway, since step 4 told you to stage explicitly and never showed the
+  command and step 9 buried its recovery in a table cell. With the sets equal, **a granted rule no
+  block uses fails too** — a permission nobody needs is a sign the list and the procedure have
+  drifted. Verified in both new directions: an off-scope path, and an unused grant.
+
 - **`tests/provenance.test.sh` holds the reviewer cards to the grammar `reviewers/README.md`
   states.** **It checks the provenance half only, and says so**: deciding whether a sentence is an
   observation or an inference is the judgement that rule was rewritten to remove, so a test claiming
