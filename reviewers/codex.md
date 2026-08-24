@@ -22,13 +22,17 @@
 
 ## Measured
 
-- **Latency: two samples, and the wider one is newer.** 3–4 minutes to a verdict
+- **Latency: three samples, and each wider than the last.** 3–4 minutes to a verdict
   (`iwmaeda/iwmaeda#8`, `#11`; repo C, 2026-08). Ten consecutive rounds on one pull request ran
-  3:04, 3:38, 3:52, 4:01, 4:03, 4:25, 4:44, 5:46, 6:27 and 8:01 — range **3:04–8:01**, median 4:14,
-  mean 4:48 (`iwmaeda/revloop#8`, 2026-08, timed from each trigger's `createdAt` to its review's
-  `submittedAt`). **Derived:** budget for the range rather than the centre. Nothing in the loop
-  depends on the figure — step 8 waits in 480-second chunks against `--timeout` and does not read it
-  — so it is a planning number, not an input.
+  3:04, 3:38, 3:52, 4:01, 4:03, 4:25, 4:44, 5:46, 6:27 and 8:01 — range 3:04–8:01, median 4:14, mean
+  4:48 (`iwmaeda/revloop#8`, 2026-08). Seven consecutive rounds on the next one ran 2:53, 3:16, 5:09,
+  5:32, 6:25, 7:01 and 10:07 — range **2:53–10:07**, median 5:32, mean 5:46 (`iwmaeda/revloop#9`,
+  2026-08). All three timed from each trigger's `createdAt` to its review's `submittedAt`. Seventeen
+  rounds in this repository span **2:53 to 10:07**.
+  **Derived:** budget for the range and not the centre, and treat the range itself as provisional —
+  **each sample so far has moved both ends outward**, so the next one probably will too. Nothing in
+  the loop depends on the figure: step 8 waits in 480-second chunks against `--timeout` and never
+  reads it, so it is a planning number rather than an input.
 - **1–4 findings per round** (repo C, 2026-08, 37 rounds). A second sample runs narrower: one PR
   produced **23 finding-bearing rounds returning 1–2 each, mean 1.22**, never more than 2, and an
   earlier PR in the same repository averaged 1.52 with the same maximum (repo C, 2026-08). **The two
