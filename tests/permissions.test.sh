@@ -87,43 +87,43 @@ done
 GH_GRANTED=$(awk '/^```json$/{inj=1;next} /^```$/{inj=0} inj' "$DOC" \
   | grep -oE '"Bash\(gh api (-X [A-Z]+|--paginate|graphql|repos)' | sed -E 's/^"Bash\(gh api //' | sort -u)
 
-# Any spelling at all — this is the denominator, so nothing can be dropped.
-GH_LINES=$(awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "$PROC" | grep -cE 'gh[[:space:]]+api')
-
-# Canonical only: exactly one space, an uppercase verb, a quoted path.
-canon() { # canon <line> -> form | UNCLASSIFIED
+# canon() classifies one invocation, and exists so the rejected spellings can be
+# pinned by cases — the corpus holds only canonical ones, so it can never
+# witness a form that must be rejected.
+canon() { # canon <text> -> form | UNCLASSIFIED
   f=$(printf '%s' "$1" | grep -oE 'gh api (-X [A-Z]+ |--paginate |graphql |"repos/)' | head -1 \
       | sed -E 's/^gh api //; s/^"repos\/$/repos/; s/ $//')
   printf '%s' "${f:-UNCLASSIFIED}"
 }
 
-GH_USED=; GH_BAD=; GH_SEEN=0
-while IFS= read -r line; do
-  [ -n "$line" ] || continue
-  GH_SEEN=$((GH_SEEN + 1))
-  form=$(canon "$line")
-  if [ "$form" = UNCLASSIFIED ]; then
-    GH_BAD="$GH_BAD
-UNCLASSIFIED $(printf '%s' "$line" | sed -E 's/^ +//' | cut -c1-70)"
-  else
-    GH_USED="$GH_USED
-$form"
-  fi
-done <<INNER
-$(awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "$PROC" | grep -E 'gh[[:space:]]+api')
-INNER
-GH_USED=$(printf '%s\n' "$GH_USED" | grep -v '^$' | sort -u)
+# The text of every fenced bash block, scanned as text rather than line by line.
+GH_TXT=$(awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "$PROC")
+GH_CANON='gh api (-X [A-Z]+ |--paginate |graphql |"repos/)'
+
+# THE DENOMINATOR COUNTS INVOCATIONS, NOT LINES, and that distinction is the
+# whole guard. Counting lines and classifying one per line with `head -1` lets a
+# second call on the same line go unseen — `gh api "repos/x" && gh api -X DELETE
+# …` classified only the granted sibling. And a call split across a continuation
+# (`gh \` then `api -X DELETE …`) matches no single-line pattern at all, so it
+# was absent from the count entirely rather than counted and rejected.
+gh_inline=$(printf '%s\n' "$GH_TXT" | grep -oE 'gh[[:space:]]+api' | grep -c .)
+gh_split=$(printf '%s\n' "$GH_TXT" | grep -cE '\bgh[[:space:]]*\\[[:space:]]*$')
+gh_total=$((gh_inline + gh_split))
+gh_canon=$(printf '%s\n' "$GH_TXT" | grep -oE "$GH_CANON" | grep -c .)
 
 nz() { if [ "$1" -gt 0 ]; then echo NONEMPTY; else echo EMPTY; fi; }
-expect "the procedure's blocks do call gh api" "$(nz "$GH_LINES")" NONEMPTY
-expect "  every gh api line was accounted for" "$GH_SEEN" "$GH_LINES"
-expect "the doc grants a gh api list"          "$(nz "$(printf '%s\n' "$GH_GRANTED" | grep -c .)")" NONEMPTY
+expect "the procedure's blocks do call gh api"      "$(nz "$gh_total")" NONEMPTY
+expect "every gh api invocation is canonical"       "$gh_canon" "$gh_total"
 
-refute "every gh api line is a canonical spelling" "$GH_BAD" "UNCLASSIFIED "
+# Every canonical occurrence, not one per line.
+GH_USED=$(printf '%s\n' "$GH_TXT" | grep -oE "$GH_CANON" \
+  | sed -E 's/^gh api //; s/^"repos\/$/repos/; s/ $//' | sort -u)
+GH_GRANTED=$(awk '/^```json$/{inj=1;next} /^```$/{inj=0} inj' "$DOC" \
+  | grep -oE '"Bash\(gh api (-X [A-Z]+|--paginate|graphql|repos)' | sed -E 's/^"Bash\(gh api //' | sort -u)
+expect "the doc grants a gh api list" "$(nz "$(printf '%s\n' "$GH_GRANTED" | grep -c .)")" NONEMPTY
 
 GH_MISSING=$(comm -23 <(printf '%s\n' "$GH_USED") <(printf '%s\n' "$GH_GRANTED") | sed 's/^/UNGRANTED /')
 refute "every gh api verb in a bash block has its own rule" "$GH_MISSING" "UNGRANTED "
-
 # Pins the scoping above: the broad rule appears in the prose and must not be
 # read as granted. If this ever reports it, the extraction has widened past the
 # json block and the subset check has stopped meaning anything.

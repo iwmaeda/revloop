@@ -68,9 +68,16 @@ Added:
   the number classified, so nothing can be dropped on the way to green. **The verb is matched as
   written, never normalised**: a rule matches a literal prefix, so `Bash(gh api -X PATCH …)` does not
   cover `-X patch`, and normalising would hide exactly that mismatch. Widening the alphabet is no
-  longer how a new spelling is handled; rewriting it canonically is. Thirteen forms pinned, four
-  accepted and nine rejected. Verified end to end by rewriting step 6 as `--method PATCH` and
-  watching the suite go red.
+  longer how a new spelling is handled; rewriting it canonically is. Verified end to end by rewriting
+  step 6 as `--method PATCH` and watching the suite go red.
+
+  **The denominator counts invocations, not lines**, which a later round required twice over.
+  Classifying one call per line with `head -1` let a second call on the same line go unseen —
+  `gh api "repos/x" && gh api -X DELETE …` classified only the granted sibling — and a call split
+  across a continuation (`gh \` then `api -X DELETE …`) matched no single-line pattern at all, so it
+  was absent from the count rather than counted and rejected. Both fail now: the first as an
+  ungranted verb, the second as a non-canonical invocation, each verified by putting it into the
+  procedure and watching the suite go red.
 
 - **`tests/provenance.test.sh` holds the reviewer cards to the grammar `reviewers/README.md`
   states.** **It checks the provenance half only, and says so**: deciding whether a sentence is an
@@ -97,8 +104,23 @@ Added:
   `##  Measured` heading with two spaces yielded zero bullets, while the aggregate count stayed
   non-empty from the other cards — an entirely uncited new card would have gone green. Both markers
   are recognised now, and **each card asserts its own parseable section** rather than contributing to
-  a total. Every existing bullet on all four cards satisfies the stricter rule, checked before it was
-  tightened, so the guard starts green.
+  a total.
+
+  **Each form is bounded at both ends**, which a later round required: without a left boundary
+  `12026-08` supplies a month and `owner/repo#0suffix` a reference, and without a right one `#8x`
+  does; a pull request is numbered from 1, so `#0` is not one. The derived exemption closed on
+  whitespace alone (`- **Derived from   **`) and now needs something legible in the span.
+
+  **One request is declined and recorded as declined**, in the test rather than only in a reply:
+  checking provenance per sentence instead of per bullet. The rule is written per sentence, so the
+  gap is real — a bullet holding two observations passes on one citation. Deciding which sentences
+  are observations, as against derivations or connective prose, is the judgement the rule was
+  rewritten to remove; a grep that guessed would either demand a citation on every sentence, which no
+  card could satisfy, or guess at sentence roles and be wrong in the direction that matters. The unit
+  is the bullet, and that is a limit rather than an oversight.
+
+  Every existing bullet on all four cards satisfies each tightening, checked before it was applied,
+  so the guard starts green.
 
 Changed:
 

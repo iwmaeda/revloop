@@ -20,9 +20,20 @@
 # no source at all, either of which is a bullet nobody can go and check.
 #
 # One exemption, and it is the one the rule already documents because it is
-# mechanical rather than a judgement: a bullet opening `**Derived from …**` names
+# mechanical rather than a judgement: a bullet opening \`**Derived from …**\` names
 # what it rests on instead of citing a source, and is a derivation of the bullets
 # around it rather than a claim of its own.
+#
+# DECLINED, ON PURPOSE: checking provenance per sentence rather than per bullet.
+# A review asked for it, and the rule is written per sentence, so the gap is
+# real: a bullet holding two observations passes on one citation. It is not
+# fixed because deciding which sentences in a bullet are observations — as
+# against derivations, connective prose, or a quoted reviewer phrase — is the
+# judgement this rule was rewritten to remove. A grep that guessed would either
+# demand a citation on every sentence, which no card could satisfy, or guess at
+# sentence roles and be wrong in the direction that matters. **The unit is the
+# bullet, and that is a limit rather than an oversight.** A second observation
+# in a bullet is caught by review, not here.
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=tests/lib.sh
@@ -34,13 +45,16 @@ echo "provenance"
 # `C#8` in ordinary prose; `repo [A-Z]` is satisfied by `repo GitHub`, which is
 # a name rather than an anonymisation; and an unbounded `[0-9]{2}` month accepts
 # `2026-99`. Each of those returned CITED for text nobody can go and check.
-PR_REF='[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[0-9]+'
+# Each form is also bounded at both ends. Without a left boundary `12026-08`
+# supplies a month and `owner/repo#0suffix` supplies a reference; without a
+# right one, `#8x` does. A pull request is numbered from 1, so `#0` is not one.
+PR_REF='(^|[^A-Za-z0-9_.#/-])[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[1-9][0-9]*([^0-9A-Za-z]|$)'
 REPO_TAG='repo [A-Z]([^A-Za-z]|$)'
-MONTH='[0-9]{4}-(0[1-9]|1[0-2])([^0-9]|$)'
+MONTH='(^|[^0-9])[0-9]{4}-(0[1-9]|1[0-2])([^0-9]|$)'
 # The documented exemption names what it rests on. `- **Derived from** …` closes
-# the marker with no source and is not that exemption, so the bold span has to
-# contain something after "from".
-DERIVED='^[-*] \*\*Derived from [^*]+\*\*'
+# the marker with no source, and `- **Derived from   **` closes it with only
+# spaces; neither is that exemption, so the span must contain something legible.
+DERIVED='^[-*] \*\*Derived from [^*]*[[:alnum:]][^*]*\*\*'
 
 has() { printf '%s\n' "$2" | grep -qE "$1"; }
 
@@ -64,10 +78,15 @@ expect "a repo name is not a repo tag" "$(cited 'seen in repo GitHub, 2026-08')"
 expect "month 99 is not a month"       "$(cited 'seen in repo C, 2026-99')"        UNCITED
 expect "month 00 is not either"        "$(cited 'seen in repo C, 2026-00')"        UNCITED
 expect "month 13 is not either"        "$(cited 'seen in repo C, 2026-13')"        UNCITED
+expect "a month needs a left boundary" "$(cited 'seen in repo C, 12026-08')"       UNCITED
+expect "a reference needs one too"     "$(cited 'seen on xowner/repo#8')"          CITED
+expect "PR 0 is not a pull request"    "$(cited 'seen on owner/repo#0suffix')"     UNCITED
+expect "a reference needs a right end" "$(cited 'seen on owner/repo#8x')"          UNCITED
 
 exempt() { if printf '%s\n' "$1" | grep -qE "$DERIVED"; then echo EXEMPT; else echo CHECKED; fi; }
 expect "a derivation naming its source" "$(exempt '- **Derived from the samples above**, so')" EXEMPT
 expect "an empty derivation marker"     "$(exempt '- **Derived from** an uncited claim')"      CHECKED
+expect "a whitespace-only source"       "$(exempt '- **Derived from   ** an uncited claim')"   CHECKED
 
 cards=0
 bullets=0
