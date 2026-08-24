@@ -32,8 +32,8 @@ in, including one you just cloned. A repository that could set `auto` would dele
 confirmation points, and one that could set `merge` would grant its own merge. The flag is the
 approval, so it has to come from the person typing it.
 
-`--max-rounds 10` is a **circuit breaker, not a target**. Real PRs have needed 20+ rounds. Hitting the
-cap is not success and never merges.
+`--max-rounds 10` is a **circuit breaker, not a target**. Measured PR round counts run to 30
+(`reviewers/codex.md`). Hitting the cap is not success and never merges.
 
 ## When to run it
 
@@ -343,10 +343,10 @@ cap is not success and never merges.
 { isOutdated }` narrows the reading quickly — **`isResolved` is useless because nobody presses
     Resolve** (measured: 0 resolved, 31 of 32 outdated) — but confirm against the diff.
 
-    **Then, having fixed one, sweep the whole codebase for its shape.** Reviewers return few findings
-    per round — one measurement puts codex at 1–4 and gemini at 30–50 — so leaving a sibling behind
-    literally buys another round. **The only way to spend fewer rounds is to have fewer defects when
-    you fire**, not to wait more cleverly:
+    **Then, having fixed one, sweep for its shape.** A reviewer returns few findings per round — see
+    the measurements on its card in `reviewers/` — so leaving a sibling behind literally buys another
+    round. **The only way to spend fewer rounds is to have fewer defects when you fire**, not to wait
+    more cleverly:
 
     - **Name the class.** Before fixing, write in one sentence what shape this finding is. If you
       cannot write it, you cannot sweep for it.
