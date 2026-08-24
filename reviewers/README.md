@@ -20,9 +20,13 @@ private repositories are anonymised as `repo B` / `repo C` with the month they w
 is not decoration: this procedure is only worth trusting because it separates what was measured from
 what was assumed, and that distinction is meaningful only if a reader can go and check.
 
-**A `## Measured` bullet opens with an observation and its provenance. Everything after that sits
+**Every sentence in a `## Measured` bullet is either an observation carrying its provenance, or sits
 behind a `Derived:` marker** — an inference, a recommendation, a remedy, a design consequence, no
-exceptions. The two are different kinds of claim: one can be checked against a PR, the other only
+exceptions. A bullet may hold several observations; the marker separates kinds of claim, not the
+first sentence from the rest. An earlier draft read "opens with an observation, and everything after
+that is `Derived:`", which taken literally demands a marker on a bullet's second observation and put
+one in front of an exact quoted string. Sentence by sentence is the check. The two are different
+kinds of claim: one can be checked against a PR, the other only
 against an argument, and a conclusion that inherits the heading's authority without inheriting its
 evidence is the "looks measured" failure `CONTRIBUTING.md` warns about. **A bullet with no observation
 does not belong here at all** — it goes under `## Not measured`, which every card has. The one

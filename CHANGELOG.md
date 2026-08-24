@@ -158,6 +158,28 @@ Added:
   `claude.md` and `copilot.md` gained the `## Not measured` sections the rule implies, and the
   focus-suffix bullet gained the provenance it never had.
 
+  A further round found the rule itself still wrong at its boundary: "opens with an observation, and
+  everything after that is `Derived:`" demands a marker on a bullet's **second** observation, and had
+  put one in front of an exact quoted string on `codex.md`. It now reads sentence by sentence — every
+  sentence is an observation with provenance or sits behind the marker — which is the same rule
+  without the false ordering. Three cards were corrected under it, and `gemini.md`'s error
+  observation gained the date it lacked.
+
+- **`tests/permissions.test.sh` holds `docs/permissions.md`'s granular git list to the procedure.**
+  That list is a copy of a fact living in `commands/review-loop.md`, and it had already drifted three
+  times — `switch`, `fetch` and `ls-files` were each run by a step the list did not grant. An earlier
+  round **declined to test it**, arguing that a grep for `git <word>` cannot tell a command from prose
+  since the file says "makes git set the upstream" and names `git show HEAD` twice to forbid it.
+  **That reason was wrong.** Runnable commands live in fenced `bash` blocks and prose does not, so
+  extracting from the blocks alone yields neither `set` nor `show` and needs no exclusion list. The
+  check is one-way on purpose: every subcommand in a block must be granted, and the list may hold
+  entries no block uses. What it cannot reach is a command given in prose — `git add` and
+  `git commit` in step 4's paragraph, `git fetch` in step 9's table — so those three are asserted
+  present by name, and the limit is stated in the test rather than discovered later. Both extractions
+  must be non-empty, because a broken one finds nothing missing and passes on no data.
+- **`CONTRIBUTING.md` no longer says `tests/procedure-refs.test.sh` "enforces" the line-number rule.**
+  The rule is absolute; the guard catches the forms it enumerates and declines three it cannot tell
+  from prose. Tripwire, not proof — and the difference is now in the sentence that sends readers to it.
 - **`tests/procedure-refs.test.sh`** fails if the procedure cites one of its own line numbers, and
   `CONTRIBUTING.md` states the rule beside it. **It took five review rounds to make the guard's claim
   match its behaviour, and the reason is worth more than the guard**: each round closed one axis of the

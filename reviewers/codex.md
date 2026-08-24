@@ -66,10 +66,10 @@
   `<!-- revloop:trigger ... -->` comment was recognised and answered (`iwmaeda/revloop#2`, 2026-08).
   **Derived:** the connector does not require the body to be the trigger phrase alone.
 - **The rate-limit reply arrives in about 10 seconds**, two orders of magnitude faster than a real
-  verdict (`iwmaeda/revloop#2`, 2026-08). **Derived** from the two-order-of-magnitude gap: a response
-  that fast is a failure rather than a review. Its exact text is `You have reached your Codex usage
-limits for code reviews.` followed by a dashboard link. **Derived:** the pattern above matches that
-  as a prefix.
+  verdict (`iwmaeda/revloop#2`, 2026-08). Its exact text is `You have reached your Codex usage limits
+for code reviews.` followed by a dashboard link (same comment). **Derived:** a reply that much
+  faster than a real verdict is a failure rather than a review, and the pattern above matches that
+  text as a prefix.
 - **REST and GraphQL spell the login differently**, measured on the same comment
   (`iwmaeda/revloop#2`, 2026-08):
 

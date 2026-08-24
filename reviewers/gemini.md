@@ -23,9 +23,9 @@
   repo B; repo C's history has **30+ triggers, all `@gemini review`, and not one `/gemini review`**
   (2026-08). **Derived:** set `trigger` per project and confirm from the PR history rather than
   assuming.
-- **Findings arrive as a review**, not an issue comment (`iwmaeda/iwmaeda#4`, `#5`; repo B, 2026-08)
-  — the opposite of codex. **Derived:** a poll watching only one endpoint waits forever on one
-  reviewer or the other, which is why the loop watches both in one call.
+- **Findings arrive as a review**, not an issue comment (`iwmaeda/iwmaeda#4`, `#5`; repo B, 2026-08).
+  **Derived:** this is the opposite of codex, and a poll watching only one endpoint waits forever on
+  one reviewer or the other — which is why the loop watches both in one call.
 - **It posts a `## Summary of Changes` preamble before the review** (repo B, 2026-08). **Derived:**
   the preamble is a _non-terminal_ comment, so the wait fence drops it inside the jq program —
   treating it as terminal makes the fence exit on its first iteration every time it is re-fired, an
@@ -36,7 +36,7 @@
 - **30–50 findings per round** (repo C, 2026-08; one PR returned 50). **Derived:** that is an order
   of magnitude more than codex, so switching reviewers trades round count against per-round reading
   cost. Budget for it deliberately.
-- Errored on both attempts in `iwmaeda/iwmaeda#7`.
+- Errored on both attempts in `iwmaeda/iwmaeda#7` (2026-08).
 
 ## Not measured
 
