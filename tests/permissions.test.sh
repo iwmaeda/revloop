@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 # The granular permission list in docs/permissions.md is a copy of a fact that
-# lives in the procedure: which git subcommands it actually runs. Copies drift,
-# and this one did — it was missing `switch` (step 2), `fetch` (step 9's
-# recovery row) and `ls-files` (step 3) when a review of this repository looked.
+# lives in the procedure: which commands it actually runs. Both halves of the
+# list are checked here — git subcommands, and the gh api verbs that each need
+# their own rule because a rule matches a prefix and the flag precedes the path.
+#
+# Copies drift, and this one has, twice. It was missing `switch` (step 2),
+# `fetch` (step 9's recovery row) and `ls-files` (step 3) when a review of this
+# repository looked; and step 6 later gained `-X PATCH`, after `gh pr edit`
+# turned out not to work at the documented floor, with no rule to match it.
 #
 # An earlier round declined to test it, on the grounds that a grep for
 # `git <word>` over the procedure cannot tell a command from prose: the file
@@ -54,5 +59,46 @@ for c in add commit fetch; do
   expect "  the prose-instructed 'git $c' is still granted" \
     "$(printf '%s\n' "$GRANTED" | grep -cx "$c")" "1"
 done
+
+# --- gh api, the same check on the other half of the list -------------------
+#
+# A rule matches a command-string prefix and the flag precedes the path, so
+# `gh api -X PATCH …` needs its own rule and is not covered by the bare one.
+# Step 6 gained exactly that verb after `gh pr edit` turned out not to work at
+# the documented floor, and nothing would have noticed the missing rule.
+#
+# GRANTED is read from the fenced ```json block alone, not the whole document.
+# The prose names `Bash(gh api *)` in order to discourage it, and a grep over
+# the page would read that discouragement as a grant — the same prose-versus-
+# code distinction the git half above relies on.
+# `-X ?` and `gh api +` are not cosmetic. `gh api -XPOST …` and `gh api  -X PUT …`
+# are both valid spellings, and a pattern requiring exactly one space and a
+# separated verb reads each of them as the bare form — which is granted, so the
+# check would pass while the rule it implies does not match at runtime. That is
+# fail-open, the one direction a permission check must never take. Widened, the
+# joined spelling extracts as `-XPOST`, matches no rule, and fails loudly.
+GH_USED=$(awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "$PROC" \
+  | grep -oE 'gh api +(-X ?[A-Z]+|--paginate|graphql)?' | sed -E 's/^gh api +//; s/^$/repos/' | sort -u)
+GH_GRANTED=$(awk '/^```json$/{inj=1;next} /^```$/{inj=0} inj' "$DOC" \
+  | grep -oE '"Bash\(gh api (-X [A-Z]+|--paginate|graphql|repos)' | sed -E 's/^"Bash\(gh api //' | sort -u)
+
+expect "the procedure's blocks do call gh api" "$(nz "$(printf '%s\n' "$GH_USED" | grep -c .)")" NONEMPTY
+expect "the doc grants a gh api list"          "$(nz "$(printf '%s\n' "$GH_GRANTED" | grep -c .)")" NONEMPTY
+
+GH_MISSING=$(comm -23 <(printf '%s\n' "$GH_USED") <(printf '%s\n' "$GH_GRANTED") | sed 's/^/UNGRANTED /')
+refute "every gh api verb in a bash block has its own rule" "$GH_MISSING" "UNGRANTED "
+
+# Pins the scoping above: the broad rule appears in the prose and must not be
+# read as granted. If this ever reports it, the extraction has widened past the
+# json block and the subset check has stopped meaning anything.
+refute "  the prose-only Bash(gh api *) is not read as a grant" "$GH_GRANTED" "*"
+
+# The extractor is a predicate, so the spellings it must not mis-read get their
+# own cases; the procedure cannot witness a form it does not currently contain.
+verb() { printf '%s\n' "$1" | grep -oE 'gh api +(-X ?[A-Z]+|--paginate|graphql)?' | sed -E 's/^gh api +//; s/^$/repos/'; }
+expect "a separated verb reads as itself" "$(verb 'gh api -X POST "repos/x"')"  "-X POST"
+expect "a joined verb does not read bare" "$(verb 'gh api -XPOST "repos/x"')"   "-XPOST"
+expect "extra spaces do not read bare"    "$(verb 'gh api  -X PUT "repos/x"')"  "-X PUT"
+expect "a bare call reads as the path"    "$(verb 'gh api "repos/x"')"          "repos"
 
 summary "permissions"

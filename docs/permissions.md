@@ -19,6 +19,7 @@ Put these in `.claude/settings.local.json` (per-developer, git-ignored) or `.cla
       "Bash(gh api repos/{owner}/{repo}/:*)",
       "Bash(gh api -X POST repos/{owner}/{repo}/:*)",
       "Bash(gh api -X PUT repos/{owner}/{repo}/:*)",
+      "Bash(gh api -X PATCH repos/{owner}/{repo}/:*)",
       "Bash(gh api --paginate repos/{owner}/{repo}/:*)",
       "Bash(gh api graphql:*)",
       "Bash(gh pr:*)",
@@ -33,9 +34,11 @@ A plugin cannot grant itself permissions. No install-time hook merges anything i
 which is why this is a copy-and-paste list.
 
 `gh api` expands `{owner}` and `{repo}` from the current remote, so the scoped rules reach only the
-repository you are in. The three flag variants are separate rules because a rule matches a prefix and
-the flag precedes the path. Prefer them over `Bash(gh api *)`, which reaches **every repository your
-token can touch**.
+repository you are in. The flag variants are separate rules because a rule matches a prefix and the
+flag precedes the path — `-X POST` for the reply, `-X PUT` for the merge, `-X PATCH` for step 6's
+body update, and `--paginate` for the two reads. Prefer them over `Bash(gh api *)`, which reaches
+**every repository your token can touch**. `tests/permissions.test.sh` holds the list to the
+procedure's fenced blocks, so a verb used without a rule fails the suite rather than a user's run.
 
 ### What `Bash(git:*)` still allows
 

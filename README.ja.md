@@ -37,7 +37,7 @@ AI による PR のレビューと修正のループを収束するまで繰り�
 `--auto` オプションを設定することで、2つの停止点で止まらずに自動でループを続行できます。
 
 **大規模な変更を含む PR に対しては、レビュー待ちで数十分待機する場合もあります。**
-codex では平均して **3〜4 分** 程度でレビューが返ってきます ([`reviewers/codex.md`](reviewers/codex.md)、2026-08)。
+ある PR の連続 10 ラウンドでは、codex のレビューは **3〜8 分** で返ってきました (中央値 4 分 14 秒、[`reviewers/codex.md`](reviewers/codex.md)、2026-08)。
 
 API の利用制限等によりレビューが失敗した場合はループは abort されます。
 
@@ -61,6 +61,7 @@ API の利用制限等によりレビューが失敗した場合はループは 
       "Bash(gh api repos/{owner}/{repo}/:*)",
       "Bash(gh api -X POST repos/{owner}/{repo}/:*)",
       "Bash(gh api -X PUT repos/{owner}/{repo}/:*)",
+      "Bash(gh api -X PATCH repos/{owner}/{repo}/:*)",
       "Bash(gh api --paginate repos/{owner}/{repo}/:*)",
       "Bash(gh api graphql:*)",
       "Bash(gh pr:*)",

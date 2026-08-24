@@ -9,8 +9,74 @@ text, so editing one costs every user a single re-approval. See
 
 ## [Unreleased]
 
-**No fence changed, so no re-approval is owed.** All three fences still match the hashes recorded in
-`tests/fence-hashes.txt`; `tests/fence-guards.test.sh` proves it on every run.
+**No fence changed, so no re-approval is owed** — but **the granted rule list grew by one**, and
+anyone who copy-pasted it needs to copy it again. Step 6 no longer runs `gh pr edit`, so
+`Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` joins the list in all four places it is written. All
+three fences still match the hashes in `tests/fence-hashes.txt`; `tests/fence-guards.test.sh` proves
+it on every run.
+
+Everything here came out of operating the loop on the previous release's own pull request, which ran
+ten rounds and stopped on `--max-rounds` rather than on convergence. Three of these are defects that
+review could not have found, because they are failures of the procedure as run rather than as read.
+
+Fixed:
+
+- **Step 6 told users to run a command that does not work.** Measured twice on `gh 2.4.0`, the
+  version this procedure calls its verified floor: `gh pr edit <n> --body-file` exits 1 with
+  `GraphQL: Projects (classic) is being deprecated … (repository.pullRequest.projectCards)` and
+  leaves the body unchanged. The subcommand asks for that field to populate the pull request's
+  current metadata and GitHub has retired it. The body now goes through
+  `gh api -X PATCH "repos/{owner}/{repo}/pulls/<n>"`, which is not a new idea — it is why the merge
+  already uses REST `PUT` and why CI status comes from `gh pr view --json`. The floor note used to
+  say `gh pr create/edit --body-file` "all exist at 2.4.0"; **existing at the floor and working at
+  the floor are different claims**, and it now separates them. `gh pr create` is left alone and
+  recorded as **unmeasured** — it has no existing pull request to query, so it should not reach the
+  same field, but nobody has run it there since the sunset.
+- **The procedure prescribed an artifact that broke its own verify step.** `.revloop/field-notes.md`
+  is git-ignored, but neither `.markdownlint-cli2.jsonc` nor `.prettierignore` excluded it, and the
+  documented "one line per event" format runs past MD013 on the first line. Writing the field note
+  the procedure asks for turned `npm run check:all` red. Both ignore lists now cover `.revloop/`.
+- **`reviewers/codex.md` was stale in the file whose whole purpose is separating measured from
+  assumed.** Its latency said 3–4 minutes; ten consecutive rounds on one pull request ran 3:04 to
+  8:01, median 4:14, timed from each trigger's `createdAt` to its review's `submittedAt`. Both
+  samples are kept and labelled, because the new one widens the range rather than replacing the
+  centre. Its `## Not measured` still listed an end-to-end review with the marker attached, which
+  those same ten rounds measure; that entry has moved into `## Measured` with its provenance. Both
+  READMEs carried a copy of the latency figure and both are updated.
+
+Added:
+
+- **`tests/permissions.test.sh` now covers `gh api` as well as `git`.** A rule matches a
+  command-string prefix and the flag precedes the path, so each verb needs its own rule — and the
+  `-X PATCH` above arrived with none. The check is the same shape as the git half: extract from
+  fenced blocks, compare, one-way. `GRANTED` is read from the fenced `json` block alone rather than
+  the page, because the prose names `Bash(gh api *)` in order to discourage it and a grep over the
+  document would read that discouragement as a grant. A case pins that scoping. Verified by
+  deleting the `-X PATCH` rule and watching the suite go red.
+
+  **The extractor is itself a predicate, and its first spelling was fail-open.** `gh api -XPOST …`
+  and `gh api  -X PUT …` are both valid, and a pattern wanting exactly one space and a separated verb
+  read each of them as the bare form — which is granted, so the check would have passed while the
+  rule it implies did not match at runtime. A permission check may fail closed and never open.
+  Widened, with the four spellings pinned by their own cases.
+
+- **`tests/provenance.test.sh` holds the reviewer cards to the grammar `reviewers/README.md`
+  states.** **It checks the provenance half only, and says so**: deciding whether a sentence is an
+  observation or an inference is the judgement that rule was rewritten to remove, so a test claiming
+  to guard the whole grammar would be the overclaim the grammar exists to prevent. Provenance is the
+  half that failed anyway — two `gemini.md` bullets stated observations with no citation and survived
+  several reviews. The one exemption is the documented mechanical one, for a bullet opening
+  `**Derived from …**`. Verified by injecting an uncited bullet and watching it fail.
+
+Changed:
+
+- **Step 3's untracked-file whitespace loop reports a status instead of only printing.** The
+  procedure already recorded that `--no-index` exits 1 for a clean new file and 3 for a dirty one, so
+  the whitespace signal is the `2` bit; the loop now accumulates it and ends on `2` or `0`. The
+  braces around the loop body are load-bearing for the same reason `-z` is — the `while` is the last
+  stage of a pipeline and therefore a subshell, so a bare assignment inside it would be discarded and
+  the status would always be the last file's. Verified across five cases, including a dirty file
+  followed by a clean one. The output is still the report; the status only says whether to look.
 
 The entries here come from two sources, and the difference matters when reading them.
 

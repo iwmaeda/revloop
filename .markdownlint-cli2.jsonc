@@ -2,6 +2,10 @@
 // Rules live in .markdownlint.json. This `ignores` list is the single source of
 // ignore patterns: markdownlint-cli2 and DavidAnson.vscode-markdownlint both honor
 // it, so a separate .markdownlintignore is unnecessary.
+//
+// `.revloop/` holds field notes: git-ignored, local, and written one line per
+// event by the procedure, which puts them past MD013 immediately. Linting them
+// made following the procedure turn `npm run check:all` red.
 {
-  "ignores": ["node_modules/**", ".git/**", "tests/fixtures/**"]
+  "ignores": ["node_modules/**", ".git/**", "tests/fixtures/**", ".revloop/**"]
 }

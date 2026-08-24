@@ -2,7 +2,7 @@
 description: Branch → split commits → push → PR → trigger a reviewer → fix findings, until it converges
 argument-hint: "[--reviewer <name>] [--merge] [--auto] [--max-rounds <n>] [--timeout <dur>]"
 disable-model-invocation: true
-allowed-tools: Bash(gh api repos/{owner}/{repo}/:*), Bash(gh api -X POST repos/{owner}/{repo}/:*), Bash(gh api -X PUT repos/{owner}/{repo}/:*), Bash(gh api --paginate repos/{owner}/{repo}/:*), Bash(gh api graphql:*), Bash(gh pr:*), Bash(gh repo view:*), Bash(git:*), Read, Edit, Write, Grep, Glob
+allowed-tools: Bash(gh api repos/{owner}/{repo}/:*), Bash(gh api -X POST repos/{owner}/{repo}/:*), Bash(gh api -X PUT repos/{owner}/{repo}/:*), Bash(gh api -X PATCH repos/{owner}/{repo}/:*), Bash(gh api --paginate repos/{owner}/{repo}/:*), Bash(gh api graphql:*), Bash(gh pr:*), Bash(gh repo view:*), Bash(git:*), Read, Edit, Write, Grep, Glob
 ---
 
 # revloop — the review-and-fix loop
@@ -133,7 +133,10 @@ approval, so it has to come from the person typing it.
 
    ```bash
    git diff --check HEAD           # vs HEAD, so staged edits count; bare --check reads only unstaged
-   git ls-files -o --exclude-standard -z | while IFS= read -r -d '' f; do git diff --check --no-index -- /dev/null "$f"; done
+   git ls-files -o --exclude-standard -z |
+     { bad=0; while IFS= read -r -d '' f; do
+         git diff --check --no-index -- /dev/null "$f"; [ $(( $? & 2 )) -eq 0 ] || bad=2
+       done; exit "$bad"; }
    ```
 
    **`git diff --check` reaches tracked content only**, so a brand-new file — where a whitespace error
@@ -155,10 +158,16 @@ approval, so it has to come from the person typing it.
    | `--`             | `-dashfile.txt` is parsed as options — `unknown switch 'd'`                              |
 
    In the naive form both files' whitespace errors were **not reported at all**; the loop printed two
-   errors about the filenames and moved on. **Read the output, not the exit status.** `--no-index`
-   compares against `/dev/null`, so every new file is a difference: a clean one exits `1` and a dirty
-   one exits `3`. Testing `$? -ne 0` marks this preflight red whenever any untracked file exists; the
-   whitespace signal is the `2` bit.
+   errors about the filenames and moved on.
+
+   **The loop's own exit status is not `--no-index`'s.** `--no-index` compares against `/dev/null`, so
+   every new file is a difference: measured, a clean one exits `1` and a dirty one exits `3`. Testing
+   `$? -ne 0` would mark this preflight red whenever any untracked file exists at all. The whitespace
+   signal is the `2` bit, which is what `$(( $? & 2 ))` reads, and the loop ends on `2` if any file
+   tripped it and `0` otherwise. The braces are load-bearing for the same reason `-z` is: the `while`
+   is the last stage of a pipeline and therefore a subshell, so a bare `bad=…` inside it would be
+   discarded and the status would always be the last file's. **The report is still the output** — the
+   status says only whether to look.
 
    If the project's umbrella check command does not cover everything CI runs — a common gap, and its
    shape differs per repository — run the uncovered part explicitly. The resolved table's
@@ -236,8 +245,21 @@ approval, so it has to come from the person typing it.
 
    ```bash
    gh pr create --base <base> --title '<title>' --body-file <scratch>/body.md
-   gh pr edit <n> --body-file <scratch>/body.md                                  # updates go here
+   gh api -X PATCH "repos/{owner}/{repo}/pulls/<n>" -F body=@<scratch>/body.md  # updates go here
    ```
+
+   **The update goes through REST because `gh pr edit` does not work at the floor this procedure
+   claims.** Measured twice on `gh 2.4.0` (`iwmaeda/revloop#8`, 2026-08): `gh pr edit <n> --body-file`
+   exits 1 with `GraphQL: Projects (classic) is being deprecated … (repository.pullRequest.projectCards)`
+   and leaves the body unchanged. The subcommand sends that field to populate the PR's current
+   metadata, and GitHub has retired it. This is the same reasoning that already routes the merge
+   through REST `PUT` rather than `gh pr merge`: prefer the stable REST surface over a subcommand
+   whose extra queries can be deprecated out from under the floor.
+
+   **`gh pr create` above is _not_ known to be affected, and is _not_ known to be safe.** It has no
+   existing pull request to query, so it does not reach the same field, but nobody has run it at the
+   floor since the sunset. If it fails the same way, `POST repos/{owner}/{repo}/pulls` is the
+   substitution — and it would need its own permission rule.
 
    Write the title and body in the languages from the resolved configuration (`pr.titleLanguage`,
    `commit.bodyLanguage`) — they are detected from the repository's own history, not imposed.
@@ -728,11 +750,14 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   command substitution. This also allows a narrower permission rule —
   `Bash(gh api repos/{owner}/{repo}/:*)` cannot reach an arbitrary repository, unlike
   `Bash(gh api *)`. Prefer the narrow rule.
-- **A rule matches a command-string prefix, and `-X POST`/`-X PUT` sit before the path.** `gh api
-repos/{owner}/{repo}/:*` does not match `gh api -X POST "repos/{owner}/{repo}/..."` (the reply call)
-  or `gh api -X PUT "repos/{owner}/{repo}/.../merge"` (the merge fence) — the string starts with the
-  verb, not with `repos/`. Both need their own rule, scoped the same way:
-  `Bash(gh api -X POST repos/{owner}/{repo}/:*)` and `Bash(gh api -X PUT repos/{owner}/{repo}/:*)`.
+- **A rule matches a command-string prefix, and `-X POST`/`-X PUT`/`-X PATCH` sit before the path.**
+  `gh api repos/{owner}/{repo}/:*` does not match `gh api -X POST "repos/{owner}/{repo}/..."` (the
+  reply call), `gh api -X PUT "repos/{owner}/{repo}/.../merge"` (the merge fence), or
+  `gh api -X PATCH "repos/{owner}/{repo}/pulls/<n>"` (step 6's body update) — the string starts with
+  the verb, not with `repos/`. Each needs its own rule, scoped the same way:
+  `Bash(gh api -X POST repos/{owner}/{repo}/:*)`, `Bash(gh api -X PUT repos/{owner}/{repo}/:*)`, and
+  `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)`. `tests/permissions.test.sh` holds this list to the
+  procedure's fenced blocks so a fourth verb cannot arrive unrecorded.
 - **`--paginate` sits before the path too.** The findings read in step 10 and the reply
   verification in step 11 both call `gh api --paginate "repos/{owner}/{repo}/..."` — same
   prefix problem, one more rule: `Bash(gh api --paginate repos/{owner}/{repo}/:*)`.
@@ -741,8 +766,12 @@ repos/{owner}/{repo}/:*` does not match `gh api -X POST "repos/{owner}/{repo}/..
   with `-F body=@file`, and use `-f` for literal values. **Both forms appear in this procedure.**
 - **Verified `gh` floor: 2.4.0 (2022-03).** At that version `gh pr checks` has only `--web` — no
   `--watch`, no `--json` — so CI status comes from `gh pr view --json statusCheckRollup` and the merge
-  goes through REST `PUT`, not `gh pr merge`. `gh pr view --json`, `gh pr list`, `gh pr create/edit
---body-file`, `gh api --paginate`, and `gh api graphql` all exist at 2.4.0. Only stable REST and
+  goes through REST `PUT`, not `gh pr merge`. `gh pr view --json`, `gh pr list`,
+  `gh pr create --body-file`, `gh api --paginate`, and `gh api graphql` all exist at 2.4.0.
+  **`gh pr edit --body-file` exists there too and does not work** — it sends
+  `repository.pullRequest.projectCards`, which GitHub has retired, so step 6 updates the body through
+  REST `PATCH` instead. Existing at the floor and working at the floor are different claims, and this
+  note used to conflate them. Only stable REST and
   GraphQL surfaces are used, so newer versions work unchanged; there is **no feature detection**,
   because two code paths would halve the empirical coverage of every claim in this file.
 - **Shell state does not survive between Bash calls.** A variable set in one call is empty in the

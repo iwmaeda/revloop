@@ -6,3 +6,6 @@ package-lock.json
 
 # Recorded API responses — byte-exact fixtures, never reformat
 tests/fixtures/
+
+# Field notes: local, git-ignored, one long line per event by design
+.revloop/
