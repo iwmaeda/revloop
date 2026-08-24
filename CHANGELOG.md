@@ -50,7 +50,7 @@ Added:
 - **`tests/permissions.test.sh` now covers `gh api` as well as `git`.** A rule matches a
   command-string prefix and the flag precedes the path, so each verb needs its own rule — and the
   `-X PATCH` above arrived with none. The check is the same shape as the git half: extract from
-  fenced blocks, compare, one-way. `GRANTED` is read from the fenced `json` block alone rather than
+  fenced blocks and compare, in both directions. `GRANTED` is read from the fenced `json` block alone rather than
   the page, because the prose names `Bash(gh api *)` in order to discourage it and a grep over the
   document would read that discouragement as a grant. A case pins that scoping. Verified by
   deleting the `-X PATCH` rule and watching the suite go red.
@@ -92,6 +92,29 @@ Added:
   command and step 9 buried its recovery in a table cell. With the sets equal, **a granted rule no
   block uses fails too** — a permission nobody needs is a sign the list and the procedure have
   drifted. Verified in both new directions: an off-scope path, and an unused grant.
+
+  **That second direction went to the git half and not the gh half**, which left an unused
+  `gh api -X DELETE` grant passing for a round — the same defect surviving because the fix reached one
+  of the two places that needed it. Both halves check both directions now, and `docs/permissions.md`
+  no longer calls the check one-way.
+
+- **`tests/procedure-refs.test.sh` stopped declining three citation forms, because the reason for
+  declining them was removable.** `makefile:12`, `R:12` and `foo+bar:12` were recorded as permanently
+  out of reach: a lowercase bare word before a line number is indistinguishable from prose the file
+  really contained — `floor: 2.4.0`, `measured: 0 resolved`, and two `(last:NN)` GraphQL slices. Two
+  of those were prose and were rewritten to say the same thing without the shape; the other two are
+  pagination arguments and are neutralised by name, `first`, `after` and `before` alongside `last`,
+  since a fence edit could reach for any of them. With nothing left to collide with, the capital is
+  unnecessary and two patterns collapse into one case-insensitive rule. The token must be letter-led
+  and must not follow one, or `2026-08-24T07:59:33Z` reads `T07:59` as a file and a line — found by a
+  negative case rather than by reasoning, and pinned. Three declined forms became three caught ones.
+
+  **The first attempt skipped each fence wholesale and justified it by the hash guard, which does not
+  hold.** `tests/fence-hashes.txt` is re-pinned whenever a fence legitimately changes, and the
+  re-approval a fence edit costs is a human agreeing to new permission bytes, not an audit for
+  citations. Skipping also discarded the lines _between_ a marker and its opener, which no hash covers
+  at all: a citation injected there was invisible while the suite reported all green. The whole file
+  is scanned now.
 
 - **`tests/provenance.test.sh` holds the reviewer cards to the grammar `reviewers/README.md`
   states.** **It checks the provenance half only, and says so**: deciding whether a sentence is an
@@ -345,13 +368,10 @@ Added:
   **Round 5 also stopped the guard claiming to cover "any citation notation", which is the claim that
   kept being wrong.** No regex over English prose carries it, and the comment had asserted it for four
   rounds while the pattern did not. It now says it covers the enumerated forms, and it names the three
-  it deliberately does not: a lowercase extensionless filename (`makefile:12`) is lexically identical
-  to the prose this file must not break — `floor: 2.4.0` and `measured: 0 resolved` are real corpus
-  lines of that shape and two more live inside fences, so catching it means breaking them; a
-  single-letter name (`R:12`) would match far more prose than it caught; and `+` in a filename
-  (`foo+bar:12`) is legal but appears in no file here, which step 10's own rule says is where to stop.
-  All three are pinned as declined rather than left as holes. **The guard is a tripwire, not a
-  decision procedure, and the difference is now written down.** The assertion was widened alongside
+  it deliberately did not — `makefile:12`, `R:12` and `foo+bar:12` — on the ground that a lowercase
+  extensionless filename is lexically identical to prose this file must not break. **A later round
+  removed that ground and all three are caught**; see the entry above. **The guard is a tripwire, not
+  a decision procedure, and the difference is written down.** The assertion was widened alongside
   the pattern — keying on a literal `line` would have let an `#L132` hit through unseen, the same
   defect one level up. The guard stays scoped to `commands/review-loop.md` so that this file can go on
   quoting the citations it records removing.

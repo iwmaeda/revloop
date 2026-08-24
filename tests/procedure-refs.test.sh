@@ -46,25 +46,18 @@
 # length) and a capitalised bare word. A single broad `word: digits` rule was
 # tried first and matched all four of those corpus lines.
 #
-# WHAT THIS GUARD DOES NOT CATCH, and why the list is here rather than in a
-# future review comment. It is a tripwire over English prose, not a decision
-# procedure, and three forms are out of reach on purpose:
+# THREE FORMS USED TO BE DECLINED HERE and are not any more, which is worth
+# keeping because of how they stopped being declined. `makefile:12`, `R:12` and
+# `foo+bar:12` were recorded as out of reach: a lowercase extensionless filename
+# is lexically identical to `floor: 2.4.0` and `measured: 0 resolved`, real lines
+# in this corpus, and to two `(last:NN)` slices inside a fence. The capital was
+# said to be the only available signal.
 #
-#   makefile:12   a lowercase extensionless filename is lexically identical to
-#                 the prose this file must not break. `floor: 2.4.0` and
-#                 `measured: 0 resolved` are real corpus lines with the same
-#                 shape, and two more live inside fences that cannot be edited
-#                 without costing every user a permission re-approval. Catching
-#                 the lowercase form means breaking those. The capital is the
-#                 only signal there is, so only the capitalised form is caught.
-#   R:12          a single-letter name; `[A-Z][A-Za-z]+` wants two. Widening it
-#                 to one letter matches far more prose than it would ever catch.
-#   foo+bar:12    `+` is legal in a filename and absent from the class. No file
-#                 in this repository has one, and step 10's own rule is to bound
-#                 an input space by what the real inputs can contain.
-#
-# Those three are declined, not overlooked. If one ever appears in the procedure
-# the corpus grep stays silent, and that is the accepted cost.
+# It was not. The two prose lines were rewritten to say the same thing without
+# the shape, and the two fence lines are GraphQL pagination arguments that can be
+# neutralised by name. **The collision was removable, so the limit was a choice
+# described as a constraint** — which is the failure this file exists to guard
+# against, appearing in the guard's own comment.
 #
 # Every member is pinned by its own case below. A guard is a predicate, and the
 # corpus cannot witness the forms a predicate fails to reject, so the cases are
@@ -82,9 +75,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "procedure-refs"
 
-# ONE PATTERN, MATCHED CASE-INSENSITIVELY, over a corpus the fences are removed
-# from. Both halves of that sentence used to be different, and a review closed
-# the gap by changing the input rather than the checker.
+# ONE PATTERN, MATCHED CASE-INSENSITIVELY, over the whole file. Both halves of
+# that sentence used to be different, and reviews closed the gap by changing the
+# input rather than the checker.
 #
 # The file branch used to require a capital, because a lowercase bare word before
 # `:<digits>` was indistinguishable from prose the file really contained —
@@ -102,14 +95,22 @@ echo "procedure-refs"
 # one: without that, `2026-08-24T07:59:33Z` reads `T07:59` as a file and a line.
 CITATION='\blines?[[:space:]:#-]+((numbers?|nos?\.?)[[:space:]:#]+)?[0-9]|(^|[^[:alnum:]])#?l[0-9]+\b|(^|[^A-Za-z0-9_.+/-])[A-Za-z._][A-Za-z0-9_.+/-]*:[[:space:]]*[0-9]'
 
-# The three fences, removed from the corpus: a marker line, then everything up to
-# the close of the bash block it introduces.
-unfenced() {
-  awk '/revloop:fence id=/{skip=1; next}
-       skip && /^ *```bash$/{inb=1; next}
-       skip && inb && /^ *```$/{skip=0; inb=0; next}
-       skip {next} {print}' "$1"
-}
+# NEUTRALISE THE COLLISION, DO NOT SKIP THE REGION. An earlier version dropped
+# each fence — marker line through the close of its bash block — and justified it
+# by the hash guard. That justification does not hold: `tests/fence-hashes.txt`
+# is re-pinned by `tests/update-fence-hashes.sh` whenever a fence legitimately
+# changes, and the re-approval a fence edit costs is a human agreeing to new
+# permission bytes, not an audit for citations. Skipping also discarded the lines
+# *between* the marker and its opener, which no hash covers at all. A citation
+# injected there was invisible while the suite reported all green.
+#
+# The whole file is scanned now. The only thing standing in the way was two
+# GraphQL pagination arguments in the wait fence — `comments(last:40)` and
+# `reviews(last:15)` — so those are neutralised by name and nothing else is.
+# `first`, `after` and `before` are listed with them because they are the rest of
+# the same argument set and a fence edit could reach for one; anything outside
+# that set collides loudly rather than silently, which is the direction to fail.
+depaginate() { sed -E 's/\((first|last|after|before):[0-9]+\)/(PAGINATION)/g' "$1"; }
 
 caught() { # caught <text> -> CAUGHT | MISSED
   if printf '%s\n' "$1" | grep -qiE "$CITATION"; then echo CAUGHT; else echo MISSED; fi
@@ -118,7 +119,7 @@ caught() { # caught <text> -> CAUGHT | MISSED
 PROC="$ROOT/commands/review-loop.md"
 # Marked with a literal the pattern itself cannot produce, so the assertion is
 # not narrower than the pattern.
-HITS=$(unfenced "$PROC" | grep -niE "$CITATION" | sed 's/^/CITATION /') || true
+HITS=$(depaginate "$PROC" | grep -niE "$CITATION" | sed 's/^/CITATION /') || true
 refute "no citation in the forms below reaches the procedure" "$HITS" "CITATION "
 
 # The corpus cannot witness a form the pattern fails to reject, so every member
