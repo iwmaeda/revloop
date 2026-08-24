@@ -36,6 +36,9 @@ full** by an agent before it touches git, so:
   valuable contributions possible; quietly deleting entries is the opposite.
 - **Do not copy it.** The Codex side is a router that reads this file. If you find yourself restating
   a step, stop.
+- **Cite a step by its number, never by a line number.** A line number is correct on the day it is
+  written and wrong after the next insertion above it, silently. `tests/procedure-refs.test.sh`
+  enforces this.
 
 ## Editing a shell fence
 

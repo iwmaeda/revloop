@@ -601,8 +601,8 @@ repos/{owner}/{repo}/:*` does not match `gh api -X POST "repos/{owner}/{repo}/..
   or `gh api -X PUT "repos/{owner}/{repo}/.../merge"` (the merge fence) — the string starts with the
   verb, not with `repos/`. Both need their own rule, scoped the same way:
   `Bash(gh api -X POST repos/{owner}/{repo}/:*)` and `Bash(gh api -X PUT repos/{owner}/{repo}/:*)`.
-- **`--paginate` sits before the path too.** The findings read (step 10, line 334) and the reply
-  verification (step 11, line 371) both call `gh api --paginate "repos/{owner}/{repo}/..."` — same
+- **`--paginate` sits before the path too.** The findings read in step 10 and the reply
+  verification in step 11 both call `gh api --paginate "repos/{owner}/{repo}/..."` — same
   prefix problem, one more rule: `Bash(gh api --paginate repos/{owner}/{repo}/:*)`.
 - **`-f` and `-F` are not interchangeable.** `-F` treats a leading `@` as a file read, so
   `-F body='@codex review'` dies with `open codex review: no such file`. Post the trigger from a file
