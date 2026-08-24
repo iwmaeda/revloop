@@ -7,7 +7,7 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
-## [Unreleased]
+## [0.2.0] - 2026-08-25
 
 **No fence changed, so no re-approval is owed** — but **the granted rule list grew by one**, and
 anyone who copy-pasted it needs to copy it again. Step 6 no longer runs `gh pr edit`, so
@@ -591,4 +591,5 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.2.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.2.0
 [0.1.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.1.0
