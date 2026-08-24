@@ -16,8 +16,13 @@
 # two citations it was written to catch — "lines 334 and 371" — would have
 # reintroduced the defect and passed. The members below are each pinned
 # by a case, because a guard is a predicate and the corpus cannot witness the
-# forms it fails to reject: singular and plural, any digit count, either case,
+# forms it fails to reject: singular and plural, any digit count, any case,
 # an optional `#`, the `#L132` anchor, and the `path.md:132` notation.
+#
+# "Any case" is grep -i, not `[Ll]`. Spelling the two sentence-shaped forms by
+# hand covered `line` and `Line` and left `LINE 132` and `LINES 334 and 371`
+# through — the claim in this comment was true of the rule and false of the
+# pattern, which is the same defect the pattern exists to catch.
 #
 # Dropping the two-digit floor costs one thing: "line 1" meaning the first line
 # of some output now trips the guard. Write "the first line" instead, which the
@@ -34,13 +39,13 @@ echo "procedure-refs"
 CITATION='\b[Ll]ines?[[:space:]]+#?[0-9]|(^|[^[:alnum:]])#?[Ll][0-9]+\b|\.md:[0-9]+'
 
 caught() { # caught <text> -> CAUGHT | MISSED
-  if printf '%s\n' "$1" | grep -qE "$CITATION"; then echo CAUGHT; else echo MISSED; fi
+  if printf '%s\n' "$1" | grep -qiE "$CITATION"; then echo CAUGHT; else echo MISSED; fi
 }
 
 # Marked with a literal the pattern itself cannot produce, so the assertion is
 # not narrower than the pattern. Matching on "line " would have let a `#L132`
 # or a `path.md:132` hit pass unseen — the same defect one level up.
-HITS=$(grep -nE "$CITATION" "$ROOT/commands/review-loop.md" | sed 's/^/CITATION /') || true
+HITS=$(grep -niE "$CITATION" "$ROOT/commands/review-loop.md" | sed 's/^/CITATION /') || true
 refute "commands/review-loop.md cites no line numbers" "$HITS" "CITATION "
 
 expect "singular, two digits"     "$(caught 'see line 132 for the rule')"        CAUGHT
@@ -50,6 +55,9 @@ expect "capitalised"              "$(caught 'Line 132 states it')"              
 expect "a range"                  "$(caught 'lines 132-139 cover it')"           CAUGHT
 expect "a range, en dash"         "$(caught 'lines 132–139 cover it')"           CAUGHT
 expect "a hash before the number" "$(caught 'see line #132')"                    CAUGHT
+expect "all caps, singular"       "$(caught 'LINE 132 states it')"               CAUGHT
+expect "all caps, plural"         "$(caught 'LINES 334 and 371')"                CAUGHT
+expect "a lowercase l anchor"     "$(caught 'blob/main/review-loop.md#l132')"    CAUGHT
 expect "a GitHub #L anchor"       "$(caught 'blob/main/review-loop.md#L132')"    CAUGHT
 expect "the path.md:N notation"   "$(caught 'commands/review-loop.md:132 has it')" CAUGHT
 

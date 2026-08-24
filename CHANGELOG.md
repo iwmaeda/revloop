@@ -61,6 +61,19 @@ Added:
   diff can answer on its own and which therefore never fires for the drift the sweep exists to catch
   — a second implementation in a file the change never touched. It now searches the repository.
 
+  Round 2 returned the same shape at two of the same locations, so the class was renamed from "reads
+  a committed snapshot" to **a check whose actual input is a proper subset of what its stated rule
+  covers**, and swept again. `git diff --check HEAD` reaches tracked content only, so a brand-new
+  file — where a whitespace error is likeliest — passed it silently; each untracked path now goes
+  through the same check against `/dev/null`, chosen over `git add -N .` because intent-to-add writes
+  index entries for files step 4 has not decided to stage. `git status --porcelain` collapses a
+  wholly-untracked directory into one `?? dir/` line, which is not something you can "read in full" —
+  it now carries `-uall` at all three of its sites, and **step 4's is the one that matters**: staging
+  a `?? dir/` line stages everything inside it, the blast radius `git add -A` is banned for. The
+  re-sweep also reached step 1, where nothing read the repository's history even though steps 4 and 6
+  both say commit style and the two languages are "detected" from it; two `git log` calls now do,
+  because a row that says `detected` with no detector behind it is worse than an honest `builtin`.
+
 - **Step 7's focus asks for every sibling in one comment.** The focus already named the class; it did
   not say what to ask for. That this raises findings per round is **derived, not measured** — what is
   measured is only that codex accepts the suffix — and the paragraph says so.
@@ -90,8 +103,12 @@ Added:
   `line` singular followed by two or more digits, so an ordinary rephrasing of the two citations it
   was written to catch — "lines 334 and 371" — would have reintroduced the defect and passed. The
   assertion was widened with it: keying on a literal `line` would have let an `#L132` hit
-  through unseen, the same defect one level up. The guard stays scoped to `commands/review-loop.md`
-  so that this file can go on quoting the citations it records removing.
+  through unseen, the same defect one level up. Round 2 caught the case axis still being spelled by
+  hand as `[Ll]`, which covers `line` and `Line` and let `LINE 132` and `LINES 334 and 371` through —
+  the comment claimed "either case" while the pattern did not deliver it, which is the same defect the
+  pattern exists to catch. Both call sites are now `grep -i`, the all-caps forms are pinned, and the
+  suite is 20 assertions. The guard stays scoped to `commands/review-loop.md` so that this file can go
+  on quoting the citations it records removing.
 
 Changed:
 
@@ -104,8 +121,9 @@ Changed:
 - **Both README phase tables** describe the Prepare and Fix phases as they now behave — Prepare sweeps
   the pending change before pushing, and Fix runs the sweep that matches the class rather than "the
   codebase sweep", which is now one of three and the one that does not apply to the dominant class.
-- **`docs/permissions.md`'s granular rule list gained `git switch` and `git fetch`**, which step 2 and
-  step 9's recovery row have always run while the list never granted them. The list is a copy of a
+- **`docs/permissions.md`'s granular rule list gained `git switch`, `git fetch`, and `git ls-files`**,
+  the first two of which step 2 and step 9's recovery row have always run while the list never granted
+  them. The list is a copy of a
   fact that lives in the procedure, so it drifts; the section now says outright that no test holds the
   two together and why one would not help — a grep for `git <word>` cannot tell a command from prose,
   and the procedure names `git show HEAD` twice precisely to forbid it.

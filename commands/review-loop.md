@@ -50,7 +50,9 @@ approval, so it has to come from the person typing it.
 
    ```bash
    git branch --show-current
-   git status --porcelain
+   git status --porcelain -uall
+   git log -20 --format='%s'                    # commit style: subject language, scope vocabulary
+   git log -3 --format='%B'                     # ... and the body and trailer shape
    git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo '(no upstream = normal)'
    gh --version | head -1
    gh repo view --json nameWithOwner,defaultBranchRef,isFork,deleteBranchOnMerge \
@@ -65,6 +67,11 @@ approval, so it has to come from the person typing it.
    commands, branch prefixes, commit style, max rounds, timeout, merge. Give the reviewer row as
    `<name> (<status>, <expectedLatency>)` — a preset whose card says `unverified` is a fact the
    operator wants before the round starts, not after it fails.
+
+   **A row can only say `detected` if something detected it.** Steps 4 and 6 both assert that commit
+   style and the two languages are "detected from the repository's own history, not imposed", and the
+   two `git log` calls above are the only thing in this procedure that reads that history. Without
+   them the row is a guess wearing a `source` label, which is worse than an honest `builtin`.
 
    **Judgements:**
 
@@ -115,7 +122,14 @@ approval, so it has to come from the person typing it.
 
    ```bash
    git diff --check HEAD           # vs HEAD, so staged edits count; bare --check reads only unstaged
+   git ls-files -o --exclude-standard | while read -r f; do git diff --check --no-index /dev/null "$f"; done
    ```
+
+   **`git diff --check` reaches tracked content only**, so a brand-new file — where a whitespace error
+   is most likely — passes it silently. The second line puts each untracked path through the same
+   check against `/dev/null`. It is written that way rather than as `git add -N .` because
+   intent-to-add writes index entries for files step 4 has not decided to stage, and step 4's whole
+   discipline is that nothing is staged unless it was chosen.
 
    If the project's umbrella check command does not cover everything CI runs — a common gap, and its
    shape differs per repository — run the uncovered part explicitly. The resolved table's
@@ -132,10 +146,12 @@ approval, so it has to come from the person typing it.
    history that does not contain it: on round 1 the branch may carry no commits at all and the diff
    comes back empty, and from round 2 `git show HEAD` prints the **previous** round's commit — the
    code the reviewer already found a defect in. **No diff of any form lists an untracked file**, so
-   read the status beside it:
+   read the status beside it — and ask it for every path, because **`--porcelain` on its own collapses
+   a wholly-untracked directory into a single `?? dir/` line**, which is not something you can "read
+   in full":
 
    ```bash
-   git status --porcelain          # untracked files (??): no diff lists them — read each in full
+   git status --porcelain -uall    # every untracked path (??), not a collapsed dir — read each in full
    git diff HEAD                   # what step 4 is about to commit, staged and unstaged alike
    git diff <base>...HEAD          # round 1 only: whatever is already committed on this branch
    ```
@@ -159,8 +175,10 @@ approval, so it has to come from the person typing it.
    — a self-review nobody can see is indistinguishable from one that never happened.
 
 4. Split the changes into conceptual commits. Propose the split and take confirmation (`--auto`
-   proposes without stopping). **Do not use `git add -A`** — read `git status --porcelain` and stage
-   explicitly, leaving untouched any user change outside the request.
+   proposes without stopping). **Do not use `git add -A`** — read `git status --porcelain -uall` and
+   stage explicitly, leaving untouched any user change outside the request. **`-uall` is load-bearing
+   here, not tidiness**: without it a new directory arrives as one `?? dir/` line, and staging that
+   line stages everything inside it — the same blast radius `git add -A` is banned for.
 
    ```text
    <type>(<scope>): <one line stating what was actually true>
