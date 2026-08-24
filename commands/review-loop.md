@@ -346,13 +346,39 @@ approval, so it has to come from the person typing it.
     **Then, having fixed one, sweep for its shape.** A reviewer returns few findings per round — see
     the measurements on its card in `reviewers/` — so leaving a sibling behind literally buys another
     round. **The only way to spend fewer rounds is to have fewer defects when you fire**, not to wait
-    more cleverly:
+    more cleverly. **There is more than one kind of sweep; pick the one that matches the class, say
+    in the reply which one you ran, and run more than one when more than one applies:**
 
-    - **Name the class.** Before fixing, write in one sentence what shape this finding is. If you
-      cannot write it, you cannot sweep for it.
-    - **Sweep the codebase and put the count and the method in the reply.** **Do not offer a
-      word-count as evidence of a sweep** — sweeping for a different "shape" each time lets the same
-      defect survive round after round.
+    - **Name the class first.** Before fixing, write in one sentence what shape this finding is. If
+      you cannot write it, you cannot sweep for it — you will sweep for a different shape next round
+      and the same defect will survive. Measured: four rounds on one PR read the same set of records
+      four times, each under a different "shape", and the same offender survived all four.
+    - **Corpus sweep — the defect has instances in the tree.** Grep or enumerate them, fix them in
+      this commit, and **put the count and the method in the reply**. **Do not offer a word-count as
+      evidence of a sweep**: counting how often a word appears measures the search, not the class.
+    - **Input-space sweep — the defect is a predicate that misclassifies an input _form_.** A
+      splitter, parser, matcher, guard, or normaliser. **A corpus sweep returns zero for this class
+      and the class survives to the next round**, because the missing forms are inputs the predicate
+      could receive, not text that exists in the tree — so grepping the repository can never find the
+      next one. Enumerate the form space instead and **close it as a set in this round**: delimiters
+      and separators, joiners, keywords or particles, **whitespace at every position** (leading,
+      trailing, inner, either side of a joiner), quoting and nesting, dash and bracket variants, and
+      the name or label forms the value can take. **Write the enumeration down, mark which members
+      already worked, and pin every member with its own synthetic case in the same commit** — the
+      corpus cannot witness this class, so a test is the only evidence there is. **An enumeration
+      with one member is not an enumeration**; it is the next round's finding. **Bound the space by
+      what this predicate's real inputs can contain**, not by everything a string could be: the axes
+      above are where to look, not a quota to fill. Measured: about 20 of one PR's 30 rounds were
+      successive members of a single predicate's input space, one form per round.
+    - **Definition sweep — is this rule implemented anywhere else?** Before replying, find every
+      other implementation of the predicate you just changed and make them agree, or delete one.
+      Measured: a splitter and its consumer carried two different grammars, and one of two gates read
+      a different rule from the other — each drift cost its own round.
+    - **Check whether this location was already fixed in an earlier round of this PR.**
+      `git log --oneline <base>..HEAD -- <path>` and your own earlier replies both answer it. If it
+      was, **the class was named too narrowly: widen it and sweep again, rather than patching in the
+      new member.** Measured: four commit subjects on one PR name a prior round, and one line was
+      fixed four separate times.
     - **If you write a rule, apply it to the corpus in the same commit.** Do not leave the sweep for
       the next round.
     - **If you move a number or a claim, update every copy** (README, docs, commit body, PR body).
