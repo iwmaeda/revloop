@@ -53,7 +53,7 @@ approval, so it has to come from the person typing it.
    git status --porcelain -uall
    git log -20 --format='%s'                    # subject language and scope vocabulary
    git log -20 --format='%b'                    # body language and shape, unfiltered
-   git log -20 --format='%b' | grep -E '^[A-Za-z0-9][A-Za-z0-9-]*: '   # a trailer-only view of those
+   git log -20 --format='%b' | grep -E '^[A-Za-z0-9][A-Za-z0-9-]*: '   # lines shaped like a trailer
    git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo '(no upstream = normal)'
    gh --version | head -1
    gh repo view --json nameWithOwner,defaultBranchRef,isFork,deleteBranchOnMerge \
@@ -74,12 +74,15 @@ approval, so it has to come from the person typing it.
    `git log` calls above are the only thing in this procedure that reads that history. Without them
    the row is a guess wearing a `source` label, which is worse than an honest `builtin`.
 
-   **All three read the same twenty commits**, so nothing here is a sample that could be
-   unrepresentative — an earlier version read three bodies, which is a sample of shape and not
-   evidence of a convention. The unfiltered body read is the authority and the trailer view is a
-   convenience on top of it: **a trailer token that pattern fails to match still appears in the line
-   above it**, so a narrow pattern there cannot hide a convention. That is deliberate — the pattern
-   was already too narrow once, dropping tokens containing digits.
+   **All three read the same twenty commits**, so the three agree with each other — an earlier version
+   read three bodies beside a twenty-commit trailer read, which is a sample of shape standing next to
+   evidence of a convention. **Twenty is still a window, not the history**: the row says `detected`,
+   which means measured from something, not proven. The unfiltered body read is the authority and the
+   third line is a convenience on top of it: **a trailer token that pattern fails to match still
+   appears in the line above it**, so a narrow pattern there cannot hide a convention. That is
+   deliberate — the pattern was already too narrow once, dropping tokens containing digits. It is also
+   why the comment says "lines shaped like a trailer" rather than "trailers": an ordinary `Note:` line
+   in the middle of a body has the same shape and will appear in that view.
 
    **Judgements:**
 
@@ -169,14 +172,15 @@ approval, so it has to come from the person typing it.
    here with the fix still uncommitted, so `git diff <base>...HEAD` and `git show HEAD` both read a
    history that does not contain it: on round 1 the branch may carry no commits at all and the diff
    comes back empty, and from round 2 `git show HEAD` prints the **previous** round's commit — the
-   code the reviewer already found a defect in. **No diff of any form lists an untracked file**, so
-   read the status beside it — and ask it for every path, because **`--porcelain` on its own collapses
-   a wholly-untracked directory into a single `?? dir/` line**, which is not something you can "read
-   in full":
+   code the reviewer already found a defect in. **No diff against a commit or the index lists an
+   untracked file** — the `--no-index` form above is the exception, and it only reaches them because
+   it is handed each path explicitly — so read the status beside it, and ask it for every path,
+   because **`--porcelain` on its own collapses a wholly-untracked directory into a single `?? dir/`
+   line**, which is not something you can "read in full":
 
    ```bash
    git status --porcelain -uall    # every untracked path (??), not a collapsed dir — read each in full
-   git diff HEAD                   # what step 4 is about to commit, staged and unstaged alike
+   git diff HEAD                   # the tracked edits step 4 will commit, staged and unstaged
    git diff <base>...HEAD          # round 1 only: whatever is already committed on this branch
    ```
 

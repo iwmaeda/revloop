@@ -54,8 +54,9 @@ Added:
   re-enters step 3 with the fix unstaged, so the `git diff <base>...HEAD` and `git show HEAD` the
   step first shipped with read a history that does not contain the edits: round 1 could show an empty
   diff, and from round 2 `git show HEAD` shows the previous round's commit — the code the reviewer
-  already found a defect in. `git status --porcelain` joins them because **no diff of any form lists
-  an untracked file**, and `git diff --check` gained an explicit `HEAD` for the same reason: bare, it
+  already found a defect in. `git status --porcelain` joins them because **no diff against a commit or
+  the index lists an untracked file** — the `--no-index` form added later is the exception, and only
+  because it is handed each path explicitly — and `git diff --check` gained an explicit `HEAD`: bare, it
   reads only what is unstaged. **And the change picks what to sweep for without bounding where to
   look.** The definition-sweep bullet asked for rules "this diff states in two places", which the
   diff can answer on its own and which therefore never fires for the drift the sweep exists to catch
@@ -91,25 +92,33 @@ Added:
   convention; trailers are now grepped out of twenty.
 
   Round 4 closed the probe properly. All three `git log` calls read **the same twenty commits**, so
-  there is no sample left to be unrepresentative — round 3 had bumped the trailer read to twenty while
-  keeping a three-body read and labelling it "read in full rather than sampled", which was a label
-  contradicting its own command. The unfiltered body read is now the authority and the trailer grep is
-  a convenience view of the same twenty, so **a token that grep fails to match still appears in the
-  line above it**; the pattern had in fact been too narrow, dropping trailer tokens containing digits.
+  the three agree with each other — round 3 had bumped the trailer read to twenty while keeping a
+  three-body read and labelling it "read in full rather than sampled", which was a label contradicting
+  its own command. **Twenty is still a window and not the history**, which is why the row says
+  `detected` rather than proven; round 5 corrected the first version of this entry for claiming the
+  sample away entirely. The unfiltered body read is the authority and the trailer grep is a
+  convenience view of the same twenty, so **a token that grep fails to match still appears in the line
+  above it**; the pattern had in fact been too narrow, dropping trailer tokens containing digits. Its
+  comment says "lines shaped like a trailer" rather than "trailers", because an ordinary `Note:` line
+  mid-body has the same shape.
 
 - **Step 7's focus asks for every sibling in one comment.** The focus already named the class; it did
   not say what to ask for. That this raises findings per round is **derived, not measured** — what is
   measured is only that codex accepts the suffix — and the paragraph says so.
 - **Step 7 forbids the literal `revloop:trigger` in the focus text.** The wait fence reads the marker
   as the text after the first occurrence of that literal, and the focus precedes the marker, so a
-  focus containing it wins the split. Measured against the fence's own jq program: the marker string
-  becomes `markers in the diff--`, carrying no `bot=`, `head=`, `reviewer=`, or `round=`. Step 9 then
-  aborts on `marker_head=none` (fail-closed, one wait spent) — but **an empty `bot=` disables the
-  fence's bot filter**, so any other bot on the pull request would have satisfied the wait had the
-  round continued. The schema already rejects a configured `trigger` containing the literal; the
-  focus is composed in the procedure, so the rule now exists there too.
-  `tests/fixtures/jq/focus-carrying-marker` pins it, with the existing clean-comment fixture as the
-  control that proves the assertions discriminate.
+  focus containing it wins the split. **Measured** against the fence's own jq program: the marker
+  string becomes `markers in the diff--`, carrying no `bot=`, `head=`, `reviewer=`, or `round=`.
+  **Derived from that, not separately measured**: step 9 aborts on `marker_head=none` (fail-closed,
+  one wait spent), and an empty `bot=` leaves the fence's bot filter matching every login, so any
+  other bot on the pull request would have satisfied the wait had the round continued. The schema
+  already rejects a configured `trigger` containing the literal; the focus is composed in the
+  procedure, so the rule now exists there too. `tests/fixtures/jq/focus-carrying-marker` pins **the
+  jq output only** — it runs the extracted jq program against one recorded payload that contains no
+  bot verdict, so neither the shell that reads the row nor step 9's table is exercised by it. Round 5
+  corrected both this entry and the fixture's own assertion labels, which named the step-9 abort as
+  though the fixture reached it. The existing clean-comment fixture is the control that proves the
+  assertions discriminate.
 - **`reviewers/codex.md` carries a second findings-per-round sample** and four new measurements:
   findings concentrate (28 in 3 files, 30 in 5) and the next one repeats the previous file 39–52% of
   the time across four PRs; severity predicts nothing (15/15 P2 on one PR, 15/15 P1 on another,
@@ -119,8 +128,8 @@ Added:
   two samples from one source as two sources is the "looks measured" failure `CONTRIBUTING.md` warns
   about.
 - **`tests/procedure-refs.test.sh`** fails if the procedure cites one of its own line numbers, and
-  `CONTRIBUTING.md` states the rule beside it. **It took three review rounds to make the guard cover
-  its own rule, and the reason is worth more than the guard**: each round closed one axis of the
+  `CONTRIBUTING.md` states the rule beside it. **It took five review rounds to make the guard's claim
+  match its behaviour, and the reason is worth more than the guard**: each round closed one axis of the
   notation and left the next one spelled by hand, which is the failure the procedure's own
   input-space sweep is written to prevent. The axes, in the order they were found — number of digits
   (`[0-9]{2,}` passed "line 9"), singular versus plural (`line` alone passed "lines 334 and 371",
@@ -136,12 +145,23 @@ Added:
   branch is the one axis with no syntax to derive from — an extensionless filename is lexically just a
   word — so it is derived from the corpus instead: every `word: digits` phrase the procedure really
   contains (`floor: 2.4.0`, `measured: 0 resolved`, and two `(last:40)` forms inside untouchable
-  fences) is lowercase or has no dot or slash, and all four are pinned as must-not-match cases. All
-  eight axes are closed and each member has its own case: 36 assertions, 22 forms that must be caught
-  and 13 that must not. The assertion was widened alongside the pattern — keying on a literal
-  `line` would have let an `#L132` hit through unseen, the same defect one level up. The guard stays
-  scoped to `commands/review-loop.md` so that this file can go on quoting the citations it records
-  removing.
+  fences) is lowercase or has no dot or slash, and all four are pinned as must-not-match cases. Round
+  5 added leading-dot paths (`.env:12`) and the hyphen form (`line-number 12`), for ten axes and 41
+  assertions.
+
+  **Round 5 also stopped the guard claiming to cover "any citation notation", which is the claim that
+  kept being wrong.** No regex over English prose carries it, and the comment had asserted it for four
+  rounds while the pattern did not. It now says it covers the enumerated forms, and it names the three
+  it deliberately does not: a lowercase extensionless filename (`makefile:12`) is lexically identical
+  to the prose this file must not break — `floor: 2.4.0` and `measured: 0 resolved` are real corpus
+  lines of that shape and two more live inside fences, so catching it means breaking them; a
+  single-letter name (`R:12`) would match far more prose than it caught; and `+` in a filename
+  (`foo+bar:12`) is legal but appears in no file here, which step 10's own rule says is where to stop.
+  All three are pinned as declined rather than left as holes. **The guard is a tripwire, not a
+  decision procedure, and the difference is now written down.** The assertion was widened alongside
+  the pattern — keying on a literal `line` would have let an `#L132` hit through unseen, the same
+  defect one level up. The guard stays scoped to `commands/review-loop.md` so that this file can go on
+  quoting the citations it records removing.
 
 Changed:
 
