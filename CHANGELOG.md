@@ -9,8 +9,175 @@ text, so editing one costs every user a single re-approval. See
 
 ## [Unreleased]
 
-**No fence changed, so no re-approval is owed.** All three fences still match the hashes recorded in
-`tests/fence-hashes.txt`; `tests/fence-guards.test.sh` proves it on every run.
+**No fence changed, so no re-approval is owed** — but **the granted rule list grew by one**, and
+anyone who copy-pasted it needs to copy it again. Step 6 no longer runs `gh pr edit`, so
+`Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` joins the list in all four places it is written. All
+three fences still match the hashes in `tests/fence-hashes.txt`; `tests/fence-guards.test.sh` proves
+it on every run.
+
+Everything here came out of operating the loop on the previous release's own pull request, which ran
+ten rounds and stopped on `--max-rounds` rather than on convergence. Three of these are defects that
+review could not have found, because they are failures of the procedure as run rather than as read.
+
+Fixed:
+
+- **Step 6 told users to run a command that does not work.** Measured twice on `gh 2.4.0`, the
+  version this procedure calls its verified floor: `gh pr edit <n> --body-file` exits 1 with
+  `GraphQL: Projects (classic) is being deprecated … (repository.pullRequest.projectCards)` and
+  leaves the body unchanged. The subcommand asks for that field to populate the pull request's
+  current metadata and GitHub has retired it. The body now goes through
+  `gh api -X PATCH "repos/{owner}/{repo}/pulls/<n>"`, which is not a new idea — it is why the merge
+  already uses REST `PUT` and why CI status comes from `gh pr view --json`. The floor note used to
+  say `gh pr create/edit --body-file` "all exist at 2.4.0"; **existing at the floor and working at
+  the floor are different claims**, and it now separates them. `gh pr create` is left alone and
+  **measured working** at the same floor (`iwmaeda/revloop#9`, 2026-08, exit 0) — it has no existing
+  pull request to query, so it never reaches the retired field. That measurement was taken by this
+  changelog's own pull request being opened, which is the cheapest experiment that was available.
+- **The procedure prescribed an artifact that broke its own verify step.** `.revloop/field-notes.md`
+  is git-ignored, but neither `.markdownlint-cli2.jsonc` nor `.prettierignore` excluded it, and the
+  documented "one line per event" format runs past MD013 on the first line. Writing the field note
+  the procedure asks for turned `npm run check:all` red. Both ignore lists now name **that file**,
+  not the directory: excluding all of `.revloop/` would have let any other Markdown left there skip
+  the checks, which is more than the collision needed.
+- **`reviewers/codex.md` was stale in the file whose whole purpose is separating measured from
+  assumed.** Its latency said 3–4 minutes; ten consecutive rounds on one pull request ran 3:04 to
+  8:01, median 4:14, timed from each trigger's `createdAt` to its review's `submittedAt`. Both
+  samples are kept and labelled, because the new one widens the range rather than replacing the
+  centre. Its `## Not measured` still listed an end-to-end review with the marker attached, which
+  those same ten rounds measure; that entry has moved into `## Measured` with its provenance. Both
+  READMEs carried a copy of the latency figure and both are updated.
+
+Added:
+
+- **`tests/permissions.test.sh` now covers `gh api` as well as `git`.** A rule matches a
+  command-string prefix and the flag precedes the path, so each verb needs its own rule — and the
+  `-X PATCH` above arrived with none. The check is the same shape as the git half: extract from
+  fenced blocks and compare, in both directions. `GRANTED` is read from the fenced `json` block alone rather than
+  the page, because the prose names `Bash(gh api *)` in order to discourage it and a grep over the
+  document would read that discouragement as a grant. A case pins that scoping. Verified by
+  deleting the `-X PATCH` rule and watching the suite go red.
+
+  **The extractor rejects rather than falls back, and it took three rounds to get there because the
+  first two answers were the wrong shape.** Both matched a _method group_ and made it optional, so
+  any line the group failed to recognise quietly became the bare form — which is granted. Each round
+  then widened the alphabet and the next spelling walked straight through: `-XPOST`, then
+  `--method PATCH` and a lowercase verb, then `-X  DELETE` with two spaces, `gh  api`, a tab, and
+  `-X 'DELETE'`. **The alphabet was never the class. An optional group with a granted default is
+  fail-open by construction**, and a permission check may fail closed and never open.
+
+  So it now finds every line invoking `gh api` in any spelling, classifies each against the canonical
+  forms alone, and treats anything unclassified as a failure — with the line count asserted equal to
+  the number classified, so nothing can be dropped on the way to green. **The verb is matched as
+  written, never normalised**: a rule matches a literal prefix, so `Bash(gh api -X PATCH …)` does not
+  cover `-X patch`, and normalising would hide exactly that mismatch. Widening the alphabet is no
+  longer how a new spelling is handled; rewriting it canonically is. Verified end to end by rewriting
+  step 6 as `--method PATCH` and watching the suite go red.
+
+  **The denominator counts invocations, not lines**, which a later round required twice over.
+  Classifying one call per line with `head -1` let a second call on the same line go unseen —
+  `gh api "repos/x" && gh api -X DELETE …` classified only the granted sibling — and a call split
+  across a continuation (`gh \` then `api -X DELETE …`) matched no single-line pattern at all, so it
+  was absent from the count rather than counted and rejected. Both fail now: the first as an
+  ungranted verb, the second as a non-canonical invocation, each verified by putting it into the
+  procedure and watching the suite go red.
+
+  **It compares the whole prefix, scoped path included.** Matching only the verb let
+  `gh api -X PATCH "users/example"` reduce to `-X PATCH`, which is granted — while
+  `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` would not authorize that call at all. A rule is a
+  whole prefix, and comparing half of one answers a question nobody asked.
+
+  **And the direction is no longer one-way, because the reason it was is gone.** `git add` and
+  `git commit` were prescribed in step 4's paragraph and `git fetch` in step 9's table, so no block
+  held them and three hardcoded assertions named them by hand — a stand-in for a check rather than
+  one. The answer was to move the commands rather than widen the grep: they are in fenced blocks now,
+  which both steps wanted anyway, since step 4 told you to stage explicitly and never showed the
+  command and step 9 buried its recovery in a table cell. With the sets equal, **a granted rule no
+  block uses fails too** — a permission nobody needs is a sign the list and the procedure have
+  drifted. Verified in both new directions: an off-scope path, and an unused grant.
+
+  **That second direction went to the git half and not the gh half**, which left an unused
+  `gh api -X DELETE` grant passing for a round — the same defect surviving because the fix reached one
+  of the two places that needed it. Both halves check both directions now, and `docs/permissions.md`
+  no longer calls the check one-way.
+
+- **`tests/procedure-refs.test.sh` stopped declining three citation forms, because the reason for
+  declining them was removable.** `makefile:12`, `R:12` and `foo+bar:12` were recorded as permanently
+  out of reach: a lowercase bare word before a line number is indistinguishable from prose the file
+  really contained — `floor: 2.4.0`, `measured: 0 resolved`, and two `(last:NN)` GraphQL slices. Two
+  of those were prose and were rewritten to say the same thing without the shape; the other two are
+  pagination arguments and are neutralised by name, `first`, `after` and `before` alongside `last`,
+  since a fence edit could reach for any of them. With nothing left to collide with, the capital is
+  unnecessary and two patterns collapse into one case-insensitive rule. The token must be letter-led
+  and must not follow one, or `2026-08-24T07:59:33Z` reads `T07:59` as a file and a line — found by a
+  negative case rather than by reasoning, and pinned. Three declined forms became three caught ones.
+
+  **The first attempt skipped each fence wholesale and justified it by the hash guard, which does not
+  hold.** `tests/fence-hashes.txt` is re-pinned whenever a fence legitimately changes, and the
+  re-approval a fence edit costs is a human agreeing to new permission bytes, not an audit for
+  citations. Skipping also discarded the lines _between_ a marker and its opener, which no hash covers
+  at all: a citation injected there was invisible while the suite reported all green. The whole file
+  is scanned now, and the neutralisation is anchored to the two fields that actually collide
+  (`comments`, `reviews`). A bare `(last:40)` pattern would also have swallowed a prohibited prose
+  citation written as `(first:12)` — the same over-broad exclusion, one level smaller, in the fix for
+  it. An argument on any other field collides loudly instead.
+
+- **`tests/provenance.test.sh` holds the reviewer cards to the grammar `reviewers/README.md`
+  states.** **It checks the provenance half only, and says so**: deciding whether a sentence is an
+  observation or an inference is the judgement that rule was rewritten to remove, so a test claiming
+  to guard the whole grammar would be the overclaim the grammar exists to prevent. Provenance is the
+  half that failed anyway — two `gemini.md` bullets stated observations with no citation and survived
+  several reviews. The one exemption is the documented mechanical one, for a bullet opening
+  `**Derived from …**`. Verified by injecting an uncited bullet and watching it fail.
+
+  **The two provenance forms are not interchangeable fragments, and the first draft treated them as
+  three.** The section gives a public form — cite the pull request — and a private one: anonymise as
+  `repo X` **with the month**. Written as a flat alternation the check accepted `repo C` with no
+  month, and a bare `2026-08` with no source at all, either of which is a bullet nobody can go and
+  check. It is now a PR reference, or a repo tag and a month together.
+
+  **Each form is matched whole rather than as a substring**, which a later round caught: a bare
+  `#[0-9]+` is satisfied by `C#8` in ordinary prose, `repo [A-Z]` by `repo GitHub` — a name, not an
+  anonymisation — and an unbounded month by `2026-99`. A PR reference now needs its `owner/name`, a
+  repo tag needs a lone capital, and a month has to be one that exists. **The exemption was loose the
+  same way**: `- **Derived from** …` closed the marker without naming anything and skipped the check
+  entirely, so the bold span must now contain a source.
+
+  **And a card the extractor could not parse used to pass in silence.** A `*` list marker or a
+  `##  Measured` heading with two spaces yielded zero bullets, while the aggregate count stayed
+  non-empty from the other cards — an entirely uncited new card would have gone green. Both markers
+  are recognised now, and **each card asserts its own parseable section** rather than contributing to
+  a total.
+
+  **Each form is bounded at both ends**, which a later round required: without a left boundary
+  `12026-08` supplies a month and `owner/repo#0suffix` a reference, and without a right one `#8x`
+  does; a pull request is numbered from 1, so `#0` is not one. The derived exemption closed on
+  whitespace alone (`- **Derived from   **`) and now needs something legible in the span.
+
+  **One request is declined and recorded as declined**, in the test rather than only in a reply:
+  checking provenance per sentence instead of per bullet. The rule is written per sentence, so the
+  gap is real — a bullet holding two observations passes on one citation. Deciding which sentences
+  are observations, as against derivations or connective prose, is the judgement the rule was
+  rewritten to remove; a grep that guessed would either demand a citation on every sentence, which no
+  card could satisfy, or guess at sentence roles and be wrong in the direction that matters. The unit
+  is the bullet, and that is a limit rather than an oversight.
+
+  Every existing bullet on all four cards satisfies each tightening, checked before it was applied,
+  so the guard starts green.
+
+Changed:
+
+- **Step 3's untracked-file whitespace loop reports a status instead of only printing**, and
+  **classifies that status rather than masking it with a bit test.** `--no-index` exits 1 for a clean
+  new file and 3 for a dirty one, so `2` is the whitespace bit — but `git diff` also exits 128 when it
+  cannot read a path, and `128 & 2` is zero, so a bit test calls an unreadable file clean. Measured on
+  git 2.34.1: a single `chmod 000` file that `git ls-files -o` does list gives
+  `error: open("only.txt"): Permission denied`, exit 128, and a `& 2` loop reports **status 0**. Only
+  0 and 1 are clean now, 3 is the whitespace finding, and every other status is an operational failure
+  that outranks it, because a check that could not read its input has not passed. `set -o pipefail`
+  covers the producer side for the same reason. The braces are load-bearing as `-z` is — the `while`
+  is the last stage of a pipeline and therefore a subshell, so a bare assignment would be discarded
+  and the status would be the last file's. The output is still the report; the status says only
+  whether to look, and at what.
 
 The entries here come from two sources, and the difference matters when reading them.
 
@@ -172,13 +339,14 @@ Added:
   since the file says "makes git set the upstream" and names `git show HEAD` twice to forbid it.
   **That reason was wrong.** Runnable commands live in fenced `bash` blocks and prose does not, so
   extracting from the blocks alone yields neither `set` nor `show` and needs no exclusion list. The
-  check is one-way on purpose: every subcommand in a block must be granted, and the list may hold
-  entries no block uses. What it cannot reach is a command given in prose — `git add` and
-  `git commit` in step 4's paragraph, `git fetch` in step 9's table — so those three are asserted
-  present by name, and the limit is stated in the test rather than discovered later. Both extractions
-  must be non-empty, because a broken one finds nothing missing and passes on no data.
+  check compares both directions: every subcommand in a block must be granted, and every granted rule
+  must be used by a block. It was one-way at first, because `git add` and `git commit` were prescribed
+  in step 4's paragraph and `git fetch` in step 9's table, so no block held them and three assertions
+  named them by hand. A later round moved the commands into blocks instead — which both steps wanted
+  anyway — and the stand-ins went with them. Both extractions must be non-empty, because a broken one
+  finds nothing missing and passes on no data.
 - **`CONTRIBUTING.md` no longer says `tests/procedure-refs.test.sh` "enforces" the line-number rule.**
-  The rule is absolute; the guard catches the forms it enumerates and declines three it cannot tell
+  The rule is absolute; the guard catches the forms it enumerates and once declined three it could not tell
   from prose. Tripwire, not proof — and the difference is now in the sentence that sends readers to it.
 - **`tests/procedure-refs.test.sh`** fails if the procedure cites one of its own line numbers, and
   `CONTRIBUTING.md` states the rule beside it. **It took five review rounds to make the guard's claim
@@ -205,13 +373,10 @@ Added:
   **Round 5 also stopped the guard claiming to cover "any citation notation", which is the claim that
   kept being wrong.** No regex over English prose carries it, and the comment had asserted it for four
   rounds while the pattern did not. It now says it covers the enumerated forms, and it names the three
-  it deliberately does not: a lowercase extensionless filename (`makefile:12`) is lexically identical
-  to the prose this file must not break — `floor: 2.4.0` and `measured: 0 resolved` are real corpus
-  lines of that shape and two more live inside fences, so catching it means breaking them; a
-  single-letter name (`R:12`) would match far more prose than it caught; and `+` in a filename
-  (`foo+bar:12`) is legal but appears in no file here, which step 10's own rule says is where to stop.
-  All three are pinned as declined rather than left as holes. **The guard is a tripwire, not a
-  decision procedure, and the difference is now written down.** The assertion was widened alongside
+  it deliberately did not — `makefile:12`, `R:12` and `foo+bar:12` — on the ground that a lowercase
+  extensionless filename is lexically identical to prose this file must not break. **A later round
+  removed that ground and all three are caught**; see the entry above. **The guard is a tripwire, not
+  a decision procedure, and the difference is written down.** The assertion was widened alongside
   the pattern — keying on a literal `line` would have let an `#L132` hit through unseen, the same
   defect one level up. The guard stays scoped to `commands/review-loop.md` so that this file can go on
   quoting the citations it records removing.

@@ -34,6 +34,29 @@ true because they address different audiences.
 
 **Attribution:** 2026-08; the mise resolution re-checked 2026-08-19.
 
+## `gh pr edit` is broken at the verified floor
+
+**Observed:** On `gh 2.4.0` (2022-03), `gh pr edit <n> --body-file …` exits 1 with
+`GraphQL: Projects (classic) is being deprecated … (repository.pullRequest.projectCards)` and leaves
+the body unchanged. It failed twice in one session, and
+`gh api -X PATCH "repos/{owner}/{repo}/pulls/<n>" -F body=@file` succeeded six times in its place.
+The subcommand requests that field to populate the pull request's current metadata; GitHub has
+retired Projects (classic), so the query the client sends is now rejected outright. Nothing about the
+edit itself is unsupported — only the metadata the client asks for alongside it.
+
+**Promoted principle:** Prefer the stable REST surface to a subcommand whose extra queries can be
+deprecated out from under the floor. This is not a new rule — it is why the merge already goes
+through REST `PUT` rather than `gh pr merge`, and why CI status comes from
+`gh pr view --json statusCheckRollup` rather than `gh pr checks`. Step 6 now updates the body the
+same way. **Existing at the floor and working at the floor are different claims**, and the
+procedure's floor note used to conflate them.
+
+**`gh pr create --body-file` is not affected**, measured at the same floor immediately afterwards
+(`iwmaeda/revloop#9`, 2026-08): exit 0, pull request created. It has no existing pull request to
+query and never reaches the retired field, which is why only the edit path moved to REST.
+
+**Attribution:** `iwmaeda/revloop#8`, 2026-08, on `gh version 2.4.0+dfsg1`.
+
 ## CI concurrency cancels superseded runs
 
 **Observed:** A workflow with `concurrency: cancel-in-progress: true` turns a push made during a CI

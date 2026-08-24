@@ -46,25 +46,18 @@
 # length) and a capitalised bare word. A single broad `word: digits` rule was
 # tried first and matched all four of those corpus lines.
 #
-# WHAT THIS GUARD DOES NOT CATCH, and why the list is here rather than in a
-# future review comment. It is a tripwire over English prose, not a decision
-# procedure, and three forms are out of reach on purpose:
+# THREE FORMS USED TO BE DECLINED HERE and are not any more, which is worth
+# keeping because of how they stopped being declined. `makefile:12`, `R:12` and
+# `foo+bar:12` were recorded as out of reach: a lowercase extensionless filename
+# is lexically identical to `floor: 2.4.0` and `measured: 0 resolved`, real lines
+# in this corpus, and to two `(last:NN)` slices inside a fence. The capital was
+# said to be the only available signal.
 #
-#   makefile:12   a lowercase extensionless filename is lexically identical to
-#                 the prose this file must not break. `floor: 2.4.0` and
-#                 `measured: 0 resolved` are real corpus lines with the same
-#                 shape, and two more live inside fences that cannot be edited
-#                 without costing every user a permission re-approval. Catching
-#                 the lowercase form means breaking those. The capital is the
-#                 only signal there is, so only the capitalised form is caught.
-#   R:12          a single-letter name; `[A-Z][A-Za-z]+` wants two. Widening it
-#                 to one letter matches far more prose than it would ever catch.
-#   foo+bar:12    `+` is legal in a filename and absent from the class. No file
-#                 in this repository has one, and step 10's own rule is to bound
-#                 an input space by what the real inputs can contain.
-#
-# Those three are declined, not overlooked. If one ever appears in the procedure
-# the corpus grep stays silent, and that is the accepted cost.
+# It was not. The two prose lines were rewritten to say the same thing without
+# the shape, and the two fence lines are GraphQL pagination arguments that can be
+# neutralised by name. **The collision was removable, so the limit was a choice
+# described as a constraint** — which is the failure this file exists to guard
+# against, appearing in the guard's own comment.
 #
 # Every member is pinned by its own case below. A guard is a predicate, and the
 # corpus cannot witness the forms a predicate fails to reject, so the cases are
@@ -82,44 +75,79 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "procedure-refs"
 
-# Two patterns, because case is noise in one half and signal in the other.
-# "LINE 132" and "line 132" are the same citation, so that half is matched with
-# grep -i. "Dockerfile:40" is a citation and "floor: 2.4.0" is prose, and the
-# only thing between them is the capital, so that half must be case-sensitive.
-# Folding both into one -i grep was tried and it matched all three of the
-# lowercase corpus phrases below — -i does not spare a bracket expression.
-CITATION_I='\blines?[[:space:]:#-]+((numbers?|nos?\.?)[[:space:]:#]+)?[0-9]|(^|[^[:alnum:]])#?l[0-9]+\b'
-CITATION_S='(^|[^A-Za-z0-9_./+-])[A-Za-z0-9_-]*[./][A-Za-z0-9_./-]*:[[:space:]]*[0-9]|\b[A-Z][A-Za-z]+:[[:space:]]*[0-9]'
+# ONE PATTERN, MATCHED CASE-INSENSITIVELY, over the whole file. Both halves of
+# that sentence used to be different, and reviews closed the gap by changing the
+# input rather than the checker.
+#
+# The file branch used to require a capital, because a lowercase bare word before
+# `:<digits>` was indistinguishable from prose the file really contained —
+# `floor: 2.4.0`, `measured: 0 resolved`, and two `(last:NN)` slices. So
+# `makefile:12`, `R:12` and `foo+bar:12` were recorded as permanently declined.
+#
+# They are not declined any more, because the collisions were removable. The two
+# `(last:NN)` forms live inside hash-pinned fences, which are byte-frozen shell
+# code that cannot acquire a citation without a fence edit and a re-approval, so
+# the scan skips them. The other two were prose, and prose can be rewritten:
+# "floor is 2.4.0" and "measured 0 resolved" say the same thing. With nothing
+# left to collide with, the file branch is any letter-led token before a line
+# number, the capital is unnecessary, and one case-insensitive pattern replaces
+# two. The token must start with a letter, a dot or a slash and must not follow
+# one: without that, `2026-08-24T07:59:33Z` reads `T07:59` as a file and a line.
+CITATION='\blines?[[:space:]:#-]+((numbers?|nos?\.?)[[:space:]:#]+)?[0-9]|(^|[^[:alnum:]])#?l[0-9]+\b|(^|[^A-Za-z0-9_.+/-])[A-Za-z._][A-Za-z0-9_.+/-]*:[[:space:]]*[0-9]'
 
-caught() { # caught <text> -> CAUGHT | MISSED
-  if printf '%s\n' "$1" | grep -qiE "$CITATION_I"; then echo CAUGHT
-  elif printf '%s\n' "$1" | grep -qE "$CITATION_S"; then echo CAUGHT
-  else echo MISSED; fi
+# NEUTRALISE THE COLLISION, DO NOT SKIP THE REGION. An earlier version dropped
+# each fence — marker line through the close of its bash block — and justified it
+# by the hash guard. That justification does not hold: `tests/fence-hashes.txt`
+# is re-pinned by `tests/update-fence-hashes.sh` whenever a fence legitimately
+# changes, and the re-approval a fence edit costs is a human agreeing to new
+# permission bytes, not an audit for citations. Skipping also discarded the lines
+# *between* the marker and its opener, which no hash covers at all. A citation
+# injected there was invisible while the suite reported all green.
+#
+# The whole file is scanned now. The only thing standing in the way was two
+# GraphQL pagination arguments in the wait fence — `comments(last:40)` and
+# `reviews(last:15)` — so those are neutralised and nothing else is.
+#
+# THE FIELD NAME IS PART OF THE PATTERN, not decoration. Matching a bare
+# `(last:40)` anywhere would also swallow a prohibited prose citation written as
+# `(first:12)`, which is the over-broad exclusion this guard was just fixed for,
+# reappearing one level smaller. Anchoring to the field means an argument on any
+# other field collides loudly instead — the direction to fail. `first`, `after`
+# and `before` ride along with `last` only because a fence edit could reach for
+# one on these same two fields.
+depaginate() {
+  sed -E 's/\b(comments|reviews)\((first|last|after|before):[0-9]+\)/\1(PAGINATION)/g' "$1"
 }
 
-# Marked with a literal the pattern itself cannot produce, so the assertion is
-# not narrower than the pattern. Matching on "line " would have let a `#L132`
-# or a `path.md:132` hit pass unseen — the same defect one level up.
+caught() { # caught <text> -> CAUGHT | MISSED
+  if printf '%s\n' "$1" | grep -qiE "$CITATION"; then echo CAUGHT; else echo MISSED; fi
+}
+
 PROC="$ROOT/commands/review-loop.md"
-HITS=$( { grep -niE "$CITATION_I" "$PROC"; grep -nE "$CITATION_S" "$PROC"; } | sed 's/^/CITATION /' ) || true
+# Marked with a literal the pattern itself cannot produce, so the assertion is
+# not narrower than the pattern.
+HITS=$(depaginate "$PROC" | grep -niE "$CITATION" | sed 's/^/CITATION /') || true
 refute "no citation in the forms below reaches the procedure" "$HITS" "CITATION "
 
+# The corpus cannot witness a form the pattern fails to reject, so every member
+# gets a case. Grouped by the axis it closes.
 expect "singular, two digits"     "$(caught 'see line 132 for the rule')"        CAUGHT
 expect "plural"                   "$(caught 'see lines 334 and 371')"            CAUGHT
 expect "one digit"                "$(caught 'see line 9')"                       CAUGHT
 expect "capitalised"              "$(caught 'Line 132 states it')"               CAUGHT
+expect "all caps, singular"       "$(caught 'LINE 132 states it')"               CAUGHT
+expect "all caps, plural"         "$(caught 'LINES 334 and 371')"                CAUGHT
 expect "a range"                  "$(caught 'lines 132-139 cover it')"           CAUGHT
 expect "a range, en dash"         "$(caught 'lines 132–139 cover it')"           CAUGHT
 expect "a hash before the number" "$(caught 'see line #132')"                    CAUGHT
-expect "all caps, singular"       "$(caught 'LINE 132 states it')"               CAUGHT
-expect "all caps, plural"         "$(caught 'LINES 334 and 371')"                CAUGHT
-expect "a lowercase l anchor"     "$(caught 'blob/main/review-loop.md#l132')"    CAUGHT
-expect "a GitHub #L anchor"       "$(caught 'blob/main/review-loop.md#L132')"    CAUGHT
-expect "the path.md:N notation"   "$(caught 'commands/review-loop.md:132 has it')" CAUGHT
 expect "a colon separator"        "$(caught 'see line: 132')"                    CAUGHT
 expect "a colon, no space"        "$(caught 'see line:132')"                     CAUGHT
 expect "the word number"          "$(caught 'see line number 132')"              CAUGHT
 expect "the abbreviation no."     "$(caught 'see line no. 132')"                 CAUGHT
+expect "the hyphenated word"      "$(caught 'see line-number 12')"               CAUGHT
+expect "a lowercase l anchor"     "$(caught 'blob/main/review-loop.md#l132')"    CAUGHT
+expect "a GitHub #L anchor"       "$(caught 'blob/main/review-loop.md#L132')"    CAUGHT
+expect "the path.md:N notation"   "$(caught 'commands/review-loop.md:132 has it')" CAUGHT
 expect "path.md, space after :"   "$(caught 'review-loop.md: 132 has it')"       CAUGHT
 expect "a non-md path cited"      "$(caught 'tests/procedure-refs.test.sh:40')"  CAUGHT
 expect "a 5-letter extension"     "$(caught 'package.jsonc:12 says so')"         CAUGHT
@@ -127,17 +155,14 @@ expect "an extensionless file"    "$(caught 'Dockerfile:40 sets it')"           
 expect "another bare filename"    "$(caught 'Makefile:12 has the rule')"         CAUGHT
 expect "an all-caps bare file"    "$(caught 'LICENSE:3 states it')"              CAUGHT
 expect "a leading-dot path"       "$(caught 'see .env:12 for it')"               CAUGHT
-expect "the hyphenated word"      "$(caught 'see line-number 12')"               CAUGHT
 
-# Declined, and pinned as declined so the next reader sees a decision rather
-# than a hole. See the note above the pattern for why each one is out of reach.
-expect "declined: lowercase bare" "$(caught 'makefile:12 has the rule')"         MISSED
-expect "declined: one letter"     "$(caught 'R:12 states it')"                   MISSED
-expect "declined: + in the name"  "$(caught 'foo+bar:12 says so')"               MISSED
+# Formerly declined, now caught, because the prose they collided with was
+# rewritten and the fences are out of scope.
+expect "a lowercase bare filename" "$(caught 'makefile:12 has the rule')"        CAUGHT
+expect "a one-letter filename"     "$(caught 'R:12 states it')"                  CAUGHT
+expect "a + in the filename"       "$(caught 'foo+bar:12 says so')"              CAUGHT
 
-# The backticks are the corpus form: the procedure writes both of these inside
-# code spans, and a case that drops them stops being a quotation of the text it
-# claims to protect. Nothing here is meant to expand.
+# The forms the procedure genuinely uses and must keep writable.
 # shellcheck disable=SC2016
 expect "the path:line token"      "$(caught 'cite a `path:line`, a test name')"  MISSED
 # shellcheck disable=SC2016
@@ -149,9 +174,6 @@ expect "a severity badge"         "$(caught 'a P1 finding and a P2 finding')"   
 expect "a table row citation"     "$(caught 'Rows 3 and 4 below')"               MISSED
 expect "a word ending in -line"   "$(caught 'the deadline 3 days out')"          MISSED
 expect "read the last line only"  "$(caught 'do not read the last line only')"   MISSED
-expect "lowercase word, colon, N" "$(caught 'Verified gh floor: 2.4.0 (2022-03)')" MISSED
-expect "a measured: N phrase"     "$(caught 'measured: 0 resolved, 31 outdated')" MISSED
-expect "a jq slice in a fence"    "$(caught 'comments(last:40){nodes{createdAt')"  MISSED
 expect "an ISO timestamp"         "$(caught 'SINCE=2026-08-24T07:59:33Z')"       MISSED
 
 summary "procedure-refs"

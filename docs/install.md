@@ -65,7 +65,10 @@ then waits, see [How it works](../README.md#how-it-works); the budgets that boun
 The two floors are graded differently on purpose. `gh` 2.4.0 is where the procedure was actually
 driven — the version a machine had, not one chosen from a changelog. `git` 2.22 is the release that
 introduced the one command every fence depends on, so it is derived, and labelled as such. The
-optional `git switch` alternative in step 2 needs 2.23. The reviewer bot is a requirement too, but not
+optional `git switch` alternative in step 2 needs 2.23. **One subcommand exists at the `gh` floor
+and does not work**: `gh pr edit` sends a Projects (classic) field GitHub has retired, so the
+procedure updates a pull request body through REST `PATCH` instead — see
+[`known-environment-quirks.md`](known-environment-quirks.md). The reviewer bot is a requirement too, but not
 a local one — see [Prerequisites](#prerequisites).
 
 ## Verify the install

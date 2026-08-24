@@ -39,9 +39,8 @@ full** by an agent before it touches git, so:
 - **Cite a step by its number, never by a line number.** A line number is correct on the day it is
   written and wrong after the next insertion above it, silently. `tests/procedure-refs.test.sh` is a
   tripwire for this, **not a proof of it**: it catches the citation forms it enumerates, and its
-  comment lists three it deliberately does not — a lowercase extensionless filename cannot be told
-  from prose, and two others are shapes no file here has. The rule is absolute; the guard is
-  best-effort, and the difference is written into the test rather than left implied.
+  comment lists them with the axis each one closed. The rule is absolute and the guard is
+  best-effort; the difference is written into the test rather than left implied.
 
 ## Editing a shell fence
 

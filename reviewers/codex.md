@@ -22,7 +22,13 @@
 
 ## Measured
 
-- **Latency 3–4 minutes** to a verdict (`iwmaeda/iwmaeda#8`, `#11`; repo C, 2026-08).
+- **Latency: two samples, and the wider one is newer.** 3–4 minutes to a verdict
+  (`iwmaeda/iwmaeda#8`, `#11`; repo C, 2026-08). Ten consecutive rounds on one pull request ran
+  3:04, 3:38, 3:52, 4:01, 4:03, 4:25, 4:44, 5:46, 6:27 and 8:01 — range **3:04–8:01**, median 4:14,
+  mean 4:48 (`iwmaeda/revloop#8`, 2026-08, timed from each trigger's `createdAt` to its review's
+  `submittedAt`). **Derived:** budget for the range rather than the centre. Nothing in the loop
+  depends on the figure — step 8 waits in 480-second chunks against `--timeout` and does not read it
+  — so it is a planning number, not an input.
 - **1–4 findings per round** (repo C, 2026-08, 37 rounds). A second sample runs narrower: one PR
   produced **23 finding-bearing rounds returning 1–2 each, mean 1.22**, never more than 2, and an
   earlier PR in the same repository averaged 1.52 with the same maximum (repo C, 2026-08). **The two
@@ -62,9 +68,12 @@
   consecutive rounds (`iwmaeda/revloop#8`, 2026-08). **Derived, and explicitly not measured:** that it
   points the round's findings budget. What was observed is only that the suffix does not stop the
   review.
-- **The revloop marker is tolerated.** A trigger body of `@codex review`, a blank line, and the
-  `<!-- revloop:trigger ... -->` comment was recognised and answered (`iwmaeda/revloop#2`, 2026-08).
-  **Derived:** the connector does not require the body to be the trigger phrase alone.
+- **The revloop marker is tolerated, end to end.** A trigger body of `@codex review`, a blank line,
+  and the `<!-- revloop:trigger ... -->` comment was recognised and answered (`iwmaeda/revloop#2`,
+  2026-08). Ten consecutive marked triggers on one pull request each returned a full review
+  (`iwmaeda/revloop#8`, 2026-08); this entry sat under `## Not measured` until then, because the
+  round that would have proved it had hit the account's code-review quota. **Derived:** the connector
+  does not require the body to be the trigger phrase alone.
 - **The rate-limit reply arrives in about 10 seconds**, two orders of magnitude faster than a real
   verdict (`iwmaeda/revloop#2`, 2026-08). Its exact text is `You have reached your Codex usage limits
 for code reviews.` followed by a dashboard link (same comment). **Derived:** a reply that much
@@ -88,6 +97,3 @@ for code reviews.` followed by a dashboard link (same comment). **Derived:** a r
 
 - The documented "👍 reaction when there are no findings" path. Every measured trigger carried zero
   reactions.
-- **A full review with the marker attached.** The marker was recognised, but the round that would
-  have proved a complete review hit the account's code-review quota. Trigger recognition is
-  `verified`; end-to-end review with a marker is not yet.

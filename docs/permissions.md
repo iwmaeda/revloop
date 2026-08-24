@@ -19,6 +19,7 @@ Put these in `.claude/settings.local.json` (per-developer, git-ignored) or `.cla
       "Bash(gh api repos/{owner}/{repo}/:*)",
       "Bash(gh api -X POST repos/{owner}/{repo}/:*)",
       "Bash(gh api -X PUT repos/{owner}/{repo}/:*)",
+      "Bash(gh api -X PATCH repos/{owner}/{repo}/:*)",
       "Bash(gh api --paginate repos/{owner}/{repo}/:*)",
       "Bash(gh api graphql:*)",
       "Bash(gh pr:*)",
@@ -33,9 +34,11 @@ A plugin cannot grant itself permissions. No install-time hook merges anything i
 which is why this is a copy-and-paste list.
 
 `gh api` expands `{owner}` and `{repo}` from the current remote, so the scoped rules reach only the
-repository you are in. The three flag variants are separate rules because a rule matches a prefix and
-the flag precedes the path. Prefer them over `Bash(gh api *)`, which reaches **every repository your
-token can touch**.
+repository you are in. The flag variants are separate rules because a rule matches a prefix and the
+flag precedes the path — `-X POST` for the reply, `-X PUT` for the merge, `-X PATCH` for step 6's
+body update, and `--paginate` for the two reads. Prefer them over `Bash(gh api *)`, which reaches
+**every repository your token can touch**. `tests/permissions.test.sh` holds the list to the
+procedure's fenced blocks, so a verb used without a rule fails the suite rather than a user's run.
 
 ### What `Bash(git:*)` still allows
 
@@ -55,9 +58,9 @@ If that is not enough, grant subcommands individually — `Bash(git status:*)`, 
 extending the first time a step reaches for something not on it. Nobody has measured which
 repositories need which subset.
 
-**`tests/permissions.test.sh` keeps this list in step with the procedure**, and it is one-way on
-purpose: every git subcommand appearing in a fenced `bash` block must be granted here, while the list
-may hold entries no block uses.
+**`tests/permissions.test.sh` keeps this list in step with the procedure**, in both directions and
+for both halves: every git subcommand and every `gh api` prefix appearing in a fenced `bash` block
+must be granted here, and every rule granted here must be used by one.
 
 An earlier round declined to test this at all, on the grounds that a grep for `git <word>` over
 `commands/review-loop.md` cannot tell a command from prose — the file says "makes git set the
@@ -66,9 +69,17 @@ commands live in fenced blocks and prose does not, so extracting from the blocks
 `set` nor `show` and needs no exclusion list. The list had already drifted three times by then
 (`switch`, `fetch`, `ls-files`), which is what the test would have caught.
 
-What it still cannot catch is a command the procedure gives in prose rather than a block — `git add`
-and `git commit` in step 4's paragraph, `git fetch` in step 9's table. Those three are asserted
-present by name, which is the closest a mechanical check gets to that direction.
+**The check runs in both directions**, because there are no prose-prescribed commands left to make it
+one-way. `git add` and `git commit` used to live in step 4's paragraph and `git fetch` in step 9's
+table, invisible to any scan of the blocks; three assertions named them by hand, which was a stand-in
+rather than a check. They are written in blocks now — step 4 told you to stage explicitly and never
+showed the command, and step 9 buried its recovery in a table cell, so both were improvements on
+their own. With the sets equal, **a granted rule no block uses fails too**: it is a permission
+nobody needs and a sign the two have drifted.
+
+The `gh api` half compares the **whole** prefix, scoped path included. Matching only the verb let
+`gh api -X PATCH "users/example"` reduce to `-X PATCH`, which is granted, while
+`Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` would not authorize that call at all.
 
 ### Verify commands are not pre-approved
 
