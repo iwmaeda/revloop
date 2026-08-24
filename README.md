@@ -24,15 +24,15 @@ The commands are:
 
 A run usually takes tens of minutes. **Most of that is time spent waiting for the reviewer.**
 
-| Phase       | Steps | What happens                                                                                                                                      | Roughly how long             |
-| ----------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| **Resolve** | 1     | Probe the repository and print the resolved-configuration table with its `source` column                                                          | seconds                      |
-| **Prepare** | 2–6   | Cut a topic branch, run verify, sweep the diff for what the reviewer would find, propose a commit split (**first stop point**), push, open the PR | as long as your verify takes |
-| **Trigger** | 7     | Post the trigger comment, carrying a `revloop:trigger` marker that records the reviewer, the bot, the head sha, and the round                     | seconds                      |
-| **Wait**    | 8     | Poll GitHub until the verdict for _this_ trigger appears                                                                                          | **minutes — see below**      |
-| **Decide**  | 9     | Classify the verdict as continue / finish / abort                                                                                                 | seconds                      |
-| **Fix**     | 10–11 | Read the inline findings, fix them, run the sweeps that match the class, reply to every one                                                       | minutes                      |
-| **Finish**  | 12    | Report; with `--merge`, wait for green CI and then merge (**second stop point**)                                                                  | CI-bound                     |
+| Phase       | Steps | What happens                                                                                                                                                | Roughly how long             |
+| ----------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| **Resolve** | 1     | Probe the repository and print the resolved-configuration table with its `source` column                                                                    | seconds                      |
+| **Prepare** | 2–6   | Cut a topic branch, run verify, sweep the pending change for what the reviewer would find, propose a commit split (**first stop point**), push, open the PR | as long as your verify takes |
+| **Trigger** | 7     | Post the trigger comment, carrying a `revloop:trigger` marker that records the reviewer, the bot, the head sha, and the round                               | seconds                      |
+| **Wait**    | 8     | Poll GitHub until the verdict for _this_ trigger appears                                                                                                    | **minutes — see below**      |
+| **Decide**  | 9     | Classify the verdict as continue / finish / abort                                                                                                           | seconds                      |
+| **Fix**     | 10–11 | Read the inline findings, fix them, run the sweeps that match the class, reply to every one                                                                 | minutes                      |
+| **Finish**  | 12    | Report; with `--merge`, wait for green CI and then merge (**second stop point**)                                                                            | CI-bound                     |
 
 If even one finding was fixed, step 11 goes back to step 3 and the next round begins. `--auto` keeps
 the loop running through both stop points instead of halting at them.

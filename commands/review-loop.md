@@ -114,29 +114,43 @@ approval, so it has to come from the person typing it.
    **A red CI wastes a whole review round**, so pay for it before pushing, not after:
 
    ```bash
-   git diff --check
+   git diff --check HEAD           # vs HEAD, so staged edits count; bare --check reads only unstaged
    ```
 
    If the project's umbrella check command does not cover everything CI runs — a common gap, and its
    shape differs per repository — run the uncovered part explicitly. The resolved table's
    `verifyNotes` records which gap this project has.
 
-   **Then read the diff you are about to push.** A red CI costs a round; so does every finding the
+   **Then read the change you are about to push.** A red CI costs a round; so does every finding the
    reviewer returns, and a round costs roughly one finding (`reviewers/codex.md`). Rounds are the
    scarce thing here and this pass is not, so spend it. **This is not "look it over"** — a second
-   general reading by the same author finds what the first one did. It is step 10's sweeps, aimed at
-   the diff before the reviewer has to aim them for you:
+   general reading by the same author finds what the first one did. It is step 10's sweeps, run one
+   step early so the reviewer does not have to run them for you.
+
+   **Read the working tree, not a committed snapshot.** Step 4 has not run yet, and step 11 re-enters
+   here with the fix still uncommitted, so `git diff <base>...HEAD` and `git show HEAD` both read a
+   history that does not contain it: on round 1 the branch may carry no commits at all and the diff
+   comes back empty, and from round 2 `git show HEAD` prints the **previous** round's commit — the
+   code the reviewer already found a defect in. **No diff of any form lists an untracked file**, so
+   read the status beside it:
 
    ```bash
-   git diff <base>...HEAD          # round 1: the whole branch
-   git show HEAD                   # later rounds: the fix you just made
+   git status --porcelain          # untracked files (??): no diff lists them — read each in full
+   git diff HEAD                   # what step 4 is about to commit, staged and unstaged alike
+   git diff <base>...HEAD          # round 1 only: whatever is already committed on this branch
    ```
 
-   - **For every predicate this diff adds or changes** — splitter, parser, matcher, guard,
+   **The change picks what to sweep for; it does not bound where to look.**
+
+   - **For every predicate this change adds or alters** — splitter, parser, matcher, guard,
      normaliser — run step 10's **input-space sweep now**. Measured: this class alone cost one PR
      about 20 of its 30 rounds, arriving one form per round.
-   - **For every rule this diff states in two places**, check that both copies say the same thing —
-     step 10's definition sweep. Measured: two implementations of one grammar, drifting.
+   - **For every rule or predicate this change touches, search the repository for its other
+     implementations** — step 10's definition sweep, at its full width. **Comparing only the copies
+     the diff happens to show is not this sweep**: the drift it exists to catch is a second
+     implementation in a file this change never touched, so a condition the diff can answer by
+     itself never fires for the case the sweep is for. Measured: two implementations of one grammar,
+     drifting.
    - **From round 2, re-read the fix against the finding it answers**, not only on its own. Measured:
      four rounds on one PR existed only because the previous round's fix closed one side of a
      symmetry and left the other open.

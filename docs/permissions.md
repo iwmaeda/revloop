@@ -51,8 +51,15 @@ fork, so the branches are your own.
 If that is not enough, grant subcommands individually — `Bash(git status:*)`, `Bash(git diff:*)`,
 `Bash(git log:*)`, `Bash(git add:*)`, `Bash(git commit:*)`, `Bash(git checkout:*)`,
 `Bash(git branch:*)`, `Bash(git push:*)`, `Bash(git rev-parse:*)`, `Bash(git merge-base:*)`,
-`Bash(git pull:*)` — and accept that the list will need extending the first time a step reaches for
-something not on it. Nobody has measured which repositories need which subset.
+`Bash(git fetch:*)`, `Bash(git switch:*)`, `Bash(git pull:*)` — and accept that the list will need
+extending the first time a step reaches for something not on it. Nobody has measured which
+repositories need which subset.
+
+**No test keeps this list in step with the procedure, and that is a decision rather than an
+oversight.** A grep for `git <word>` over `commands/review-loop.md` cannot tell a command from prose:
+"makes git set the upstream" and the two mentions of `git show HEAD` that exist to forbid it all
+match, so the check would need an exclusion list that drifts exactly like the thing it guards.
+`Bash(git:*)` above has no such gap, which is the trade this section is offering.
 
 ### Verify commands are not pre-approved
 

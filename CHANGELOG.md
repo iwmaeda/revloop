@@ -40,14 +40,27 @@ Added:
   **a location already fixed in an earlier round of this PR means the class was named too narrowly**
   — widen and sweep again rather than patch in the new member (measured: four commit subjects on one
   PR name a prior round, and one line was fixed four separate times).
-- **Step 3 now reads the diff before step 4.** The procedure already asserted that the only way to
-  spend fewer rounds is to have fewer defects at fire time, and then fired anyway. Step 3 already
-  argued the same thing about CI — a red run wastes a round, so pay for it before pushing — and the
-  measurement makes the reviewer the more expensive of the two. **It is deliberately not a generic
-  self-review**: on the measured PR the author was an LLM that had already missed those findings
-  once, so a second general reading by the same reader is not supported by anything. It is step 10's
-  sweeps aimed at the diff, one step earlier. The pass must be reported, because a self-review nobody
-  can see is indistinguishable from one that never happened.
+- **Step 3 now reads the pending change before step 4.** The procedure already asserted that the only
+  way to spend fewer rounds is to have fewer defects at fire time, and then fired anyway. Step 3
+  already argued the same thing about CI — a red run wastes a round, so pay for it before pushing —
+  and the measurement makes the reviewer the more expensive of the two. **It is deliberately not a
+  generic self-review**: on the measured PR the author was an LLM that had already missed those
+  findings once, so a second general reading by the same reader is not supported by anything. It is
+  step 10's sweeps, one step earlier. The pass must be reported, because a self-review nobody can see
+  is indistinguishable from one that never happened.
+
+  Two things about **what** it reads, both found by the reviewer on this branch's first round.
+  **It reads the working tree, not a committed snapshot.** Step 4 has not committed yet and step 11
+  re-enters step 3 with the fix unstaged, so the `git diff <base>...HEAD` and `git show HEAD` the
+  step first shipped with read a history that does not contain the edits: round 1 could show an empty
+  diff, and from round 2 `git show HEAD` shows the previous round's commit — the code the reviewer
+  already found a defect in. `git status --porcelain` joins them because **no diff of any form lists
+  an untracked file**, and `git diff --check` gained an explicit `HEAD` for the same reason: bare, it
+  reads only what is unstaged. **And the change picks what to sweep for without bounding where to
+  look.** The definition-sweep bullet asked for rules "this diff states in two places", which the
+  diff can answer on its own and which therefore never fires for the drift the sweep exists to catch
+  — a second implementation in a file the change never touched. It now searches the repository.
+
 - **Step 7's focus asks for every sibling in one comment.** The focus already named the class; it did
   not say what to ask for. That this raises findings per round is **derived, not measured** — what is
   measured is only that codex accepts the suffix — and the paragraph says so.
@@ -70,7 +83,15 @@ Added:
   two samples from one source as two sources is the "looks measured" failure `CONTRIBUTING.md` warns
   about.
 - **`tests/procedure-refs.test.sh`** fails if the procedure cites one of its own line numbers, and
-  `CONTRIBUTING.md` states the rule beside it.
+  `CONTRIBUTING.md` states the rule beside it. The guard matches the notation rather than one
+  spelling of it — singular and plural, any digit count, either case, an optional `#`, the `#L132`
+  anchor, and the `path.md:132` form — with a case pinning each member, because a guard is a
+  predicate and the corpus cannot witness the forms it fails to reject. Its first version required
+  `line` singular followed by two or more digits, so an ordinary rephrasing of the two citations it
+  was written to catch — "lines 334 and 371" — would have reintroduced the defect and passed. The
+  assertion was widened with it: keying on a literal `line` would have let an `#L132` hit
+  through unseen, the same defect one level up. The guard stays scoped to `commands/review-loop.md`
+  so that this file can go on quoting the citations it records removing.
 
 Changed:
 
@@ -81,8 +102,13 @@ Changed:
   the flags table said real PRs have needed 20+ rounds (the measured maximum is 30), and step 10's
   lead declared codex at 1–4 and gemini at 30–50 a second time.
 - **Both README phase tables** describe the Prepare and Fix phases as they now behave — Prepare sweeps
-  the diff before pushing, and Fix runs the sweep that matches the class rather than "the codebase
-  sweep", which is now one of three and the one that does not apply to the dominant class.
+  the pending change before pushing, and Fix runs the sweep that matches the class rather than "the
+  codebase sweep", which is now one of three and the one that does not apply to the dominant class.
+- **`docs/permissions.md`'s granular rule list gained `git switch` and `git fetch`**, which step 2 and
+  step 9's recovery row have always run while the list never granted them. The list is a copy of a
+  fact that lives in the procedure, so it drifts; the section now says outright that no test holds the
+  two together and why one would not help — a grep for `git <word>` cannot tell a command from prose,
+  and the procedure names `git show HEAD` twice precisely to forbid it.
 
 ## [0.1.0] - 2026-08-23
 
