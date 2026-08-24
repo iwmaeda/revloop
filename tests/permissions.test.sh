@@ -135,6 +135,13 @@ expect "the doc grants a gh api list" "$(nz "$(printf '%s\n' "$GH_GRANTED" | gre
 
 GH_MISSING=$(comm -23 <(printf '%s\n' "$GH_USED") <(printf '%s\n' "$GH_GRANTED") | sed 's/^/UNGRANTED /')
 refute "every gh api verb in a bash block has its own rule" "$GH_MISSING" "UNGRANTED "
+
+# Both directions here too. The git half gained this and the gh half did not,
+# which left an unused `-X DELETE` grant passing — the same defect the git half
+# had, surviving one round longer because the fix was applied to one of two
+# places that needed it.
+GH_UNUSED=$(comm -13 <(printf '%s\n' "$GH_USED") <(printf '%s\n' "$GH_GRANTED") | sed 's/^/UNUSED /')
+refute "no gh api rule is granted that no bash block uses" "$GH_UNUSED" "UNUSED "
 # Pins the scoping above: the broad rule appears in the prose and must not be
 # read as granted. If this ever reports it, the extraction has widened past the
 # json block and the subset check has stopped meaning anything.

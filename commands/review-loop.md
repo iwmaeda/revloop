@@ -488,7 +488,7 @@ approval, so it has to come from the person typing it.
 
     Sort each into **will fix / already fixed / declining the suggestion**. `reviewThreads
 { isOutdated }` narrows the reading quickly — **`isResolved` is useless because nobody presses
-    Resolve** (measured: 0 resolved, 31 of 32 outdated) — but confirm against the diff.
+    Resolve** (measured 0 resolved, 31 of 32 outdated) — but confirm against the diff.
 
     **Then, having fixed one, sweep for its shape.** A reviewer returns few findings per round — see
     the measurements on its card in `reviewers/` — so leaving a sibling behind literally buys another
@@ -786,7 +786,7 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
 - **`-f` and `-F` are not interchangeable.** `-F` treats a leading `@` as a file read, so
   `-F body='@codex review'` dies with `open codex review: no such file`. Post the trigger from a file
   with `-F body=@file`, and use `-f` for literal values. **Both forms appear in this procedure.**
-- **Verified `gh` floor: 2.4.0 (2022-03).** At that version `gh pr checks` has only `--web` — no
+- **Verified `gh` floor is 2.4.0 (2022-03).** At that version `gh pr checks` has only `--web` — no
   `--watch`, no `--json` — so CI status comes from `gh pr view --json statusCheckRollup` and the merge
   goes through REST `PUT`, not `gh pr merge`. `gh pr view --json`, `gh pr list`,
   `gh pr create --body-file`, `gh api --paginate`, and `gh api graphql` all exist at 2.4.0.

@@ -311,13 +311,14 @@ Added:
   since the file says "makes git set the upstream" and names `git show HEAD` twice to forbid it.
   **That reason was wrong.** Runnable commands live in fenced `bash` blocks and prose does not, so
   extracting from the blocks alone yields neither `set` nor `show` and needs no exclusion list. The
-  check is one-way on purpose: every subcommand in a block must be granted, and the list may hold
-  entries no block uses. What it cannot reach is a command given in prose — `git add` and
-  `git commit` in step 4's paragraph, `git fetch` in step 9's table — so those three are asserted
-  present by name, and the limit is stated in the test rather than discovered later. Both extractions
-  must be non-empty, because a broken one finds nothing missing and passes on no data.
+  check compares both directions: every subcommand in a block must be granted, and every granted rule
+  must be used by a block. It was one-way at first, because `git add` and `git commit` were prescribed
+  in step 4's paragraph and `git fetch` in step 9's table, so no block held them and three assertions
+  named them by hand. A later round moved the commands into blocks instead — which both steps wanted
+  anyway — and the stand-ins went with them. Both extractions must be non-empty, because a broken one
+  finds nothing missing and passes on no data.
 - **`CONTRIBUTING.md` no longer says `tests/procedure-refs.test.sh` "enforces" the line-number rule.**
-  The rule is absolute; the guard catches the forms it enumerates and declines three it cannot tell
+  The rule is absolute; the guard catches the forms it enumerates and once declined three it could not tell
   from prose. Tripwire, not proof — and the difference is now in the sentence that sends readers to it.
 - **`tests/procedure-refs.test.sh`** fails if the procedure cites one of its own line numbers, and
   `CONTRIBUTING.md` states the rule beside it. **It took five review rounds to make the guard's claim

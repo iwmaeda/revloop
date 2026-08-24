@@ -58,9 +58,9 @@ If that is not enough, grant subcommands individually — `Bash(git status:*)`, 
 extending the first time a step reaches for something not on it. Nobody has measured which
 repositories need which subset.
 
-**`tests/permissions.test.sh` keeps this list in step with the procedure**, and it is one-way on
-purpose: every git subcommand appearing in a fenced `bash` block must be granted here, while the list
-may hold entries no block uses.
+**`tests/permissions.test.sh` keeps this list in step with the procedure**, in both directions and
+for both halves: every git subcommand and every `gh api` prefix appearing in a fenced `bash` block
+must be granted here, and every rule granted here must be used by one.
 
 An earlier round declined to test this at all, on the grounds that a grep for `git <word>` over
 `commands/review-loop.md` cannot tell a command from prose — the file says "makes git set the

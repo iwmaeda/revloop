@@ -82,44 +82,64 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "procedure-refs"
 
-# Two patterns, because case is noise in one half and signal in the other.
-# "LINE 132" and "line 132" are the same citation, so that half is matched with
-# grep -i. "Dockerfile:40" is a citation and "floor: 2.4.0" is prose, and the
-# only thing between them is the capital, so that half must be case-sensitive.
-# Folding both into one -i grep was tried and it matched all three of the
-# lowercase corpus phrases below — -i does not spare a bracket expression.
-CITATION_I='\blines?[[:space:]:#-]+((numbers?|nos?\.?)[[:space:]:#]+)?[0-9]|(^|[^[:alnum:]])#?l[0-9]+\b'
-CITATION_S='(^|[^A-Za-z0-9_./+-])[A-Za-z0-9_-]*[./][A-Za-z0-9_./-]*:[[:space:]]*[0-9]|\b[A-Z][A-Za-z]+:[[:space:]]*[0-9]'
+# ONE PATTERN, MATCHED CASE-INSENSITIVELY, over a corpus the fences are removed
+# from. Both halves of that sentence used to be different, and a review closed
+# the gap by changing the input rather than the checker.
+#
+# The file branch used to require a capital, because a lowercase bare word before
+# `:<digits>` was indistinguishable from prose the file really contained —
+# `floor: 2.4.0`, `measured: 0 resolved`, and two `(last:NN)` slices. So
+# `makefile:12`, `R:12` and `foo+bar:12` were recorded as permanently declined.
+#
+# They are not declined any more, because the collisions were removable. The two
+# `(last:NN)` forms live inside hash-pinned fences, which are byte-frozen shell
+# code that cannot acquire a citation without a fence edit and a re-approval, so
+# the scan skips them. The other two were prose, and prose can be rewritten:
+# "floor is 2.4.0" and "measured 0 resolved" say the same thing. With nothing
+# left to collide with, the file branch is any letter-led token before a line
+# number, the capital is unnecessary, and one case-insensitive pattern replaces
+# two. The token must start with a letter, a dot or a slash and must not follow
+# one: without that, `2026-08-24T07:59:33Z` reads `T07:59` as a file and a line.
+CITATION='\blines?[[:space:]:#-]+((numbers?|nos?\.?)[[:space:]:#]+)?[0-9]|(^|[^[:alnum:]])#?l[0-9]+\b|(^|[^A-Za-z0-9_.+/-])[A-Za-z._][A-Za-z0-9_.+/-]*:[[:space:]]*[0-9]'
 
-caught() { # caught <text> -> CAUGHT | MISSED
-  if printf '%s\n' "$1" | grep -qiE "$CITATION_I"; then echo CAUGHT
-  elif printf '%s\n' "$1" | grep -qE "$CITATION_S"; then echo CAUGHT
-  else echo MISSED; fi
+# The three fences, removed from the corpus: a marker line, then everything up to
+# the close of the bash block it introduces.
+unfenced() {
+  awk '/revloop:fence id=/{skip=1; next}
+       skip && /^ *```bash$/{inb=1; next}
+       skip && inb && /^ *```$/{skip=0; inb=0; next}
+       skip {next} {print}' "$1"
 }
 
-# Marked with a literal the pattern itself cannot produce, so the assertion is
-# not narrower than the pattern. Matching on "line " would have let a `#L132`
-# or a `path.md:132` hit pass unseen — the same defect one level up.
+caught() { # caught <text> -> CAUGHT | MISSED
+  if printf '%s\n' "$1" | grep -qiE "$CITATION"; then echo CAUGHT; else echo MISSED; fi
+}
+
 PROC="$ROOT/commands/review-loop.md"
-HITS=$( { grep -niE "$CITATION_I" "$PROC"; grep -nE "$CITATION_S" "$PROC"; } | sed 's/^/CITATION /' ) || true
+# Marked with a literal the pattern itself cannot produce, so the assertion is
+# not narrower than the pattern.
+HITS=$(unfenced "$PROC" | grep -niE "$CITATION" | sed 's/^/CITATION /') || true
 refute "no citation in the forms below reaches the procedure" "$HITS" "CITATION "
 
+# The corpus cannot witness a form the pattern fails to reject, so every member
+# gets a case. Grouped by the axis it closes.
 expect "singular, two digits"     "$(caught 'see line 132 for the rule')"        CAUGHT
 expect "plural"                   "$(caught 'see lines 334 and 371')"            CAUGHT
 expect "one digit"                "$(caught 'see line 9')"                       CAUGHT
 expect "capitalised"              "$(caught 'Line 132 states it')"               CAUGHT
+expect "all caps, singular"       "$(caught 'LINE 132 states it')"               CAUGHT
+expect "all caps, plural"         "$(caught 'LINES 334 and 371')"                CAUGHT
 expect "a range"                  "$(caught 'lines 132-139 cover it')"           CAUGHT
 expect "a range, en dash"         "$(caught 'lines 132–139 cover it')"           CAUGHT
 expect "a hash before the number" "$(caught 'see line #132')"                    CAUGHT
-expect "all caps, singular"       "$(caught 'LINE 132 states it')"               CAUGHT
-expect "all caps, plural"         "$(caught 'LINES 334 and 371')"                CAUGHT
-expect "a lowercase l anchor"     "$(caught 'blob/main/review-loop.md#l132')"    CAUGHT
-expect "a GitHub #L anchor"       "$(caught 'blob/main/review-loop.md#L132')"    CAUGHT
-expect "the path.md:N notation"   "$(caught 'commands/review-loop.md:132 has it')" CAUGHT
 expect "a colon separator"        "$(caught 'see line: 132')"                    CAUGHT
 expect "a colon, no space"        "$(caught 'see line:132')"                     CAUGHT
 expect "the word number"          "$(caught 'see line number 132')"              CAUGHT
 expect "the abbreviation no."     "$(caught 'see line no. 132')"                 CAUGHT
+expect "the hyphenated word"      "$(caught 'see line-number 12')"               CAUGHT
+expect "a lowercase l anchor"     "$(caught 'blob/main/review-loop.md#l132')"    CAUGHT
+expect "a GitHub #L anchor"       "$(caught 'blob/main/review-loop.md#L132')"    CAUGHT
+expect "the path.md:N notation"   "$(caught 'commands/review-loop.md:132 has it')" CAUGHT
 expect "path.md, space after :"   "$(caught 'review-loop.md: 132 has it')"       CAUGHT
 expect "a non-md path cited"      "$(caught 'tests/procedure-refs.test.sh:40')"  CAUGHT
 expect "a 5-letter extension"     "$(caught 'package.jsonc:12 says so')"         CAUGHT
@@ -127,17 +147,14 @@ expect "an extensionless file"    "$(caught 'Dockerfile:40 sets it')"           
 expect "another bare filename"    "$(caught 'Makefile:12 has the rule')"         CAUGHT
 expect "an all-caps bare file"    "$(caught 'LICENSE:3 states it')"              CAUGHT
 expect "a leading-dot path"       "$(caught 'see .env:12 for it')"               CAUGHT
-expect "the hyphenated word"      "$(caught 'see line-number 12')"               CAUGHT
 
-# Declined, and pinned as declined so the next reader sees a decision rather
-# than a hole. See the note above the pattern for why each one is out of reach.
-expect "declined: lowercase bare" "$(caught 'makefile:12 has the rule')"         MISSED
-expect "declined: one letter"     "$(caught 'R:12 states it')"                   MISSED
-expect "declined: + in the name"  "$(caught 'foo+bar:12 says so')"               MISSED
+# Formerly declined, now caught, because the prose they collided with was
+# rewritten and the fences are out of scope.
+expect "a lowercase bare filename" "$(caught 'makefile:12 has the rule')"        CAUGHT
+expect "a one-letter filename"     "$(caught 'R:12 states it')"                  CAUGHT
+expect "a + in the filename"       "$(caught 'foo+bar:12 says so')"              CAUGHT
 
-# The backticks are the corpus form: the procedure writes both of these inside
-# code spans, and a case that drops them stops being a quotation of the text it
-# claims to protect. Nothing here is meant to expand.
+# The forms the procedure genuinely uses and must keep writable.
 # shellcheck disable=SC2016
 expect "the path:line token"      "$(caught 'cite a `path:line`, a test name')"  MISSED
 # shellcheck disable=SC2016
@@ -149,9 +166,6 @@ expect "a severity badge"         "$(caught 'a P1 finding and a P2 finding')"   
 expect "a table row citation"     "$(caught 'Rows 3 and 4 below')"               MISSED
 expect "a word ending in -line"   "$(caught 'the deadline 3 days out')"          MISSED
 expect "read the last line only"  "$(caught 'do not read the last line only')"   MISSED
-expect "lowercase word, colon, N" "$(caught 'Verified gh floor: 2.4.0 (2022-03)')" MISSED
-expect "a measured: N phrase"     "$(caught 'measured: 0 resolved, 31 outdated')" MISSED
-expect "a jq slice in a fence"    "$(caught 'comments(last:40){nodes{createdAt')"  MISSED
 expect "an ISO timestamp"         "$(caught 'SINCE=2026-08-24T07:59:33Z')"       MISSED
 
 summary "procedure-refs"
