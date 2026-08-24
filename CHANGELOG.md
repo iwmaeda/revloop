@@ -36,7 +36,9 @@ Fixed:
 - **The procedure prescribed an artifact that broke its own verify step.** `.revloop/field-notes.md`
   is git-ignored, but neither `.markdownlint-cli2.jsonc` nor `.prettierignore` excluded it, and the
   documented "one line per event" format runs past MD013 on the first line. Writing the field note
-  the procedure asks for turned `npm run check:all` red. Both ignore lists now cover `.revloop/`.
+  the procedure asks for turned `npm run check:all` red. Both ignore lists now name **that file**,
+  not the directory: excluding all of `.revloop/` would have let any other Markdown left there skip
+  the checks, which is more than the collision needed.
 - **`reviewers/codex.md` was stale in the file whose whole purpose is separating measured from
   assumed.** Its latency said 3–4 minutes; ten consecutive rounds on one pull request ran 3:04 to
   8:01, median 4:14, timed from each trigger's `createdAt` to its review's `submittedAt`. Both
@@ -114,7 +116,10 @@ Added:
   re-approval a fence edit costs is a human agreeing to new permission bytes, not an audit for
   citations. Skipping also discarded the lines _between_ a marker and its opener, which no hash covers
   at all: a citation injected there was invisible while the suite reported all green. The whole file
-  is scanned now.
+  is scanned now, and the neutralisation is anchored to the two fields that actually collide
+  (`comments`, `reviews`). A bare `(last:40)` pattern would also have swallowed a prohibited prose
+  citation written as `(first:12)` — the same over-broad exclusion, one level smaller, in the fix for
+  it. An argument on any other field collides loudly instead.
 
 - **`tests/provenance.test.sh` holds the reviewer cards to the grammar `reviewers/README.md`
   states.** **It checks the provenance half only, and says so**: deciding whether a sentence is an

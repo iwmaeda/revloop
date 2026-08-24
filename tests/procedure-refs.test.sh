@@ -106,11 +106,18 @@ CITATION='\blines?[[:space:]:#-]+((numbers?|nos?\.?)[[:space:]:#]+)?[0-9]|(^|[^[
 #
 # The whole file is scanned now. The only thing standing in the way was two
 # GraphQL pagination arguments in the wait fence — `comments(last:40)` and
-# `reviews(last:15)` — so those are neutralised by name and nothing else is.
-# `first`, `after` and `before` are listed with them because they are the rest of
-# the same argument set and a fence edit could reach for one; anything outside
-# that set collides loudly rather than silently, which is the direction to fail.
-depaginate() { sed -E 's/\((first|last|after|before):[0-9]+\)/(PAGINATION)/g' "$1"; }
+# `reviews(last:15)` — so those are neutralised and nothing else is.
+#
+# THE FIELD NAME IS PART OF THE PATTERN, not decoration. Matching a bare
+# `(last:40)` anywhere would also swallow a prohibited prose citation written as
+# `(first:12)`, which is the over-broad exclusion this guard was just fixed for,
+# reappearing one level smaller. Anchoring to the field means an argument on any
+# other field collides loudly instead — the direction to fail. `first`, `after`
+# and `before` ride along with `last` only because a fence edit could reach for
+# one on these same two fields.
+depaginate() {
+  sed -E 's/\b(comments|reviews)\((first|last|after|before):[0-9]+\)/\1(PAGINATION)/g' "$1"
+}
 
 caught() { # caught <text> -> CAUGHT | MISSED
   if printf '%s\n' "$1" | grep -qiE "$CITATION"; then echo CAUGHT; else echo MISSED; fi

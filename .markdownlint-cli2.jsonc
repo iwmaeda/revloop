@@ -3,9 +3,12 @@
 // ignore patterns: markdownlint-cli2 and DavidAnson.vscode-markdownlint both honor
 // it, so a separate .markdownlintignore is unnecessary.
 //
-// `.revloop/` holds field notes: git-ignored, local, and written one line per
-// event by the procedure, which puts them past MD013 immediately. Linting them
-// made following the procedure turn `npm run check:all` red.
+// `.revloop/field-notes.md` is the one artifact the procedure writes: git-
+// ignored, local, and one long line per event, which puts it past MD013
+// immediately. Linting it made following the procedure turn `npm run check:all`
+// red. The pattern names that file rather than the directory, so any other
+// Markdown someone leaves in `.revloop/` is still linted — excluding the whole
+// directory removes more than the collision it was added for.
 {
-  "ignores": ["node_modules/**", ".git/**", "tests/fixtures/**", ".revloop/**"]
+  "ignores": ["node_modules/**", ".git/**", "tests/fixtures/**", ".revloop/field-notes.md"]
 }
