@@ -19,8 +19,9 @@ repository (private, so `reviewers/codex.md` anonymises it as repo C, 2026-08). 
 were 2, 3, 3, 8, 10, 21, and 30, and **a round returns roughly one finding** — 23 finding-bearing
 rounds on one PR at a mean of 1.22, never more than 2. **The rounds a pull request needs is therefore
 roughly the number of defects present when the trigger fires**, which is arithmetic on the measurement
-rather than a separate observation, and is labelled derived wherever it appears. Everything under
-`Added:` about steps 3, 7 and 10 comes from it.
+rather than a separate observation, and is labelled derived wherever it appears. It is what the
+entries below about steps 3, 7 and 10 were **originally written from**; several of them were then
+corrected by the second source, and say so in place.
 
 **The rest comes from this pull request reviewing itself.** Six review rounds on the branch that adds
 these entries produced further defects in them, each fixed and recorded in place rather than as a
@@ -84,9 +85,11 @@ Added:
   both say commit style and the two languages are "detected" from it; two `git log` calls now do,
   because a row that says `detected` with no detector behind it is worse than an honest `builtin`.
 
-  Round 3 found four more, all of them the mechanics rather than the intent, and three measured on a
-  repository holding two awkward names — one beginning with two blanks, and `-dashfile.txt`.
-  **The untracked loop skipped exactly
+  Round 3 found four more, all of them the mechanics rather than the intent, and three measured on
+  throwaway repositories holding three awkward names — one beginning with two blanks, one called
+  `-dashfile.txt`, and one with a newline in its name. The first two were run together; the newline
+  case separately, which is why it is reported as what `git ls-files` printed rather than as what the
+  loop then did. **The untracked loop skipped exactly
   the awkward names it existed to reach**: `read -r` without `IFS=` strips leading blanks
   (`Could not access 'leading-space.txt'`), `git ls-files` without `-z` renders an embedded newline as
   the quoted `"new\nline.txt"`, and a name beginning with `-` reaches `git diff` as options
@@ -130,12 +133,22 @@ Added:
   assertions discriminate.
 - **`reviewers/codex.md` carries a second findings-per-round sample** and four new measurements:
   findings concentrate (28 in 3 files, 30 in 5) and the next one repeats the previous file 39–52% of
-  the time across four PRs; severity predicts nothing (15/15 P2 on one PR, 15/15 P1 on another,
-  25 P1 + 3 P2 on a third, P3 zero throughout); the per-PR round counts; and the input-form-per-round
+  the time across four PRs; the severity mix moves per PR (15/15 P2 on one PR, 15/15 P1 on another,
+  25 P1 + 3 P2 on a third, P3 zero throughout — from which "do not triage by badge" is derived, and
+  marked so on the card); the per-PR round counts; and the input-form-per-round
   shape. **The second sample is not independent of the existing 37-round one** — same repository,
   same account — and is written as corroborating the centre rather than the range, because presenting
   two samples from one source as two sources is the "looks measured" failure `CONTRIBUTING.md` warns
   about.
+- **`reviewers/README.md` states the rule the cards are written to**: a `## Measured` bullet gives the
+  observation first and marks any consequence `Derived`. Design rationale signposted as such ("which
+  is why the loop watches both") is exempt; a declarative statement about reviewer behaviour is not.
+  Round 6 added the rule after two unmarked inferences were found in `codex.md`, and **round 7 found
+  four more, two of them in the very commit that added the rule** — an unmarked inference in the
+  bullet that commit edited, and the rule's own sentence miscounting how many there had been. All are
+  marked now: the sample-independence conclusion, the focus suffix's effect on the findings budget
+  (which the procedure already called derived and the card did not), and the inference that a
+  ten-second reply is a failure rather than a review.
 - **`tests/procedure-refs.test.sh`** fails if the procedure cites one of its own line numbers, and
   `CONTRIBUTING.md` states the rule beside it. **It took five review rounds to make the guard's claim
   match its behaviour, and the reason is worth more than the guard**: each round closed one axis of the

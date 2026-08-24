@@ -26,9 +26,10 @@
 - **1–4 findings per round** (repo C, 2026-08, 37 rounds). A second sample runs narrower: one PR
   produced **23 finding-bearing rounds returning 1–2 each, mean 1.22**, never more than 2, and an
   earlier PR in the same repository averaged 1.52 with the same maximum (repo C, 2026-08). **The two
-  samples share a repository and an account**, so they corroborate the centre, not the range.
-  **Derived from all of it**, and the reason this procedure is built around the number: leaving a
-  sibling behind costs a whole round.
+  samples share a repository and an account.** **Derived** from that shared origin: they corroborate
+  the centre and not the range, because two samples from one source are not two sources. **Derived**
+  from the range itself, and the reason this procedure is built around the number: leaving a sibling
+  behind costs a whole round.
 - **Derived from the samples above**, not separately observed: a round costs roughly one finding, so
   **the number of rounds a PR needs is roughly the number of defects present when the trigger
   fires**. This is arithmetic on the measurements. It is why the procedure sweeps in step 10 and
@@ -56,12 +57,15 @@
 - **The clean phrase's tail varies between rounds.** Observed after
   `Codex Review: Didn't find any major issues.` — `Keep it up!`, `:tada:`, `Breezy!`, and
   `What shall we delve into next?` (repo C, 2026-08). **Match it as a prefix.**
-- **Supports a one-off focus suffix**: `@codex review <focus>` points the round's findings budget.
+- **Supports a one-off focus suffix**: `@codex review <focus>` is accepted and answered. **Derived,
+  and not measured**: that it points the round's findings budget. What was observed is only that the
+  suffix does not stop the review.
 - **The revloop marker is tolerated.** A trigger body of `@codex review`, a blank line, and the
   `<!-- revloop:trigger ... -->` comment was recognised and answered (`iwmaeda/revloop#2`, 2026-08).
   The connector does not require the body to be the trigger phrase alone.
 - **The rate-limit reply arrives in about 10 seconds**, two orders of magnitude faster than a real
-  verdict (`iwmaeda/revloop#2`, 2026-08). A response that fast is a failure, not a review. Its exact
+  verdict (`iwmaeda/revloop#2`, 2026-08). **Derived** from the two-order-of-magnitude gap: a response
+  that fast is a failure rather than a review. Its exact
   text is `You have reached your Codex usage limits for code reviews.` followed by a dashboard link,
   so the pattern above matches it as a prefix.
 - **REST and GraphQL spell the login differently**, measured on the same comment

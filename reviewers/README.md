@@ -25,8 +25,9 @@ what was assumed, and that distinction is meaningful only if a reader can go and
 against an argument — and a conclusion that inherits the heading's authority without inheriting its
 evidence is the "looks measured" failure `CONTRIBUTING.md` warns about. Design rationale signposted as
 such ("which is why the loop…") is not a derived claim and needs no marker; a declarative statement
-about reviewer behaviour does. `codex.md` carried two unmarked ones until a review of this repository
-found them.
+about reviewer behaviour does. `codex.md` carried several unmarked ones, and successive reviews of
+this repository found them a batch at a time — including two that survived the commit which added
+this rule.
 
 ## Adding one
 
