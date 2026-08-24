@@ -54,6 +54,18 @@ o=$(run jq/preamble)
 refute "a preamble is not emitted as a comment" "$o" "Summary of Changes"
 expect "  the trigger is still seen"            "$o" "TRIG"
 
+# A focus containing the literal `revloop:trigger` wins the split, so the marker
+# keys are never reached. Step 7 forbids composing such a focus; this pins what
+# happens if one is composed anyway, which is that the round fails closed: with
+# no `head=` the marker reads `marker_head=none` and step 9 aborts. The row is
+# still emitted — the trigger is found — so the failure is a lost wait, not a
+# lost trigger. The dangerous half is the missing `bot=`: an empty bot disables
+# the fence's bot filter, so any other bot on the PR would satisfy the wait.
+o=$(run jq/focus-carrying-marker)
+expect "a focus carrying the literal still yields one TRIG" "$(printf '%s\n' "$o" | grep -c '^TRIG ')" "1"
+refute "  the head key is lost, so step 9 aborts"           "$o" "head="
+refute "  the bot key is lost with it"                      "$o" "bot="
+
 o=$(run jq/dismissed-and-multiline)
 refute "a DISMISSED review is not a verdict"  "$o" "review "
 expect "  a multi-line body collapses to one" "$o" "800 first line of the body"

@@ -221,14 +221,32 @@ approval, so it has to come from the person typing it.
    comments on every push would otherwise satisfy step 8's exit condition on its first iteration,
    every time it is re-fired, so the wait would never actually wait.
 
-   **From round 2 you may add a focus.** Codex supports a one-off focus suffix; naming the class you
-   just fixed points the round's limited findings budget at its siblings:
+   **From round 2 you may add a focus.** Codex supports a one-off focus suffix (`reviewers/codex.md`,
+   measured). Name the class you just fixed and **ask for every sibling in one comment**: a round's
+   budget is roughly one finding, so a reviewer that reports two siblings across two rounds spends
+   two waits on one class.
 
    ```text
-   @codex review check whether the class fixed in the previous round has siblings elsewhere
+   @codex review the previous round fixed <class>. List every occurrence of that same shape you can
+   find, in this one comment, rather than the first one.
 
    <!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=9f8e7d6c round=4 -->
    ```
+
+   **That the focus raises findings per round is derived, not measured** — what is measured is only
+   that the suffix is accepted. After a few rounds of using it, put the observed findings per round
+   on the reviewer's card either way.
+
+   **Never put the literal `revloop:trigger` in the focus text.** The wait fence reads the marker as
+   the text after the **first** occurrence of that literal, so a focus containing it wins the split
+   and the marker keys are never reached. Measured against the fence's own jq program: a focus
+   reading `check for stray revloop:trigger markers in the diff` yields the marker string
+   `markers in the diff--`, which carries no `bot=`, `head=`, `reviewer=`, or `round=`. Two things
+   follow, and the second is the dangerous one: step 9 aborts the round on `marker_head=none`
+   (fail-closed, one wait spent), and **an empty `bot=` disables the fence's bot filter entirely**,
+   so any other bot on the PR would have satisfied the wait had the round continued. The schema
+   rejects a configured `trigger` containing the literal for this reason; the focus is composed here,
+   so the rule has to be stated here too.
 
 8. Wait. **Fire this script once with `run_in_background`, pasting the fence below without changing a
    single byte** (see Notes). Its stdout is normally one line; a second `EXTRA=` line appears only when
