@@ -51,8 +51,24 @@ fork, so the branches are your own.
 If that is not enough, grant subcommands individually — `Bash(git status:*)`, `Bash(git diff:*)`,
 `Bash(git log:*)`, `Bash(git add:*)`, `Bash(git commit:*)`, `Bash(git checkout:*)`,
 `Bash(git branch:*)`, `Bash(git push:*)`, `Bash(git rev-parse:*)`, `Bash(git merge-base:*)`,
-`Bash(git pull:*)` — and accept that the list will need extending the first time a step reaches for
-something not on it. Nobody has measured which repositories need which subset.
+`Bash(git fetch:*)`, `Bash(git switch:*)`, `Bash(git ls-files:*)`, `Bash(git pull:*)` — and accept that the list will need
+extending the first time a step reaches for something not on it. Nobody has measured which
+repositories need which subset.
+
+**`tests/permissions.test.sh` keeps this list in step with the procedure**, and it is one-way on
+purpose: every git subcommand appearing in a fenced `bash` block must be granted here, while the list
+may hold entries no block uses.
+
+An earlier round declined to test this at all, on the grounds that a grep for `git <word>` over
+`commands/review-loop.md` cannot tell a command from prose — the file says "makes git set the
+upstream" and names `git show HEAD` twice in order to forbid it. **That reason was wrong**: runnable
+commands live in fenced blocks and prose does not, so extracting from the blocks alone yields neither
+`set` nor `show` and needs no exclusion list. The list had already drifted three times by then
+(`switch`, `fetch`, `ls-files`), which is what the test would have caught.
+
+What it still cannot catch is a command the procedure gives in prose rather than a block — `git add`
+and `git commit` in step 4's paragraph, `git fetch` in step 9's table. Those three are asserted
+present by name, which is the closest a mechanical check gets to that direction.
 
 ### Verify commands are not pre-approved
 

@@ -32,8 +32,8 @@ in, including one you just cloned. A repository that could set `auto` would dele
 confirmation points, and one that could set `merge` would grant its own merge. The flag is the
 approval, so it has to come from the person typing it.
 
-`--max-rounds 10` is a **circuit breaker, not a target**. Real PRs have needed 20+ rounds. Hitting the
-cap is not success and never merges.
+`--max-rounds 10` is a **circuit breaker, not a target**. Measured PR round counts run to 30
+(`reviewers/codex.md`). Hitting the cap is not success and never merges.
 
 ## When to run it
 
@@ -50,7 +50,10 @@ cap is not success and never merges.
 
    ```bash
    git branch --show-current
-   git status --porcelain
+   git status --porcelain -uall
+   git log -20 --format='%s'                    # subject language and scope vocabulary
+   git log -20 --format='%b'                    # body language and shape, unfiltered
+   git log -20 --format='%b' | grep -E '^[A-Za-z0-9][A-Za-z0-9-]*: '   # lines shaped like a trailer
    git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo '(no upstream = normal)'
    gh --version | head -1
    gh repo view --json nameWithOwner,defaultBranchRef,isFork,deleteBranchOnMerge \
@@ -65,6 +68,21 @@ cap is not success and never merges.
    commands, branch prefixes, commit style, max rounds, timeout, merge. Give the reviewer row as
    `<name> (<status>, <expectedLatency>)` — a preset whose card says `unverified` is a fact the
    operator wants before the round starts, not after it fails.
+
+   **A row can only say `detected` if something detected it.** Steps 4 and 6 both assert that commit
+   style and the two languages are "detected from the repository's own history, not imposed", and the
+   `git log` calls above are the only thing in this procedure that reads that history. Without them
+   the row is a guess wearing a `source` label, which is worse than an honest `builtin`.
+
+   **All three read the same twenty commits**, so the three agree with each other — an earlier version
+   read three bodies beside a twenty-commit trailer read, which is a sample of shape standing next to
+   evidence of a convention. **Twenty is still a window, not the history**: the row says `detected`,
+   which means measured from something, not proven. The unfiltered body read is the authority and the
+   third line is a convenience on top of it: **a trailer token that pattern fails to match still
+   appears in the line above it**, so a narrow pattern there cannot hide a convention. That is
+   deliberate — the pattern was already too narrow once, dropping tokens containing digits. It is also
+   why the comment says "lines shaped like a trailer" rather than "trailers": an ordinary `Note:` line
+   in the middle of a body has the same shape and will appear in that view.
 
    **Judgements:**
 
@@ -114,16 +132,83 @@ cap is not success and never merges.
    **A red CI wastes a whole review round**, so pay for it before pushing, not after:
 
    ```bash
-   git diff --check
+   git diff --check HEAD           # vs HEAD, so staged edits count; bare --check reads only unstaged
+   git ls-files -o --exclude-standard -z | while IFS= read -r -d '' f; do git diff --check --no-index -- /dev/null "$f"; done
    ```
+
+   **`git diff --check` reaches tracked content only**, so a brand-new file — where a whitespace error
+   is most likely — passes it silently. The second line puts each untracked path through the same
+   check against `/dev/null`. It is written that way rather than as `git add -N .` because
+   intent-to-add writes index entries for files step 4 has not decided to stage, and step 4's whole
+   discipline is that nothing is staged unless it was chosen.
+
+   **Every token in that line is load-bearing, and the naive spelling fails silently** — measured on
+   throwaway repositories holding three awkward names: one beginning with two blanks, one called
+   `-dashfile.txt`, and one with a newline in its name. The first two were run together and the third
+   separately, which is why the third row below reports what `git ls-files` printed rather than what
+   the loop then did with it:
+
+   | Omit             | What happens                                                                             |
+   | ---------------- | ---------------------------------------------------------------------------------------- |
+   | `-z` and `-d ''` | an embedded newline arrives quoted as `"new\nline.txt"`, which is not a path             |
+   | `IFS=`           | `read` strips the leading blanks, and git answers `Could not access 'leading-space.txt'` |
+   | `--`             | `-dashfile.txt` is parsed as options — `unknown switch 'd'`                              |
+
+   In the naive form both files' whitespace errors were **not reported at all**; the loop printed two
+   errors about the filenames and moved on. **Read the output, not the exit status.** `--no-index`
+   compares against `/dev/null`, so every new file is a difference: a clean one exits `1` and a dirty
+   one exits `3`. Testing `$? -ne 0` marks this preflight red whenever any untracked file exists; the
+   whitespace signal is the `2` bit.
 
    If the project's umbrella check command does not cover everything CI runs — a common gap, and its
    shape differs per repository — run the uncovered part explicitly. The resolved table's
    `verifyNotes` records which gap this project has.
 
+   **Then read the change you are about to push.** A red CI costs a round; so does every finding the
+   reviewer returns, and a round costs roughly one finding (`reviewers/codex.md`). Rounds are the
+   scarce thing here and this pass is not, so spend it. **This is not "look it over"** — a second
+   general reading by the same author finds what the first one did. It is step 10's sweeps, run one
+   step early so the reviewer does not have to run them for you.
+
+   **Read the working tree, not a committed snapshot.** Step 4 has not run yet, and step 11 re-enters
+   here with the fix still uncommitted, so `git diff <base>...HEAD` and `git show HEAD` both read a
+   history that does not contain it: on round 1 the branch may carry no commits at all and the diff
+   comes back empty, and from round 2 `git show HEAD` prints the **previous** round's commit — the
+   code the reviewer already found a defect in. **No diff against a commit or the index lists an
+   untracked file** — the `--no-index` form above is the exception, and it only reaches them because
+   it is handed each path explicitly — so read the status beside it, and ask it for every path,
+   because **`--porcelain` on its own collapses a wholly-untracked directory into a single `?? dir/`
+   line**, which is not something you can "read in full":
+
+   ```bash
+   git status --porcelain -uall    # every untracked path (??), not a collapsed dir — read each in full
+   git diff HEAD                   # every tracked edit in the tree; step 4 commits the ones in scope
+   git diff <base>...HEAD          # round 1 only: whatever is already committed on this branch
+   ```
+
+   **The change picks what to sweep for; it does not bound where to look.**
+
+   - **For every predicate this change adds or alters** — splitter, parser, matcher, guard,
+     normaliser — run step 10's **input-space sweep now**. Measured: this class alone cost one PR
+     about 20 of its 30 rounds, arriving one form per round.
+   - **For every rule or predicate this change touches, search the repository for its other
+     implementations** — step 10's definition sweep, at its full width. **Comparing only the copies
+     the diff happens to show is not this sweep**: the drift it exists to catch is a second
+     implementation in a file this change never touched, so a condition the diff can answer by
+     itself never fires for the case the sweep is for. Measured: two implementations of one grammar,
+     drifting.
+   - **From round 2, re-read the fix against the finding it answers**, not only on its own. Measured:
+     four rounds on one PR existed only because the previous round's fix closed one side of a
+     symmetry and left the other open.
+
+   Fix what this finds before step 4, and **say in the report that the pass ran and what it changed**
+   — a self-review nobody can see is indistinguishable from one that never happened.
+
 4. Split the changes into conceptual commits. Propose the split and take confirmation (`--auto`
-   proposes without stopping). **Do not use `git add -A`** — read `git status --porcelain` and stage
-   explicitly, leaving untouched any user change outside the request.
+   proposes without stopping). **Do not use `git add -A`** — read `git status --porcelain -uall` and
+   stage explicitly, leaving untouched any user change outside the request. **`-uall` is load-bearing
+   here, not tidiness**: without it a new directory arrives as one `?? dir/` line, and staging that
+   line stages everything inside it — the same blast radius `git add -A` is banned for.
 
    ```text
    <type>(<scope>): <one line stating what was actually true>
@@ -198,14 +283,32 @@ cap is not success and never merges.
    comments on every push would otherwise satisfy step 8's exit condition on its first iteration,
    every time it is re-fired, so the wait would never actually wait.
 
-   **From round 2 you may add a focus.** Codex supports a one-off focus suffix; naming the class you
-   just fixed points the round's limited findings budget at its siblings:
+   **From round 2 you may add a focus.** Codex supports a one-off focus suffix (`reviewers/codex.md`,
+   measured). Name the class you just fixed and **ask for every sibling in one comment**: a round's
+   budget is roughly one finding, so a reviewer that reports two siblings across two rounds spends
+   two waits on one class.
 
    ```text
-   @codex review check whether the class fixed in the previous round has siblings elsewhere
+   @codex review the previous round fixed <class>. List every occurrence of that same shape you can
+   find, in this one comment, rather than the first one.
 
    <!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=9f8e7d6c round=4 -->
    ```
+
+   **That the focus raises findings per round is derived, not measured** — what is measured is only
+   that the suffix is accepted. After a few rounds of using it, put the observed findings per round
+   on the reviewer's card either way.
+
+   **Never put the literal `revloop:trigger` in the focus text.** The wait fence reads the marker as
+   the text after the **first** occurrence of that literal, so a focus containing it wins the split
+   and the marker keys are never reached. Measured against the fence's own jq program: a focus
+   reading `check for stray revloop:trigger markers in the diff` yields the marker string
+   `markers in the diff--`, which carries no `bot=`, `head=`, `reviewer=`, or `round=`. Two things
+   follow, and the second is the dangerous one: step 9 aborts the round on `marker_head=none`
+   (fail-closed, one wait spent), and **an empty `bot=` disables the fence's bot filter entirely**,
+   so any other bot on the PR would have satisfied the wait had the round continued. The schema
+   rejects a configured `trigger` containing the literal for this reason; the focus is composed here,
+   so the rule has to be stated here too.
 
 8. Wait. **Fire this script once with `run_in_background`, pasting the fence below without changing a
    single byte** (see Notes). Its stdout is normally one line; a second `EXTRA=` line appears only when
@@ -343,16 +446,45 @@ cap is not success and never merges.
 { isOutdated }` narrows the reading quickly — **`isResolved` is useless because nobody presses
     Resolve** (measured: 0 resolved, 31 of 32 outdated) — but confirm against the diff.
 
-    **Then, having fixed one, sweep the whole codebase for its shape.** Reviewers return few findings
-    per round — one measurement puts codex at 1–4 and gemini at 30–50 — so leaving a sibling behind
-    literally buys another round. **The only way to spend fewer rounds is to have fewer defects when
-    you fire**, not to wait more cleverly:
+    **Then, having fixed one, sweep for its shape.** A reviewer returns few findings per round — see
+    the measurements on its card in `reviewers/` — so leaving a sibling behind literally buys another
+    round. **The only way to spend fewer rounds is to have fewer defects when you fire**, not to wait
+    more cleverly. **There is more than one kind of sweep; pick the one that matches the class, say
+    in the reply which one you ran, and run more than one when more than one applies:**
 
-    - **Name the class.** Before fixing, write in one sentence what shape this finding is. If you
-      cannot write it, you cannot sweep for it.
-    - **Sweep the codebase and put the count and the method in the reply.** **Do not offer a
-      word-count as evidence of a sweep** — sweeping for a different "shape" each time lets the same
-      defect survive round after round.
+    - **Name the class first.** Before fixing, write in one sentence what shape this finding is. If
+      you cannot write it, you cannot sweep for it — you will sweep for a different shape next round
+      and the same defect will survive. Measured: four rounds on one PR read the same set of records
+      four times, each under a different "shape", and the same offender survived all four.
+    - **Corpus sweep — the defect has instances in the tree.** Grep or enumerate them, fix them in
+      this commit, and **put the count and the method in the reply**. **Do not offer a word-count as
+      evidence of a sweep**: counting how often a word appears measures the search, not the class.
+    - **Input-space sweep — the defect is a predicate that misclassifies an input _form_.** A
+      splitter, parser, matcher, guard, or normaliser. **A corpus sweep returns zero for this class
+      and the class survives to the next round**, because the missing forms are inputs the predicate
+      could receive, not text that exists in the tree — so grepping the repository can never find the
+      next one. Enumerate the form space instead and **close it as a set in this round**: delimiters
+      and separators, joiners, keywords or particles, **whitespace at every position** (leading,
+      trailing, inner, either side of a joiner), quoting and nesting, dash and bracket variants, and
+      the name or label forms the value can take. **Write the enumeration down, mark which members
+      already worked, and pin every member with its own synthetic case in the same commit** — the
+      corpus cannot witness this class, so a test is the only evidence there is. **An enumeration
+      with one member is not an enumeration**; it is the next round's finding. **Bound the space by
+      what this predicate's real inputs can contain**, not by everything a string could be: the axes
+      above are where to look, not a quota to fill. Measured: about 20 of one PR's 30 rounds were
+      successive members of a single predicate's input space, one form per round.
+    - **Definition sweep — is this rule implemented anywhere else?** Before replying, find every
+      other implementation of the predicate you just changed and make them agree, or delete one.
+      Measured: a splitter and its consumer carried two different grammars, and one of two gates read
+      a different rule from the other — each drift cost its own round.
+    - **Check whether this location was already fixed in an earlier round of this PR.**
+      `git log --oneline --follow <base>..HEAD -- <path>` and your own earlier replies both answer it.
+      **`--follow` is what makes the answer true across a rename** — measured: without it, a file
+      fixed in round 1 and renamed in round 2 shows only the rename, so the question "was this already
+      fixed?" gets a confident No. If it
+      was, **the class was named too narrowly: widen it and sweep again, rather than patching in the
+      new member.** Measured: four commit subjects on one PR name a prior round, and one line was
+      fixed four separate times.
     - **If you write a rule, apply it to the corpus in the same commit.** Do not leave the sweep for
       the next round.
     - **If you move a number or a claim, update every copy** (README, docs, commit body, PR body).
@@ -601,8 +733,8 @@ repos/{owner}/{repo}/:*` does not match `gh api -X POST "repos/{owner}/{repo}/..
   or `gh api -X PUT "repos/{owner}/{repo}/.../merge"` (the merge fence) — the string starts with the
   verb, not with `repos/`. Both need their own rule, scoped the same way:
   `Bash(gh api -X POST repos/{owner}/{repo}/:*)` and `Bash(gh api -X PUT repos/{owner}/{repo}/:*)`.
-- **`--paginate` sits before the path too.** The findings read (step 10, line 334) and the reply
-  verification (step 11, line 371) both call `gh api --paginate "repos/{owner}/{repo}/..."` — same
+- **`--paginate` sits before the path too.** The findings read in step 10 and the reply
+  verification in step 11 both call `gh api --paginate "repos/{owner}/{repo}/..."` — same
   prefix problem, one more rule: `Bash(gh api --paginate repos/{owner}/{repo}/:*)`.
 - **`-f` and `-F` are not interchangeable.** `-F` treats a leading `@` as a file read, so
   `-F body='@codex review'` dies with `open codex review: no such file`. Post the trigger from a file

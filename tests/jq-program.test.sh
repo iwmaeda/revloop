@@ -54,6 +54,27 @@ o=$(run jq/preamble)
 refute "a preamble is not emitted as a comment" "$o" "Summary of Changes"
 expect "  the trigger is still seen"            "$o" "TRIG"
 
+# A focus containing the literal `revloop:trigger` wins the split, so the marker
+# keys are never reached. Step 7 forbids composing such a focus; this pins what
+# happens if one is composed anyway.
+#
+# MEASURED HERE: the jq program still emits exactly one TRIG row, and that row
+# carries no `head=` and no `bot=`. That is all this fixture runs — the jq
+# program, against one recorded payload with no bot verdict in it.
+#
+# DERIVED, NOT MEASURED HERE, and stated because it is the reason the fixture
+# exists: a marker without `head=` reaches step 9 as `marker_head=none`, which
+# that step's table aborts on, so the cost is a lost wait rather than a lost
+# trigger; and an empty `bot=` leaves the fence's bot filter matching every
+# login, so any other bot on the PR would satisfy the wait. Neither consequence
+# is exercised here. Reading the shell after the jq output, and step 9's table
+# after that, is what connects them — this fixture pins only the input those two
+# readings start from.
+o=$(run jq/focus-carrying-marker)
+expect "a focus carrying the literal still yields one TRIG" "$(printf '%s\n' "$o" | grep -c '^TRIG ')" "1"
+refute "  the row carries no head= for step 9 to bind to"   "$o" "head="
+refute "  the row carries no bot= for the filter to use"    "$o" "bot="
+
 o=$(run jq/dismissed-and-multiline)
 refute "a DISMISSED review is not a verdict"  "$o" "review "
 expect "  a multi-line body collapses to one" "$o" "800 first line of the body"

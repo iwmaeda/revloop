@@ -7,6 +7,233 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
+## [Unreleased]
+
+**No fence changed, so no re-approval is owed.** All three fences still match the hashes recorded in
+`tests/fence-hashes.txt`; `tests/fence-guards.test.sh` proves it on every run.
+
+The entries here come from two sources, and the difference matters when reading them.
+
+**The originating measurement** is seven pull requests driven through this loop with codex in a single
+repository (private, so `reviewers/codex.md` anonymises it as repo C, 2026-08). Their round counts
+were 2, 3, 3, 8, 10, 21, and 30, and **a round returns roughly one finding** — 23 finding-bearing
+rounds on one PR at a mean of 1.22, never more than 2. **The rounds a pull request needs is therefore
+roughly the number of defects present when the trigger fires**, which is arithmetic on the measurement
+rather than a separate observation, and is labelled derived wherever it appears. It is what the
+entries below about steps 3, 7 and 10 were **originally written from**; several of them were then
+corrected by the second source, and say so in place.
+
+**The rest comes from this pull request reviewing itself.** Its review rounds on the branch that adds
+these entries produced further defects in them, each fixed and recorded in place rather than as a
+separate entry, and several were measured in throwaway git repositories built for the question — the
+`--no-index` exit codes, the filename-handling table, and the `--follow` rename case. Those say
+"measured" and name what was run. **This preamble said "everything here comes from one measurement"
+until round 6, when the reviewer pointed out it had stopped being true several rounds earlier.**
+
+Added:
+
+- **Step 10 now names three sweeps instead of one, and asks which one matches the class.** The old
+  advice was "sweep the whole codebase for its shape", and for the class that dominates the
+  measurement it is wrong: **about 20 of one PR's 30 rounds were successive members of a single
+  predicate's input space** — a particle, a comma-joined form, leading whitespace, whitespace around
+  a joiner, an em dash, a compound particle — one form per round. **A codebase sweep returns zero for
+  that class**, because the missing forms are inputs the predicate could receive and not text that
+  exists in the tree, so the author concludes the class is closed and the reviewer names the next
+  member next round. The three are a **corpus sweep** (instances exist; grep, fix, report count and
+  method — the old bullet, now named), an **input-space sweep** (enumerate the form space along
+  stated axes, close it as a set in one round, and pin every member with a synthetic case, because
+  the corpus cannot witness this class and a test is the only evidence there is), and a **definition
+  sweep** (find every other implementation of the predicate just changed and make them agree, or
+  delete one — measured: a splitter and its consumer carried two grammars, and one of two gates read
+  a different rule). Two guards ship with them: the input-space sweep is **bounded by what the
+  predicate's real inputs can contain**, so the rule cannot generate speculative work of its own, and
+  **a location already fixed in an earlier round of this PR means the class was named too narrowly**
+  — widen and sweep again rather than patch in the new member (measured: four commit subjects on one
+  PR name a prior round, and one line was fixed four separate times).
+- **Step 3 now reads the pending change before step 4.** The procedure already asserted that the only
+  way to spend fewer rounds is to have fewer defects at fire time, and then fired anyway. Step 3
+  already argued the same thing about CI — a red run wastes a round, so pay for it before pushing —
+  and the measurement makes the reviewer the more expensive of the two. **It is deliberately not a
+  generic self-review**: on the measured PR the author was an LLM that had already missed those
+  findings once, so a second general reading by the same reader is not supported by anything. It is
+  step 10's sweeps, one step earlier. The pass must be reported, because a self-review nobody can see
+  is indistinguishable from one that never happened.
+
+  Two things about **what** it reads, both found by the reviewer on this branch's first round.
+  **It reads the working tree, not a committed snapshot.** Step 4 has not committed yet and step 11
+  re-enters step 3 with the fix unstaged, so the `git diff <base>...HEAD` and `git show HEAD` the
+  step first shipped with read a history that does not contain the edits: round 1 could show an empty
+  diff, and from round 2 `git show HEAD` shows the previous round's commit — the code the reviewer
+  already found a defect in. `git status --porcelain` joins them because **no diff against a commit or
+  the index lists an untracked file** — the `--no-index` form added later is the exception, and only
+  because it is handed each path explicitly — and `git diff --check` gained an explicit `HEAD`: bare, it
+  reads only what is unstaged. **And the change picks what to sweep for without bounding where to
+  look.** The definition-sweep bullet asked for rules "this diff states in two places", which the
+  diff can answer on its own and which therefore never fires for the drift the sweep exists to catch
+  — a second implementation in a file the change never touched. It now searches the repository.
+
+  Round 2 returned the same shape at two of the same locations, so the class was renamed from "reads
+  a committed snapshot" to **a check whose actual input is a proper subset of what its stated rule
+  covers**, and swept again. `git diff --check HEAD` reaches tracked content only, so a brand-new
+  file — where a whitespace error is likeliest — passed it silently; each untracked path now goes
+  through the same check against `/dev/null`, chosen over `git add -N .` because intent-to-add writes
+  index entries for files step 4 has not decided to stage. `git status --porcelain` collapses a
+  wholly-untracked directory into one `?? dir/` line, which is not something you can "read in full" —
+  it now carries `-uall` at all three of its sites, and **step 4's is the one that matters**: staging
+  a `?? dir/` line stages everything inside it, the blast radius `git add -A` is banned for. The
+  re-sweep also reached step 1, where nothing read the repository's history even though steps 4 and 6
+  both say commit style and the two languages are "detected" from it; two `git log` calls now do,
+  because a row that says `detected` with no detector behind it is worse than an honest `builtin`.
+
+  Round 3 found four more, all of them the mechanics rather than the intent, and three measured on
+  throwaway repositories holding three awkward names — one beginning with two blanks, one called
+  `-dashfile.txt`, and one with a newline in its name. The first two were run together; the newline
+  case separately, which is why it is reported as what `git ls-files` printed rather than as what the
+  loop then did. **The untracked loop skipped exactly
+  the awkward names it existed to reach**: `read -r` without `IFS=` strips leading blanks
+  (`Could not access 'leading-space.txt'`), `git ls-files` without `-z` renders an embedded newline as
+  the quoted `"new\nline.txt"`, and a name beginning with `-` reaches `git diff` as options
+  (`unknown switch 'd'`) — both files' whitespace errors went unreported while the loop printed
+  complaints about their names. It is now `-z` with `IFS= read -r -d ''` and a `--` separator, and the
+  procedure states that the **exit status of `--no-index` is not the signal**: every new file differs
+  from `/dev/null`, so a clean one exits `1` and a dirty one `3`, and `$? -ne 0` would mark the
+  preflight red whenever any untracked file exists. **Step 10's "was this already fixed in an earlier
+  round" query gained `--follow`** — measured: a file fixed in round 1 and renamed in round 2 shows
+  only the rename, so the question that exists to detect a too-narrow class answered a confident No.
+  And step 1's trailer detection read three bodies, which is a sample of shape and not evidence of a
+  convention; trailers are now grepped out of twenty.
+
+  Round 4 closed the probe properly. All three `git log` calls read **the same twenty commits**, so
+  the three agree with each other — round 3 had bumped the trailer read to twenty while keeping a
+  three-body read and labelling it "read in full rather than sampled", which was a label contradicting
+  its own command. **Twenty is still a window and not the history**, which is why the row says
+  `detected` rather than proven; round 5 corrected the first version of this entry for claiming the
+  sample away entirely. The unfiltered body read is the authority and the trailer grep is a
+  convenience view of the same twenty, so **a token that grep fails to match still appears in the line
+  above it**; the pattern had in fact been too narrow, dropping trailer tokens containing digits. Its
+  comment says "lines shaped like a trailer" rather than "trailers", because an ordinary `Note:` line
+  mid-body has the same shape.
+
+- **Step 7's focus asks for every sibling in one comment.** The focus already named the class; it did
+  not say what to ask for. That this raises findings per round is **derived, not measured** — what is
+  measured is only that codex accepts the suffix — and the paragraph says so.
+- **Step 7 forbids the literal `revloop:trigger` in the focus text.** The wait fence reads the marker
+  as the text after the first occurrence of that literal, and the focus precedes the marker, so a
+  focus containing it wins the split. **Measured** against the fence's own jq program: the marker
+  string becomes `markers in the diff--`, carrying no `bot=`, `head=`, `reviewer=`, or `round=`.
+  **Derived from that, not separately measured**: step 9 aborts on `marker_head=none` (fail-closed,
+  one wait spent), and an empty `bot=` leaves the fence's bot filter matching every login, so any
+  other bot on the pull request would have satisfied the wait had the round continued. The schema
+  already rejects a configured `trigger` containing the literal; the focus is composed in the
+  procedure, so the rule now exists there too. `tests/fixtures/jq/focus-carrying-marker` pins **the
+  jq output only** — it runs the extracted jq program against one recorded payload that contains no
+  bot verdict, so neither the shell that reads the row nor step 9's table is exercised by it. Round 5
+  corrected both this entry and the fixture's own assertion labels, which named the step-9 abort as
+  though the fixture reached it. The existing clean-comment fixture is the control that proves the
+  assertions discriminate.
+- **`reviewers/codex.md` carries a second findings-per-round sample** and four new measurements:
+  findings concentrate (28 in 3 files, 30 in 5) and the next one repeats the previous file 39–52% of
+  the time across four PRs; the severity mix moves per PR (15/15 P2 on one PR, 15/15 P1 on another,
+  25 P1 + 3 P2 on a third, P3 zero throughout — from which "do not triage by badge" is derived, and
+  marked so on the card); the per-PR round counts; and the input-form-per-round
+  shape. **The second sample is not independent of the existing 37-round one** — same repository,
+  same account — and is written as corroborating the centre rather than the range, because presenting
+  two samples from one source as two sources is the "looks measured" failure `CONTRIBUTING.md` warns
+  about.
+- **`reviewers/README.md` states the rule the cards are written to**: a `## Measured` bullet opens
+  with an observation and its provenance, and everything after that — inference, recommendation,
+  remedy, design consequence — sits behind a `Derived:` marker. A bullet with no observation belongs
+  under `## Not measured`, which all four cards now have; the single exception is mechanical, for a
+  bullet that opens by naming what it derives from.
+
+  **The rule took three rounds to hold, and the reason is the rule's first draft.** It exempted
+  "design rationale signposted as such", and that exemption required deciding sentence by sentence
+  whether something was rationale or a claim. The judgement went wrong in both directions in
+  consecutive rounds: first leaving inferences unmarked, then defending the exemption for four
+  sentences a later audit rejected. The exemption is gone, the rule is now mechanical, and it costs
+  some `Derived:` markers on sentences whose status was never in doubt — the cheaper side of the
+  trade. It also took three rounds because the first two applications only touched `codex.md` while
+  the rule sat in a file governing every card, which is the same "stated in one place, not held to
+  elsewhere" shape the rule exists to catch. All four cards are now written to it, `gemini.md` and
+  `claude.md` and `copilot.md` gained the `## Not measured` sections the rule implies, and the
+  focus-suffix bullet gained the provenance it never had.
+
+  A further round found the rule itself still wrong at its boundary: "opens with an observation, and
+  everything after that is `Derived:`" demands a marker on a bullet's **second** observation, and had
+  put one in front of an exact quoted string on `codex.md`. It now reads sentence by sentence — every
+  sentence is an observation with provenance or sits behind the marker — which is the same rule
+  without the false ordering. Three cards were corrected under it, and `gemini.md`'s error
+  observation gained the date it lacked.
+
+- **`tests/permissions.test.sh` holds `docs/permissions.md`'s granular git list to the procedure.**
+  That list is a copy of a fact living in `commands/review-loop.md`, and it had already drifted three
+  times — `switch`, `fetch` and `ls-files` were each run by a step the list did not grant. An earlier
+  round **declined to test it**, arguing that a grep for `git <word>` cannot tell a command from prose
+  since the file says "makes git set the upstream" and names `git show HEAD` twice to forbid it.
+  **That reason was wrong.** Runnable commands live in fenced `bash` blocks and prose does not, so
+  extracting from the blocks alone yields neither `set` nor `show` and needs no exclusion list. The
+  check is one-way on purpose: every subcommand in a block must be granted, and the list may hold
+  entries no block uses. What it cannot reach is a command given in prose — `git add` and
+  `git commit` in step 4's paragraph, `git fetch` in step 9's table — so those three are asserted
+  present by name, and the limit is stated in the test rather than discovered later. Both extractions
+  must be non-empty, because a broken one finds nothing missing and passes on no data.
+- **`CONTRIBUTING.md` no longer says `tests/procedure-refs.test.sh` "enforces" the line-number rule.**
+  The rule is absolute; the guard catches the forms it enumerates and declines three it cannot tell
+  from prose. Tripwire, not proof — and the difference is now in the sentence that sends readers to it.
+- **`tests/procedure-refs.test.sh`** fails if the procedure cites one of its own line numbers, and
+  `CONTRIBUTING.md` states the rule beside it. **It took five review rounds to make the guard's claim
+  match its behaviour, and the reason is worth more than the guard**: each round closed one axis of the
+  notation and left the next one spelled by hand, which is the failure the procedure's own
+  input-space sweep is written to prevent. The axes, in the order they were found — number of digits
+  (`[0-9]{2,}` passed "line 9"), singular versus plural (`line` alone passed "lines 334 and 371",
+  which is just the two citations the guard was written to catch, joined), letter case (`[Ll]` passed
+  "LINE 132"), the separator (a literal space passed "line: 132", "line:132", "line number 132"), the
+  notation (matching the word alone passed "#L132" and "review-loop.md:132"), and the file cited
+  (matching only `.md:` passed "procedure-refs.test.sh:40", though the rule forbids citing any file by
+  line). Round 4 added two more: the filename form (a 1–4 letter extension passed
+  `package.jsonc:12`, and requiring an extension at all passed `Dockerfile:40` and `Makefile:12`) and
+  case sensitivity — folding the filename half into the `grep -i` half **re-broke it**, because `-i`
+  does not spare a bracket expression, and `floor: 2.4.0` matched again. Case is noise in `LINE 132`
+  and signal in `Dockerfile:40`, so the guard is now two patterns, one grep each. The extensionless
+  branch is the one axis with no syntax to derive from — an extensionless filename is lexically just a
+  word — so it is derived from the corpus instead: every `word: digits` phrase the procedure really
+  contains (`floor: 2.4.0`, `measured: 0 resolved`, and two `(last:40)` forms inside untouchable
+  fences) is lowercase or has no dot or slash, and all four are pinned as must-not-match cases. Round
+  5 added leading-dot paths (`.env:12`) and the hyphen form (`line-number 12`), for ten axes and 41
+  assertions.
+
+  **Round 5 also stopped the guard claiming to cover "any citation notation", which is the claim that
+  kept being wrong.** No regex over English prose carries it, and the comment had asserted it for four
+  rounds while the pattern did not. It now says it covers the enumerated forms, and it names the three
+  it deliberately does not: a lowercase extensionless filename (`makefile:12`) is lexically identical
+  to the prose this file must not break — `floor: 2.4.0` and `measured: 0 resolved` are real corpus
+  lines of that shape and two more live inside fences, so catching it means breaking them; a
+  single-letter name (`R:12`) would match far more prose than it caught; and `+` in a filename
+  (`foo+bar:12`) is legal but appears in no file here, which step 10's own rule says is where to stop.
+  All three are pinned as declined rather than left as holes. **The guard is a tripwire, not a
+  decision procedure, and the difference is now written down.** The assertion was widened alongside
+  the pattern — keying on a literal `line` would have let an `#L132` hit through unseen, the same
+  defect one level up. The guard stays scoped to `commands/review-loop.md` so that this file can go on
+  quoting the citations it records removing.
+
+Changed:
+
+- **`commands/review-loop.md` no longer cites its own line numbers.** `## Notes` named "step 10, line
+  334" and "step 11, line 371". Both were correct when written and both were one insertion away from
+  being silently wrong; the step numbers were already there, so the line numbers carried nothing.
+- **Two copies of a measured number now point at the card that owns it** rather than restating it:
+  the flags table said real PRs have needed 20+ rounds (the measured maximum is 30), and step 10's
+  lead declared codex at 1–4 and gemini at 30–50 a second time.
+- **Both README phase tables** describe the Prepare and Fix phases as they now behave — Prepare sweeps
+  the pending change before pushing, and Fix runs the sweep that matches the class rather than "the
+  codebase sweep", which is now one of three and the one that does not apply to the dominant class.
+- **`docs/permissions.md`'s granular rule list gained `git switch`, `git fetch`, and `git ls-files`**,
+  the first two of which step 2 and step 9's recovery row have always run while the list never granted
+  them. The list is a copy of a
+  fact that lives in the procedure, so it drifts; the section now says outright that no test holds the
+  two together and why one would not help — a grep for `git <word>` cannot tell a command from prose,
+  and the procedure names `git show HEAD` twice precisely to forbid it.
+
 ## [0.1.0] - 2026-08-23
 
 First release. Everything below happened before it, so **no re-approval is owed to anyone**: there

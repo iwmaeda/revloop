@@ -33,7 +33,11 @@ written, and they stay because removing them would cost a re-approval for no gai
 ## Measured
 
 - Copilot reviews exist on `iwmaeda/iwmaeda#1` and `#2` (2026-08), **fired automatically rather than
-  by request**. They are the reason the loop filters bot verdicts by the marker's `bot=`: a second
-  reviewer's review otherwise arrives inside the waiting window and is read as this round's verdict.
-  This observation is why the card is kept even though the preset cannot be driven.
-- The reviewer-request path has never been driven by this tool.
+  by request**. **Derived:** they are the reason the loop filters bot verdicts by the marker's `bot=`
+  — a second reviewer's review otherwise arrives inside the waiting window and is read as this
+  round's verdict — and they are why the card is kept even though the preset cannot be driven.
+
+## Not measured
+
+- The reviewer-request path. It has never been driven by this tool, which is why the preset is
+  `unsupported` rather than `unverified`.
