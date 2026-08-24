@@ -142,9 +142,11 @@ approval, so it has to come from the person typing it.
    intent-to-add writes index entries for files step 4 has not decided to stage, and step 4's whole
    discipline is that nothing is staged unless it was chosen.
 
-   **Every token in that line is load-bearing, and the naive spelling fails silently** — measured, on
-   a repository holding two awkward names, both with trailing whitespace — one beginning with two
-   blanks, and `-dashfile.txt`:
+   **Every token in that line is load-bearing, and the naive spelling fails silently** — measured on
+   throwaway repositories holding three awkward names: one beginning with two blanks, one called
+   `-dashfile.txt`, and one with a newline in its name. The first two were run together and the third
+   separately, which is why the third row below reports what `git ls-files` printed rather than what
+   the loop then did with it:
 
    | Omit             | What happens                                                                             |
    | ---------------- | ---------------------------------------------------------------------------------------- |
@@ -180,7 +182,7 @@ approval, so it has to come from the person typing it.
 
    ```bash
    git status --porcelain -uall    # every untracked path (??), not a collapsed dir — read each in full
-   git diff HEAD                   # the tracked edits step 4 will commit, staged and unstaged
+   git diff HEAD                   # every tracked edit in the tree; step 4 commits the ones in scope
    git diff <base>...HEAD          # round 1 only: whatever is already committed on this branch
    ```
 

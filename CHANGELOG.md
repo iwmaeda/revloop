@@ -12,13 +12,22 @@ text, so editing one costs every user a single re-approval. See
 **No fence changed, so no re-approval is owed.** All three fences still match the hashes recorded in
 `tests/fence-hashes.txt`; `tests/fence-guards.test.sh` proves it on every run.
 
-Everything here comes from one measurement: seven pull requests driven through this loop with codex
-in a single repository (private, so `reviewers/codex.md` anonymises it as repo C, 2026-08). Their
-round counts were 2, 3, 3, 8, 10, 21, and 30, and **a round returns roughly one finding** — 23
-finding-bearing rounds on one PR at a mean of 1.22, never more than 2. **The rounds a pull request
-needs is therefore roughly the number of defects present when the trigger fires**, which is
-arithmetic on the measurement rather than a separate observation, and is labelled derived wherever
-it appears.
+The entries here come from two sources, and the difference matters when reading them.
+
+**The originating measurement** is seven pull requests driven through this loop with codex in a single
+repository (private, so `reviewers/codex.md` anonymises it as repo C, 2026-08). Their round counts
+were 2, 3, 3, 8, 10, 21, and 30, and **a round returns roughly one finding** — 23 finding-bearing
+rounds on one PR at a mean of 1.22, never more than 2. **The rounds a pull request needs is therefore
+roughly the number of defects present when the trigger fires**, which is arithmetic on the measurement
+rather than a separate observation, and is labelled derived wherever it appears. Everything under
+`Added:` about steps 3, 7 and 10 comes from it.
+
+**The rest comes from this pull request reviewing itself.** Six review rounds on the branch that adds
+these entries produced further defects in them, each fixed and recorded in place rather than as a
+separate entry, and several were measured in throwaway git repositories built for the question — the
+`--no-index` exit codes, the filename-handling table, and the `--follow` rename case. Those say
+"measured" and name what was run. **This preamble said "everything here comes from one measurement"
+until round 6, when the reviewer pointed out it had stopped being true several rounds earlier.**
 
 Added:
 
