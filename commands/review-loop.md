@@ -121,6 +121,29 @@ approval, so it has to come from the person typing it.
    shape differs per repository — run the uncovered part explicitly. The resolved table's
    `verifyNotes` records which gap this project has.
 
+   **Then read the diff you are about to push.** A red CI costs a round; so does every finding the
+   reviewer returns, and a round costs roughly one finding (`reviewers/codex.md`). Rounds are the
+   scarce thing here and this pass is not, so spend it. **This is not "look it over"** — a second
+   general reading by the same author finds what the first one did. It is step 10's sweeps, aimed at
+   the diff before the reviewer has to aim them for you:
+
+   ```bash
+   git diff <base>...HEAD          # round 1: the whole branch
+   git show HEAD                   # later rounds: the fix you just made
+   ```
+
+   - **For every predicate this diff adds or changes** — splitter, parser, matcher, guard,
+     normaliser — run step 10's **input-space sweep now**. Measured: this class alone cost one PR
+     about 20 of its 30 rounds, arriving one form per round.
+   - **For every rule this diff states in two places**, check that both copies say the same thing —
+     step 10's definition sweep. Measured: two implementations of one grammar, drifting.
+   - **From round 2, re-read the fix against the finding it answers**, not only on its own. Measured:
+     four rounds on one PR existed only because the previous round's fix closed one side of a
+     symmetry and left the other open.
+
+   Fix what this finds before step 4, and **say in the report that the pass ran and what it changed**
+   — a self-review nobody can see is indistinguishable from one that never happened.
+
 4. Split the changes into conceptual commits. Propose the split and take confirmation (`--auto`
    proposes without stopping). **Do not use `git add -A`** — read `git status --porcelain` and stage
    explicitly, leaving untouched any user change outside the request.
