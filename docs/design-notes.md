@@ -39,6 +39,18 @@ which is why the tempting refinement — walk back to an older trigger when no v
 rejected. It trades a liveness bug for a safety bug, and with `--auto --merge` a safety bug merges
 unreviewed code.
 
+**"Newest" is a computation, not a row position.** The fence's jq program builds one array from four
+generators, and array construction preserves generator order — so every compatibility row is emitted
+after every marker row, however much older it is. Taking the last row therefore selected the newest
+_hand-typed_ trigger whenever one existed at all, and on a pull request driven by hand before revloop
+was adopted those comments are permanent. That is the too-old row of the table above, reached without
+anyone choosing it: the previous round's verdict came straight back, on the first poll
+(`MIRock-jp/hippoblogs#98`, 2026-08). Trigger rows are now sorted by `createdAt`, and within one
+second by `databaseId`, before the newest is taken. What the sort enforces is that **the trigger
+posted later wins, whatever class it belongs to** — not that a marker outranks a hand-typed comment.
+Only the two selections that merge generators are sorted; the review and comment selections each read
+one generator and are already in the API's order.
+
 ## Why the loop marks its own triggers
 
 A configurable reviewer collides with that baseline: the fence must recognise triggers, and every
@@ -52,12 +64,15 @@ arrived and presents as "the reviewer never responded". So the fence matches a s
 
 - **Reviewer-agnostic without widening.** A reviewer you invented gets the same exact matching the
   presets get. A preset alternation survives as a compatibility class so a hand-typed `@codex review`
-  still anchors a baseline — anchoring is all it does. Such a trigger carries no `head=`, so the fence
-  reports `marker_head=none` and step 9 aborts rather than adopting the verdict.
+  still anchors a baseline — anchoring is all it does, and only while it is the newest trigger. Such a
+  trigger carries no `head=`, so the fence reports `marker_head=none` and step 9 aborts rather than
+  adopting the verdict.
 - **`bot=` filters every other bot at fetch time.** Deploy-preview, coverage, a second reviewer — all
   discarded before classification. A bot that comments on every push satisfies the wait's exit
   condition immediately, so the wait never waits. That was a real failure, caused by a Cloudflare
-  Pages preview bot.
+  Pages preview bot. The two mechanisms compound in one direction: a compatibility baseline carries no
+  `bot=`, and an empty `bot=` disables the filter — so a round that lost its baseline to a hand-typed
+  comment also stopped filtering bots, and could read a foreign bot's review as the reviewer's.
 - **`head=` makes the runaway invariant checkable from GitHub alone**, with no local state a session
   restart can destroy. It also retired a trap: the earlier derivation used `git log --date=format:`,
   which renames a local wall-clock time to `Z` without converting it, shifting it by the UTC offset —

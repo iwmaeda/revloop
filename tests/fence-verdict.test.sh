@@ -63,6 +63,38 @@ expect "  the reviewer's own review wins"       "$o" "review_id=950"
 refute "  not the previous round's"             "$o" "review_id=800"
 refute "  the bot filter is live again"         "$o" "copilot-pull-request-reviewer"
 
+# Same second, both classes. Every other case in this file is decided by the
+# primary key alone, so the databaseId tie-break is reachable only here. Both
+# keys are server-assigned and GitHub's comment ids are monotonic, so the pair is
+# creation order rather than an arbitrary tie-break. The invariant is "the row
+# posted later wins, whatever its class" — not "the marker wins".
+#
+# VERDICT=pending prints neither marker_head= nor round=, and the two rows share
+# a timestamp, so trigger= cannot say which won. Each fixture therefore carries a
+# verdict, and the marker keys report the winner. The foreign bot below is the
+# second discriminator: bot= filters it out, and a compat baseline — which
+# carries no bot= at all — would disable the filter and adopt it as the newest.
+o=$(r same-second-trigger)
+expect "same second: the later row wins"        "$o" "VERDICT=review"
+expect "  the marker was posted second"         "$o" "marker_head=9f8e7d6c"
+expect "  so it carries its round"              "$o" "round=4"
+expect "  and its reviewer"                     "$o" "reviewer=codex"
+expect "  the bot filter is live"               "$o" "review_id=950"
+refute "  the compat row did not anchor"        "$o" "marker_head=none"
+refute "  and did not disable the filter"       "$o" "copilot-pull-request-reviewer"
+
+# The mirror: same second, compat posted second. It really is the newest trigger,
+# so it wins and binds no head — step 9 then aborts on marker_head=none rather
+# than adopting the verdict. Failing closed here is the correct outcome, not a
+# gap. This case passes with the sort removed as well, and is kept anyway: it
+# pins that the tie-break orders by id rather than preferring the marker class,
+# which is the half the case above cannot show.
+o=$(r same-second-trigger-compat)
+expect "same second: a later compat also wins" "$o" "VERDICT=review"
+expect "  a compat baseline binds no head"      "$o" "marker_head=none"
+expect "  and names no reviewer"                "$o" "reviewer=unknown"
+refute "  the marker did not win on class"      "$o" "marker_head=9f8e7d6c"
+
 # The marker's bot= discards every other bot on the PR at fetch time.
 o=$(r foreign-bot)
 expect "foreign bots filtered -> pending"       "$o" "VERDICT=pending"

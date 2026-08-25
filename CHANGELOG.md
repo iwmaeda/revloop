@@ -28,7 +28,7 @@ Fixed:
   disabled the fence's bot filter, so a foreign bot's review could be read as the reviewer's — and step
   9's `marker_head=none` recovery, "let revloop fire its own trigger, then re-run step 8", now
   terminates instead of looping forever. The fence gained one utility, `sort`, alongside the `awk`,
-  `grep`, `head` and `tail` it already used.
+  `grep` and `tail` it already used.
 
   The untriggered-verdict diagnostic had the same defect and is fixed in the same edit: it merged the
   review and comment generators, so `bot=` reported the newest **comment**, or a review only when no
@@ -44,6 +44,15 @@ Fixed:
   both representations — `graphql.json` for CI, where a real jq runs the program, and the recorded
   `rows` for machines without one, because the previous bug of this family was invisible to row-level
   fixtures.
+
+  The `databaseId` tie-break is pinned by its own pair of cases, because the primary key decides every
+  other case in the suite and would leave the secondary key unreachable: two triggers one second
+  apart is a different input from two in the same second. Both orders are covered. With the sort
+  removed, the first of the pair returns a **foreign bot's review as the reviewer's verdict** — a
+  compatibility baseline carries no `bot=`, and an empty `bot=` disables the filter — so the two
+  mechanisms compound, and `docs/design-notes.md` now records that they do. That document owns the
+  baseline argument and stated the two failure directions without saying how "newest" is computed;
+  it now says, and notes that the compatibility class anchors only while it is the newest trigger.
 
 Changed:
 
