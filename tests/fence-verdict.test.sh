@@ -37,6 +37,32 @@ o=$(r decoy-compat-trigger)
 expect "newer trigger -> pending, not stale"    "$o" "VERDICT=pending"
 refute "  does not adopt the older verdict"     "$o" "VERDICT=comment"
 
+# The mirror image of the decoy above, and the case the fixtures did not have: a
+# hand-typed trigger OLDER than the marker. The jq program builds one array from
+# four generators and array construction preserves generator order, so a compat
+# row is emitted after every marker row however old it is. Taking the last row
+# therefore picked the newest hand-typed trigger whenever one existed at all, and
+# on a pull request driven by hand before revloop was adopted those comments are
+# permanent — so the baseline could never move forward.
+o=$(r older-compat-trigger)
+expect "older hand-typed trigger loses"         "$o" "VERDICT=pending"
+expect "  baseline is the newest trigger"       "$o" "trigger=2026-08-25T09:00:00Z"
+refute "  not the older hand-typed one"         "$o" "trigger=2026-08-24"
+refute "  no verdict from before the marker"    "$o" "VERDICT=review"
+refute "  the previous round's commit is gone"  "$o" "commit=a5eb3169"
+
+# The liveness half, one round later on the same pull request. A compat baseline
+# carries no bot=, and an empty bot= disables the filter, so this returned a
+# foreign bot's review as the reviewer's verdict.
+o=$(r older-compat-trigger-review)
+expect "the round after converges"              "$o" "VERDICT=review"
+expect "  on the marker's own baseline"         "$o" "trigger=2026-08-25T09:00:00Z"
+expect "  the marker binds a head again"        "$o" "marker_head=9f8e7d6c"
+expect "  and carries its round"                "$o" "round=4"
+expect "  the reviewer's own review wins"       "$o" "review_id=950"
+refute "  not the previous round's"             "$o" "review_id=800"
+refute "  the bot filter is live again"         "$o" "copilot-pull-request-reviewer"
+
 # The marker's bot= discards every other bot on the PR at fetch time.
 o=$(r foreign-bot)
 expect "foreign bots filtered -> pending"       "$o" "VERDICT=pending"
@@ -49,6 +75,13 @@ expect "no trigger, no verdict"                 "$o" "VERDICT=error reason=no-tr
 o=$(r untriggered-verdict)
 expect "verdict without a trigger"              "$o" "VERDICT=error reason=untriggered-verdict"
 expect "  carries the bot line"                 "$o" "bot=comment"
+
+# Two generators again: every review row precedes every comment row, so the last
+# row was the newest comment, never the newest signal. Diagnostic only, but the
+# same defect — and fixing it separately would cost a second re-approval.
+o=$(r untriggered-verdict-review)
+expect "the newest untriggered signal wins"     "$o" "bot=review 2026-08-19T10:09:00Z"
+refute "  not the older comment"                "$o" "bot=comment"
 
 o=$(r reaction)
 expect "thumbs-up -> VERDICT=reaction"          "$o" "VERDICT=reaction"
