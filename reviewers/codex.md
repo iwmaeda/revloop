@@ -28,11 +28,15 @@
   4:48 (`iwmaeda/revloop#8`, 2026-08). Seven consecutive rounds on the next one ran 2:53, 3:16, 5:09,
   5:32, 6:25, 7:01 and 10:07 — range **2:53–10:07**, median 5:32, mean 5:46 (`iwmaeda/revloop#9`,
   2026-08). All three timed from each trigger's `createdAt` to its review's `submittedAt`. Seventeen
-  rounds in this repository span **2:53 to 10:07**.
+  rounds in this repository span **2:53 to 10:07**. A **clean** round is timed against a different
+  endpoint and is not a member of that range: `iwmaeda/revloop#11` found nothing, so its terminal
+  signal was an issue comment rather than a review, and trigger to comment ran **3:46** (2026-08).
   **Derived:** budget for the range and not the centre, and treat the range itself as provisional —
-  **each sample so far has moved both ends outward**, so the next one probably will too. Nothing in
-  the loop depends on the figure: step 8 waits in 480-second chunks against `--timeout` and never
-  reads it, so it is a planning number rather than an input.
+  **each sample so far has moved both ends outward**, so the next one probably will too. The clean
+  round neither widens nor confirms that range, because it does not measure the same thing; it is
+  simply the first figure this repository has for a round that returns no findings. Nothing in
+  the loop depends on either figure: step 8 waits in 480-second chunks against `--timeout` and never
+  reads them, so they are planning numbers rather than inputs.
 - **1–4 findings per round** (repo C, 2026-08, 37 rounds). A second sample runs narrower: one PR
   produced **23 finding-bearing rounds returning 1–2 each, mean 1.22**, never more than 2, and an
   earlier PR in the same repository averaged 1.52 with the same maximum (repo C, 2026-08). **The two
@@ -61,12 +65,18 @@
 - **Round counts across seven PRs in one repository**: 2, 3, 3, 8, 10, 21, 30 (repo C, 2026-08). The
   30-round PR ran 16.8 hours, with a round-to-round gap of a median 9.2 minutes. **Derived**, by
   multiplying the two: 30 rounds at that median is most of 16.8 hours, so the wall clock tracks the
-  number of rounds rather than the length of any single wait.
+  number of rounds rather than the length of any single wait. This repository's own three are 10, 7
+  and 1 (`iwmaeda/revloop#8`, `#9`, `#11`; 2026-08); the last converged with zero findings on its
+  first round. **Derived from those three, and deliberately nothing more:** they are recorded so a
+  later sample has something to join. Three PRs of differing size cannot say why a count is what it
+  is, and a one-round PR is a single observation — reading it as evidence that any practice shortens
+  a loop would be the leap this card's grammar exists to stop.
 - **Terminal signals arrive as issue comments, not reviews.** On `iwmaeda/iwmaeda#8` and `#11`,
   `/pulls/<n>/reviews` was empty while the clean verdict sat in `/issues/<n>/comments`.
 - **The clean phrase's tail varies between rounds.** Observed after
   `Codex Review: Didn't find any major issues.` — `Keep it up!`, `:tada:`, `Breezy!`, and
-  `What shall we delve into next?` (repo C, 2026-08). **Derived:** match it as a prefix, because an
+  `What shall we delve into next?` (repo C, 2026-08), and `Keep them coming!`
+  (`iwmaeda/revloop#11`, 2026-08). **Derived:** match it as a prefix, because an
   equality test on a string that is not constant fails a clean round.
 - **Supports a one-off focus suffix**: `@codex review <focus>` was accepted and answered on seven
   consecutive rounds (`iwmaeda/revloop#8`, 2026-08). **Derived, and explicitly not measured:** that it
