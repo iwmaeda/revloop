@@ -7,7 +7,17 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
-## [Unreleased]
+## [0.3.0] - 2026-08-25
+
+**The `wait-verdict` fence changed, so every user owes one re-approval.** A fence is granted as its
+own permanently identical command string, and this release edits that string; `wait-ci` and `merge`
+are untouched and still match the hashes in `tests/fence-hashes.txt`. **There is nothing to
+re-copy** — [`docs/permissions.md`](docs/permissions.md) is byte-identical to 0.2.0, so the granted
+rule list is exactly the one you already have. The Bash prompt simply returns once, the next time the
+loop reaches step 8, and approving it there restores zero prompts per round. That prompt is the point
+rather than a cost of doing business: it is how you learn that the bytes you granted standing
+permission to have changed. Nothing else asks anything of a reader who already installed 0.2.0 — the
+command name, its flags, and the `.revloop.json` schema are unchanged.
 
 Fixed:
 
@@ -650,5 +660,6 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.3.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.3.0
 [0.2.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.2.0
 [0.1.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.1.0
