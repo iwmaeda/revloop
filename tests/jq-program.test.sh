@@ -80,4 +80,19 @@ refute "a DISMISSED review is not a verdict"  "$o" "review "
 expect "  a multi-line body collapses to one" "$o" "800 first line of the body"
 refute "  the second line is dropped"         "$o" "second line should not appear"
 
+# MEASURED HERE: the four generators are emitted in program order, not in time
+# order. jq array construction preserves generator order, so a compat row lands
+# after every marker row however much older it is. This is the fact the shell's
+# sort on the TRIG rows exists for — pinned here rather than assumed, because the
+# row fixtures replay output someone recorded and cannot witness the ordering
+# rule that produced it.
+#
+# If this case ever fails because the generators were merged into one, the sort
+# is still correct and still wanted; delete this case rather than restoring an
+# order the shell no longer depends on.
+o=$(run verdict/older-compat-trigger)
+expect "both trigger classes are emitted"      "$(printf '%s\n' "$o" | grep -c '^TRIG ')" "2"
+expect "  the newer marker is emitted first"   "$(printf '%s\n' "$o" | grep '^TRIG ' | head -1)" "2026-08-25T09:00:00Z"
+expect "  the older compat row lands after it" "$(printf '%s\n' "$o" | grep '^TRIG ' | tail -1)" "compat=1"
+
 summary "jq-program"

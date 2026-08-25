@@ -7,6 +7,65 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
+## [Unreleased]
+
+Fixed:
+
+- **wait-verdict fence: the baseline was chosen by position, not by time.** The fence's jq program
+  builds one array from four generators, and array construction preserves generator order — so every
+  compatibility (`compat=1`) row is emitted after every marker row, however much older it is. Taking
+  the last `TRIG` row therefore selected the newest **hand-typed** trigger whenever one existed at all,
+  rather than the newest trigger. On a pull request driven by hand before revloop was adopted those
+  comments are permanent, so the baseline could never move forward. Measured on
+  `MIRock-jp/hippoblogs#98` (2026-08): three hand-typed `@codex review` comments from one day and a
+  revloop marker from the next produced `trigger=2026-08-24T04:13:01Z`, `marker_head=none`, and the
+  **previous** round's review reported as this round's verdict. The cost was a skipped wait rather than
+  a slow one — a review newer than an ancient trigger satisfies the exit condition on the first poll.
+  Step 9's `SINCE` reconciliation caught it and the round failed closed, but no re-fire could converge,
+  because the trigger that lost was revloop's own. Trigger rows are now sorted by `createdAt`, and
+  within one second by `databaseId`, before the newest is taken; `LC_ALL=C` keeps a locale's collation
+  out of it. Two consequences ride along: a compat baseline carries no `bot=`, and an empty `bot=`
+  disabled the fence's bot filter, so a foreign bot's review could be read as the reviewer's — and step
+  9's `marker_head=none` recovery, "let revloop fire its own trigger, then re-run step 8", now
+  terminates instead of looping forever. The fence gained one utility, `sort`, alongside the `awk`,
+  `grep` and `tail` it already used.
+
+  The untriggered-verdict diagnostic had the same defect and is fixed in the same edit: it merged the
+  review and comment generators, so `bot=` reported the newest **comment**, or a review only when no
+  comment existed, never the newest signal. Diagnostic-only, and batched deliberately — fixing it later
+  would have cost every user a second re-approval for a one-line improvement.
+
+  **This changes fence bytes.**
+
+  Verified against real data with the limit stated: `MIRock-jp/hippoblogs#98` is merged, so
+  `gh pr list --state open` cannot resolve it and the fence could not be run end to end against it.
+  Its real payload was fetched with the fence's own query and put through the fence's own jq program,
+  which reproduced the inverted order; the fix was then applied to those real rows. The fixtures carry
+  both representations — `graphql.json` for CI, where a real jq runs the program, and the recorded
+  `rows` for machines without one, because the previous bug of this family was invisible to row-level
+  fixtures.
+
+  The `databaseId` tie-break is pinned by its own pair of cases, because the primary key decides every
+  other case in the suite and would leave the secondary key unreachable: two triggers one second
+  apart is a different input from two in the same second. Both orders are covered. With the sort
+  removed, the first of the pair returns a **foreign bot's review as the reviewer's verdict** — a
+  compatibility baseline carries no `bot=`, and an empty `bot=` disables the filter — so the two
+  mechanisms compound, and `docs/design-notes.md` now records that they do. That document owns the
+  baseline argument and stated the two failure directions without saying how "newest" is computed;
+  it now says, and notes that the compatibility class anchors only while it is the newest trigger.
+
+Changed:
+
+- **The round number now says what it counts.** It remains the count of `revloop:trigger` markers plus
+  one — the arithmetic is unchanged and no fence is involved — but step 7 and
+  [`docs/configuration.md`](docs/configuration.md) now state that it counts revloop's rounds rather
+  than the pull request's, so a pull request adopted mid-flight restarts at 1 while its commits and
+  replies are already several rounds deep. Counting the hand-typed rounds too was considered and
+  rejected: the compatibility pattern recognises a fixed set of reviewer names and matches no custom
+  trigger at all, so it would trade a known undercount for an unknown one, and it would mean replaying
+  a fence's classification outside the fence. Step 7 now requires both numbers to be named in the
+  report and in the round's first reply whenever they differ.
+
 ## [0.2.0] - 2026-08-25
 
 **No fence changed, so no re-approval is owed** — but **the granted rule list grew by one**, and

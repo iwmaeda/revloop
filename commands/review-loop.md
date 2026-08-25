@@ -316,6 +316,16 @@ approval, so it has to come from the person typing it.
    with nothing on disk, and a round that ended with no findings still cost a wait, so parsing commit
    subjects undercounts. This is the same argument as `head=` — the PR is the memory.
 
+   **It counts revloop's rounds, not the pull request's.** On a pull request driven by hand before
+   revloop was adopted, the earlier `@codex review` comments carry no marker, so the first marker says
+   `round=1` on a pull request whose commits and replies are already several rounds deep. That is
+   deliberate, and the alternative is worse: a marker count is exact and anyone can reproduce it with a
+   substring search, while counting the hand-typed rounds too means replaying the wait fence's
+   compatibility pattern here — a pattern that recognises a fixed set of reviewer names and matches no
+   custom trigger at all, so it would trade a known undercount for an unknown one. **When the two
+   numbers differ, name both in the report and in the round's first reply**, so the reader is not left
+   to reconcile `round=1` against a fourth round of commits.
+
    **The marker is what makes step 8 reviewer-agnostic without widening its matching.** The fence
    never matches a reviewer's name; it matches a string revloop itself wrote, and reads the reviewer's
    identity back out of it. A human comment such as `@someone review this before merging` matches
@@ -385,9 +395,9 @@ approval, so it has to come from the person typing it.
        F=$((F + 1)); [ $F -ge 5 ] && { echo "VERDICT=error reason=api pr=$PR"; exit 0; }; sleep 30; continue
      fi
      F=0
-     T=$(printf '%s\n' "$O" | grep '^TRIG ' | tail -1)
+     T=$(printf '%s\n' "$O" | grep '^TRIG ' | LC_ALL=C sort -k2,2 -k3,3n | tail -1)
      if [ -z "$T" ]; then
-       B=$(printf '%s\n' "$O" | grep -e '^review ' -e '^comment ' | tail -1)
+       B=$(printf '%s\n' "$O" | grep -e '^review ' -e '^comment ' | LC_ALL=C sort -k2,2 -k4,4n | tail -1)
        [ -n "$B" ] && echo "VERDICT=error reason=untriggered-verdict pr=$PR bot=$B" || echo "VERDICT=error reason=no-trigger pr=$PR"
        exit 0
      fi
@@ -678,6 +688,17 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
 
 ### The wait loop
 
+- **The newest trigger is chosen by timestamp, never by position.** The jq program builds one array
+  from four generators and array construction preserves generator order, so every compatibility row is
+  emitted after every marker row however much older it is. Taking the last row therefore picked the
+  newest hand-typed trigger whenever one existed at all — and on a pull request driven by hand before
+  revloop was adopted those comments are permanent, so the baseline could not move forward. The cost
+  was not a slow round but a skipped one: a review newer than an ancient trigger satisfies the exit
+  condition on the first poll, so the previous round's verdict came straight back
+  (`MIRock-jp/hippoblogs#98`, 2026-08). The trigger rows are now sorted by `createdAt`, and within one
+  second by `databaseId`, before the newest is taken. The review and comment selections each read a
+  single generator, which is why only the trigger selection and the untriggered-verdict diagnostic —
+  the two that merge generators — are sorted.
 - **Never re-fire the trigger without new commits.** Reviewers look at the diff, not at your replies,
   so firing again on the same HEAD returns the same findings and spends the reviewer's budget for
   nothing. **Fire only when `git rev-parse HEAD` differs from the last trigger's HEAD** — which is
