@@ -166,6 +166,26 @@ Fixed:
   fields, so closing it would mean teaching the fence to emit them — a re-approval for every user,
   against a case that needs a same-second collision to reach.
 
+- **The retry budget was searched for as a substring, so `round=1` matched `round=10`.** The rule that
+  decides whether this round has already spent its re-post said "substring search" in as many words,
+  which means a marker from round 10, 11 or 100 satisfies a search for round 1 and the round is refused
+  a re-post it was owed. This is the `attempt=1` versus `attempt=10` trap the procedure already names
+  for a predicate's input space, reintroduced in the rule that spends the budget. Both the budget check
+  and the round count now split the marker payload on whitespace and compare whole `key=value` tokens.
+
+  The related read was checked and **deliberately left alone**: the marker scan selects on
+  `contains("revloop:trigger ")` because that is exactly what the fence's own `TRIG` generator does, so
+  a human comment quoting the literal anchors a baseline whatever this read thinks. Making the read
+  stricter than the fence would be a second implementation of "what is a trigger" that disagrees with
+  the first — the defect class this branch already fixed once. Agreement is the requirement; parsing is
+  where the care goes.
+
+- **Step 10's review sweep excluded a review sharing its second with the round's first trigger.** These
+  timestamps have second resolution and the bound was strictly "after", and the two ways of being wrong
+  are not equally bad: including a review that shares the second costs a re-read of findings that may
+  already be answered, while excluding one drops a review of the current commit on the path that
+  merges. The bound is now inclusive.
+
   What is **not** a hazard, and was checked rather than assumed: a review racing a clean comment. The
   fence returns a review whenever one exists and demotes the comment to `EXTRA=`, so a clean comment
   cannot outrank findings that arrived in the same round.

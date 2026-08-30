@@ -415,6 +415,14 @@ approval, so it has to come from the person typing it.
    edit — the pending line would have to carry the marker fields — which is a re-approval for every
    user against a case that needs a same-second collision to reach.
 
+   **Selecting on `contains("revloop:trigger ")` is what the fence does, and this read must not be
+   stricter.** A human comment quoting the literal is treated as a trigger by the fence's own `TRIG`
+   generator, so it anchors a baseline whatever this read thinks — which is why step 7 forbids putting
+   the literal in a focus, and why a stricter read here would be a second implementation that
+   disagrees with the first rather than a fix. **Agreement is the requirement; parsing is where the
+   care goes.** What this read decides on its own — the round number and the retry budget — is decided
+   by whole `key=value` tokens from the payload, per condition (c) below, never by searching the body.
+
    **`select(.user.type!="Bot")` is the same rule the fence enforces, spelled for REST.** The fence's
    `TRIG` generators drop every `__typename=="Bot"` comment, because a trigger is a string revloop
    wrote and a bot must not be able to anchor a baseline. A read here without that filter is a second
@@ -459,9 +467,18 @@ approval, so it has to come from the person typing it.
    (c) No marker on this PR carries **this round's `round=`** together with an `attempt=`. Scope it to
    the round rather than to `head=`: the lost-baseline state can open a **new** round on an unchanged
    HEAD, so a `head=`-only search would let a previous round's re-post spend this round's budget and
-   report `attempts=2` for a round that only ever sent one trigger. That is a substring search over the
-   read above, and it is the whole bound: a session that died mid-wait resumes with nothing on disk, so
-   a budget kept in the session is a budget a restart refunds. **A marker you cannot parse counts as a
+   report `attempts=2` for a round that only ever sent one trigger.
+
+   **Split the marker payload on whitespace and compare whole `key=value` tokens. Never search it as
+   a substring.** `round=1` is a prefix of `round=10`, so a substring search for this round's number
+   matches a marker from round 10, 11 or 100 and refuses a re-post the round was owed — which is the
+   `attempt=1` versus `attempt=10` trap this procedure already names for a predicate's input space,
+   reintroduced in the rule that spends the retry budget. The same applies to the round count above:
+   a marker "carries `attempt=`" when one of its whitespace-separated tokens begins `attempt=`, not
+   when the body contains those characters somewhere.
+
+   That bound is the whole budget: a session that died mid-wait resumes with nothing on disk, so a
+   budget kept in the session is a budget a restart refunds. **A marker you cannot parse counts as a
    match** — discarding a row is not the same as pretending it was never there, and the direction that
    fails safe here is the one that withholds a second trigger rather than the one that sends it.
    (d) The round produced no classified verdict at all. A rate-limit reply has its own row in step 9
@@ -735,11 +752,14 @@ approval, so it has to come from the person typing it.
     ```
 
     Take the reviews whose `login` is the reviewer's, whose `state` is not `DISMISSED`, whose
-    `commit_id` matches HEAD, and whose `submitted_at` is **after this round's first trigger** — step
-    7's marker read returns that timestamp — then run the `comments` read once per `id`. **The lower
-    bound is not decoration**: the lost-baseline state can open a new round on an unchanged HEAD, so
-    `commit_id` alone would sweep in the previous round's reviews of the same commit and re-open
-    findings you have already answered. **If this read fails, say so
+    `commit_id` matches HEAD, and whose `submitted_at` is **at or after this round's first trigger** —
+    step 7's marker read returns that timestamp — then run the `comments` read once per `id`. **The
+    lower bound is not decoration**: the lost-baseline state can open a new round on an unchanged HEAD,
+    so `commit_id` alone would sweep in the previous round's reviews of the same commit and re-open
+    findings you have already answered. **It is inclusive because these timestamps have second
+    resolution**, and the two ways of being wrong are not equally bad: including a review that shares
+    its second with the trigger costs a re-read of findings you may already have answered, while
+    excluding one drops a review of the current commit on the path that merges. **If this read fails, say so
     and do not merge** — REST 404s for many minutes while GraphQL keeps answering (see Notes), so the
     empty result is indistinguishable from "only one review", and that is the direction that loses
     findings. This also recovers a review orphaned in the window step 7 describes: it is older than the
