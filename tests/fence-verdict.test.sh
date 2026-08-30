@@ -110,13 +110,19 @@ refute "  and the key itself is not echoed"     "$o" "attempt="
 
 # The re-post itself: two triggers on the same HEAD, same round, one round apart.
 # The second is the baseline, and the verdict after it belongs to this round.
-# What this pins beyond ordering is that the re-post did NOT advance the round —
-# a re-post that incremented `round=` would spend `--max-rounds` on a reviewer's
-# dropped comment, which is the budget the cap exists to protect.
+#
+# The round assertion below pins only that the fence reads `round=` off the
+# winning marker rather than off the one it re-posts. It does NOT pin that a
+# re-post leaves the round alone: both triggers carry `round=3` because this
+# fixture was hand-written that way, and the fence has no round-counting logic
+# to get wrong. That rule — a re-post must not advance the round, or a reviewer
+# that drops one comment silently halves `--max-rounds` — lives in step 7's
+# prose, which this harness does not execute. Nothing here can catch its
+# violation, and saying so is worth more than a comment that implies otherwise.
 o=$(r retry-baseline)
 expect "the re-post becomes the baseline"       "$o" "trigger=2026-08-19T10:31:00Z"
 refute "  not the trigger it re-posts"          "$o" "trigger=2026-08-19T10:00:00Z"
-expect "  the round is unchanged by it"         "$o" "round=3"
+expect "  round comes off the winning marker"   "$o" "round=3"
 expect "  and the verdict after it is adopted"  "$o" "review_id=333"
 
 # The cost of re-posting, pinned rather than left as prose. The fence polls and
