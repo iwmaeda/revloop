@@ -1,0 +1,30 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "comments": {
+          "nodes": [
+            {
+              "createdAt": "2026-08-19T10:00:00Z",
+              "databaseId": 111,
+              "body": "@codex review\n\n<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=1a2b3c4d round=3 attempt=2 -->",
+              "author": { "login": "iwmaeda", "__typename": "User" },
+              "reactionGroups": []
+            }
+          ]
+        },
+        "reviews": {
+          "nodes": [
+            {
+              "submittedAt": "2026-08-19T10:06:00Z",
+              "databaseId": 333,
+              "state": "COMMENTED",
+              "author": { "login": "chatgpt-codex-connector", "__typename": "Bot" },
+              "commit": { "oid": "1a2b3c4defabcd" }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

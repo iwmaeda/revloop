@@ -39,6 +39,18 @@ which is why the tempting refinement — walk back to an older trigger when no v
 rejected. It trades a liveness bug for a safety bug, and with `--auto --merge` a safety bug merges
 unreviewed code.
 
+**Posting a second trigger is the mirror of that, and it is allowed.** When a round's whole budget
+passes with no verdict of any kind, step 7 may post the trigger once more at the same HEAD. That moves
+the baseline **forward**, so it can only reach the too-new row of the table above — never the too-old
+one. The direction is the entire argument: the rejected refinement reaches for a verdict that is older
+than the baseline, which is how a previous round's "no issues" gets adopted, while a re-post can at
+worst drop a signal that landed in the 30-second window between the expiring chunk's last poll and the
+new comment. A review survives that window because the reviewer answers the second trigger too and
+`commit=` still pins it to HEAD; a comment-only signal can be lost. The behaviour it replaces is an
+abort, which loses that signal as well and the round with it, so the change spends nothing it was not
+already spending. The bound — **one re-post per round** — is stored in the marker rather than in the
+session, for the same reason `head=` is.
+
 **"Newest" is a computation, not a row position.** The fence's jq program builds one array from four
 generators, and array construction preserves generator order — so every compatibility row is emitted
 after every marker row, however much older it is. Taking the last row therefore selected the newest
@@ -78,6 +90,16 @@ arrived and presents as "the reviewer never responded". So the fence matches a s
   which renames a local wall-clock time to `Z` without converting it, shifting it by the UTC offset —
   always in the direction that permits the re-trigger the invariant exists to prevent.
   `--date=format-local:` converts; `--date=format:` does not.
+- **`attempt=` puts the re-post bound in the same place, and cost no fence edit to do it.** The fence
+  reads marker keys by name through a `case` with no default branch, so a key it does not know is
+  skipped, and the jq program's character filter passes `attempt=2` through untouched. **That is the
+  fact the whole design rests on**: a marker key can be added without changing a fence's bytes, so the
+  retry rule reaches users without costing any of them a re-approval. The key appears only on a
+  re-post — its absence means "first trigger of its round" — which keeps the round count a substring
+  search and keeps every ordinary round on the five-key body `reviewers/codex.md` measured a reviewer
+  accepting. A bound counted in the session would be a bound a session restart refunds; this is the
+  `head=` argument again, applied to how many times a trigger has been sent rather than to which
+  commit it named.
 - **Config never reaches the fence.** Reviewer identity arrives via a comment revloop posted, not a
   file the fence parses, so a hostile `.revloop.json` has no path into a shell command or jq program.
 

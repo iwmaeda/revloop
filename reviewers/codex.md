@@ -35,8 +35,11 @@
   **each sample so far has moved both ends outward**, so the next one probably will too. The clean
   round neither widens nor confirms that range, because it does not measure the same thing; it is
   simply the first figure this repository has for a round that returns no findings. Nothing in
-  the loop depends on either figure: step 8 waits in 480-second chunks against `--timeout` and never
-  reads them, so they are planning numbers rather than inputs.
+  the loop reads either figure at runtime: step 8 waits in 480-second chunks against `--timeout` and
+  never consults a card. **They are no longer only planning numbers, though.** Step 7's floor of three
+  silent chunks before a trigger may be re-posted was chosen as roughly 2.4 times the 10:07 end of
+  this range, so a sample that widens that end is a reason to revisit the floor — which is the one
+  place a measurement on this card now reaches into the procedure.
 - **1–4 findings per round** (repo C, 2026-08, 37 rounds). A second sample runs narrower: one PR
   produced **23 finding-bearing rounds returning 1–2 each, mean 1.22**, never more than 2, and an
   earlier PR in the same repository averaged 1.52 with the same maximum (repo C, 2026-08). **The two

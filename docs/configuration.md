@@ -80,11 +80,11 @@ gap into `verifyNotes` so the loop closes it before pushing; a red CI costs a wh
 Defaults for the command flags; a flag always overrides its default. Resolution is flag, then this
 block, then the built-in, and step 1 prints which one won.
 
-| Key         | Meaning                                                           | Built-in |
-| ----------- | ----------------------------------------------------------------- | -------- |
-| `reviewer`  | A preset (`codex`, `gemini`, `claude`) or a name from `reviewers` | —        |
-| `maxRounds` | Circuit breaker on the number of review rounds                    | `10`     |
-| `timeout`   | Cumulative cap on waiting for one round's verdict, e.g. `"45m"`   | `30m`    |
+| Key         | Meaning                                                               | Built-in |
+| ----------- | --------------------------------------------------------------------- | -------- |
+| `reviewer`  | A preset (`codex`, `gemini`, `claude`) or a name from `reviewers`     | —        |
+| `maxRounds` | Circuit breaker on the number of review rounds                        | `10`     |
+| `timeout`   | Cumulative cap on waiting for one **trigger's** verdict, e.g. `"45m"` | `30m`    |
 
 `--merge` and `--auto` have no entry here on purpose — see below.
 
@@ -92,20 +92,28 @@ block, then the built-in, and step 1 prints which one won.
 
 A key that can only hold the value it already has is a promise, not a setting. These are fixed:
 
-| Not a key                       | Why                                                                                                                                                                                                       |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--merge` / `--auto` defaults   | This file comes from the repository you are in, including one you just cloned. It must not grant its own merge or delete your confirmation points. **The flag is the approval**                           |
-| Merge method                    | The merge fence sends `merge_method=merge` and takes no arguments, so its command string never changes                                                                                                    |
-| "Require clean CI before merge" | The gate re-runs its own check inside the merge step and cannot be loosened from a file                                                                                                                   |
-| Which endpoints carry a verdict | The wait fence pulls comments, reviews and reactions in one call, always. Watching one is how a poll waits forever                                                                                        |
-| Interim-comment patterns        | The drop list lives **inside** the wait fence, because config never reaches a fence. Teaching it a new preamble is a fence edit — one re-approval for every user                                          |
-| The round number                | Counted from the `revloop:trigger` markers already on the PR, plus one. The PR is the memory, so a resumed run needs no local state. It counts revloop's rounds, so a PR adopted mid-flight restarts at 1 |
+| Not a key                                  | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--merge` / `--auto` defaults              | This file comes from the repository you are in, including one you just cloned. It must not grant its own merge or delete your confirmation points. **The flag is the approval**                                                                                                                                                                                                                                                                                                                   |
+| Merge method                               | The merge fence sends `merge_method=merge` and takes no arguments, so its command string never changes                                                                                                                                                                                                                                                                                                                                                                                            |
+| "Require clean CI before merge"            | The gate re-runs its own check inside the merge step and cannot be loosened from a file                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Which endpoints carry a verdict            | The wait fence pulls comments, reviews and reactions in one call, always. Watching one is how a poll waits forever                                                                                                                                                                                                                                                                                                                                                                                |
+| Interim-comment patterns                   | The drop list lives **inside** the wait fence, because config never reaches a fence. Teaching it a new preamble is a fence edit — one re-approval for every user                                                                                                                                                                                                                                                                                                                                  |
+| The round number                           | Counted from the `revloop:trigger` markers already on the PR that opened a round, plus one. The PR is the memory, so a resumed run needs no local state. It counts revloop's rounds, so a PR adopted mid-flight restarts at 1                                                                                                                                                                                                                                                                     |
+| The retry budget and the silence threshold | One re-post per round, and never before three silent 8-minute chunks. A budget above one has nothing measured behind it, and it spends the reviewer's quota — the same class as `--merge`, so not something the repository you happen to be standing in gets to raise. The threshold is fixed in chunks rather than derived from `timeout` because a derived one could be pushed below the reviewer's measured latency by _lowering_ a flag, which is the runaway the invariant exists to prevent |
 
 Counting rounds from GitHub rather than from commit subjects is what lets an interrupted run resume in
 a fresh session: a round that ended with no findings still cost you a wait, and it left a marker but no
 commit. The count is of markers alone, so a pull request driven by hand before revloop was adopted
 starts again at 1 — an exact number anyone can reproduce with a substring search, rather than one that
-depends on replaying the wait fence's compatibility pattern outside the fence.
+depends on replaying the wait fence's compatibility pattern outside the fence. A marker carrying
+`attempt=` is excluded from that count because it re-posts a round that was already open, and it is
+written **only** on a re-post so the exclusion stays a substring search. Counting them would let a
+reviewer that drops one comment halve `maxRounds` without anyone noticing.
+
+`timeout` caps one trigger rather than one round, so a round that has to re-post waits up to twice it
+— about an hour at the built-in value. That is the whole cost of the re-post path, and it is the one
+number to change if the wall clock matters more to you than recovering a dropped trigger.
 
 ## `reviewers`
 

@@ -7,6 +7,143 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
+## [Unreleased]
+
+**No fence changed, so nothing here asks anything of you.** The three shell fences in
+[`commands/review-loop.md`](commands/review-loop.md) are byte-identical to 0.3.0 and still match the
+hashes in `tests/fence-hashes.txt` — `tests/fence-guards.test.sh` reports all three matching, which is
+the evidence for this paragraph — so there is **no re-approval to give**. The granted rule list in
+[`docs/permissions.md`](docs/permissions.md) is unchanged too: the two new reads use
+`gh api --paginate repos/{owner}/{repo}/`, a prefix the procedure already used and you already
+granted, and `tests/permissions.test.sh` checks that in both directions. None of this is luck. The
+re-post rule could have lived inside the wait fence, and putting it there would have cost every user a
+Bash prompt for a rule a reader of step 9 can follow unaided; counting wait chunks against `--timeout`
+was already the caller's job for exactly that reason.
+
+Added:
+
+- **A trigger that is never answered is now posted a second time, once.** The failure: a trigger
+  comment is delivered, the reviewer never acts on it, and the round dies with the pull request, the
+  diff and CI all healthy. Step 8 returned `VERDICT=pending` until the budget ran out and step 9's
+  table said `abort` — no path in the procedure sent the request again. Step 7 now carries one narrow
+  exception to the runaway invariant, with five conditions that are all checkable from GitHub: the
+  wait must have expired **and have spent at least three chunks watching your own trigger**, the
+  `pending` line's `trigger=` must be your `SINCE`, no marker may already carry this `head=` with an
+  `attempt=`, the round must have produced no classified verdict at all, and HEAD must not have moved.
+  A rate-limit reply keeps its own row and that row still says **do not retry**; silence is the only
+  signal the exception answers.
+
+  **The floor is three chunks — 24 minutes — and it is deliberately not a fraction of `--timeout`.**
+  Deriving it from the flag was the first design and it is wrong: `--timeout 8m` would then re-post
+  from inside codex's measured 2:53–10:07 range, which is the runaway the invariant exists to prevent,
+  reachable by typing a flag. A fixed floor in the unit the caller already counts cannot be pushed
+  below the measured ceiling by any flag value. Twenty-four minutes is about 2.4× the widest verdict
+  ever measured, which leaves headroom on a card that records **every sample so far widening both
+  ends**. Below the floor there is no re-post and the round aborts exactly as it did before, under a
+  new reason, `timeout-before-retry`, that says so rather than blaming slowness.
+
+  **The direction is the safety argument.** A re-post moves the baseline **forward**, so it can only
+  reach the too-new row of the table in [`docs/design-notes.md`](docs/design-notes.md) — a verdict that
+  arrived is dropped, a liveness failure. It cannot reach the too-old row, where a previous round's
+  "no issues" becomes this round's clean verdict. That makes it the mirror image of the refinement that
+  document rejects — walking the baseline back to an older trigger — rather than a quiet
+  reintroduction of it.
+
+- **`attempt=` joins the trigger marker, and adding it cost no fence edit.** The fence parses the
+  marker with a `case` over `key=value` pairs and has no default branch, so a key it does not know is
+  skipped, and the jq program's character filter passes `attempt=2` through untouched. Both halves are
+  now pinned rather than asserted — `tests/fixtures/verdict/retry-marker` through the shell, and the
+  same fixture through `tests/jq-program.test.sh` for the filter. No fixture previously carried a
+  marker with anything but the four documented keys, so an unknown key was entirely unexercised.
+
+  **The key is written only on a re-post.** Writing `attempt=1` on every trigger was the first draft
+  and it is a cost with nothing bought: `reviewers/codex.md` records the marker being tolerated end to
+  end against the five-key body, ten consecutive times, so a sixth key on every round would move every
+  round onto a body shape nobody has watched a reviewer accept — to record a `1` that its absence
+  already says. Confining it to the re-post also keeps the round count a substring search instead of a
+  comparison against a number, where `attempt=1` versus `attempt=10` is the input-space trap step 10
+  spends a paragraph on.
+
+  **`v` stays at `1`, and step 7 now says when it would move**: only when an existing key changes
+  meaning or disappears — when a reader of the old format would misread the new one. Adding a key does
+  not qualify. That criterion did not exist before, which is the only reason the question was open;
+  spending the version signal on an additive change teaches the next reader that `v` moves for
+  anything, and makes a genuinely breaking change indistinguishable.
+
+- **Step 7 shows the command it has always prescribed.** "Count the markers from GitHub" had no block
+  behind it, which is the prose-prescribed-command drift `tests/permissions.test.sh` was written after
+  finding three times over. One `--paginate` read now yields all three facts step 7 needs: the round
+  number, whether this HEAD has already been re-posted, and — on a run resuming in a fresh session —
+  the `SINCE` steps 8 and 9 reconcile against. **`SINCE` on a resumed run was undefined**; both steps
+  said "the `SINCE` you recorded in step 7" and a session that died recorded nothing. It is now the
+  `created_at` of the newest marker on the pull request.
+
+  The read filters `.user.type != "Bot"`, which is the fence's own `__typename != "Bot"` rule spelled
+  for REST. Without it the read would be a second implementation of "who may anchor a trigger" that
+  disagrees with the first: a bot quoting the marker literal would inflate the round number, and a bot
+  body carrying `head=` and `attempt=` would satisfy the re-post condition and **suppress a re-post
+  the round was owed**. The two spellings were measured on `iwmaeda/revloop#11` (2026-08) —
+  `chatgpt-codex-connector[bot]` is `type=Bot`, `iwmaeda` is `type=User`. This was found by the
+  definition sweep the procedure's own step 3 prescribes, before the reviewer saw the change.
+
+Fixed:
+
+- **A round that fires twice can be answered twice, and one of the two answers was being dropped.**
+  This is the sharpest thing the re-post changes and nothing pre-existing caught it. If both reviews
+  land before the retry chunk's first poll, the fence returns the newer one and never mentions the
+  older — there is no `EXTRA=` for a second review, only for a comment — and step 10's filter is an
+  equality test on that single `review_id`, so the other review's findings are lost for the life of the
+  pull request, since the next round's baseline is newer than both. Step 9's "commit is an ancestor of
+  HEAD" row cannot catch it: **both reviews name the same, current commit.** Step 10 now reads every
+  review by the reviewer at the current HEAD on a two-trigger round, and fails closed if that read
+  fails, because REST 404s for many minutes while GraphQL keeps answering and an empty result is
+  indistinguishable from "only one review". `tests/fixtures/verdict/retry-both-answered` pins the fence
+  returning one of two same-commit reviews with no signal that the other exists.
+
+  What is **not** a hazard, and was checked rather than assumed: a review racing a clean comment. The
+  fence returns a review whenever one exists and demotes the comment to `EXTRA=`, so a clean comment
+  cannot outrank findings that arrived in the same round.
+
+Changed:
+
+- **`--timeout` now caps one trigger's wait rather than one round's.** A round fires at most two
+  triggers, so its worst case is twice the flag — about an hour at the built-in `30m` where it used to
+  be half of one. That is the price of not losing a round to a single dropped comment, and `--timeout`
+  is the dial that buys it back. Splitting the existing budget in half instead was considered and
+  rejected: it judges a trigger dropped after 16 minutes, only 1.6× the widest measurement. The
+  built-in value does not change, and neither does the schema — `"pattern": "^[0-9]+[smh]$"` already
+  accepted every value this affects. [`docs/configuration.md`](docs/configuration.md) carries the same
+  wording.
+
+- **The round number now excludes re-posts.** It remains the count of `revloop:trigger` markers plus
+  one, except that a marker carrying `attempt=` re-posts a round already open and is not counted.
+  Without the exclusion a reviewer that drops one comment silently halves `--max-rounds`, which is a
+  circuit breaker rather than a target and cannot afford to be spent on delivery failures. The count
+  stays a substring search over the pull request.
+
+- **The number of re-posts, and the silence threshold, are fixed and not configurable.** A budget above
+  one has nothing measured behind it, and it spends the reviewer's quota — the same class as `--merge`,
+  so not something the repository you happen to be standing in gets to raise.
+  `docs/configuration.md`'s "deliberately not configurable" table says so, alongside the reason the
+  threshold is not derived from `timeout`.
+
+- **`reviewers/codex.md` no longer claims nothing in the loop depends on its latency figures.** That
+  was true and is not: the three-chunk floor was chosen as roughly 2.4× the 10:07 end of the measured
+  range, so a sample that widens that end is now a reason to revisit the floor. The card is still not
+  read at runtime.
+
+**This path has not been run against a live reviewer**, and `## Unexercised paths` says so. The
+fixtures pin what the fence does with an `attempt=` marker, which trigger wins the baseline, what
+happens to a signal orphaned between the two, and what the fence reports when both triggers are
+answered — but no fixture can show that a reviewer answers the second trigger. The failure that
+motivated the change is **reported rather than measured**: there is no PR, no date and no waited-for
+duration to cite, so `reviewers/codex.md` gains no entry for it — a card claim with no source is worse
+than no claim, and the only edit to that card is the correction noted above. Step 7 appends one line to
+`.revloop/field-notes.md` on every re-post, successful or not; that is the sample that would turn the
+floor from derived into measured. One thing checked and dismissed while writing this: the fence's
+`comments(last:40)` window is a suffix, and a re-post adds one comment **before** the next verdict, so
+the window is unaffected.
+
 ## [0.3.0] - 2026-08-25
 
 **The `wait-verdict` fence changed, so every user owes one re-approval.** A fence is granted as its

@@ -1,0 +1,34 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "comments": {
+          "nodes": [
+            {
+              "createdAt": "2026-08-19T10:00:00Z",
+              "databaseId": 111,
+              "body": "@codex review\n\n<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=1a2b3c4d round=3 -->",
+              "author": { "login": "iwmaeda", "__typename": "User" },
+              "reactionGroups": []
+            },
+            {
+              "createdAt": "2026-08-19T10:30:50Z",
+              "databaseId": 222,
+              "body": "Codex Review: Didn't find any major issues. Keep it up!",
+              "author": { "login": "chatgpt-codex-connector", "__typename": "Bot" },
+              "reactionGroups": []
+            },
+            {
+              "createdAt": "2026-08-19T10:31:00Z",
+              "databaseId": 112,
+              "body": "@codex review\n\n<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=1a2b3c4d round=3 attempt=2 -->",
+              "author": { "login": "iwmaeda", "__typename": "User" },
+              "reactionGroups": []
+            }
+          ]
+        },
+        "reviews": { "nodes": [] }
+      }
+    }
+  }
+}
