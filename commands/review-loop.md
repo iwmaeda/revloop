@@ -1049,16 +1049,27 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   polls at 0, 30, … 450 seconds and then prints, so the last poll is a full 30 seconds before the
   `pending` line exists, plus however long it takes to read that line and post. A signal landing in
   that gap is unseen by the expiring chunk and older than the new baseline, so the fence will never
-  name it. **A review is recoverable and a comment-only signal is not**: step 10's two-trigger read
-  finds any review whose `commit_id` is HEAD whether or not the fence named it, while a clean verdict
-  or a rate limit that arrives as a comment is simply lost. **Step 9 gates every clean finish on that
-  sweep for exactly this reason**: the sweep lives in step 10, step 10 is reached only from
-  `VERDICT=review`, and without the gate a round ending on a clean comment would skip the one thing
-  that recovers the orphan — and merge past it under `--auto --merge`. That cost is real and it is accepted,
-  because the behaviour it replaces is an abort, which loses the same signal **and** the round with
-  it. There is no fence-free way to close it — only the fence knows when its last poll ran, and it
-  exits without saying — so on `no-verdict` the report says a signal may have been orphaned and the
-  PR is worth reading before the loop is re-run.
+  name it. **A review is recoverable and nothing else is**: step 10's two-trigger read finds any
+  review whose commit is HEAD whether or not the fence named it, but it reads `pulls/<n>/reviews` and
+  never comments, so **all four comment classes step 9 can reach are lost in that gap** — a clean
+  verdict, a rate limit, an unrecognized bot body, and a `cid=` already classified as non-terminal —
+  and so is a reaction on the superseded trigger, which the fence only ever reads from the newest
+  trigger row. **Step 9 gates every clean finish on that sweep for exactly this reason**: the sweep
+  lives in step 10, step 10 is reached only from `VERDICT=review`, and without the gate a round ending
+  on a clean comment would skip the one thing that recovers the orphan — and merge past it under
+  `--auto --merge`.
+- **The gap is not paid for equally by all four, and two of them are a real widening.** For a clean
+  verdict or a rate limit the accepted argument holds: the behaviour the re-post replaces is an abort,
+  which loses the same signal **and** the round with it, and both classes repeat themselves — a
+  rate-limited reviewer replies rate-limited again in about ten seconds, and a clean pull request
+  reviews clean twice. **It does not hold for the two abort-class rows.** An unrecognized bot body and
+  an `interim-loop` exist to stop the loop and hand it to a human. Before the re-post, losing one to
+  the gap still ended in an abort; now, if trigger 2 answers clean, the round **finishes clean and
+  merges**. That is strictly worse than the behaviour it replaces, it is the one cost of this path
+  that is not offset, and nothing here recovers it. There is no fence-free way to close it — only the
+  fence knows when its last poll ran, and it exits without saying — so **on any two-trigger round the
+  report says a signal may have been orphaned**, not only on `no-verdict`, and says the pull request
+  is worth reading before the loop is re-run or merged.
 - **The reviewer may answer both triggers, and the fence reports only one of them.** This is the
   sharpest thing the re-post changes, and it is not handled by any pre-existing row. If both answers
   are on the PR before the retry chunk's first poll, the fence takes the newest review after the
