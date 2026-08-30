@@ -378,6 +378,15 @@ approval, so it has to come from the person typing it.
      --jq '.[]|select(.user.type!="Bot")|"\(.created_at) \(.id) \(if (.body|contains("revloop:trigger ")) then (.body|split("revloop:trigger ")[1]|split(" -->")[0]) else "no-marker" end)"'
    ```
 
+   **A non-zero exit is "the read failed", never "there are no markers."** Decide that from `gh`'s
+   exit code alone, the way step 8 already does: an empty result and a failed fetch look identical
+   here, and this is the endpoint `## Notes` records returning 404 continuously for many minutes while
+   the same token's GraphQL kept answering — the failure that once reported a pull request carrying 22
+   triggers as `no-trigger`. Read as "no markers" it silently restarts the round number at 1, hands
+   condition (c) below an empty pull request and so refunds a retry budget the round has already
+   spent, and leaves `SINCE` with no left-hand side. **If it fails, do not fire and do not re-post** —
+   report and stop, exactly as when step 8 errors. An unanswered question is not a licence.
+
    **It returns every non-bot comment, not only the marked ones, and that is what makes the
    lost-baseline state discoverable.** A hand-typed trigger carries no marker, so a marker-only read
    cannot see the comment that took the baseline: a resumed run at unchanged HEAD would find only its
