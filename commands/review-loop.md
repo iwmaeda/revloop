@@ -455,6 +455,18 @@ approval, so it has to come from the person typing it.
    selections are: this is one generator in the API's own ascending order, not four merged, so there
    is no generator order to override a timestamp.
 
+   **This round's number is that same marker's `round=`, not the count above plus one.** The
+   count-plus-one rule composes the _next_ round's trigger and deliberately excludes a re-post, so on
+   a run that resumed after one it yields N+1 while the round in flight is still N. Condition (c)
+   below would then ask whether round N+1 had been re-posted, find nothing, and authorise a **second**
+   re-post of round N — and every later session would do it again, because the marker it should have
+   found is the one excluded from the only count it was given. The bound depends on this: "it cannot
+   re-post twice, because (c) reads that from the PR" holds only if (c) is asked about the right
+   round. Two more facts come off the same marker — whether this round has already been re-posted,
+   and with it whether this is the **two-trigger round** step 9 gates every clean finish on, are both
+   that marker carrying an `attempt` key. The round's **first** trigger, whose id and body the re-post
+   reads back below, is the oldest marker carrying this `round=` and no `attempt`.
+
    **Re-posting a trigger that went unanswered.** The runaway invariant forbids firing again on an
    unchanged HEAD, and **this run has exactly one exception to it**: a trigger that produced no verdict
    of any kind may be posted once more. (The lost-baseline state above also fires at unchanged HEAD,
