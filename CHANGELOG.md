@@ -128,6 +128,27 @@ Fixed:
   in nine places at once. `marker_head=none` and `reason=foreign-baseline` now both read "report and
   finish", and so does `error reason=no-branch`, which had the same shape before this change.
 
+- **A two-trigger round could finish clean without ever running the review sweep.** The sweep lives in
+  step 10 and step 10 is reached only from `VERDICT=review`, so a round whose terminal signal was a
+  clean **comment** or a reaction went straight to step 12 — which is precisely the case the sweep
+  exists for. A review of the current commit orphaned before the re-post was then never read, its
+  findings never replied to, and with `--auto --merge` the loop merged on the second trigger's clean
+  signal while an unread review of that same commit sat on the pull request. That is the one way the
+  re-post path could have produced a wrong merge. Step 9 now gates every clean finish on the sweep,
+  because step 9 is the only place both the clean path and the findings path pass through. A
+  single-trigger round is unaffected: there is no second answer to miss.
+
+- **The lost-baseline recovery was unreachable after a restart, which made the abort permanent.** Step
+  7's marker read selected only comments carrying the marker, so it could not see the hand-typed
+  comment that took the baseline. A resumed run at unchanged HEAD found only its own marker, concluded
+  the runaway invariant blocked it, waited, reached `reason=foreign-baseline` again and aborted —
+  forever, with the recovery the entry above promises unreachable. The read now returns every non-bot
+  comment and marks the unmarked ones, and step 7 says what to do with a newer one: **ask the fence**,
+  by firing step 8 once and reading its `trigger=`, rather than replaying the fence's compatibility
+  pattern outside it. That pattern under-matches custom triggers into the same deadlock and
+  over-matches into licensing an extra trigger, so neither direction of guessing is available — which
+  is the same reason the round number does not count hand-typed rounds.
+
   What is **not** a hazard, and was checked rather than assumed: a review racing a clean comment. The
   fence returns a review whenever one exists and demotes the comment to `EXTRA=`, so a clean comment
   cannot outrank findings that arrived in the same round.

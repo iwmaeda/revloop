@@ -943,7 +943,10 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   that gap is unseen by the expiring chunk and older than the new baseline, so the fence will never
   name it. **A review is recoverable and a comment-only signal is not**: step 10's two-trigger read
   finds any review whose `commit_id` is HEAD whether or not the fence named it, while a clean verdict
-  or a rate limit that arrives as a comment is simply lost. That cost is real and it is accepted,
+  or a rate limit that arrives as a comment is simply lost. **Step 9 gates every clean finish on that
+  sweep for exactly this reason**: the sweep lives in step 10, step 10 is reached only from
+  `VERDICT=review`, and without the gate a round ending on a clean comment would skip the one thing
+  that recovers the orphan — and merge past it under `--auto --merge`. That cost is real and it is accepted,
   because the behaviour it replaces is an abort, which loses the same signal **and** the round with
   it. There is no fence-free way to close it — only the fence knows when its last poll ran, and it
   exits without saying — so on `no-verdict` the report says a signal may have been orphaned and the
