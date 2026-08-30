@@ -40,8 +40,9 @@ rejected. It trades a liveness bug for a safety bug, and with `--auto --merge` a
 unreviewed code.
 
 **Posting a second trigger is the mirror of that, and it is allowed.** When a trigger's whole budget
-passes with no verdict of any kind — `--timeout` caps one trigger, not one round — step 7 may post the trigger once
-more at the same HEAD. That moves
+passes with no verdict of any kind — `--timeout` caps one trigger, not one round — and at least three
+8-minute chunks were spent watching it, step 7 may post the trigger once more at the same HEAD. Both
+halves are required, so a `--timeout` short enough to end before the floor never re-posts at all. That moves
 the baseline **forward**, so it can only reach the too-new row of the table above — never the too-old
 one. The direction is the entire argument: the rejected refinement reaches for a verdict that is older
 than the baseline, which is how a previous round's "no issues" gets adopted, while a re-post can at

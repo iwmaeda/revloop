@@ -295,7 +295,10 @@ approval, so it has to come from the person typing it.
    that went unanswered" below, same `round=` and `attempt=2`. Or a newer trigger took the baseline,
    which step 9 reaches as `marker_head=none` or `reason=foreign-baseline`: **this run aborts, because
    an abort is a stop**, and a later run fires an **ordinary** trigger here to re-take the baseline —
-   no `attempt=`, and the round number advances, because the wait it replaces was spent. The asymmetry
+   no `attempt=`, and the round number advances, because the wait it replaces was spent. **That later
+   run can only do it once it establishes that the baseline is foreign**, which a verdict line says
+   outright and a `pending` line cannot: the same-second collision below is the one shape where the
+   recovery does not arrive on its own and the loop keeps handing the same abort to a human. The asymmetry
    is not tidiness: a lost baseline usually means somebody is driving the pull request by hand, and
    racing a person for the newest comment is the runaway itself, so the loop stops and lets them
    decide. **Neither state is a licence to fire again on a trigger that was answered**, which is the
@@ -364,8 +367,8 @@ approval, so it has to come from the person typing it.
    numbers differ, name both in the report and in the round's first reply**, so the reader is not left
    to reconcile `round=1` against a fourth round of commits.
 
-   **Read the markers before composing anything.** The round number, whether this HEAD has already
-   been re-posted, and — on a run that resumed in a fresh session — the `SINCE` steps 8 and 9 keep
+   **Read the markers before composing anything.** The round number, whether **this round** has
+   already been re-posted, and — on a run that resumed in a fresh session — the `SINCE` steps 8 and 9 keep
    reconciling against all come out of one read. **`--paginate` is not optional**: measured PR round
    counts run to 30, which is more than one page, and a short read is a wrong round number rather than
    an error.
@@ -463,7 +466,8 @@ approval, so it has to come from the person typing it.
    that fails this reconciliation does not count toward (a)'s three** — otherwise a PR carrying an
    ancient hand-typed trigger drifts into a re-post nobody's silence earned. This condition is what
    separates the two states above, and it separates them into different runs: a lost baseline is never
-   re-posted at all — it aborts, and a later run re-takes the baseline with an ordinary trigger —
+   re-posted at all — it aborts, and a later run re-takes the baseline with an ordinary trigger once
+   it can establish the baseline is foreign —
    because the round's problem is that nothing of yours is being watched rather than that something of
    yours went unanswered.
    (c) No marker on this PR carries **this round's `round=`** together with an `attempt=`. Scope it to
@@ -656,7 +660,8 @@ approval, so it has to come from the person typing it.
    was its last unbounded instance in the procedure. Allow two consecutive mismatches; the third
    aborts with `reason=foreign-baseline`. **That is a stop, like every other abort**: report and
    finish, the same as `marker_head=none`, and let a later run re-take the baseline with an ordinary
-   trigger in step 7. A matching `trigger=` resets the count.
+   trigger in step 7 — **once it can establish the baseline is foreign**, which a `pending` line alone
+   does not. A matching `trigger=` resets the count.
 
 9. Decide continue / finish / abort in one line. **Check five things before consulting the table:**
 
@@ -983,7 +988,8 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   bars a second trigger while one of yours can still bind a verdict. Two states end that premise —
   nothing answered, and a newer trigger taking the baseline — and **only the first is recovered inside
   the run**. The second aborts, because an abort is a stop and because a lost baseline usually means a
-  person is driving the pull request by hand; a later run re-takes it with an ordinary trigger. Step 7
+  person is driving the pull request by hand; a later run re-takes it with an ordinary trigger once it
+  can establish the baseline is foreign, which a `pending` line alone cannot. Step 7
   states the five conditions. The bound is **one re-post
   per round**, and it is stored where the invariant already lives — a marker on the pull request
   carrying **this round's `round=`** and a whitespace-separated token whose key is exactly `attempt` —

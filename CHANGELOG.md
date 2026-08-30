@@ -78,7 +78,7 @@ Added:
 - **Step 7 shows the command it has always prescribed.** "Count the markers from GitHub" had no block
   behind it, which is the prose-prescribed-command drift `tests/permissions.test.sh` was written after
   finding three times over. One `--paginate` read now yields all three facts step 7 needs: the round
-  number, whether this HEAD has already been re-posted, and — on a run resuming in a fresh session —
+  number, whether this round has already been re-posted, and — on a run resuming in a fresh session —
   the `SINCE` steps 8 and 9 reconcile against. **`SINCE` on a resumed run was undefined**; both steps
   said "the `SINCE` you recorded in step 7" and a session that died recorded nothing. It is now the
   `created_at` of the newest marker on the pull request.
