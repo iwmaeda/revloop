@@ -757,22 +757,38 @@ approval, so it has to come from the person typing it.
 
     ```bash
     gh api --paginate "repos/{owner}/{repo}/pulls/<n>/reviews?per_page=100" \
-      --jq '.[]|{id,submitted_at,state,commit_id,login:.user.login}'
+      --jq '.[]|{id,submitted_at,state,commit8:(.commit_id[0:8]),login:(.user.login|rtrimstr("[bot]"))}'
     ```
 
-    Take the reviews whose `login` is the reviewer's, whose `state` is not `DISMISSED`, whose
-    `commit_id` matches HEAD, and whose `submitted_at` is **at or after this round's first trigger** —
-    step 7's marker read returns that timestamp — then run the `comments` read once per `id`. **The
-    lower bound is not decoration**: the lost-baseline state can open a new round on an unchanged HEAD,
-    so `commit_id` alone would sweep in the previous round's reviews of the same commit and re-open
-    findings you have already answered. **It is inclusive because these timestamps have second
-    resolution**, and the two ways of being wrong are not equally bad: including a review that shares
-    its second with the trigger costs a re-read of findings you may already have answered, while
-    excluding one drops a review of the current commit on the path that merges. **If this read fails, say so
-    and do not merge** — REST 404s for many minutes while GraphQL keeps answering (see Notes), so the
-    empty result is indistinguishable from "only one review", and that is the direction that loses
-    findings. This also recovers a review orphaned in the window step 7 describes: it is older than the
-    second trigger, so the fence never named it, but its `commit_id` is still HEAD.
+    **Both compared fields are normalized in the read, because neither arrives comparable.** REST's
+    `user.login` carries the `[bot]` suffix the marker's `bot=` has stripped, and `commit_id` is the
+    full 40-character sha while every other HEAD comparison in this procedure is the short-8 form. A
+    naive equality on either matches **zero** reviews on every run — and zero is indistinguishable from
+    "only one review", so the sweep reports nothing, the round finishes clean, and `--auto --merge`
+    merges past findings nobody read. The fence solves both for itself with `BOT=${BOT%"[bot]"}` and
+    `.commit.oid[0:8]`; this is that rule spelled for REST, and `## Notes` states the login half on its
+    own, where it is recorded as having shipped once already. **`rtrimstr` rather than a regex**: the
+    slice is the operation the fence already performs on this same field, and `rtrimstr` is the jq
+    spelling of the fence's shell `${BOT%"[bot]"}`, so neither half needs a regex engine at the
+    documented `gh` floor. It strips a **suffix**, not a substring, so a login that merely contains
+    `[bot]` is left alone.
+
+    Take the reviews whose `login` is the reviewer's, whose `state` is not `DISMISSED`, whose `commit8`
+    equals `git rev-parse --short=8 HEAD`, and whose `submitted_at` is **at or after this round's first
+    trigger** — step 7's marker read returns that timestamp — then run the `comments` read once per
+    `id`. **The lower bound is not decoration**: the lost-baseline state can open a new round on an
+    unchanged HEAD, so the commit alone would sweep in the previous round's reviews of the same commit
+    and re-open findings you have already answered. **It is inclusive because these timestamps have
+    second resolution**, and the two ways of being wrong are not equally bad: including a review that
+    shares its second with the trigger costs a re-read of findings you may already have answered, while
+    excluding one drops a review of the current commit on the path that merges. **If either read fails,
+    say so and do not merge** — the list read and the per-review `comments` read alike. REST 404s for
+    many minutes while GraphQL keeps answering (see Notes), so an empty list is indistinguishable from
+    "only one review", and an empty `comments` read is indistinguishable from "that review had zero
+    inline comments", which is a clean review. Both are the direction that loses findings, and the
+    second runs once per review, so a two-trigger round takes that risk twice. This also recovers a
+    review orphaned in the window step 7 describes: it is older than the second trigger, so the fence
+    never named it, but its commit is still HEAD.
 
     Sort each into **will fix / already fixed / declining the suggestion**. `reviewThreads
 { isOutdated }` narrows the reading quickly — **`isResolved` is useless because nobody presses

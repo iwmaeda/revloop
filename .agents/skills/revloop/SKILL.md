@@ -56,7 +56,9 @@ The procedure's `## Notes` section states them; these are the ones most often lo
 - **A round that fired twice can have two reviews on the same commit.** The wait names one of them.
   Read the findings from every review at HEAD submitted at or after the round's first trigger, or the
   other one's are silently dropped — and without that lower bound a round reopened on an unchanged
-  HEAD re-reads the previous round's.
+  HEAD re-reads the previous round's. **Normalize both fields that read filters on**: REST returns the
+  login with `[bot]` and the commit as a full 40-character sha, and a naive equality on either matches
+  zero reviews, which is indistinguishable from "only one review" on the path that merges.
 - **Strip a trailing `[bot]` before comparing logins.** GraphQL omits it; REST and documentation
   include it. Equality across the two rejects every legitimate verdict.
 - **Match a reviewer's clean phrase as a prefix**, never for equality — its tail varies.
