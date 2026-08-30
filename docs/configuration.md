@@ -113,8 +113,9 @@ is excluded from that count because it re-posts a round that was already open, a
 would undercount the round. Counting re-posts would let a reviewer that drops one comment halve
 `maxRounds` without anyone noticing.
 
-`timeout` caps one trigger rather than one round, so a round that has to re-post waits up to twice it
-— about an hour at the built-in value. That is the whole cost of the re-post path, and it is the one
+`timeout` caps one trigger rather than one round, so a round that has to re-post waits about twice it,
+rounded up to whole 8-minute chunks each time: the built-in `30m` stops an attempt after four chunks,
+so a re-posting round runs about 64 minutes rather than 60. That is the whole cost of the re-post path, and it is the one
 number to change if the wall clock matters more to you than recovering a dropped trigger.
 
 ## `reviewers`

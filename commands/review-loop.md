@@ -569,10 +569,12 @@ approval, so it has to come from the person typing it.
    `chunks × 8 minutes` exceeds it (about four chunks at the default). The fence takes no arguments,
    so counting chunks is the caller's job, and so is knowing which attempt it is counting for.
 
-   **A round therefore waits at most twice `--timeout`**, because it fires at most two triggers: the
-   first, and one re-post if the first went unanswered. At the built-in `30m` that is about an hour
-   before a round can abort where it used to be half of one — the price of not losing a round to a
-   single dropped comment, and `--timeout` is the dial that buys it back.
+   **A round therefore waits about twice `--timeout`, rounded up to whole chunks each time** — the
+   flag is a threshold the chunk count has to exceed, not a stopwatch that cuts a chunk short. At the
+   built-in `30m` an attempt stops after four chunks, so it runs 32 minutes rather than 30, and a
+   round that re-posts runs **64 minutes, not 60**. Say the arithmetic rather than "at most twice the
+   flag", which is the one thing it is not. It is still the price of not losing a round to a single
+   dropped comment, and `--timeout` is still the dial that buys it back.
 
    **Count the chunks that watched your own trigger, not the chunks you fired.** A chunk whose
    `trigger=` failed the reconciliation below watched somebody else's baseline and says nothing about
@@ -984,8 +986,10 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   person is driving the pull request by hand; a later run re-takes it with an ordinary trigger. Step 7
   states the five conditions. The bound is **one re-post
   per round**, and it is stored where the invariant already lives — a marker on the pull request
-  carrying the same `head=` and an `attempt=` above 1 — so a session that dies mid-wait cannot come
-  back and re-post a second time.
+  carrying **this round's `round=`** and a whitespace-separated token whose key is exactly `attempt` —
+  so a session that dies mid-wait cannot come back and re-post a second time. Keyed by `head=` it
+  would be one re-post per commit, which the lost-baseline state can reopen; read as a number rather
+  than a key it would match `notattempt=2`.
 - **A re-post moves the baseline forward, never backward, and that is why it is allowed at all.**
   `docs/design-notes.md` tabulates the two directions: a baseline that is too old adopts a **previous**
   round's verdict, which is a safety failure, and one that is too new drops a verdict that already
@@ -1012,8 +1016,10 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   baseline and never mentions the earlier one — and step 10's filter is an equality test on that one
   `review_id`, so the other review's findings are dropped for the life of the PR, since the next
   round's baseline is newer than both. The "commit is an ancestor of HEAD" row cannot catch it:
-  **both reviews name the same, current commit.** That is why step 10 reads every review at HEAD on a
-  two-trigger round instead of trusting `review_id=`. What is _not_ a hazard is a review racing a
+  **both reviews name the same, current commit.** That is why step 10 reads every review at HEAD **at
+  or after the round's first trigger** on a two-trigger round, instead of trusting `review_id=`; the
+  lower bound is what keeps a round reopened on an unchanged HEAD from re-reading the previous
+  round's. What is _not_ a hazard is a review racing a
   clean comment — the fence returns a review whenever one exists and demotes the comment to `EXTRA=`,
   so a clean comment cannot outrank findings that arrived in the same round.
 - **Exceeding `--timeout` must always terminate, and the re-post is carved out of that abort rather

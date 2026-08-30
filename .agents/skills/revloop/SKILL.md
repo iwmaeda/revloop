@@ -53,7 +53,9 @@ The procedure's `## Notes` section states them; these are the ones most often lo
   in the procedure and are counted from the markers on the pull request rather than from this session.
   **A lost baseline is not that exception**: it aborts, and only a later run re-takes it.
 - **A round that fired twice can have two reviews on the same commit.** The wait names one of them.
-  Read the findings from every review at HEAD, or the other one's are silently dropped.
+  Read the findings from every review at HEAD submitted at or after the round's first trigger, or the
+  other one's are silently dropped — and without that lower bound a round reopened on an unchanged
+  HEAD re-reads the previous round's.
 - **Strip a trailing `[bot]` before comparing logins.** GraphQL omits it; REST and documentation
   include it. Equality across the two rejects every legitimate verdict.
 - **Match a reviewer's clean phrase as a prefix**, never for equality — its tail varies.

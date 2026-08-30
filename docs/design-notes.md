@@ -39,8 +39,9 @@ which is why the tempting refinement — walk back to an older trigger when no v
 rejected. It trades a liveness bug for a safety bug, and with `--auto --merge` a safety bug merges
 unreviewed code.
 
-**Posting a second trigger is the mirror of that, and it is allowed.** When a round's whole budget
-passes with no verdict of any kind, step 7 may post the trigger once more at the same HEAD. That moves
+**Posting a second trigger is the mirror of that, and it is allowed.** When a trigger's whole budget
+passes with no verdict of any kind — `--timeout` caps one trigger, not one round — step 7 may post the trigger once
+more at the same HEAD. That moves
 the baseline **forward**, so it can only reach the too-new row of the table above — never the too-old
 one. The direction is the entire argument: the rejected refinement reaches for a verdict that is older
 than the baseline, which is how a previous round's "no issues" gets adopted, while a re-post can at

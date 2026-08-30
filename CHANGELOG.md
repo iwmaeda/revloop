@@ -28,8 +28,9 @@ Added:
   table said `abort` — no path in the procedure sent the request again. Step 7 now carries one narrow
   exception to the runaway invariant, with five conditions that are all checkable from GitHub: the
   wait must have expired **and have spent at least three chunks watching your own trigger**, the
-  `pending` line's `trigger=` must be your `SINCE`, no marker may already carry this `head=` with an
-  `attempt=`, the round must have produced no classified verdict at all, and HEAD must not have moved.
+  `pending` line's baseline must be yours by both halves of the ownership test, no marker may already
+  carry this round's `round=` with an `attempt` key, the round must have produced no classified verdict
+  at all, and HEAD must not have moved.
   A rate-limit reply keeps its own row and that row still says **do not retry**; silence is the only
   signal the exception answers. The exception is carved **out of** step 9's exceeding-`--timeout`
   abort rather than standing beside it, so exceeding the budget always terminates: written as several
@@ -57,7 +58,8 @@ Added:
   skipped, and the jq program's character filter passes `attempt=2` through untouched. Both halves are
   now pinned rather than asserted — `tests/fixtures/verdict/retry-marker` through the shell, and the
   same fixture through `tests/jq-program.test.sh` for the filter. No fixture previously carried a
-  marker with anything but the four documented keys, so an unknown key was entirely unexercised.
+  marker with anything but the five documented keys — `v`, `reviewer`, `bot`, `head`, `round`, of which
+  the fence parses the last four by name — so an unknown key was entirely unexercised.
 
   **The key is written only on a re-post.** Writing `attempt=1` on every trigger was the first draft
   and it is a cost with nothing bought: `reviewers/codex.md` records the marker being tolerated end to
@@ -98,7 +100,8 @@ Fixed:
   equality test on that single `review_id`, so the other review's findings are lost for the life of the
   pull request, since the next round's baseline is newer than both. Step 9's "commit is an ancestor of
   HEAD" row cannot catch it: **both reviews name the same, current commit.** Step 10 now reads every
-  review by the reviewer at the current HEAD on a two-trigger round, and fails closed if that read
+  review by the reviewer at the current HEAD, at or after the round's first trigger, on a two-trigger
+  round, and fails closed if that read
   fails, because REST 404s for many minutes while GraphQL keeps answering and an empty result is
   indistinguishable from "only one review". `tests/fixtures/verdict/retry-both-answered` pins the fence
   returning one of two same-commit reviews with no signal that the other exists.
@@ -204,8 +207,10 @@ Fixed:
 Changed:
 
 - **`--timeout` now caps one trigger's wait rather than one round's.** A round fires at most two
-  triggers, so its worst case is twice the flag — about an hour at the built-in `30m` where it used to
-  be half of one. That is the price of not losing a round to a single dropped comment, and `--timeout`
+  triggers, so its worst case is about twice the flag, rounded up to whole chunks each time: the flag
+  is a threshold the chunk count must exceed rather than a stopwatch, so the built-in `30m` runs an
+  attempt for 32 minutes and a re-posting round for **64, not 60**, where it used to be 32. That is the price of not
+  losing a round to a single dropped comment, and `--timeout`
   is the dial that buys it back. Splitting the existing budget in half instead was considered and
   rejected: it judges a trigger dropped after 16 minutes, only 1.6× the widest measurement. The
   built-in value does not change, and neither does the schema — `"pattern": "^[0-9]+[smh]$"` already
