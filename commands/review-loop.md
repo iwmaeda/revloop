@@ -385,10 +385,35 @@ approval, so it has to come from the person typing it.
    compatibility pattern here**: it recognises a fixed set of reviewer names and matches no custom
    trigger at all, so it would under-match into the same deadlock, and any widening of it over-matches
    into licensing an extra trigger. **Ask the fence instead**, which is the only thing that decides
-   what a trigger is: fire step 8 once and read its `trigger=`. If that timestamp is not your newest
-   marker's, the baseline is foreign and this is the lost-baseline state, so fire an ordinary trigger
-   here. If it is yours, the invariant stands and you must not fire. If step 8 errors, do not fire —
-   an unanswered question is not a licence.
+   what a trigger is: fire step 8 once and read what it reports. If step 8 errors, do not fire — an
+   unanswered question is not a licence.
+
+   **You own the baseline only when both halves hold, and `trigger=` alone is not one of them.** The
+   fence sorts triggers by `createdAt` and, within a second, by `databaseId`; GitHub timestamps have
+   second resolution, and this repository's own fixtures pin two triggers in the same second as a
+   distinct input from two a second apart. So a hand-typed comment posted in the **same second** as
+   your marker with a **larger id** wins the baseline while reporting a `trigger=` identical to yours.
+   The test is therefore:
+
+   1. the reported `trigger=` equals your newest marker's `created_at`, **and**
+   2. no non-bot comment shares that second with a larger `id` than your marker's.
+
+   Both come out of the read above, and neither classifies anything as a trigger — which is why this
+   is not the compatibility pattern in disguise. It is exact in the direction that matters: if your
+   marker is the largest-id non-bot comment in its second, then whatever the fence chose has an id at
+   least yours and cannot be anything else, so the baseline is yours.
+
+   **When the second half fails you do not know, and not knowing is not the same as the baseline being
+   foreign.** Do not re-post — a `pending` on a baseline you cannot claim says nothing about whether
+   your own trigger was answered, and re-posting would move the baseline past a verdict that may
+   already exist. Do not fire the lost-baseline trigger either: that direction licenses an extra
+   trigger, and the licence has to be positive evidence. **A verdict line is the positive evidence**,
+   because it carries `marker_head=` and `round=`: `marker_head=none` says a marker-less trigger won,
+   and marker fields that are not this round's say a different marker did. A `pending` line carries
+   neither, so a round that only ever sees `pending` under an unclaimable baseline aborts and hands it
+   to a human. **That corner is not auto-recovered on purpose**, and closing it would mean a fence
+   edit — the pending line would have to carry the marker fields — which is a re-approval for every
+   user against a case that needs a same-second collision to reach.
 
    **`select(.user.type!="Bot")` is the same rule the fence enforces, spelled for REST.** The fence's
    `TRIG` generators drop every `__typename=="Bot"` comment, because a trigger is a string revloop
@@ -421,8 +446,10 @@ approval, so it has to come from the person typing it.
    inside codex's measured 2:53–10:07 range, which is the runaway the invariant exists to prevent,
    reachable by typing a flag. Below the floor there is no re-post and the round aborts as it did
    before.
-   (b) That `pending` line's `trigger=` is the `SINCE` above. If it is not, the fence is watching a
-   trigger that is not yours, and re-posting would add a third to a baseline you do not own. **A chunk
+   (b) **You own the baseline** by both halves of the test above — the `pending` line's `trigger=` is
+   your newest marker's `created_at`, and no non-bot comment shares that second with a larger id. A
+   timestamp match alone is not enough, and if either half fails the fence is watching a trigger you
+   cannot claim, so re-posting would add a third to a baseline you do not own. **A chunk
    that fails this reconciliation does not count toward (a)'s three** — otherwise a PR carrying an
    ancient hand-typed trigger drifts into a re-post nobody's silence earned. This condition is what
    separates the two states above, and it separates them into different runs: a lost baseline is never
@@ -613,8 +640,14 @@ approval, so it has to come from the person typing it.
 9. Decide continue / finish / abort in one line. **Check five things before consulting the table:**
 
    (a) `pr=` matches the PR number from step 6 — otherwise you are reading a different PR.
-   (b) `trigger=` matches the `SINCE` from step 7.
-   (c) `marker_head=` equals `head=`. If they differ, the newest trigger was fired against a
+   (b) You own the baseline by both halves of step 7's test: `trigger=` matches the `SINCE` from step
+   7, **and** no non-bot comment shares that second with a larger id than your marker's. The second
+   half is not pedantry — the fence's tie-break is `databaseId`, and this repository's fixtures pin a
+   same-second collision as its own input class.
+   (c) `marker_head=` equals `head=` **and `round=` is this round's number**. The `round=` half is the
+   cheap half of check (b): a verdict line carries the winning marker's own fields, so it says outright
+   which trigger won rather than leaving you to infer it from a second-resolution timestamp. If they
+   differ, the newest trigger was fired against a
    different commit than the one checked out now — the runaway invariant is violated, or someone
    else pushed. Abort. **`marker_head=none` is not that case**: it means the newest trigger is a
    hand-typed one carrying no marker, so it never had a head binding to compare against. It gets its

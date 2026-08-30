@@ -149,6 +149,23 @@ Fixed:
   over-matches into licensing an extra trigger, so neither direction of guessing is available — which
   is the same reason the round number does not count hand-typed rounds.
 
+- **Baseline ownership was decided by a second-resolution timestamp.** The fence sorts triggers by
+  `createdAt` and, within a second, by `databaseId` — a tie-break this repository added in 0.3.0 and
+  pinned with its own fixtures, because two triggers in the same second are a different input from two
+  a second apart. Every ownership test this change introduced compared `trigger=` alone, so a
+  hand-typed comment posted in the **same second** as the marker with a larger id wins the baseline
+  while reporting a timestamp identical to yours: the lost-baseline recovery then never runs, and the
+  re-post condition that exists to keep a retry off a foreign baseline is satisfied anyway. The test is
+  now both halves — the timestamp, **and** no non-bot comment sharing that second with a larger id —
+  and both come out of the read step 7 already performs, so nothing classifies a comment as a trigger
+  outside the fence. Step 9's check (c) additionally compares `round=`, because a verdict line carries
+  the winning marker's own fields and can say outright which trigger won.
+
+  **A round that only ever sees `pending` under an unclaimable baseline aborts and is handed to a
+  human**, and that corner is deliberately not auto-recovered: a `pending` line carries no marker
+  fields, so closing it would mean teaching the fence to emit them — a re-approval for every user,
+  against a case that needs a same-second collision to reach.
+
   What is **not** a hazard, and was checked rather than assumed: a review racing a clean comment. The
   fence returns a review whenever one exists and demotes the comment to `EXTRA=`, so a clean comment
   cannot outrank findings that arrived in the same round.
