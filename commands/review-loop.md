@@ -675,9 +675,15 @@ approval, so it has to come from the person typing it.
    four as `pending` and let step 9's `pending` rows decide what happens next.
 
    **The re-fire is bounded at two, and the bound counts consecutive results rather than the clock.**
-   A reconciliation failure exits the fence on its **first** poll, so it burns no wall clock and
-   accrues no chunk — which means "discard and re-fire" against a baseline that is permanently newer
-   never reaches `--timeout` and never sleeps. That is the infinite loop the Notes name, and this rule
+   The two shapes of mismatch cost different things, and the bound is written to hold for both. A
+   mismatched **verdict** — a `review`, `comment` or `reaction` the foreign baseline already had —
+   exits the fence on its **first** poll, so it burns no wall clock and accrues no chunk: against a
+   baseline that is permanently newer and already answered, "discard and re-fire" never reaches
+   `--timeout` and never sleeps. A mismatched **`pending`** is the opposite, and it is the only other
+   way this can arrive: the foreign trigger is itself unanswered, so the fence polls out all 480
+   seconds before printing, and that chunk is spent like any other. **Neither may be bounded on the
+   clock** — the first never reaches it, and the second would make the bound depend on which kind of
+   trigger somebody else happened to post. That is the infinite loop the Notes name, and this rule
    was its last unbounded instance in the procedure. Allow two consecutive mismatches; the third
    aborts with `reason=foreign-baseline`. **That is a stop, like every other abort**: report and
    finish, the same as `marker_head=none`, and let a later run re-take the baseline with an ordinary

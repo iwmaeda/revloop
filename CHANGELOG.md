@@ -108,9 +108,12 @@ Fixed:
 
 - **Step 8's `SINCE` reconciliation was unbounded, and could never terminate.** "If they differ,
   discard that verdict and re-fire step 8" has been in the procedure since before this change, and it
-  has no bound. A reconciliation failure exits the fence on its **first** poll, so it burns no wall
-  clock and accrues no chunk — which means that against a baseline that is permanently newer, such as
-  a hand-typed trigger posted after yours, the re-fire never reaches `--timeout` and never sleeps.
+  has no bound. A mismatched **verdict** exits the fence on its **first** poll, so it burns no wall
+  clock and accrues no chunk — which means that against a baseline that is permanently newer and
+  already answered, such as a hand-typed trigger posted after yours, the re-fire never reaches
+  `--timeout` and never sleeps. A mismatched `pending` is the other shape and does spend its chunk, so
+  neither can be bounded on the clock: the first never reaches it, and the second would make the bound
+  depend on what somebody else posted.
   That is the infinite loop `## Notes` names for the fence, reached from the caller instead. It was
   the last unbounded re-fire in the procedure; every other one already reads "once" or "a second time
   aborts". It is now two consecutive mismatches, then `reason=foreign-baseline`, and a matching
