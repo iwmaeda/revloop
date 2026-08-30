@@ -44,8 +44,9 @@ sample so far has widened that range at both ends
 
 If the review fails because of a rate limit or a similar API restriction, the loop aborts.
 
-**If the reviewer returns nothing at all for 24 minutes, the loop posts the trigger once more before
-giving up**, so a pull request can legitimately carry two `@codex review` comments for one round. A
+**If the reviewer returns nothing at all for a whole `--timeout` — 30 minutes by default, and never
+less than 24 — the loop posts the trigger once more before giving up**, so a pull request can
+legitimately carry two `@codex review` comments for one round. A
 trigger is only ever re-posted on total silence, never on an answer it did not like, and never more
 than once per round.
 

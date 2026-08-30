@@ -31,7 +31,10 @@ Added:
   `pending` line's `trigger=` must be your `SINCE`, no marker may already carry this `head=` with an
   `attempt=`, the round must have produced no classified verdict at all, and HEAD must not have moved.
   A rate-limit reply keeps its own row and that row still says **do not retry**; silence is the only
-  signal the exception answers.
+  signal the exception answers. The exception is carved **out of** step 9's exceeding-`--timeout`
+  abort rather than standing beside it, so exceeding the budget always terminates: written as several
+  conditional aborts it left a hole, where a newer hand-typed trigger made every later `pending` a
+  "continue" while blocking the re-post, and the caller polled forever.
 
   **The floor is three chunks — 24 minutes — and it is deliberately not a fraction of `--timeout`.**
   Deriving it from the flag was the first design and it is wrong: `--timeout 8m` would then re-post
