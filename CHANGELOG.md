@@ -132,6 +132,17 @@ Fixed:
   fence returns a review whenever one exists and demotes the comment to `EXTRA=`, so a clean comment
   cannot outrank findings that arrived in the same round.
 
+- **Two lookups were keyed on `head=` where they had to be keyed on the round.** Both became wrong the
+  moment the lost-baseline state was allowed to open a **new** round on an unchanged HEAD, which is a
+  consequence of this same branch. The re-post bound searched the pull request for any marker with
+  this `head=` and an `attempt=`, so a previous round's re-post spent the new round's budget and
+  reported `attempts=2` for a round that had sent one trigger; it now matches on this round's `round=`,
+  and an unparseable marker counts as a match, because withholding a second trigger is the safe
+  direction. Step 10's two-trigger read took every review whose `commit_id` was HEAD with no lower
+  bound, so it swept in the previous round's reviews of the same commit and re-opened answered
+  findings; it is now bounded below by the round's first trigger. The second was found by sweeping the
+  class rather than by review.
+
 Changed:
 
 - **`--timeout` now caps one trigger's wait rather than one round's.** A round fires at most two

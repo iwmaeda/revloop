@@ -409,9 +409,14 @@ approval, so it has to come from the person typing it.
    re-posted at all — it aborts, and a later run re-takes the baseline with an ordinary trigger —
    because the round's problem is that nothing of yours is being watched rather than that something of
    yours went unanswered.
-   (c) No marker on this PR carries this `head=` **and** an `attempt=`. That is a substring search over
-   the read above, and it is the whole bound: a session that died mid-wait resumes with nothing on
-   disk, so a budget kept in the session is a budget a restart refunds.
+   (c) No marker on this PR carries **this round's `round=`** together with an `attempt=`. Scope it to
+   the round rather than to `head=`: the lost-baseline state can open a **new** round on an unchanged
+   HEAD, so a `head=`-only search would let a previous round's re-post spend this round's budget and
+   report `attempts=2` for a round that only ever sent one trigger. That is a substring search over the
+   read above, and it is the whole bound: a session that died mid-wait resumes with nothing on disk, so
+   a budget kept in the session is a budget a restart refunds. **A marker you cannot parse counts as a
+   match** — discarding a row is not the same as pretending it was never there, and the direction that
+   fails safe here is the one that withholds a second trigger rather than the one that sends it.
    (d) The round produced no classified verdict at all. A rate-limit reply has its own row in step 9
    and that row says **do not retry**; silence is the only signal this exception answers.
    (e) `git rev-parse --short=8 HEAD` still equals the `head=` you are about to write. "Never push
@@ -666,8 +671,12 @@ approval, so it has to come from the person typing it.
       --jq '.[]|{id,submitted_at,state,commit_id,login:.user.login}'
     ```
 
-    Take the reviews whose `login` is the reviewer's, whose `state` is not `DISMISSED`, and whose
-    `commit_id` matches HEAD, then run the `comments` read once per `id`. **If this read fails, say so
+    Take the reviews whose `login` is the reviewer's, whose `state` is not `DISMISSED`, whose
+    `commit_id` matches HEAD, and whose `submitted_at` is **after this round's first trigger** — step
+    7's marker read returns that timestamp — then run the `comments` read once per `id`. **The lower
+    bound is not decoration**: the lost-baseline state can open a new round on an unchanged HEAD, so
+    `commit_id` alone would sweep in the previous round's reviews of the same commit and re-open
+    findings you have already answered. **If this read fails, say so
     and do not merge** — REST 404s for many minutes while GraphQL keeps answering (see Notes), so the
     empty result is indistinguishable from "only one review", and that is the direction that loses
     findings. This also recovers a review orphaned in the window step 7 describes: it is older than the
