@@ -103,6 +103,27 @@ Fixed:
   indistinguishable from "only one review". `tests/fixtures/verdict/retry-both-answered` pins the fence
   returning one of two same-commit reviews with no signal that the other exists.
 
+- **Step 8's `SINCE` reconciliation was unbounded, and could never terminate.** "If they differ,
+  discard that verdict and re-fire step 8" has been in the procedure since before this change, and it
+  has no bound. A reconciliation failure exits the fence on its **first** poll, so it burns no wall
+  clock and accrues no chunk — which means that against a baseline that is permanently newer, such as
+  a hand-typed trigger posted after yours, the re-fire never reaches `--timeout` and never sleeps.
+  That is the infinite loop `## Notes` names for the fence, reached from the caller instead. It was
+  the last unbounded re-fire in the procedure; every other one already reads "once" or "a second time
+  aborts". It is now two consecutive mismatches, then `reason=foreign-baseline`, and a matching
+  `trigger=` resets the count. The rule also now covers `review`, `comment` and `reaction` explicitly
+  rather than only a verdict: all four are treated as `pending` so step 9's rows decide, which is the
+  same "one exception, one catch-all" shape as above.
+
+- **The runaway invariant and step 9's `marker_head=none` recovery contradicted each other.** That row
+  says to fire revloop's own trigger in step 7, at an unchanged HEAD — which the invariant, as this
+  change first restated it, forbade. The premise is what the invariant actually protects: it bars a
+  second trigger while one of yours can still bind a verdict. Two states end that, and each has its
+  own recovery — nothing answered at all, which is the re-post with `attempt=2` and the same `round=`;
+  and a newer trigger taking the baseline, which is an **ordinary** trigger that advances the round,
+  because the wait it replaces was spent. Only the first is a re-post, and neither licenses firing
+  again on a trigger that was answered.
+
   What is **not** a hazard, and was checked rather than assumed: a review racing a clean comment. The
   fence returns a review whenever one exists and demotes the comment to `EXTRA=`, so a clean comment
   cannot outrank findings that arrived in the same round.

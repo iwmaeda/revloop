@@ -286,8 +286,14 @@ approval, so it has to come from the person typing it.
    `commit.bodyLanguage`) — they are detected from the repository's own history, not imposed.
 
 7. Trigger the review. **Do not fire if HEAD has not changed since the last trigger** (the runaway
-   invariant, below), **with one exception: a trigger that produced no verdict at all may be posted
-   once more at the same HEAD** — see "Re-posting a trigger that went unanswered" below. Compose the
+   invariant, below). The invariant's premise is that a trigger of yours can still bind this round's
+   verdict, and **two states break that premise**, each with its own recovery. Your trigger was
+   answered by nothing at all: re-post it once, under "Re-posting a trigger that went unanswered"
+   below, same `round=` and `attempt=2`. Or your trigger stopped being the baseline because a newer
+   one was posted, which step 9 reaches as `marker_head=none` or `reason=foreign-baseline`: fire an
+   **ordinary** new trigger here to re-take the baseline — no `attempt=`, and the round number
+   advances, because the wait it replaces was spent. **Neither is a licence to fire again on a trigger
+   that was answered**, which is the thing the invariant exists to stop. Compose the
    trigger as the reviewer's trigger text, a blank line, and a **revloop marker** — an HTML comment,
    which GitHub does not render:
 
@@ -394,7 +400,10 @@ approval, so it has to come from the person typing it.
    (b) That `pending` line's `trigger=` is the `SINCE` above. If it is not, the fence is watching a
    trigger that is not yours, and re-posting would add a third to a baseline you do not own. **A chunk
    that fails this reconciliation does not count toward (a)'s three** — otherwise a PR carrying an
-   ancient hand-typed trigger drifts into a re-post nobody's silence earned.
+   ancient hand-typed trigger drifts into a re-post nobody's silence earned. This condition is what
+   separates the two arms above: a lost baseline is recovered by an ordinary trigger, not by a
+   re-post, because the round's problem is that nothing of yours is being watched rather than that
+   something of yours went unanswered.
    (c) No marker on this PR carries this `head=` **and** an `attempt=`. That is a substring search over
    the read above, and it is the whole bound: a session that died mid-wait resumes with nothing on
    disk, so a budget kept in the session is a budget a restart refunds.
@@ -556,10 +565,19 @@ approval, so it has to come from the person typing it.
    ```
 
    **Always reconcile the returned `trigger=` with the `SINCE` you recorded in step 7.** If they
-   differ, GitHub has not yet surfaced the new trigger and the script latched onto the **previous
-   round's**. Discard that verdict and re-fire step 8. **This holds for `pending` as much as for a
-   verdict**: a `pending` whose `trigger=` is not yours says nothing about whether your own trigger
-   was answered, so it must never be the thing that authorises a re-post.
+   differ, the fence latched onto a trigger that is not this round's — usually because GitHub has not
+   yet surfaced yours, sometimes because a newer one was posted. **The output is not this round's
+   verdict whatever form it took**: do not adopt a `review`, a `comment` or a `reaction` that a
+   different trigger anchored, and never let a `pending` of this kind authorise a re-post. Treat all
+   four as `pending` and let step 9's `pending` rows decide what happens next.
+
+   **The re-fire is bounded at two, and the bound counts consecutive results rather than the clock.**
+   A reconciliation failure exits the fence on its **first** poll, so it burns no wall clock and
+   accrues no chunk — which means "discard and re-fire" against a baseline that is permanently newer
+   never reaches `--timeout` and never sleeps. That is the infinite loop the Notes name, and this rule
+   was its last unbounded instance in the procedure. Allow two consecutive mismatches; the third
+   aborts with `reason=foreign-baseline`, whose recovery is the same as `marker_head=none` — fire your
+   own trigger in step 7 to re-take the baseline. A matching `trigger=` resets the count.
 
 9. Decide continue / finish / abort in one line. **Check five things before consulting the table:**
 
@@ -589,31 +607,31 @@ approval, so it has to come from the person typing it.
    `128` into `1`**, diagnosing "history diverged" when the answer is "run `git fetch`". Rows 3 and 4
    below are exactly that distinction.
 
-   | Signal                                                                | Verdict                    | Next action                                                                                                                                                                                                                              |
-   | --------------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | `review` + `commit` equals HEAD                                       | continue                   | Go to 10                                                                                                                                                                                                                                 |
-   | `review` + `commit` is an ancestor of HEAD                            | continue (once)            | **Discard** the findings and re-fire step 8 only. A second time aborts                                                                                                                                                                   |
-   | `review` + `commit` absent locally (`128`)                            | **abort**                  | `git fetch`; if still absent, someone else pushed. Stop                                                                                                                                                                                  |
-   | `review` + `commit` not an ancestor (`1`)                             | **abort**                  | History diverged (reset / force push). Stop                                                                                                                                                                                              |
-   | `review` with zero inline comments                                    | **finish (clean)**         | **Decide after fetching in 10** — step 8 does not count them                                                                                                                                                                             |
-   | `comment` whose body **starts with** the reviewer's clean phrase      | **finish (clean)**         | Go to 12                                                                                                                                                                                                                                 |
-   | `comment` matching the reviewer's rate-limit pattern                  | **abort**                  | **Do not retry.** The quota recovers with time; retrying only burns rounds                                                                                                                                                               |
-   | `comment` with any other bot body                                     | **abort**                  | Print the body in full and hand it to a human. Do not guess                                                                                                                                                                              |
-   | `comment` whose `cid=` you already classified as non-terminal         | **abort** (`interim-loop`) | The reviewer emits an interim comment this fence does not know. Report `cid=` and the body. Recovering means adding its pattern to the fence's drop list — a fence edit, so one re-approval for every user                               |
-   | `reaction`                                                            | **finish (clean)**         | An unexercised path — say so in the report                                                                                                                                                                                               |
-   | `pending` (within `--timeout`)                                        | continue                   | Re-fire **step 8 only**, never step 7                                                                                                                                                                                                    |
-   | `pending` (within `--timeout`) whose `trigger=` is not your `SINCE`   | continue                   | The fence is watching a trigger that is not yours. Re-fire step 8. **The chunk counts toward `--timeout` and not toward step 7's floor**, and it can never authorise a re-post                                                           |
-   | `pending` (exceeding `--timeout`) + step 7's five conditions all hold | **re-post (once)**         | The trigger was delivered and never answered. Post it again in step 7 — same `head=` and `round=`, plus `attempt=2` — then re-fire step 8. Record it in the report and in the field notes                                                |
-   | `pending` (exceeding `--timeout`) + anything else                     | **abort**                  | Name which condition failed: `no-verdict attempts=2`, `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is silence _from the filtered bot_, so read the PR — a wrong `botLogin` looks identical |
-   | `login=` not the configured reviewer                                  | **abort**                  | Do not read another bot's verdict as this round's. Report the login                                                                                                                                                                      |
-   | `marker_head=none` (a hand-typed trigger won the baseline)            | **abort**                  | The compatibility class anchors a baseline; it cannot bind a verdict to a commit. Let revloop fire its own trigger in step 7, then re-run step 8                                                                                         |
-   | `EXTRA=` second line present                                          | follow the above           | A bot comment from the same round. **Rate limit takes precedence**                                                                                                                                                                       |
-   | `error reason=untriggered-verdict`                                    | **abort**                  | **A verdict exists but no trigger does.** Read `bot=` for the reason                                                                                                                                                                     |
-   | `error reason=no-pr` / `no-trigger`                                   | **abort**                  | Report verbatim. Suspect step 6 and whether a PR exists                                                                                                                                                                                  |
-   | `error reason=no-branch`                                              | **abort**                  | Detached HEAD, so the fence refused to resolve a PR. Check out the topic branch and re-fire                                                                                                                                              |
-   | `error reason=api` (no `stage=setup`)                                 | **abort**                  | Five consecutive fetch failures inside the loop. Suspect `gh` connectivity                                                                                                                                                               |
-   | `error reason=api stage=setup`                                        | **abort**                  | **Failed before resolving the PR.** Suspect auth or network, not a missing PR                                                                                                                                                            |
-   | `--max-rounds` reached                                                | **abort**                  | Not success. Do not merge                                                                                                                                                                                                                |
+   | Signal                                                                | Verdict                    | Next action                                                                                                                                                                                                                                        |
+   | --------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `review` + `commit` equals HEAD                                       | continue                   | Go to 10                                                                                                                                                                                                                                           |
+   | `review` + `commit` is an ancestor of HEAD                            | continue (once)            | **Discard** the findings and re-fire step 8 only. A second time aborts                                                                                                                                                                             |
+   | `review` + `commit` absent locally (`128`)                            | **abort**                  | `git fetch`; if still absent, someone else pushed. Stop                                                                                                                                                                                            |
+   | `review` + `commit` not an ancestor (`1`)                             | **abort**                  | History diverged (reset / force push). Stop                                                                                                                                                                                                        |
+   | `review` with zero inline comments                                    | **finish (clean)**         | **Decide after fetching in 10** — step 8 does not count them                                                                                                                                                                                       |
+   | `comment` whose body **starts with** the reviewer's clean phrase      | **finish (clean)**         | Go to 12                                                                                                                                                                                                                                           |
+   | `comment` matching the reviewer's rate-limit pattern                  | **abort**                  | **Do not retry.** The quota recovers with time; retrying only burns rounds                                                                                                                                                                         |
+   | `comment` with any other bot body                                     | **abort**                  | Print the body in full and hand it to a human. Do not guess                                                                                                                                                                                        |
+   | `comment` whose `cid=` you already classified as non-terminal         | **abort** (`interim-loop`) | The reviewer emits an interim comment this fence does not know. Report `cid=` and the body. Recovering means adding its pattern to the fence's drop list — a fence edit, so one re-approval for every user                                         |
+   | `reaction`                                                            | **finish (clean)**         | An unexercised path — say so in the report                                                                                                                                                                                                         |
+   | `pending` (within `--timeout`)                                        | continue                   | Re-fire **step 8 only**, never step 7                                                                                                                                                                                                              |
+   | any output whose `trigger=` is not your `SINCE`                       | continue (twice)           | Not this round's verdict, whatever form it took. Re-fire step 8; **the third consecutive mismatch aborts** with `reason=foreign-baseline`. The chunk counts toward `--timeout` and not toward step 7's floor, and it can never authorise a re-post |
+   | `pending` (exceeding `--timeout`) + step 7's five conditions all hold | **re-post (once)**         | The trigger was delivered and never answered. Post it again in step 7 — same `head=` and `round=`, plus `attempt=2` — then re-fire step 8. Record it in the report and in the field notes                                                          |
+   | `pending` (exceeding `--timeout`) + anything else                     | **abort**                  | Name which condition failed: `no-verdict attempts=2`, `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is silence _from the filtered bot_, so read the PR — a wrong `botLogin` looks identical           |
+   | `login=` not the configured reviewer                                  | **abort**                  | Do not read another bot's verdict as this round's. Report the login                                                                                                                                                                                |
+   | `marker_head=none` (a hand-typed trigger won the baseline)            | **abort**                  | The compatibility class anchors a baseline; it cannot bind a verdict to a commit. Fire an ordinary trigger in step 7 to re-take the baseline — the lost-baseline arm, not a re-post — then re-run step 8                                           |
+   | `EXTRA=` second line present                                          | follow the above           | A bot comment from the same round. **Rate limit takes precedence**                                                                                                                                                                                 |
+   | `error reason=untriggered-verdict`                                    | **abort**                  | **A verdict exists but no trigger does.** Read `bot=` for the reason                                                                                                                                                                               |
+   | `error reason=no-pr` / `no-trigger`                                   | **abort**                  | Report verbatim. Suspect step 6 and whether a PR exists                                                                                                                                                                                            |
+   | `error reason=no-branch`                                              | **abort**                  | Detached HEAD, so the fence refused to resolve a PR. Check out the topic branch and re-fire                                                                                                                                                        |
+   | `error reason=api` (no `stage=setup`)                                 | **abort**                  | Five consecutive fetch failures inside the loop. Suspect `gh` connectivity                                                                                                                                                                         |
+   | `error reason=api stage=setup`                                        | **abort**                  | **Failed before resolving the PR.** Suspect auth or network, not a missing PR                                                                                                                                                                      |
+   | `--max-rounds` reached                                                | **abort**                  | Not success. Do not merge                                                                                                                                                                                                                          |
 
 10. Read the findings. **A review body is boilerplate or empty; the findings are inline review
     comments.** Severity comes from the badge at the head of each body. **Step 8 already emitted
@@ -859,7 +877,10 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   records, so the invariant survives a session restart with no local state and no timezone
   arithmetic. The single exception answers the opposite failure: a trigger that produced **no verdict
   at all** is a comment that went nowhere, and refusing to send it again ends a round whose pull
-  request, diff and CI are all healthy. Step 7 states the four conditions. The bound is **one re-post
+  request, diff and CI are all healthy. **The premise is what the invariant actually protects**: it
+  bars a second trigger while one of yours can still bind a verdict, so the two states that end that —
+  nothing answered, and a newer trigger taking the baseline — each get a recovery, and only the first
+  is a re-post. Step 7 states the five conditions. The bound is **one re-post
   per round**, and it is stored where the invariant already lives — a marker on the pull request
   carrying the same `head=` and an `attempt=` above 1 — so a session that dies mid-wait cannot come
   back and re-post a second time.
