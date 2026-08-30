@@ -287,13 +287,16 @@ approval, so it has to come from the person typing it.
 
 7. Trigger the review. **Do not fire if HEAD has not changed since the last trigger** (the runaway
    invariant, below). The invariant's premise is that a trigger of yours can still bind this round's
-   verdict, and **two states break that premise**, each with its own recovery. Your trigger was
-   answered by nothing at all: re-post it once, under "Re-posting a trigger that went unanswered"
-   below, same `round=` and `attempt=2`. Or your trigger stopped being the baseline because a newer
-   one was posted, which step 9 reaches as `marker_head=none` or `reason=foreign-baseline`: fire an
-   **ordinary** new trigger here to re-take the baseline — no `attempt=`, and the round number
-   advances, because the wait it replaces was spent. **Neither is a licence to fire again on a trigger
-   that was answered**, which is the thing the invariant exists to stop. Compose the
+   verdict, and **two states end that premise — but only one of them is recovered inside the run.**
+   Your trigger was answered by nothing at all: this run re-posts it once, under "Re-posting a trigger
+   that went unanswered" below, same `round=` and `attempt=2`. Or a newer trigger took the baseline,
+   which step 9 reaches as `marker_head=none` or `reason=foreign-baseline`: **this run aborts, because
+   an abort is a stop**, and a later run fires an **ordinary** trigger here to re-take the baseline —
+   no `attempt=`, and the round number advances, because the wait it replaces was spent. The asymmetry
+   is not tidiness: a lost baseline usually means somebody is driving the pull request by hand, and
+   racing a person for the newest comment is the runaway itself, so the loop stops and lets them
+   decide. **Neither state is a licence to fire again on a trigger that was answered**, which is the
+   thing the invariant exists to stop. Compose the
    trigger as the reviewer's trigger text, a blank line, and a **revloop marker** — an HTML comment,
    which GitHub does not render:
 
@@ -386,10 +389,11 @@ approval, so it has to come from the person typing it.
    is no generator order to override a timestamp.
 
    **Re-posting a trigger that went unanswered.** The runaway invariant forbids firing again on an
-   unchanged HEAD, and it has exactly one exception: **a trigger that produced no verdict of any kind
-   may be posted once more.** The failure that exception exists for is a comment that went nowhere —
-   the pull request, the diff and CI are all healthy, and the round dies because the reviewer never
-   acted on a request it was sent. Post the second trigger only when all five of these hold:
+   unchanged HEAD, and **this run has exactly one exception to it**: a trigger that produced no verdict
+   of any kind may be posted once more. (The lost-baseline state above also fires at unchanged HEAD,
+   but never within the run that hit it — that one aborts first.) The failure that exception exists for
+   is a comment that went nowhere — the pull request, the diff and CI are all healthy, and the round
+   dies because the reviewer never acted on a request it was sent. Post the second trigger only when all five of these hold:
 
    (a) Step 8 returned `VERDICT=pending`, this attempt's cumulative wait has passed `--timeout`, **and
    it spent at least three chunks — 24 minutes — of that wait watching your own trigger.** The floor is
@@ -401,9 +405,10 @@ approval, so it has to come from the person typing it.
    trigger that is not yours, and re-posting would add a third to a baseline you do not own. **A chunk
    that fails this reconciliation does not count toward (a)'s three** — otherwise a PR carrying an
    ancient hand-typed trigger drifts into a re-post nobody's silence earned. This condition is what
-   separates the two arms above: a lost baseline is recovered by an ordinary trigger, not by a
-   re-post, because the round's problem is that nothing of yours is being watched rather than that
-   something of yours went unanswered.
+   separates the two states above, and it separates them into different runs: a lost baseline is never
+   re-posted at all — it aborts, and a later run re-takes the baseline with an ordinary trigger —
+   because the round's problem is that nothing of yours is being watched rather than that something of
+   yours went unanswered.
    (c) No marker on this PR carries this `head=` **and** an `attempt=`. That is a substring search over
    the read above, and it is the whole bound: a session that died mid-wait resumes with nothing on
    disk, so a budget kept in the session is a budget a restart refunds.
@@ -576,8 +581,9 @@ approval, so it has to come from the person typing it.
    accrues no chunk — which means "discard and re-fire" against a baseline that is permanently newer
    never reaches `--timeout` and never sleeps. That is the infinite loop the Notes name, and this rule
    was its last unbounded instance in the procedure. Allow two consecutive mismatches; the third
-   aborts with `reason=foreign-baseline`, whose recovery is the same as `marker_head=none` — fire your
-   own trigger in step 7 to re-take the baseline. A matching `trigger=` resets the count.
+   aborts with `reason=foreign-baseline`. **That is a stop, like every other abort**: report and
+   finish, the same as `marker_head=none`, and let a later run re-take the baseline with an ordinary
+   trigger in step 7. A matching `trigger=` resets the count.
 
 9. Decide continue / finish / abort in one line. **Check five things before consulting the table:**
 
@@ -624,11 +630,11 @@ approval, so it has to come from the person typing it.
    | `pending` (exceeding `--timeout`) + step 7's five conditions all hold | **re-post (once)**         | The trigger was delivered and never answered. Post it again in step 7 — same `head=` and `round=`, plus `attempt=2` — then re-fire step 8. Record it in the report and in the field notes                                                          |
    | `pending` (exceeding `--timeout`) + anything else                     | **abort**                  | Name which condition failed: `no-verdict attempts=2`, `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is silence _from the filtered bot_, so read the PR — a wrong `botLogin` looks identical           |
    | `login=` not the configured reviewer                                  | **abort**                  | Do not read another bot's verdict as this round's. Report the login                                                                                                                                                                                |
-   | `marker_head=none` (a hand-typed trigger won the baseline)            | **abort**                  | The compatibility class anchors a baseline; it cannot bind a verdict to a commit. Fire an ordinary trigger in step 7 to re-take the baseline — the lost-baseline arm, not a re-post — then re-run step 8                                           |
+   | `marker_head=none` (a hand-typed trigger won the baseline)            | **abort**                  | The compatibility class anchors a baseline; it cannot bind a verdict to a commit. **Report and finish.** A later run re-takes the baseline with an ordinary trigger in step 7 — the lost-baseline state, never a re-post                           |
    | `EXTRA=` second line present                                          | follow the above           | A bot comment from the same round. **Rate limit takes precedence**                                                                                                                                                                                 |
    | `error reason=untriggered-verdict`                                    | **abort**                  | **A verdict exists but no trigger does.** Read `bot=` for the reason                                                                                                                                                                               |
    | `error reason=no-pr` / `no-trigger`                                   | **abort**                  | Report verbatim. Suspect step 6 and whether a PR exists                                                                                                                                                                                            |
-   | `error reason=no-branch`                                              | **abort**                  | Detached HEAD, so the fence refused to resolve a PR. Check out the topic branch and re-fire                                                                                                                                                        |
+   | `error reason=no-branch`                                              | **abort**                  | Detached HEAD, so the fence refused to resolve a PR. **Report and finish**; check out the topic branch before re-running                                                                                                                           |
    | `error reason=api` (no `stage=setup`)                                 | **abort**                  | Five consecutive fetch failures inside the loop. Suspect `gh` connectivity                                                                                                                                                                         |
    | `error reason=api stage=setup`                                        | **abort**                  | **Failed before resolving the PR.** Suspect auth or network, not a missing PR                                                                                                                                                                      |
    | `--max-rounds` reached                                                | **abort**                  | Not success. Do not merge                                                                                                                                                                                                                          |
@@ -878,9 +884,11 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   arithmetic. The single exception answers the opposite failure: a trigger that produced **no verdict
   at all** is a comment that went nowhere, and refusing to send it again ends a round whose pull
   request, diff and CI are all healthy. **The premise is what the invariant actually protects**: it
-  bars a second trigger while one of yours can still bind a verdict, so the two states that end that —
-  nothing answered, and a newer trigger taking the baseline — each get a recovery, and only the first
-  is a re-post. Step 7 states the five conditions. The bound is **one re-post
+  bars a second trigger while one of yours can still bind a verdict. Two states end that premise —
+  nothing answered, and a newer trigger taking the baseline — and **only the first is recovered inside
+  the run**. The second aborts, because an abort is a stop and because a lost baseline usually means a
+  person is driving the pull request by hand; a later run re-takes it with an ordinary trigger. Step 7
+  states the five conditions. The bound is **one re-post
   per round**, and it is stored where the invariant already lives — a marker on the pull request
   carrying the same `head=` and an `attempt=` above 1 — so a session that dies mid-wait cannot come
   back and re-post a second time.

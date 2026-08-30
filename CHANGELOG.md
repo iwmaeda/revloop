@@ -118,11 +118,15 @@ Fixed:
 - **The runaway invariant and step 9's `marker_head=none` recovery contradicted each other.** That row
   says to fire revloop's own trigger in step 7, at an unchanged HEAD — which the invariant, as this
   change first restated it, forbade. The premise is what the invariant actually protects: it bars a
-  second trigger while one of yours can still bind a verdict. Two states end that, and each has its
-  own recovery — nothing answered at all, which is the re-post with `attempt=2` and the same `round=`;
-  and a newer trigger taking the baseline, which is an **ordinary** trigger that advances the round,
-  because the wait it replaces was spent. Only the first is a re-post, and neither licenses firing
-  again on a trigger that was answered.
+  second trigger while one of yours can still bind a verdict. Two states end that premise, and **only
+  one of them is recovered inside the run**: nothing answered at all, which is the re-post with
+  `attempt=2` and the same `round=`. A newer trigger taking the baseline **aborts** — an abort is a
+  stop, and the loop must not race a person for the newest comment, which is the runaway itself — and
+  a later run re-takes the baseline with an **ordinary** trigger that advances the round, because the
+  wait it replaces was spent. Getting this wrong the other way was itself caught in review: an earlier
+  draft classified the lost baseline as an in-run recovery, which contradicted "an abort is a stop"
+  in nine places at once. `marker_head=none` and `reason=foreign-baseline` now both read "report and
+  finish", and so does `error reason=no-branch`, which had the same shape before this change.
 
   What is **not** a hazard, and was checked rather than assumed: a review racing a clean comment. The
   fence returns a review whenever one exists and demotes the comment to `EXTRA=`, so a clean comment

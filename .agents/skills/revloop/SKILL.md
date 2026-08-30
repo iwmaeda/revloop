@@ -51,6 +51,7 @@ The procedure's `## Notes` section states them; these are the ones most often lo
 - **Never re-fire a trigger without new commits**, except the one silence case the procedure names.
   Compare `marker_head=` against current HEAD; the exception's conditions, and its budget of one, live
   in the procedure and are counted from the markers on the pull request rather than from this session.
+  **A lost baseline is not that exception**: it aborts, and only a later run re-takes it.
 - **A round that fired twice can have two reviews on the same commit.** The wait names one of them.
   Read the findings from every review at HEAD, or the other one's are silently dropped.
 - **Strip a trailing `[bot]` before comparing logins.** GraphQL omits it; REST and documentation
