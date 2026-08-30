@@ -63,9 +63,9 @@ Added:
   and it is a cost with nothing bought: `reviewers/codex.md` records the marker being tolerated end to
   end against the five-key body, ten consecutive times, so a sixth key on every round would move every
   round onto a body shape nobody has watched a reviewer accept — to record a `1` that its absence
-  already says. Confining it to the re-post also keeps the round count a substring search instead of a
-  comparison against a number, where `attempt=1` versus `attempt=10` is the input-space trap step 10
-  spends a paragraph on.
+  already says. Confining it to the re-post also keeps the round count a presence test on one key
+  instead of a comparison against a number, where `attempt=1` versus `attempt=10` is the input-space
+  trap step 10 spends a paragraph on.
 
   **`v` stays at `1`, and step 7 now says when it would move**: only when an existing key changes
   meaning or disappears — when a reader of the old format would misread the new one. Adding a key does
@@ -216,7 +216,9 @@ Changed:
   one, except that a marker carrying `attempt=` re-posts a round already open and is not counted.
   Without the exclusion a reviewer that drops one comment silently halves `--max-rounds`, which is a
   circuit breaker rather than a target and cannot afford to be spent on delivery failures. The count
-  stays a substring search over the pull request.
+  stays a one-line test anyone can reproduce, and it reads the marker's `attempt` key rather than
+  searching the body: a raw search matches `notattempt=2` and a quoted `"attempt=2"` in a garbled
+  payload, and either would undercount the round and suppress a retry it was owed.
 
 - **The number of re-posts, and the silence threshold, are fixed and not configurable.** A budget above
   one has nothing measured behind it, and it spends the reviewer's quota — the same class as `--merge`,

@@ -105,11 +105,13 @@ A key that can only hold the value it already has is a promise, not a setting. T
 Counting rounds from GitHub rather than from commit subjects is what lets an interrupted run resume in
 a fresh session: a round that ended with no findings still cost you a wait, and it left a marker but no
 commit. The count is of markers alone, so a pull request driven by hand before revloop was adopted
-starts again at 1 — an exact number anyone can reproduce with a substring search, rather than one that
-depends on replaying the wait fence's compatibility pattern outside the fence. A marker carrying
-`attempt=` is excluded from that count because it re-posts a round that was already open, and it is
-written **only** on a re-post so the exclusion stays a substring search. Counting them would let a
-reviewer that drops one comment halve `maxRounds` without anyone noticing.
+starts again at 1 — an exact number anyone can reproduce by hand, rather than one that depends on
+replaying the wait fence's compatibility pattern outside the fence. A marker carrying an `attempt` key
+is excluded from that count because it re-posts a round that was already open, and it is written
+**only** on a re-post so the exclusion stays a one-line test. That test reads the key: a raw search for
+`attempt=` also matches `notattempt=2` and a quoted `"attempt=2"` in a garbled payload, either of which
+would undercount the round. Counting re-posts would let a reviewer that drops one comment halve
+`maxRounds` without anyone noticing.
 
 `timeout` caps one trigger rather than one round, so a round that has to re-post waits up to twice it
 — about an hour at the built-in value. That is the whole cost of the re-post path, and it is the one

@@ -95,10 +95,12 @@ arrived and presents as "the reviewer never responded". So the fence matches a s
   skipped, and the jq program's character filter passes `attempt=2` through untouched. **That is the
   fact the whole design rests on**: a marker key can be added without changing a fence's bytes, so the
   retry rule reaches users without costing any of them a re-approval. The key appears only on a
-  re-post — its absence means "first trigger of its round" — which keeps the round count a substring
-  search and keeps every ordinary round on the five-key body `reviewers/codex.md` measured a reviewer
-  accepting. A bound counted in the session would be a bound a session restart refunds; this is the
-  `head=` argument again, applied to how many times a trigger has been sent rather than to which
+  re-post — its absence means "first trigger of its round" — which keeps the round count a test on one
+  key rather than a comparison against a number, and keeps every ordinary round on the five-key body
+  `reviewers/codex.md` measured a reviewer accepting. The test reads the key rather than searching
+  the body, because a payload garbled by a focus can carry `attempt=` inside a longer token. A bound
+  counted in the session would be a bound a session restart refunds; this is the `head=` argument
+  again, applied to how many times a trigger has been sent rather than to which
   commit it named.
 - **Config never reaches the fence.** Reviewer identity arrives via a comment revloop posted, not a
   file the fence parses, so a hostile `.revloop.json` has no path into a shell command or jq program.

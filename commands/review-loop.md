@@ -331,7 +331,7 @@ approval, so it has to come from the person typing it.
    sixth key on every round would move every round onto a body shape nobody has watched a reviewer
    accept, to record a `1` that its absence already says. Confining the new key to the re-post confines
    the unmeasured shape to the path that is declared unexercised anyway — and it turns "have I already
-   re-posted this HEAD?" into a substring search rather than a comparison against a number.
+   re-posted this round?" into a test on one key rather than a comparison against a number.
 
    **`v` moves only when an existing key changes meaning or disappears** — when a reader of the old
    format would misread the new one. Adding a key does not qualify: the fence parses the marker with a
@@ -341,10 +341,12 @@ approval, so it has to come from the person typing it.
    that `v` moves for anything, which makes a genuinely breaking change indistinguishable.
 
    **The round number is the count of the markers already on this PR that opened a round, plus one**
-   — every `revloop:trigger` marker that does **not** carry `attempt=`, since a marker that does is a
-   re-post of a round already open. That keeps the rule a substring search rather than a comparison
-   against a number: `attempt=1` versus `attempt=10` is the input-space trap step 10 spends a
-   paragraph on, and it has no business deciding what round you are in. Count them from GitHub, never
+   — every `revloop:trigger` marker with no whitespace-separated token whose key is exactly `attempt`,
+   since a marker that has one is a re-post of a round already open. **Read the key, do not search the
+   text**: a raw search for `attempt=` is satisfied by `notattempt=2` or by a quoted `"attempt=2"`
+   inside a garbled payload, which turns an ordinary marker into a re-post, undercounts the round and
+   suppresses the retry that round was owed. Testing a key's presence is still exact and still
+   reproducible by hand; what it is not is a search of the body. Count them from GitHub, never
    from local state: an
    interrupted run resumes in a fresh session with nothing on disk, and a round that ended with no
    findings still cost a wait, so parsing commit subjects undercounts. This is the same argument as
