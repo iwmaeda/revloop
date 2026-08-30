@@ -207,6 +207,73 @@ Fixed:
   findings; it is now bounded below by the round's first trigger. The second was found by sweeping the
   class rather than by review.
 
+- **Step 10's two-trigger sweep compared two values that can never match, so it swept up nothing.**
+  The read emitted REST's `user.login` and `commit_id` raw and then asked for the reviewer's login and
+  HEAD. REST carries the `[bot]` suffix the marker's `bot=` has stripped — the mistake `## Notes`
+  records as having shipped once already — and `commit_id` is the full 40-character sha, while every
+  other HEAD comparison in this procedure is the short-8 form the fence writes. Either one alone
+  matches **zero** reviews on every run, and zero is indistinguishable from "only one review": the
+  sweep this branch added would have reported nothing, the round would have finished clean, and
+  `--auto --merge` would have merged past findings nobody read — silently reintroducing the defect the
+  sweep exists to fix. Both fields are now normalized in the read itself, mirroring the fence's own
+  `BOT=${BOT%"[bot]"}` and `.commit.oid[0:8]`, so the value the reader is handed is the comparable
+  one. The fail-closed rule now names **both** reads rather than only the list: a failed per-review
+  `comments` read is indistinguishable from "that review had zero inline comments", which is a clean
+  review, and it runs once per review, so a two-trigger round takes that risk twice.
+
+- **Step 7's new marker read had no failure rule, on the one endpoint this procedure says 404s.**
+  `## Notes` records `repos/…/issues/<n>/comments` returning 404 continuously for many minutes while
+  the same token's GraphQL kept answering, and an earlier REST-based wait reporting a pull request
+  carrying 22 triggers as `no-trigger` — the wait is built on GraphQL for that reason. The new read is
+  that endpoint. An empty result read as "no markers" restarts the round number at 1, hands the
+  re-post condition an empty pull request and so refunds a budget the round has already spent, and
+  leaves `SINCE` with no left-hand side. Failure is now decided from `gh`'s exit code alone, the way
+  step 8 already decides it, and a failed read means do not fire and do not re-post.
+
+- **"This round's `round=`" was undefined on a resumed run, which is the only run the bound matters
+  on.** The procedure defines the round number once, as the count of round-opening markers plus one —
+  a count that deliberately excludes a re-post. A session that died mid-wait therefore came back and
+  computed N+1 for a round still at N, asked the re-post condition about a round that did not exist,
+  found no `attempt=` marker, and re-posted a second time; the session after it would have done the
+  same, because the marker it should have found is the one the count excludes. The whole bound rests
+  on that condition — "it cannot re-post twice, because it reads that from the PR" — so this was the
+  guarantee failing exactly where it was claimed. A resumed run now takes this round's number from the
+  newest marker, the same marker `SINCE` already comes from, together with whether the round has been
+  re-posted and which comment is its first trigger. This is the `SINCE` gap above, one field over, and
+  it was left standing when that one was closed.
+
+- **What a reconciliation mismatch costs was stated three ways, and the absolute one was wrong.** Step
+  8 said a mismatch "burns no wall clock and accrues no chunk", while its own chunk-counting paragraph
+  and step 9's table both said the chunk counts toward `--timeout`. The two are right about different
+  inputs: a mismatched **verdict** exits the fence on its first poll and costs nothing, but a
+  mismatched **`pending`** means the foreign trigger is itself unanswered, so the fence polls out all
+  480 seconds before printing — and that is the only other shape a mismatch arrives in. Neither may be
+  bounded on the clock, which is what the two-consecutive-mismatch rule is for. The false half had
+  been copied into this changelog as well, and is corrected above.
+
+- **The list of what the re-post gap can drop named two comment classes; there are four.** The window
+  between an expiring chunk's last poll and the new trigger loses any signal landing in it, and the
+  sweep recovers only reviews — it reads `pulls/<n>/reviews` and never comments. The accepted-cost
+  argument, that the behaviour being replaced is an abort which loses the same signal **and** the round
+  with it, holds for a clean verdict and a rate limit, because both repeat themselves. **It does not
+  hold for the two abort-class rows.** An unrecognized bot body and an `interim-loop` exist to stop the
+  loop and hand it to a human; losing one used to end in an abort anyway, but now, if the second
+  trigger answers clean, the round finishes clean and merges. That is strictly worse than what it
+  replaces and it is the one cost of this path that is not offset. It is written down rather than
+  closed: closing it would mean classifying comments outside the fence, a second implementation of a
+  rule the fence owns, which is the defect class this branch has already reported twice. The report
+  now says a signal may have been orphaned on **any** two-trigger round, not only on `no-verdict`.
+
+- **Two of this branch's own new tests could not fail for the reason their comments gave.**
+  `fence-guards` checked each required marker key with a substring match, so a marker whose `head=` had
+  been typo'd to `marker_head=` satisfied the test while parsing to exactly the `marker_head=none` the
+  block exists to catch — the guard going green on its own failure case, by the same
+  substring-for-token mistake the procedure states a rule against twice. It is anchored to a token
+  boundary now. `fence-verdict`'s `retry-baseline` comment claimed its assertions pinned that a re-post
+  does not advance the round; they cannot, because both triggers carry `round=3` by hand and the fence
+  has no round-counting logic to get wrong. That comment now claims only what the assertion checks, and
+  says plainly that the rule itself lives in prose this harness does not execute.
+
 Changed:
 
 - **`--timeout` now caps one trigger's wait rather than one round's.** A round fires at most two
