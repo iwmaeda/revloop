@@ -447,6 +447,18 @@ Fixed:
   **Two of the three shapes this round asked about came back with no instances** — the state table's
   stop default holds, and every retry bound is stated where its retry is. No fence changed.
 
+- **The sweep filtered out exactly the reviews whose state was supposed to stop the round.** Its
+  selection read "the reviews whose `state` the table above does not abort on", which looks like an
+  application of the state table and is its inverse: a `PENDING` or unrecognised review was **removed
+  from the sweep instead of aborting**. On a two-trigger round whose second trigger came back clean,
+  the reviews saying "do not finish" were the ones discarded and the clean path merged — the stop
+  default defeated by running the selection before the check it defaults to. The selection now
+  narrows by **identity only** — login, commit, round — drops `DISMISSED` alone, and hands every
+  surviving review to the state table. A second hole in the same selection is closed with it: a
+  `PENDING` review has no `submitted_at`, so the "at or after this round's first trigger" bound
+  discards it too. The bound now applies only to reviews that have a timestamp, and a review by the
+  reviewer at HEAD with none is a draft that aborts. No fence changed.
+
 Changed:
 
 - **`--timeout` now caps one trigger's wait rather than one round's.** A round fires at most two

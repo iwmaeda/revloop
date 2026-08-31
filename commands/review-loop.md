@@ -883,11 +883,26 @@ approval, so it has to come from the person typing it.
     documented `gh` floor. It strips a **suffix**, not a substring, so a login that merely contains
     `[bot]` is left alone.
 
-    Take the reviews whose `login` is the reviewer's, whose `state` the table above does not abort on,
-    whose `commit8`
+    Take the reviews whose `login` is the reviewer's, whose `state` is **not `DISMISSED`**, whose
+    `commit8`
     equals `git rev-parse --short=8 HEAD`, and whose `submitted_at` is **at or after this round's first
     trigger** — step 7's marker read returns that timestamp — then run **the per-review read above on
-    each `id`, both halves**.
+    each `id`, both halves**, and **apply the state table to every review it returns**.
+
+    **`DISMISSED` is the only state this selection may drop, and the distinction is the whole point.**
+    Filtering out every state the table aborts on reads as equivalent and is the exact opposite: a
+    `PENDING` or unrecognised review would be **removed from the sweep instead of stopping the round**.
+    On a two-trigger round whose second trigger came back clean, the reviews whose state says "do not
+    finish" would be precisely the ones discarded, and the clean path would merge. **The selection
+    narrows by identity — login, commit, round — and the state table decides the outcome.** A
+    `DISMISSED` review is excluded because its author withdrew it, the one state that is genuinely not
+    a review to read.
+
+    **A draft also fails the lower bound, so the bound cannot be the thing that catches it.** A
+    `PENDING` review has no `submitted_at`, and a null fails "at or after" as surely as an early
+    timestamp does — so the bound applies **only to reviews that have one**. A review by the reviewer
+    at HEAD carrying no `submitted_at` is a draft: abort on it under `reason=draft-review` rather than
+    letting the comparison drop it.
 
     **This sweep is the only reader on two paths.** A review orphaned in the re-post gap is reached by
     it and by nothing else, and a round entering step 10 from the clean-comment or reaction gate has
