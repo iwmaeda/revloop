@@ -676,7 +676,11 @@ approval, so it has to come from the person typing it.
    echo "VERDICT=pending pr=$PR trigger=$TS waited=480"
    ```
 
-   **Always reconcile the returned `trigger=` with the `SINCE` you recorded in step 7.** If they
+   **Always reconcile the returned `trigger=` with the `SINCE` you recorded in step 7 — on the four
+   forms that carry one.** `review`, `comment`, `reaction` and `pending` do; **no `VERDICT=error` form
+   emits `trigger=` at all**, so an absent one is not a mismatch, and an error belongs on its own row
+   rather than in this reconciliation. Sending it here instead turns an auth or connectivity failure
+   into a foreign-baseline retry. If they
    differ, the fence latched onto a trigger that is not this round's — usually because GitHub has not
    yet surfaced yours, sometimes because a newer one was posted. **The output is not this round's
    verdict whatever form it took**: do not adopt a `review`, a `comment` or a `reaction` that a
@@ -845,7 +849,9 @@ approval, so it has to come from the person typing it.
     documented `gh` floor. It strips a **suffix**, not a substring, so a login that merely contains
     `[bot]` is left alone.
 
-    Take the reviews whose `login` is the reviewer's, whose `state` is not `DISMISSED`, whose `commit8`
+    Take the reviews whose `login` is the reviewer's, whose `state` is neither `DISMISSED` nor
+    `PENDING` — a `PENDING` review is an unsubmitted draft, with no findings to read and no
+    `submitted_at` to bound — whose `commit8`
     equals `git rev-parse --short=8 HEAD`, and whose `submitted_at` is **at or after this round's first
     trigger** — step 7's marker read returns that timestamp — then run the `comments` read once per
     `id`. **The lower bound is not decoration**: the lost-baseline state can open a new round on an
@@ -1009,7 +1015,11 @@ approval, so it has to come from the person typing it.
     ```
 
     **`MERGE=abort` means the gate stopped it and the PUT was never fired; `MERGE=failed` means the
-    PUT was fired and did not take.** The abort reasons are `no-branch`, `no-pr`, `no-head`,
+    PUT was fired and the fence could not confirm it took.** That is weaker than "did not take", and
+    deliberately so: the fence prints `MERGE=failed` for `MERGED null`, for any other state, **and when
+    the status read itself fails** — `ST` is empty then, which is indistinguishable from a merge whose
+    state has not yet settled. **Read the pull request before acting on it, and never re-fire the PUT
+    on this signal alone.** The abort reasons are `no-branch`, `no-pr`, `no-head`,
     `api stage=setup`, `api stage=recheck`, `ci-not-ready`, and `ci-failed`. Only `MERGE=ok` is a
     merge. On anything else, stop here and put the response body in the report. Only after
     `MERGE=ok`:
@@ -1134,8 +1144,16 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   without it the sweep carries another bot's findings into this round's replies, and the
   lower bound is what keeps a round reopened on an unchanged HEAD from re-reading the previous
   round's. What is _not_ a hazard is a review racing a
-  clean comment — the fence returns a review whenever one exists and demotes the comment to `EXTRA=`,
-  so a clean comment cannot outrank findings that arrived in the same round.
+  clean comment — the fence returns a review whenever one exists **and is strictly newer than the
+  trigger**, and demotes the comment to `EXTRA=`, so a clean comment cannot outrank findings that
+  arrived after it. **The gap is a review sharing the trigger's own second.** The fence selects with
+  `$2>t`, so such a review is not selected at all; a later clean comment then wins the round, and on
+  `--auto --merge` the loop merges past findings nobody read. The trigger selection solves this same
+  collision with a `databaseId` tie-break and the review selection has no equivalent, so **this is a
+  known gap rather than a covered case** — closing it is a fence edit, and therefore one re-approval
+  for every user. The `state` filter has the same shape: the fence takes every review that is not
+  `DISMISSED`, which admits a `PENDING` draft, and step 10's own read excludes those explicitly.
+  GitHub shows a pending review only to its author, so neither has been observed.
 - **Exceeding `--timeout` always terminates the attempt, and the re-post is carved out of that abort
   rather than standing beside it — so a round ends in at most two attempts and never continues
   indefinitely.** Written as several conditional aborts it leaves a hole, and the first

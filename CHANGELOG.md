@@ -199,8 +199,9 @@ Fixed:
   merges. The bound is now inclusive.
 
   What is **not** a hazard, and was checked rather than assumed: a review racing a clean comment. The
-  fence returns a review whenever one exists and demotes the comment to `EXTRA=`, so a clean comment
-  cannot outrank findings that arrived in the same round.
+  fence returns a review whenever one exists **and is strictly newer than the trigger**, and demotes
+  the comment to `EXTRA=`, so a clean comment cannot outrank findings that arrived after it. A review
+  sharing the trigger's own second is the exception and is a known gap; see `## Notes`.
 
 - **Two lookups were keyed on `head=` where they had to be keyed on the round.** Both became wrong the
   moment the lost-baseline state was allowed to open a **new** round on an unchanged HEAD, which is a
@@ -373,6 +374,23 @@ Fixed:
   did, over a table of which form emits which key; `marker_head=none` is given precedence over the
   login check in both the check and the table row. **The fence was already right** — this is the
   caller's reading of it being corrected, so no fence changed and no re-approval is owed.
+
+- **P1: four more reads of values their producer does not always supply.** Read against the fence text
+  rather than the prose: **(1)** "always reconcile the returned `trigger=`" applied to every output,
+  but no `VERDICT=error` form emits `trigger=`, so an auth or connectivity failure was sent into the
+  foreign-baseline retry instead of onto its own row; it is now scoped to the four forms that carry
+  one. **(2)** The fence takes every review that is not `DISMISSED` and then drops the state from its
+  output, and step 10 repeated the same rule — which admits a `PENDING` draft, a review with no
+  findings and no `submitted_at`. Step 10 now excludes `PENDING` explicitly. **(3)** "A clean comment
+  cannot outrank findings that arrived in the same round" was stated in the procedure and in this
+  changelog, but the fence selects reviews with `$2>t`, so **a review sharing the trigger's own second
+  is not selected at all** and a later clean comment wins the round. The trigger selection solves that
+  collision with a `databaseId` tie-break; the review selection has no equivalent. Both copies now say
+  "strictly newer" and name the gap, which is recorded rather than closed because closing it is a
+  fence edit. **(4)** "`MERGE=failed` means the PUT was fired and did not take" was stated in the
+  procedure and in `SKILL.md`, but the fence also prints it when the post-PUT status read **fails** —
+  `ST` is empty then, which a successful merge can also produce. Both now say the fence could not
+  confirm it took, and say to read the pull request rather than re-fire. No fence changed.
 
 Changed:
 
