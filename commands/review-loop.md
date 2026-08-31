@@ -480,7 +480,7 @@ approval, so it has to come from the person typing it.
    (a) Step 8 returned `VERDICT=pending`, this attempt's cumulative wait has passed `--timeout`, **and
    it spent at least three chunks — 24 minutes — of that wait watching your own trigger.** The floor is
    in chunks rather than in a fraction of the flag on purpose: `--timeout 8m` would otherwise re-post
-   inside codex's measured 2:53–10:07 range, which is the runaway the invariant exists to prevent,
+   inside codex's measured 2:46–10:07 range, which is the runaway the invariant exists to prevent,
    reachable by typing a flag. Below the floor there is no re-post and the round aborts as it did
    before.
    (b) **You own the baseline** by both halves of the test above — the `pending` line's `trigger=` is
@@ -613,8 +613,8 @@ approval, so it has to come from the person typing it.
    and accrues no chunk, while a mismatched **`pending`** polls out all 480 seconds and spends one
    like any other. **`--timeout` caps waiting**, so charging it for an invocation that returned in a
    second aborts a round that had not yet waited.
-   **Step 7's floor is why a small `--timeout` cannot buy a fast re-post**: codex's seventeen measured
-   rounds span 2:53 to 10:07 (`reviewers/codex.md`), so a single 8-minute chunk expires on healthy
+   **Step 7's floor is why a small `--timeout` cannot buy a fast re-post**: codex's twenty-seven
+   measured rounds span 2:46 to 10:07 (`reviewers/codex.md`), so a single 8-minute chunk expires on healthy
    rounds and cannot mean anything on its own, and a threshold computed as a fraction of the flag would
    let `--timeout 8m` re-post from inside that range. Three chunks is 24 minutes — about 2.4 times the
    widest verdict ever measured, which is enough headroom to survive the next sample on a card that

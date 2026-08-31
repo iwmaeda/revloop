@@ -37,9 +37,9 @@ A run usually takes tens of minutes. **Most of that is time spent waiting for th
 If even one finding was fixed, step 11 goes back to step 3 and the next round begins. `--auto` keeps
 the loop running through both stop points instead of halting at them.
 
-**A pull request carrying a large change can sit in the wait for tens of minutes.** Across seventeen
-consecutive rounds on two pull requests, codex returned a verdict in **3 to 10 minutes**, and every
-sample so far has widened that range at both ends
+**A pull request carrying a large change can sit in the wait for tens of minutes.** Across
+twenty-seven consecutive rounds on three pull requests, codex returned a verdict in **under 3 to 10
+minutes**, and every sample so far has widened that range at one end or both
 ([`reviewers/codex.md`](reviewers/codex.md), 2026-08).
 
 If the review fails because of a rate limit or a similar API restriction, the loop aborts.

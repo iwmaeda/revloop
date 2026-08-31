@@ -470,6 +470,15 @@ Fixed:
   that its own earlier wording was the last instance of that mistake. **This was round 20, the run's
   cap: the fix is committed but no review round has seen it.** No fence changed.
 
+- **Ten more latency samples, and the range's low end moved.** `iwmaeda/revloop#13` rounds 11–20 ran
+  4:21, 4:18, 4:46, 3:51, 7:25, 6:57, 5:42, 4:55, **2:46** and 3:21 — trigger `createdAt` to review
+  `submittedAt`, as the earlier samples were timed. Twenty-seven rounds in this repository now span
+  **2:46 to 10:07**. `reviewers/codex.md` carries the sample, and the three operative copies of the
+  figure — step 7's floor rationale, step 9's runaway argument, and both READMEs — are updated with
+  it. **The three-chunk floor is unchanged and its derivation still holds**: it was chosen as roughly
+  2.4× the **10:07** end, which this sample did not move. The card's "every sample has moved both
+  ends outward" is corrected to "one end or both", since this one moved only the low end.
+
 Changed:
 
 - **`--timeout` now caps one trigger's wait rather than one round's.** A round fires at most two

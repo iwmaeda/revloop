@@ -27,12 +27,16 @@
   3:04, 3:38, 3:52, 4:01, 4:03, 4:25, 4:44, 5:46, 6:27 and 8:01 — range 3:04–8:01, median 4:14, mean
   4:48 (`iwmaeda/revloop#8`, 2026-08). Seven consecutive rounds on the next one ran 2:53, 3:16, 5:09,
   5:32, 6:25, 7:01 and 10:07 — range **2:53–10:07**, median 5:32, mean 5:46 (`iwmaeda/revloop#9`,
-  2026-08). All three timed from each trigger's `createdAt` to its review's `submittedAt`. Seventeen
-  rounds in this repository span **2:53 to 10:07**. A **clean** round is timed against a different
+  2026-08). Ten consecutive rounds on a third ran 4:21, 4:18, 4:46, 3:51, 7:25, 6:57, 5:42, 4:55,
+  **2:46** and 3:21 — range 2:46–7:25, median 4:33, mean 4:50 (`iwmaeda/revloop#13`, 2026-08). All
+  four timed from each trigger's `createdAt` to its review's `submittedAt`. Twenty-seven
+  rounds in this repository span **2:46 to 10:07**. A **clean** round is timed against a different
   endpoint and is not a member of that range: `iwmaeda/revloop#11` found nothing, so its terminal
   signal was an issue comment rather than a review, and trigger to comment ran **3:46** (2026-08).
   **Derived:** budget for the range and not the centre, and treat the range itself as provisional —
-  **each sample so far has moved both ends outward**, so the next one probably will too. The clean
+  **each sample so far has moved one end or both outward**, so the next one probably will too — the
+  fourth moved only the low end, to 2:46, and left 10:07 standing as the high-water mark from the
+  third. The clean
   round neither widens nor confirms that range, because it does not measure the same thing; it is
   simply the first figure this repository has for a round that returns no findings. Nothing in
   the loop reads either figure at runtime: step 8 waits in 480-second chunks against `--timeout` and
