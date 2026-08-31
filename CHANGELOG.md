@@ -42,12 +42,12 @@ Added:
 
   **The floor is three chunks — 24 minutes — and it is deliberately not a fraction of `--timeout`.**
   Deriving it from the flag was the first design and it is wrong: `--timeout 8m` would then re-post
-  from inside codex's measured 2:53–10:07 range, which is the runaway the invariant exists to prevent,
+  from inside codex's measured 2:46–10:07 range, which is the runaway the invariant exists to prevent,
   reachable by typing a flag. A fixed floor in the unit the caller already counts cannot be pushed
   below the measured ceiling by any flag value. Twenty-four minutes is about 2.4× the widest verdict
-  ever measured, which leaves headroom on a card that records **every sample so far widening both
-  ends**. Below the floor there is no re-post and the round aborts exactly as it did before, under a
-  new reason, `timeout-before-retry`, that says so rather than blaming slowness.
+  ever measured, which leaves headroom on a card that records **every sample so far widening that
+  range at one end or both**. Below the floor there is no re-post and the round aborts exactly as it
+  did before, under a new reason, `timeout-before-retry`, that says so rather than blaming slowness.
 
   **The direction is the safety argument.** A re-post moves the baseline **forward**, so it can only
   reach the too-new row of the table in [`docs/design-notes.md`](docs/design-notes.md) — a verdict that
