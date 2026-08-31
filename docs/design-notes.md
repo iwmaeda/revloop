@@ -27,10 +27,10 @@ three working installations.
 The wait loop takes the newest trigger as its baseline and accepts a verdict arriving after it.
 Getting that wrong fails in two directions, and they are not equally bad:
 
-| Baseline | Consequence                                                                   | Class        |
-| -------- | ----------------------------------------------------------------------------- | ------------ |
-| Too new  | A verdict that already arrived is dropped; the round times out and aborts     | **liveness** |
-| Too old  | A **previous** round's "no issues" satisfies the filter → false clean verdict | **safety**   |
+| Baseline | Consequence                                                                                                                 | Class                                                                |
+| -------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Too new  | A verdict that already arrived is dropped; the round times out and aborts — or, since the re-post, may finish clean instead | **liveness**, but **safety** when the dropped signal was abort-class |
+| Too old  | A **previous** round's "no issues" satisfies the filter → false clean verdict                                               | **safety**                                                           |
 
 Findings arriving as a _review_ are protected by comparing `commit=` against HEAD. Terminal signals
 arriving as a comment have no commit binding at all, so the timestamp is the only thing tying them to
@@ -38,6 +38,28 @@ this round. "Newest trigger" guarantees never-too-old at the price of being vuln
 which is why the tempting refinement — walk back to an older trigger when no verdict is found — is
 rejected. It trades a liveness bug for a safety bug, and with `--auto --merge` a safety bug merges
 unreviewed code.
+
+**Posting a second trigger is the mirror of that, and it is allowed.** When a trigger's whole budget
+passes with no verdict the run could classify — `--timeout` caps one trigger, not one round — and at least three
+8-minute chunks were spent watching it, step 7 may post the trigger once more at the same HEAD. Both
+halves are required, so a `--timeout` short enough to end before the floor never re-posts at all. That moves
+the baseline **forward**, so it can only reach the too-new row of the table above — never the too-old
+one. The direction is the entire argument: the rejected refinement reaches for a verdict that is older
+than the baseline, which is how a previous round's "no issues" gets adopted, while a re-post can at
+worst drop a signal that landed in the 30-second window between the expiring chunk's last poll and the
+new comment. **A review survives that window because something recovers it, not because it was never
+lost**: step 10's two-trigger sweep reads every review by the configured reviewer at HEAD, at or after
+the round's first trigger, whether or not the fence ever named it. Neither the reviewer answering the
+second trigger nor `commit=` pinning the first is guaranteed, so neither is the reason. A comment-only
+signal has no such recovery and can be lost. The behaviour it replaces is an
+abort, which loses that signal as well and the round with it — so for a clean verdict and for a rate
+limit, both of which repeat themselves, the change spends nothing it was not already spending.
+**For the two abort-class signals it is a real widening, and this is the one cost the direction
+argument does not cover**: an unrecognized bot body and an `interim-loop` exist to stop the loop and
+hand it to a human, losing one used to end in an abort anyway, and now a clean second answer can
+finish the round and merge past it. Nothing recovers that, which is why a two-trigger round says in
+the report that a signal may have been orphaned. The bound — **one re-post per round** — is stored in
+the marker rather than in the session, for the same reason `head=` is.
 
 **"Newest" is a computation, not a row position.** The fence's jq program builds one array from four
 generators, and array construction preserves generator order — so every compatibility row is emitted
@@ -78,6 +100,18 @@ arrived and presents as "the reviewer never responded". So the fence matches a s
   which renames a local wall-clock time to `Z` without converting it, shifting it by the UTC offset —
   always in the direction that permits the re-trigger the invariant exists to prevent.
   `--date=format-local:` converts; `--date=format:` does not.
+- **`attempt=` puts the re-post bound in the same place, and cost no fence edit to do it.** The fence
+  reads marker keys by name through a `case` with no default branch, so a key it does not know is
+  skipped, and the jq program's character filter passes `attempt=2` through untouched. **That is the
+  fact the whole design rests on**: a marker key can be added without changing a fence's bytes, so the
+  retry rule reaches users without costing any of them a re-approval. The key appears only on a
+  re-post — its absence means "first trigger of its round" — which keeps the round count a test on one
+  key rather than a comparison against a number, and keeps every ordinary round on the five-key body
+  `reviewers/codex.md` measured a reviewer accepting. The test reads the key rather than searching
+  the body, because a payload garbled by a focus can carry `attempt=` inside a longer token. A bound
+  counted in the session would be a bound a session restart refunds; this is the `head=` argument
+  again, applied to how many times a trigger has been sent rather than to which
+  commit it named.
 - **Config never reaches the fence.** Reviewer identity arrives via a comment revloop posted, not a
   file the fence parses, so a hostile `.revloop.json` has no path into a shell command or jq program.
 

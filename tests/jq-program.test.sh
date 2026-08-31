@@ -37,6 +37,13 @@ expect "  the verdict comment is emitted"             "$o" "comment 2026-08-19T1
 # fired, the comment would emit two TRIG rows with the same timestamp, `tail -1`
 # would take the compat one, and the marker — with it the bot filter and the
 # runaway check — would be silently discarded.
+# The character filter on the marker payload is a whitelist, so a key added to
+# the marker later has to survive it. `attempt=2` is all whitelisted characters,
+# and this is where that stops being an assumption.
+o=$(run verdict/retry-marker)
+expect "a new marker key survives the filter"   "$o" "attempt=2"
+expect "  alongside the keys it already knew"   "$o" "head=1a2b3c4d round=3"
+
 o=$(run jq/human-decoy)
 expect "a human naming a person is not a trigger" "$(printf '%s\n' "$o" | grep -c '^TRIG ')" "1"
 refute "  the decoy did not become a baseline"   "$o" "555"

@@ -95,6 +95,65 @@ expect "  a compat baseline binds no head"      "$o" "marker_head=none"
 expect "  and names no reviewer"                "$o" "reviewer=unknown"
 refute "  the marker did not win on class"      "$o" "marker_head=9f8e7d6c"
 
+# A re-post carries a marker key the fence has never been told about. The parser
+# is a `case` with no default branch, so an unknown key is discarded rather than
+# mistaken for a value — which is the whole reason `attempt=` could be added
+# without editing a fence, and with it without costing every user a re-approval.
+# No other fixture carries a marker with anything but the four documented keys,
+# so nothing else exercises an unknown key at all.
+o=$(r retry-marker)
+expect "an unknown marker key is ignored"       "$o" "VERDICT=review"
+expect "  reviewer still parses"                "$o" "reviewer=codex"
+expect "  head still binds"                     "$o" "marker_head=1a2b3c4d"
+expect "  round is not displaced by it"         "$o" "round=3"
+refute "  and the key itself is not echoed"     "$o" "attempt="
+
+# The re-post itself: two triggers on the same HEAD, same round, one round apart.
+# The second is the baseline, and the verdict after it belongs to this round.
+#
+# The round assertion below pins only that the fence reads `round=` off the
+# winning marker rather than off the one it re-posts. It does NOT pin that a
+# re-post leaves the round alone: both triggers carry `round=3` because this
+# fixture was hand-written that way, and the fence has no round-counting logic
+# to get wrong. That rule — a re-post must not advance the round, or a reviewer
+# that drops one comment silently halves `--max-rounds` — lives in step 7's
+# prose, which this harness does not execute. Nothing here can catch its
+# violation, and saying so is worth more than a comment that implies otherwise.
+o=$(r retry-baseline)
+expect "the re-post becomes the baseline"       "$o" "trigger=2026-08-19T10:31:00Z"
+refute "  not the trigger it re-posts"          "$o" "trigger=2026-08-19T10:00:00Z"
+expect "  round comes off the winning marker"   "$o" "round=3"
+expect "  and the verdict after it is adopted"  "$o" "review_id=333"
+
+# The cost of re-posting, pinned rather than left as prose. The fence polls and
+# then sleeps 30 seconds, so a signal landing between the expiring chunk's last
+# poll and the new trigger is older than the new baseline and is dropped. This
+# is the too-new row of the table in docs/design-notes.md. For a clean verdict
+# and for a rate limit it is a liveness cost and it is accepted: the behaviour
+# it replaces is an abort, which loses the same signal and the round with it.
+# For the two abort-class comments it is a safety cost that nothing offsets,
+# which is why a two-trigger round reports that a signal may have been orphaned.
+# DO NOT "fix" this case by walking the baseline back to the older trigger —
+# that is the refinement design-notes rejects, and it turns a liveness bug into
+# a safety one.
+o=$(r retry-gap)
+expect "a signal inside the gap is not adopted" "$o" "VERDICT=pending"
+refute "  the clean comment is not read"        "$o" "VERDICT=comment"
+expect "  the baseline is the re-post"          "$o" "trigger=2026-08-19T10:31:00Z"
+
+# Two answers to one round, both naming the current commit. The fence returns
+# the newer review and says nothing at all about the older one — there is no
+# EXTRA= for a second review, only for a comment. That is measured here rather
+# than assumed, because it is the whole reason step 10 stops trusting a single
+# review_id= on a round that fired twice: the filter there is an equality test,
+# so the review this fence does not name has its findings dropped for good.
+# No step-9 row can catch it on its own — both reviews carry the same, current
+# commit — which is why step 9 instead gates every clean finish on that sweep.
+o=$(r retry-both-answered)
+expect "two answers -> the newer review wins"   "$o" "review_id=820"
+refute "  the older answer is never mentioned"  "$o" "810"
+refute "  and there is no EXTRA= to carry it"   "$o" "EXTRA="
+
 # The marker's bot= discards every other bot on the PR at fetch time.
 o=$(r foreign-bot)
 expect "foreign bots filtered -> pending"       "$o" "VERDICT=pending"

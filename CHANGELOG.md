@@ -7,6 +7,522 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
+## [Unreleased]
+
+**No fence changed, so nothing here asks anything of you.** The three shell fences in
+[`commands/review-loop.md`](commands/review-loop.md) are byte-identical to 0.3.0 and still match the
+hashes in `tests/fence-hashes.txt` — `tests/fence-guards.test.sh` reports all three matching, which is
+the evidence for this paragraph — so there is **no re-approval to give**. The granted rule list in
+[`docs/permissions.md`](docs/permissions.md) is unchanged too: the two new reads use
+`gh api --paginate repos/{owner}/{repo}/`, a prefix the procedure already used and you already
+granted, and `tests/permissions.test.sh` checks that in both directions. None of this is luck. The
+re-post rule could have lived inside the wait fence, and putting it there would have cost every user a
+Bash prompt for a rule a reader of step 9 can follow unaided; counting wait chunks against `--timeout`
+was already the caller's job for exactly that reason.
+
+Added:
+
+- **A trigger that draws no verdict the loop can classify is now posted a second time, once.** The
+  failure: a trigger comment is delivered, nothing the loop classifies comes back, and the round dies
+  with the pull request, the diff and CI all healthy. (**"Classified" is the operative word** — a
+  signal orphaned in the re-post gap leaves the round looking silent when it was not.) Step 8 returned
+  `VERDICT=pending` until the budget ran out and step 9's table said `abort` — no path in the
+  procedure sent the request again. Step 7 now carries one narrow
+  exception to the runaway invariant, with five conditions that are all checkable from GitHub: the
+  wait must have expired **and have spent at least three chunks watching your own trigger**, the
+  `pending` line's baseline must be yours by both halves of the ownership test, no marker may already
+  carry this round's `round=` with an `attempt` key, the round must have produced no classified verdict
+  at all, and HEAD must not have moved.
+  A rate-limit reply keeps its own row and that row still says **do not retry**; silence is the only
+  signal the exception answers. The exception is carved **out of** step 9's exceeding-`--timeout`
+  abort rather than standing beside it, so exceeding the budget always terminates the attempt and a
+  round ends in at most two of them: written as several conditional aborts it left a hole, where a
+  newer hand-typed trigger made every later `pending` a "continue" while blocking the re-post, and the
+  caller polled forever.
+
+  **The floor is three chunks — 24 minutes — and it is deliberately not a fraction of `--timeout`.**
+  Deriving it from the flag was the first design and it is wrong: `--timeout 8m` would then re-post
+  from inside codex's measured 2:53–10:07 range, which is the runaway the invariant exists to prevent,
+  reachable by typing a flag. A fixed floor in the unit the caller already counts cannot be pushed
+  below the measured ceiling by any flag value. Twenty-four minutes is about 2.4× the widest verdict
+  ever measured, which leaves headroom on a card that records **every sample so far widening both
+  ends**. Below the floor there is no re-post and the round aborts exactly as it did before, under a
+  new reason, `timeout-before-retry`, that says so rather than blaming slowness.
+
+  **The direction is the safety argument.** A re-post moves the baseline **forward**, so it can only
+  reach the too-new row of the table in [`docs/design-notes.md`](docs/design-notes.md) — a verdict that
+  arrived is dropped, a liveness failure for every class except the two abort-class comments, where
+  ending clean rather than stopping makes it a safety one. It cannot reach the too-old row, where a previous round's
+  "no issues" becomes this round's clean verdict. That makes it the mirror image of the refinement that
+  document rejects — walking the baseline back to an older trigger — rather than a quiet
+  reintroduction of it.
+
+- **`attempt=` joins the trigger marker, and adding it cost no fence edit.** The fence parses the
+  marker with a `case` over `key=value` pairs and has no default branch, so a key it does not know is
+  skipped, and the jq program's character filter passes `attempt=2` through untouched. Both halves are
+  now pinned rather than asserted — `tests/fixtures/verdict/retry-marker` through the shell, and the
+  same fixture through `tests/jq-program.test.sh` for the filter. No fixture previously carried a
+  marker with anything but the five documented keys — `v`, `reviewer`, `bot`, `head`, `round`, of which
+  the fence parses the last four by name — so an unknown key was entirely unexercised.
+
+  **The key is written only on a re-post.** Writing `attempt=1` on every trigger was the first draft
+  and it is a cost with nothing bought: `reviewers/codex.md` records the marker being tolerated end to
+  end against the five-key body, ten consecutive times, so a sixth key on every round would move every
+  round onto a body shape nobody has watched a reviewer accept — to record a `1` that its absence
+  already says. Confining it to the re-post also keeps the round count a presence test on one key
+  instead of a comparison against a number, where `attempt=1` versus `attempt=10` is the input-space
+  trap step 10 spends a paragraph on.
+
+  **`v` stays at `1`, and step 7 now says when it would move**: only when an existing key changes
+  meaning or disappears — when a reader of the old format would misread the new one. Adding a key does
+  not qualify. That criterion did not exist before, which is the only reason the question was open;
+  spending the version signal on an additive change teaches the next reader that `v` moves for
+  anything, and makes a genuinely breaking change indistinguishable.
+
+- **Step 7 shows the command it has always prescribed.** "Count the markers from GitHub" had no block
+  behind it, which is the prose-prescribed-command drift `tests/permissions.test.sh` was written after
+  finding three times over. One `--paginate` read now yields all three facts step 7 needs: the round
+  number, whether this round has already been re-posted, and — on a run resuming in a fresh session —
+  the `SINCE` steps 8 and 9 reconcile against. **`SINCE` on a resumed run was undefined**; both steps
+  said "the `SINCE` you recorded in step 7" and a session that died recorded nothing. It is now the
+  `created_at` of the newest marker on the pull request.
+
+  The read filters `.user.type != "Bot"`, which is the fence's own `__typename != "Bot"` rule spelled
+  for REST. Without it the read would be a second implementation of "who may anchor a trigger" that
+  disagrees with the first: a bot quoting the marker literal would inflate the round number, and a bot
+  body carrying `head=` and `attempt=` would satisfy the re-post condition and **suppress a re-post
+  the round was owed**. The two spellings were measured on `iwmaeda/revloop#11` (2026-08) —
+  `chatgpt-codex-connector[bot]` is `type=Bot`, `iwmaeda` is `type=User`. This was found by the
+  definition sweep the procedure's own step 3 prescribes, before the reviewer saw the change.
+
+Fixed:
+
+- **A round that fires twice can be answered twice, and one of the two answers was being dropped.**
+  This is the sharpest thing the re-post changes and nothing pre-existing caught it. If both reviews
+  land before the retry chunk's first poll, the fence returns the newer one and never mentions the
+  older — there is no `EXTRA=` for a second review, only for a comment — and step 10's filter is an
+  equality test on that single `review_id`, so the other review's findings are lost for the life of the
+  pull request, since the next round's baseline is newer than both. Step 9's "commit is an ancestor of
+  HEAD" row cannot catch it: **both reviews name the same, current commit.** Step 10 now reads every
+  review by the reviewer at the current HEAD, at or after the round's first trigger, on a two-trigger
+  round, and fails closed if that read
+  fails, because REST 404s for many minutes while GraphQL keeps answering and an empty result is
+  indistinguishable from "only one review". `tests/fixtures/verdict/retry-both-answered` pins the fence
+  returning one of two same-commit reviews with no signal that the other exists.
+
+- **Step 8's `SINCE` reconciliation was unbounded, and could never terminate.** "If they differ,
+  discard that verdict and re-fire step 8" has been in the procedure since before this change, and it
+  has no bound. A mismatched **verdict** exits the fence on its **first** poll, so it burns no wall
+  clock and accrues no chunk — which means that against a baseline that is permanently newer and
+  already answered, such as a hand-typed trigger posted after yours, the re-fire never reaches
+  `--timeout` and never sleeps. A mismatched `pending` is the other shape and does spend its chunk, so
+  neither can be bounded on the clock: the first never reaches it, and the second would make the bound
+  depend on what somebody else posted.
+  That is the infinite loop `## Notes` names for the fence, reached from the caller instead. It was
+  the last unbounded re-fire in the procedure; every other one already reads "once" or "a second time
+  aborts". It is now two consecutive mismatches, then `reason=foreign-baseline`, and a matching
+  `trigger=` resets the count. The rule also now covers `review`, `comment` and `reaction` explicitly
+  rather than only a verdict: all four are treated as `pending` so step 9's rows decide, which is the
+  same "one exception, one catch-all" shape as above.
+
+- **The runaway invariant and step 9's `marker_head=none` recovery contradicted each other.** That row
+  says to fire revloop's own trigger in step 7, at an unchanged HEAD — which the invariant, as this
+  change first restated it, forbade. The premise is what the invariant actually protects: it bars a
+  second trigger while one of yours can still bind a verdict. Two states end that premise, and **only
+  one of them is recovered inside the run**: no verdict of yours classified, which is the re-post with
+  `attempt=2` and the same `round=`. A newer trigger taking the baseline **aborts** — an abort is a
+  stop, and the loop must not race a person for the newest comment, which is the runaway itself — and
+  a later run re-takes the baseline with an **ordinary** trigger that advances the round, because the
+  wait it replaces was spent. Getting this wrong the other way was itself caught in review: an earlier
+  draft classified the lost baseline as an in-run recovery, which contradicted "an abort is a stop"
+  in nine places at once. `marker_head=none` and `reason=foreign-baseline` now both read "report and
+  finish", and so does `error reason=no-branch`, which had the same shape before this change.
+
+- **A two-trigger round could finish clean without ever running the review sweep.** The sweep lives in
+  step 10, which the table reaches from `VERDICT=review`, so a round whose terminal signal was a
+  clean **comment** or a reaction went straight to step 12 — which is precisely the case the sweep
+  exists for. A review of the current commit orphaned before the re-post was then never read, its
+  findings never replied to, and with `--auto --merge` the loop merged on the second trigger's clean
+  signal while an unread review of that same commit sat on the pull request. That is one of the two
+  ways the re-post path could produce a wrong merge, and the only one closed here; the other is an
+  orphaned abort-class comment answered clean on the second trigger. Step 9 now gates every clean
+  finish on the sweep,
+  because step 9 is the only place both the clean path and the findings path pass through. A
+  single-trigger round is unaffected: there is no second answer to miss.
+
+- **The lost-baseline recovery was unreachable after a restart, which made the abort permanent.** Step
+  7's marker read selected only comments carrying the marker, so it could not see the hand-typed
+  comment that took the baseline. A resumed run at unchanged HEAD found only its own marker, concluded
+  the runaway invariant blocked it, waited, reached `reason=foreign-baseline` again and aborted —
+  forever, with the recovery the entry above promises unreachable. The read now returns every non-bot
+  comment and marks the unmarked ones, and step 7 says what to do with a newer one: **ask the fence**,
+  by firing step 8 once and reading its `trigger=`, rather than replaying the fence's compatibility
+  pattern outside it. That pattern under-matches custom triggers into the same deadlock and
+  over-matches into licensing an extra trigger, so neither direction of guessing is available — which
+  is the same reason the round number does not count hand-typed rounds.
+
+- **Baseline ownership was decided by a second-resolution timestamp.** The fence sorts triggers by
+  `createdAt` and, within a second, by `databaseId` — a tie-break this repository added in 0.3.0 and
+  pinned with its own fixtures, because two triggers in the same second are a different input from two
+  a second apart. Every ownership test this change introduced compared `trigger=` alone, so a
+  hand-typed comment posted in the **same second** as the marker with a larger id wins the baseline
+  while reporting a timestamp identical to yours: the lost-baseline recovery then never runs, and the
+  re-post condition that exists to keep a retry off a foreign baseline is satisfied anyway. The test is
+  now both halves — the timestamp, **and** no non-bot comment sharing that second with a larger id —
+  and both come out of the read step 7 already performs, so nothing classifies a comment as a trigger
+  outside the fence. Step 9's check (c) additionally compares `round=`, because a verdict line carries
+  the winning marker's own fields and can say outright which trigger won.
+
+  **A round that only ever sees `pending` under an unclaimable baseline aborts and is handed to a
+  human**, and that corner is deliberately not auto-recovered: a `pending` line carries no marker
+  fields, so closing it would mean teaching the fence to emit them — a re-approval for every user,
+  against a case that needs a same-second collision to reach.
+
+- **The retry budget was searched for as a substring, so `round=1` matched `round=10`.** The rule that
+  decides whether this round has already spent its re-post said "substring search" in as many words,
+  which means a marker from round 10, 11 or 100 satisfies a search for round 1 and the round is refused
+  a re-post it was owed. This is the `attempt=1` versus `attempt=10` trap the procedure already names
+  for a predicate's input space, reintroduced in the rule that spends the budget. Both the budget check
+  and the round count now split the marker payload on whitespace and compare whole `key=value` tokens.
+
+  The related read was checked and **deliberately left alone**: the marker scan selects on
+  `contains("revloop:trigger ")` because that is exactly what the fence's own `TRIG` generator does, so
+  a human comment quoting the literal anchors a baseline whatever this read thinks. Making the read
+  stricter than the fence would be a second implementation of "what is a trigger" that disagrees with
+  the first — the defect class this branch already fixed once. Agreement is the requirement; parsing is
+  where the care goes.
+
+- **Step 10's review sweep excluded a review sharing its second with the round's first trigger.** These
+  timestamps have second resolution and the bound was strictly "after", and the two ways of being wrong
+  are not equally bad: including a review that shares the second costs a re-read of findings that may
+  already be answered, while excluding one drops a review of the current commit on the path that
+  merges. The bound is now inclusive.
+
+  What is **not** a hazard, and was checked rather than assumed: a review racing a clean comment. The
+  fence returns a review whenever one exists **and is strictly newer than the trigger**, and demotes
+  the comment to `EXTRA=`, so a clean comment cannot outrank findings that arrived after it. A review
+  sharing the trigger's own second is the exception and is a known gap; see `## Notes`.
+
+- **Two lookups were keyed on `head=` where they had to be keyed on the round.** Both became wrong the
+  moment the lost-baseline state was allowed to open a **new** round on an unchanged HEAD, which is a
+  consequence of this same branch. The re-post bound searched the pull request for any marker with
+  this `head=` and an `attempt=`, so a previous round's re-post spent the new round's budget and
+  reported `attempts=2` for a round that had sent one trigger; it now matches on this round's `round=`,
+  and an unparseable marker counts as a match, because withholding a second trigger is the safe
+  direction. Step 10's two-trigger read took every review whose `commit_id` was HEAD with no lower
+  bound, so it swept in the previous round's reviews of the same commit and re-opened answered
+  findings; it is now bounded below by the round's first trigger. The second was found by sweeping the
+  class rather than by review.
+
+- **Step 10's two-trigger sweep compared two values that can never match, so it swept up nothing.**
+  The read emitted REST's `user.login` and `commit_id` raw and then asked for the reviewer's login and
+  HEAD. REST carries the `[bot]` suffix the marker's `bot=` has stripped — the mistake `## Notes`
+  records as having shipped once already — and `commit_id` is the full 40-character sha, while every
+  other HEAD comparison in this procedure is the short-8 form the fence writes. Either one alone
+  matches **zero** reviews on every run, and zero is indistinguishable from "only one review": the
+  sweep this branch added would have reported nothing, the round would have finished clean, and
+  `--auto --merge` would have merged past findings nobody read — silently reintroducing the defect the
+  sweep exists to fix. Both fields are now normalized in the read itself, mirroring the fence's own
+  `BOT=${BOT%"[bot]"}` and `.commit.oid[0:8]`, so the value the reader is handed is the comparable
+  one. The fail-closed rule now names **both** reads rather than only the list: a failed per-review
+  `comments` read is indistinguishable from "that review had zero inline comments", which is a clean
+  review, and it runs once per review, so a two-trigger round takes that risk twice.
+
+- **Step 7's new marker read had no failure rule, on the one endpoint this procedure says 404s.**
+  `## Notes` records `repos/…/issues/<n>/comments` returning 404 continuously for many minutes while
+  the same token's GraphQL kept answering, and an earlier REST-based wait reporting a pull request
+  carrying 22 triggers as `no-trigger` — the wait is built on GraphQL for that reason. The new read is
+  that endpoint. An empty result read as "no markers" restarts the round number at 1, hands the
+  re-post condition an empty pull request and so refunds a budget the round has already spent, and
+  leaves `SINCE` with no left-hand side. Failure is now decided from `gh`'s exit code alone, the way
+  step 8 already decides it, and a failed read means do not fire and do not re-post.
+
+- **"This round's `round=`" was undefined on a resumed run, which is the only run the bound matters
+  on.** The procedure defines the round number once, as the count of round-opening markers plus one —
+  a count that deliberately excludes a re-post. A session that died mid-wait therefore came back and
+  computed N+1 for a round still at N, asked the re-post condition about a round that did not exist,
+  found no `attempt=` marker, and re-posted a second time; the session after it would have done the
+  same, because the marker it should have found is the one the count excludes. The whole bound rests
+  on that condition — "it cannot re-post twice, because it reads that from the PR" — so this was the
+  guarantee failing exactly where it was claimed. A resumed run now takes this round's number from the
+  newest marker, the same marker `SINCE` already comes from, together with whether the round has been
+  re-posted and which comment is its first trigger. This is the `SINCE` gap above, one field over, and
+  it was left standing when that one was closed.
+
+- **What a reconciliation mismatch costs was stated three ways, and the absolute one was wrong.** Step
+  8 said a mismatch "burns no wall clock and accrues no chunk", while its own chunk-counting paragraph
+  and step 9's table both said the chunk counts toward `--timeout`. The two are right about different
+  inputs: a mismatched **verdict** exits the fence on its first poll and costs nothing, but a
+  mismatched **`pending`** means the foreign trigger is itself unanswered, so the fence polls out all
+  480 seconds before printing — and that is the only other shape a mismatch arrives in. Neither may be
+  bounded on the clock, which is what the two-consecutive-mismatch rule is for. The false half had
+  been copied into this changelog as well, and is corrected above. **Only step 8's re-fire paragraph
+  and this changelog were corrected then**; the two normative statements named in the sentence above
+  kept the absolute rule, and the entry below closes them.
+
+- **The list of what the re-post gap can drop named two comment classes; there are four.** The window
+  between an expiring chunk's last poll and the new trigger loses any signal landing in it, and the
+  sweep recovers only reviews — it reads `pulls/<n>/reviews` and never comments. The accepted-cost
+  argument, that the behaviour being replaced is an abort which loses the same signal **and** the round
+  with it, holds for a clean verdict and a rate limit, because both repeat themselves. **It does not
+  hold for the two abort-class rows.** An unrecognized bot body and an `interim-loop` exist to stop the
+  loop and hand it to a human; losing one used to end in an abort anyway, but now, if the second
+  trigger answers clean, the round finishes clean and merges. That is strictly worse than what it
+  replaces and it is the one cost of this path that is not offset. It is written down rather than
+  closed: closing it would mean classifying comments outside the fence, a second implementation of a
+  rule the fence owns, which is the defect class this branch has already reported twice. The report
+  now says a signal may have been orphaned on **any** two-trigger round, not only on `no-verdict`.
+
+- **Two of this branch's own new tests could not fail for the reason their comments gave.**
+  `fence-guards` checked each required marker key with a substring match, so a marker whose `head=` had
+  been typo'd to `marker_head=` satisfied the test while parsing to exactly the `marker_head=none` the
+  block exists to catch — the guard going green on its own failure case, by the same
+  substring-for-token mistake the procedure states a rule against twice. It is anchored to a token
+  boundary now. `fence-verdict`'s `retry-baseline` comment claimed its assertions pinned that a re-post
+  does not advance the round; they cannot, because both triggers carry `round=3` by hand and the fence
+  has no round-counting logic to get wrong. That comment now claims only what the assertion checks, and
+  says plainly that the rule itself lives in prose this harness does not execute.
+
+- **The mismatch-cost split was written in the paragraph that explains it and in neither that
+  instructs.** The round before this one named three statements of what a reconciliation mismatch
+  costs, worked out that they are right about different inputs, and then corrected one of them and
+  this changelog. The two it left are the two a reader follows as instructions: step 8's
+  chunk-counting paragraph and step 9's foreign-baseline row both still said flatly that the chunk
+  counts toward `--timeout`. A mismatched **verdict** exits on the fence's first poll and spends no
+  wall clock, so charging it a chunk overstates the wait by eight minutes each time — two instant
+  foreign verdicts followed by two real `pending` chunks are charged the four chunks that stop an
+  attempt at the built-in `30m`, so the round aborts its own trigger having actually waited sixteen
+  minutes rather than thirty-two. Both now carry the split, and both keep the half that was never in
+  doubt: a mismatch watched somebody else's baseline, so it never counts toward step 7's floor and
+  can never authorise a re-post. **The class was named too narrowly rather than missed** — the
+  previous entry's own first sentence lists all three sites — so it is recorded here as one fix
+  applied at every site that states the rule, and the sweep that found them is a grep for the rule
+  rather than for the wording.
+  `docs/` states the floor and the budget arithmetic but never what a mismatch costs, so nothing
+  there needed the same edit.
+
+- **The same narrative-versus-normative split ran through four more rules, across seven files.** Asked
+  to list every sibling of the class above rather than the first, the reviewer returned four sets, and
+  all four held up against the text. **(1) The runaway invariant admits two firings at an unchanged
+  HEAD, not one.** The silence re-post is recovered inside the run; the lost-baseline re-take is
+  performed by a later run, once it can establish the baseline is foreign. Step 7's opening imperative,
+  the `## Notes` bullet calling silence "the single exception", and `.agents/skills/revloop/SKILL.md`
+  all admitted only the first, so following them literally prevents the recovery the same documents
+  prescribe. **(2) "Never answered" overstates what the loop knows.** The operative condition is "no
+  classified verdict", and a signal can be orphaned in the gap between an expiring chunk's last poll
+  and the new trigger, so silence is what was _seen_ rather than what was _sent_. Step 7's prose, the
+  re-post section, the field-notes sentence, step 9's re-post row, both READMEs and
+  `docs/design-notes.md` all claimed literal silence. **(3) Exceeding `--timeout` does not always
+  terminate the round**, only the attempt; the round ends in at most two. **(4) The re-post path can
+  reach a wrong merge, and four places said otherwise** — the `## Unexercised paths` preamble claiming
+  every listed branch fails closed "never toward a wrong merge" while listing the re-post,
+  `docs/design-notes.md`'s too-new row and its "spends nothing it was not already spending", and
+  `docs/configuration.md` calling 64 minutes "the whole cost". The procedure's own cost paragraph
+  already says the opposite for the two abort-class signals: losing one used to end in an abort, and
+  now a clean second answer can finish the round and merge past it. Every normative copy now carries
+  the distinction its explanatory paragraph already required. **No behaviour changed and no fence
+  changed** — this is the wording that instructs being brought level with the wording that explains.
+
+- **Closing four sets left five more, two of them opened by the previous round's own edit.** The same
+  request, repeated once the first four were closed, returned: **(1)** three places still saying step
+  10 is reached only from `VERDICT=review` — step 9's pre-table gate, this changelog, and a comment in
+  `tests/fence-verdict.test.sh` — when the gate that paragraph introduces is exactly what now routes a
+  two-trigger clean comment or reaction into the sweep; **(2)** `docs/design-notes.md` crediting an
+  orphaned review's survival to the reviewer answering the second trigger and to `commit=` pinning it,
+  neither of which is guaranteed, when what recovers it is step 10's round-bounded sweep; **(3)** two
+  copies still calling the missed-review case "the one way" the re-post could cause a wrong merge,
+  which the abort-class orphan path contradicts; **(4)** the runaway invariant's bolded imperative
+  still reading "fire only when HEAD differs" three lines above the sentence saying two firings at an
+  unchanged HEAD are correct; and **(5)** `## Notes` and `SKILL.md` prescribing "every review at HEAD"
+  without the configured-reviewer filter the operative rule in step 10 carries, which would sweep
+  another bot's findings into this round's replies. **(3) and (4) were introduced by the previous
+  round's fix** — it added each qualification next to an absolute statement it left standing, which is
+  the same one-member-of-the-class failure that round was fixing. Sweeping the three shapes across the
+  tree afterwards found **two more the review had not cited**, both in the same `## Notes` bullet: the
+  stale control flow again, and an unfiltered "any review whose commit is HEAD". No behaviour and no
+  fence changed.
+
+- **Two of the next four were control flow, not wording.** **(1)** Step 9's pre-table check (c) said to
+  abort whenever `marker_head=` or `round=` differs, which is true **only once the baseline is yours**:
+  a foreign baseline carries a different `head=` and `round=` as a matter of course, so a reader
+  performing the checks in order aborted on the first mismatch and never reached the
+  "continue (twice)" reconciliation the table promises. (c) is now explicitly conditional on (b).
+  **(2)** Step 10 opened with "step 8 already emitted `review_id=`", which the clean-comment and
+  reaction gate had just made false — those rounds reach step 10 with no review id at all, and the
+  ID-keyed query returns nothing. Step 10 now names both entries and sends the gated one straight to
+  the two-trigger sweep. **(3)** Four more copies of the literal-silence claim sat beside the
+  "no classified verdict" qualification. **(4)** The too-new drop was still classified as a liveness
+  failure in three places, including the class column of the `docs/design-notes.md` row whose
+  consequence column the previous round had already corrected — the same fix-one-column failure, one
+  column over. It is a liveness failure for the classes that repeat or are recovered and a **safety**
+  failure for the two abort-class comments, which end clean rather than stopping. Sweeping afterwards
+  found one more the review had not cited: a comment in `tests/fence-verdict.test.sh` still carrying
+  the unqualified "it is accepted" argument. No behaviour and no fence changed.
+
+- **P1: the ordered pre-checks made the whole re-post path unreachable.** Step 9 said to "check five
+  things before consulting the table", and the five were written as though every verdict carried every
+  key. The fence does not work that way: `VERDICT=pending` emits only `pr=`, `trigger=` and `waited=`,
+  so **(c) and (d) could not be satisfied by any `pending` line at all** — and read literally that is
+  an abort on the first silent chunk, before either `pending` row is ever reached. The re-post this
+  branch exists to add was unreachable, and so was plain "continue". The same mismatch reached three
+  more forms: `reaction` carries no `login=`, so (d) stood between it and its clean row; the error
+  forms carry neither `trigger=` nor a marker, so they aborted at the wrong check and reported the
+  wrong reason rather than landing on their own rows; and on a compatibility baseline the marker
+  carries no `bot=`, so the fence's filter admits any bot and (d) could classify a lost baseline as
+  "another bot's verdict" — an abort either way, but one that loses the lost-baseline row's promise
+  that a later run re-takes the baseline. Each check now names the forms it applies to, as (e) already
+  did, over a table of which form emits which key; `marker_head=none` is given precedence over the
+  login check in both the check and the table row. **The fence was already right** — this is the
+  caller's reading of it being corrected, so no fence changed and no re-approval is owed.
+
+- **P1: four more reads of values their producer does not always supply.** Read against the fence text
+  rather than the prose: **(1)** "always reconcile the returned `trigger=`" applied to every output,
+  but no `VERDICT=error` form emits `trigger=`, so an auth or connectivity failure was sent into the
+  foreign-baseline retry instead of onto its own row; it is now scoped to the four forms that carry
+  one. **(2)** The fence takes every review that is not `DISMISSED` and then drops the state from its
+  output, and step 10 repeated the same rule — which admits a `PENDING` draft, a review with no
+  findings and no `submitted_at`. Step 10 excluded `PENDING` explicitly at this point — **superseded
+  two entries below**, where excluding it in the selection turned out to drop the very review whose
+  state should stop the round; step 10 now keeps it and lets the state table abort. **(3)** "A clean comment
+  cannot outrank findings that arrived in the same round" was stated in the procedure and in this
+  changelog, but the fence selects reviews with `$2>t`, so **a review sharing the trigger's own second
+  is not selected at all** and a later clean comment wins the round. The trigger selection solves that
+  collision with a `databaseId` tie-break; the review selection has no equivalent. Both copies now say
+  "strictly newer" and name the gap, which is recorded rather than closed because closing it is a
+  fence edit. **(4)** "`MERGE=failed` means the PUT was fired and did not take" was stated in the
+  procedure and in `SKILL.md`, but the fence also prints it when the post-PUT status read **fails** —
+  `ST` is empty then, which a successful merge can also produce. Both now say the fence could not
+  confirm it took, and say to read the pull request rather than re-fire. No fence changed.
+
+- **A review arrived with zero inline comments and a P1 in its body, which two rules said was
+  impossible.** Step 10 opened "a review body is boilerplate or empty; the findings are inline review
+  comments", and step 9's table read a review with zero inline comments as a clean finish. Measured on
+  this pull request's round 16, codex returned a `COMMENTED` review on the current commit whose
+  `pull_request_review_id` matched **zero** rows in `pulls/<n>/comments` and whose body carried a
+  complete P1 with a severity badge. Counting inline comments would have reported that round clean and,
+  under `--auto --merge`, merged past it. Step 10 now reads the body as well as the comments and treats
+  a body carrying a severity badge as findings; the table row is "not clean by itself"; and
+  `reviewers/codex.md` records the observation as a tendency rather than a contract. **This was found
+  by reading the body before acting on the count, not by the count.**
+
+- **The `PENDING` exclusion had been added to one of the two paths.** The previous round excluded
+  `PENDING` from step 10's two-trigger REST sweep and left the single-trigger path with nothing — the
+  wait fence admits every review that is not `DISMISSED` and drops the state from its output, so a
+  draft reaches `VERDICT=review` indistinguishable from a submitted one. Step 10's new body read
+  doubles as the state check. Four prose/fence mismatches closed alongside it: step 12's text said
+  everything that is not a pass "falls back to `retry`" when a fifth consecutive fetch failure is
+  `CI_WAIT=error` and a completed failure is `CHECKS_FAILED`; `## Notes` forbade terminal exits for
+  continue rows when the fence exits for **every** review including the ancestor row, which is bounded
+  by the caller's one re-fire rather than by the fence; `## Notes` said every fence resolves the
+  branch first when `wait-verdict` reads `gh repo view` first and can exit before the branch is
+  looked at; and step 12 asked for the merge response body on every non-`ok` result when an abort
+  exits before the PUT and has none. No fence changed.
+
+- **Three P1s, all of them made by the fix in the entry above.** **(1) The body read went to one path
+  again.** The two-trigger sweep returns metadata and then reads inline comments per `id`, so the
+  direct review's body was the only body ever fetched — and the sweep is the **only** reader for a
+  review orphaned in the re-post gap, and the only reader at all on a round entering step 10 from the
+  clean-comment or reaction gate. The measured body-only finding was therefore still dropped on
+  exactly the two paths that exist to recover it. The sweep now reads each selected review's body and
+  state alongside its comments. **(2) The new `PENDING` handling was an infinite loop.** It said to
+  treat a draft as `pending` and re-fire step 8; the fence keeps every non-`DISMISSED` review and
+  exits on its **first** poll, so each re-fire re-selects the same draft with no wall clock spent, no
+  chunk accrued and nothing bounding it — the exact loop `## Notes` names, introduced two paragraphs
+  after the note that names it. `PENDING` now aborts with `reason=draft-review`, because a draft stops
+  being one only when its author submits it. **(3) The state check enumerated one state and let the
+  rest through.** `CHANGES_REQUESTED` with no inline comments and a body without a severity badge was
+  read as clean and merged, though the state itself says otherwise; so was any state GitHub adds
+  later. Step 10 now has a state table: `COMMENTED` and `APPROVED` are read for findings,
+  `CHANGES_REQUESTED` **must** produce findings or abort, `PENDING` aborts, and an unrecognised state
+  aborts with `reason=unknown-review-state`. No fence changed.
+
+- **The two readers are now one read, because splitting them failed twice in opposite directions.**
+  The round before last gave the direct path a body read and left the sweep reading comments only;
+  the fix for that gave the sweep a body read and left it reading **only** that — so on a round
+  entering step 10 from the clean-comment or reaction gate, where the direct query is skipped, an
+  inline-only finding on an orphaned review was never loaded. One half missing on each path, one
+  round apart, each introduced by the fix for the other. Step 10 now states **the per-review read**
+  once — body and state, plus inline comments — and both paths invoke it by name on whichever `id` is
+  in hand, rather than restating half of it each. The fail-closed rule covers both halves, and its
+  reasoning is corrected too: it still said an empty `comments` read looks like "zero inline comments,
+  which is a clean review", which stopped being true when zero inline comments stopped being clean.
+  **Two of the three shapes this round asked about came back with no instances** — the state table's
+  stop default holds, and every retry bound is stated where its retry is. No fence changed.
+
+- **The sweep filtered out exactly the reviews whose state was supposed to stop the round.** Its
+  selection read "the reviews whose `state` the table above does not abort on", which looks like an
+  application of the state table and is its inverse: a `PENDING` or unrecognised review was **removed
+  from the sweep instead of aborting**. On a two-trigger round whose second trigger came back clean,
+  the reviews saying "do not finish" were the ones discarded and the clean path merged — the stop
+  default defeated by running the selection before the check it defaults to. The selection now
+  narrows by **identity only** — login, commit, round — drops `DISMISSED` alone, and hands every
+  surviving review to the state table. A second hole in the same selection is closed with it: a
+  `PENDING` review has no `submitted_at`, so the "at or after this round's first trigger" bound
+  discards it too. The bound now applies only to reviews that have a timestamp, and a review by the
+  reviewer at HEAD with none is a draft that aborts. No fence changed.
+
+- **One copy of the superseded `PENDING` rule was left in `## Notes`.** The entry above changed step
+  10 from excluding a draft review to keeping it and letting the state table abort; the note
+  describing the same gap still read "step 10's own read excludes those explicitly". Following that
+  copy reinstates the defect the entry above fixed — on a two-trigger round whose second trigger
+  returns clean, the stopping review is dropped from the sweep and `--auto --merge` proceeds. The note
+  now says keep, says why a selection that drops the stopping review defeats the stop, and records
+  that its own earlier wording was the last instance of that mistake. **This was round 20, the run's
+  cap: the fix is committed but no review round has seen it.** No fence changed.
+
+- **Ten more latency samples, and the range's low end moved.** `iwmaeda/revloop#13` rounds 11–20 ran
+  4:21, 4:18, 4:46, 3:51, 7:25, 6:57, 5:42, 4:55, **2:46** and 3:21 — trigger `createdAt` to review
+  `submittedAt`, as the earlier samples were timed. Twenty-seven rounds in this repository now span
+  **2:46 to 10:07**. `reviewers/codex.md` carries the sample, and the three operative copies of the
+  figure — step 7's floor rationale, step 9's runaway argument, and both READMEs — are updated with
+  it. **The three-chunk floor is unchanged and its derivation still holds**: it was chosen as roughly
+  2.4× the **10:07** end, which this sample did not move. The card's "every sample has moved both
+  ends outward" is corrected to "one end or both", since this one moved only the low end.
+
+Changed:
+
+- **`--timeout` now caps one trigger's wait rather than one round's.** A round fires at most two
+  triggers, so its worst case is about twice the flag, rounded up to whole chunks each time: the flag
+  is a threshold the chunk count must exceed rather than a stopwatch, so the built-in `30m` runs an
+  attempt for 32 minutes and a re-posting round for **64, not 60**, where it used to be 32. That is the price of not
+  losing a round to a single dropped comment, and `--timeout`
+  is the dial that buys it back. Splitting the existing budget in half instead was considered and
+  rejected: it judges a trigger dropped after 16 minutes, only 1.6× the widest measurement. The
+  built-in value does not change, and neither does the schema — `"pattern": "^[0-9]+[smh]$"` already
+  accepted every value this affects. [`docs/configuration.md`](docs/configuration.md) carries the same
+  wording.
+
+- **The round number now excludes re-posts.** It remains the count of `revloop:trigger` markers plus
+  one, except that a marker carrying `attempt=` re-posts a round already open and is not counted.
+  Without the exclusion a reviewer that drops one comment silently halves `--max-rounds`, which is a
+  circuit breaker rather than a target and cannot afford to be spent on delivery failures. The count
+  stays a one-line test anyone can reproduce, and it reads the marker's `attempt` key rather than
+  searching the body: a raw search matches `notattempt=2` and a quoted `"attempt=2"` in a garbled
+  payload, and either would undercount the round and suppress a retry it was owed.
+
+- **The number of re-posts, and the silence threshold, are fixed and not configurable.** A budget above
+  one has nothing measured behind it, and it spends the reviewer's quota — the same class as `--merge`,
+  so not something the repository you happen to be standing in gets to raise.
+  `docs/configuration.md`'s "deliberately not configurable" table says so, alongside the reason the
+  threshold is not derived from `timeout`.
+
+- **`reviewers/codex.md` no longer claims nothing in the loop depends on its latency figures.** That
+  was true and is not: the three-chunk floor was chosen as roughly 2.4× the 10:07 end of the measured
+  range, so a sample that widens that end is now a reason to revisit the floor. The card is still not
+  read at runtime.
+
+**This path has not been run against a live reviewer**, and `## Unexercised paths` says so. The
+fixtures pin what the fence does with an `attempt=` marker, which trigger wins the baseline, what
+happens to a signal orphaned between the two, and what the fence reports when both triggers are
+answered — but no fixture can show that a reviewer answers the second trigger. The failure that
+motivated the change is **reported rather than measured**: there is no PR, no date and no waited-for
+duration to cite, so `reviewers/codex.md` gains no entry for it — a card claim with no source is worse
+than no claim, and the only edit to that card is the correction noted above. Step 7 appends one line to
+`.revloop/field-notes.md` on every re-post, successful or not; that is the sample that would turn the
+floor from derived into measured. One thing checked and dismissed while writing this: the fence's
+`comments(last:40)` window is a suffix, and a re-post adds one comment **before** the next verdict, so
+the window is unaffected.
+
 ## [0.3.0] - 2026-08-25
 
 **The `wait-verdict` fence changed, so every user owes one re-approval.** A fence is granted as its

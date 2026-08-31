@@ -79,4 +79,43 @@ else
   printf '  note tests/fence-hashes.txt is absent; run tests/update-fence-hashes.sh\n'
 fi
 
+# Every marker the procedure prints must carry the four keys the wait fence
+# reads by name. `attempt=` is deliberately not in this list: it is absent on a
+# round's first trigger, which is the shape the reviewer card measured. A doc
+# edit that drops one of the four is the input step 7's "never put the literal
+# in the focus" rule is entirely about — a marker whose keys were never reached
+# reports marker_head=none and, with an empty bot=, stops filtering bots.
+# Extracting fewer markers than the procedure holds would make every assertion
+# below vacuous for the one that got away, so the count is checked first: a
+# discarded row is not the same as a row that was never there.
+#
+# The key test is anchored to a token boundary, because the fence's `case`
+# matches `head=*` against a whitespace-separated token and a bare `grep head=`
+# does not. A marker whose `head=` had been typo'd to `marker_head=` satisfied
+# the substring but not the fence, so it passed all four assertions while
+# parsing to exactly the marker_head=none this block exists to catch — the
+# guard going green on its own failure case. That is step 7's whole-token rule,
+# which the procedure states twice and which applies to the test that guards it.
+literals=$(grep -c 'revloop:trigger v=' "$ROOT/commands/review-loop.md")
+markers=$(grep -o '<!-- revloop:trigger [^>]*-->' "$ROOT/commands/review-loop.md")
+found=$(printf '%s\n' "$markers" | grep -c 'revloop:trigger') || true
+if [ "$literals" = "$found" ]; then
+  PASS=$((PASS + 1)); printf '  ok   every marker literal was extracted (%s)\n' "$found"
+else
+  FAIL=$((FAIL + 1)); printf '  FAIL %s marker literal(s) present, %s extracted\n' "$literals" "$found"
+fi
+if [ -z "$markers" ]; then
+  FAIL=$((FAIL + 1)); printf '  FAIL the procedure prints no trigger marker to check\n'
+else
+  PASS=$((PASS + 1)); printf '  ok   the procedure prints at least one trigger marker\n'
+  for key in reviewer bot head round; do
+    missing=$(printf '%s\n' "$markers" | grep -cvE "(^|[[:space:]])$key=") || true
+    if [ "$missing" -eq 0 ]; then
+      PASS=$((PASS + 1)); printf '  ok   every printed marker carries %s=\n' "$key"
+    else
+      FAIL=$((FAIL + 1)); printf '  FAIL %d printed marker(s) carry no %s=\n' "$missing" "$key"
+    fi
+  done
+fi
+
 summary "fence-guards"

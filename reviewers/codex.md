@@ -27,16 +27,23 @@
   3:04, 3:38, 3:52, 4:01, 4:03, 4:25, 4:44, 5:46, 6:27 and 8:01 — range 3:04–8:01, median 4:14, mean
   4:48 (`iwmaeda/revloop#8`, 2026-08). Seven consecutive rounds on the next one ran 2:53, 3:16, 5:09,
   5:32, 6:25, 7:01 and 10:07 — range **2:53–10:07**, median 5:32, mean 5:46 (`iwmaeda/revloop#9`,
-  2026-08). All three timed from each trigger's `createdAt` to its review's `submittedAt`. Seventeen
-  rounds in this repository span **2:53 to 10:07**. A **clean** round is timed against a different
+  2026-08). Ten consecutive rounds on a third ran 4:21, 4:18, 4:46, 3:51, 7:25, 6:57, 5:42, 4:55,
+  **2:46** and 3:21 — range 2:46–7:25, median 4:33, mean 4:50 (`iwmaeda/revloop#13`, 2026-08). All
+  four timed from each trigger's `createdAt` to its review's `submittedAt`. Twenty-seven
+  rounds in this repository span **2:46 to 10:07**. A **clean** round is timed against a different
   endpoint and is not a member of that range: `iwmaeda/revloop#11` found nothing, so its terminal
   signal was an issue comment rather than a review, and trigger to comment ran **3:46** (2026-08).
   **Derived:** budget for the range and not the centre, and treat the range itself as provisional —
-  **each sample so far has moved both ends outward**, so the next one probably will too. The clean
+  **each sample so far has moved one end or both outward**, so the next one probably will too — the
+  fourth moved only the low end, to 2:46, and left 10:07 standing as the high-water mark from the
+  third. The clean
   round neither widens nor confirms that range, because it does not measure the same thing; it is
   simply the first figure this repository has for a round that returns no findings. Nothing in
-  the loop depends on either figure: step 8 waits in 480-second chunks against `--timeout` and never
-  reads them, so they are planning numbers rather than inputs.
+  the loop reads either figure at runtime: step 8 waits in 480-second chunks against `--timeout` and
+  never consults a card. **They are no longer only planning numbers, though.** Step 7's floor of three
+  silent chunks before a trigger may be re-posted was chosen as roughly 2.4 times the 10:07 end of
+  this range, so a sample that widens that end is a reason to revisit the floor — which is the one
+  place a measurement on this card now reaches into the procedure.
 - **1–4 findings per round** (repo C, 2026-08, 37 rounds). A second sample runs narrower: one PR
   produced **23 finding-bearing rounds returning 1–2 each, mean 1.22**, never more than 2, and an
   earlier PR in the same repository averaged 1.52 with the same maximum (repo C, 2026-08). **The two
@@ -71,6 +78,15 @@
   later sample has something to join. Three PRs of differing size cannot say why a count is what it
   is, and a one-round PR is a single observation — reading it as evidence that any practice shortens
   a loop would be the leap this card's grammar exists to stop.
+- **A review can carry its entire finding in the body, with zero inline comments.** Measured on
+  `iwmaeda/revloop#13` round 16 (2026-08): the review was `COMMENTED` on the current commit,
+  `pulls/<n>/comments` returned **zero** rows for its `pull_request_review_id`, and the body held a
+  complete P1 with its severity badge and five enumerated sub-findings. Every earlier round on the
+  same pull request put its findings inline and left the body as boilerplate, so this is a
+  **tendency, not a contract**. **Derived, and the reason step 10 now reads the body:** a procedure
+  that counts inline comments to decide "clean" reports a P1 round as clean, and merges past it under
+  `--auto --merge`. One observation, so the frequency is unknown; what is known is that it is
+  not zero.
 - **Terminal signals arrive as issue comments, not reviews.** On `iwmaeda/iwmaeda#8` and `#11`,
   `/pulls/<n>/reviews` was empty while the clean verdict sat in `/issues/<n>/comments`.
 - **The clean phrase's tail varies between rounds.** Observed after
