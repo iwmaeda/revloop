@@ -392,6 +392,30 @@ Fixed:
   `ST` is empty then, which a successful merge can also produce. Both now say the fence could not
   confirm it took, and say to read the pull request rather than re-fire. No fence changed.
 
+- **A review arrived with zero inline comments and a P1 in its body, which two rules said was
+  impossible.** Step 10 opened "a review body is boilerplate or empty; the findings are inline review
+  comments", and step 9's table read a review with zero inline comments as a clean finish. Measured on
+  this pull request's round 16, codex returned a `COMMENTED` review on the current commit whose
+  `pull_request_review_id` matched **zero** rows in `pulls/<n>/comments` and whose body carried a
+  complete P1 with a severity badge. Counting inline comments would have reported that round clean and,
+  under `--auto --merge`, merged past it. Step 10 now reads the body as well as the comments and treats
+  a body carrying a severity badge as findings; the table row is "not clean by itself"; and
+  `reviewers/codex.md` records the observation as a tendency rather than a contract. **This was found
+  by reading the body before acting on the count, not by the count.**
+
+- **The `PENDING` exclusion had been added to one of the two paths.** The previous round excluded
+  `PENDING` from step 10's two-trigger REST sweep and left the single-trigger path with nothing — the
+  wait fence admits every review that is not `DISMISSED` and drops the state from its output, so a
+  draft reaches `VERDICT=review` indistinguishable from a submitted one. Step 10's new body read
+  doubles as the state check. Four prose/fence mismatches closed alongside it: step 12's text said
+  everything that is not a pass "falls back to `retry`" when a fifth consecutive fetch failure is
+  `CI_WAIT=error` and a completed failure is `CHECKS_FAILED`; `## Notes` forbade terminal exits for
+  continue rows when the fence exits for **every** review including the ancestor row, which is bounded
+  by the caller's one re-fire rather than by the fence; `## Notes` said every fence resolves the
+  branch first when `wait-verdict` reads `gh repo view` first and can exit before the branch is
+  looked at; and step 12 asked for the merge response body on every non-`ok` result when an abort
+  exits before the PUT and has none. No fence changed.
+
 Changed:
 
 - **`--timeout` now caps one trigger's wait rather than one round's.** A round fires at most two

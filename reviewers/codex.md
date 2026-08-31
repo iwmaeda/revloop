@@ -74,6 +74,15 @@
   later sample has something to join. Three PRs of differing size cannot say why a count is what it
   is, and a one-round PR is a single observation — reading it as evidence that any practice shortens
   a loop would be the leap this card's grammar exists to stop.
+- **A review can carry its entire finding in the body, with zero inline comments.** Measured on
+  `iwmaeda/revloop#13` round 16 (2026-08): the review was `COMMENTED` on the current commit,
+  `pulls/<n>/comments` returned **zero** rows for its `pull_request_review_id`, and the body held a
+  complete P1 with its severity badge and five enumerated sub-findings. Every earlier round on the
+  same pull request put its findings inline and left the body as boilerplate, so this is a
+  **tendency, not a contract**. **Derived, and the reason step 10 now reads the body:** a procedure
+  that counts inline comments to decide "clean" reports a P1 round as clean, and merges past it under
+  `--auto --merge`. One observation, so the frequency is unknown; what is known is that it is
+  not zero.
 - **Terminal signals arrive as issue comments, not reviews.** On `iwmaeda/iwmaeda#8` and `#11`,
   `/pulls/<n>/reviews` was empty while the clean verdict sat in `/issues/<n>/comments`.
 - **The clean phrase's tail varies between rounds.** Observed after

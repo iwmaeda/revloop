@@ -786,7 +786,7 @@ approval, so it has to come from the person typing it.
    | `review` + `commit` is an ancestor of HEAD                            | continue (once)            | **Discard** the findings and re-fire step 8 only. A second time aborts                                                                                                                                                                                                                                                                                                         |
    | `review` + `commit` absent locally (`128`)                            | **abort**                  | `git fetch`; if still absent, someone else pushed. Stop                                                                                                                                                                                                                                                                                                                        |
    | `review` + `commit` not an ancestor (`1`)                             | **abort**                  | History diverged (reset / force push). Stop                                                                                                                                                                                                                                                                                                                                    |
-   | `review` with zero inline comments                                    | **finish (clean)**         | **Decide after fetching in 10** — step 8 does not count them                                                                                                                                                                                                                                                                                                                   |
+   | `review` with zero inline comments                                    | **not clean by itself**    | **Decide after fetching in 10** — step 8 does not count them, and **the body can carry the whole finding** (measured). Read the body before concluding clean                                                                                                                                                                                                                   |
    | `comment` whose body **starts with** the reviewer's clean phrase      | **finish (clean)**         | Go to 12 — but **on a two-trigger round run step 10's review sweep first**, or a review orphaned before the re-post is never read                                                                                                                                                                                                                                              |
    | `comment` matching the reviewer's rate-limit pattern                  | **abort**                  | **Do not retry.** The quota recovers with time; retrying only burns rounds                                                                                                                                                                                                                                                                                                     |
    | `comment` with any other bot body                                     | **abort**                  | Print the body in full and hand it to a human. Do not guess                                                                                                                                                                                                                                                                                                                    |
@@ -806,17 +806,30 @@ approval, so it has to come from the person typing it.
    | `error reason=api stage=setup`                                        | **abort**                  | **Failed before resolving the PR.** Suspect auth or network, not a missing PR                                                                                                                                                                                                                                                                                                  |
    | `--max-rounds` reached                                                | **abort**                  | Not success. Do not merge                                                                                                                                                                                                                                                                                                                                                      |
 
-10. Read the findings. **A review body is boilerplate or empty; the findings are inline review
-    comments.** Severity comes from the badge at the head of each body. **On a round that arrived here
+10. Read the findings — **from the inline comments and from the review body, because either can
+    carry them.** Findings are normally inline review comments and the body is normally boilerplate,
+    **but that is a tendency, not a contract**: measured on `iwmaeda/revloop#13` (2026-08), codex
+    returned a review with **zero inline comments and a complete P1 finding in its body**. A round
+    that reads only the inline comments sees nothing there and takes step 9's clean row — so **always
+    fetch the body as well**, and treat a body carrying a severity badge as findings.
+    Severity comes from the badge at the head of each body. **On a round that arrived here
     from `VERDICT=review`, step 8 already emitted `review_id=`** — do not look it up again. **A round
     routed here by step 9's clean-comment or reaction gate has no `review_id=` at all**: skip the query
     below, run only the two-trigger sweep, and read whatever reviews it returns. **Extract keys by
     name, not by position.**
 
     ```bash
+    gh api "repos/{owner}/{repo}/pulls/<n>/reviews/<review_id>" --jq '"\(.state) \(.body)"'
     gh api --paginate "repos/{owner}/{repo}/pulls/<n>/comments?per_page=100" \
       --jq '.[]|select(.pull_request_review_id==<review_id>)|{id,path,line:(.line // .original_line),body}'
     ```
+
+    **The first read is the body, and it is also the state check.** The wait fence takes every review
+    whose state is not `DISMISSED` and then **drops the state from its output**, so a `PENDING` review
+    — an unsubmitted draft, with no findings and no `submitted_at` — reaches `VERDICT=review` looking
+    exactly like a submitted one, and with no inline comments it lands on the clean row. The
+    two-trigger sweep filters `PENDING` itself; **the single-trigger path has only this read**, so do
+    not skip it. A `PENDING` state is not a verdict: treat it as `pending` and re-fire step 8.
 
     **`.line` is null far more often than not** — one measured PR had 31 of 33 findings with a null
     `line`, and **every one of them had `original_line`**. Without that fallback, nine findings in ten
@@ -942,8 +955,12 @@ approval, so it has to come from the person typing it.
 
     **Do not decide CI by "no pending".** A failed fetch produces empty output, and empty contains
     neither `pending` nor `fail`, so every naive negative check **turns a failure into a pass**.
-    Emit `ALL_PASS` only when every row is `COMPLETED` and every conclusion is `SUCCESS`; everything
-    else (zero rows, fetch failure, still running) falls back to `retry`. **Fire this with
+    Emit `ALL_PASS` only when every row is `COMPLETED` and every conclusion is `SUCCESS`. **Zero rows,
+    a malformed row and a still-running row fall back to `retry`; the other two do not.** A fetch
+    failure retries, but the fence gives up after **five consecutive** ones and prints
+    `CI_WAIT=error reason=api`; a row that completed and did not succeed is `CHECKS_FAILED`, which is
+    terminal on purpose. The rule the naive check breaks is still the point — empty output contains
+    neither `pending` nor `fail`, so a negative test reads a failure as a pass. **Fire this with
     `run_in_background` too** — 20 iterations of (`timeout 25` + `sleep 30`) is about 18 minutes
     worst case. **Do not estimate 10 minutes by counting only the `sleep`.**
 
@@ -1021,7 +1038,9 @@ approval, so it has to come from the person typing it.
     state has not yet settled. **Read the pull request before acting on it, and never re-fire the PUT
     on this signal alone.** The abort reasons are `no-branch`, `no-pr`, `no-head`,
     `api stage=setup`, `api stage=recheck`, `ci-not-ready`, and `ci-failed`. Only `MERGE=ok` is a
-    merge. On anything else, stop here and put the response body in the report. Only after
+    merge. On anything else, stop here. **`MERGE=failed` carries a response body and the report should
+    quote it; a `MERGE=abort` has none** — every abort exits before the PUT is fired, so there is
+    nothing to quote and the reason is the whole signal. Only after
     `MERGE=ok`:
 
     ```bash
@@ -1169,8 +1188,12 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   chunks against `--timeout` is already the caller's job for the same reason: a fence that knew about
   attempts would need state or arguments, its bytes would change, and **every user would owe a
   re-approval** for a rule a reader of step 9 can follow unaided.
-- **Terminal exits in the fence must correspond only to the table's finish/abort rows and to
-  `pending`.** The fence remembers nothing between firings and `TS` stays pinned to the trigger time,
+- **Terminal exits in the fence must correspond to the table's finish/abort rows, to `pending`, and
+  to the one continue row the caller bounds.** The review branch exits for **every** review, including
+  the "commit is an ancestor of HEAD" row the table calls "continue (once)" — that row is safe because
+  the caller allows exactly one re-fire and aborts on the second, not because the fence declines to
+  exit. **Every other continue must stay non-terminal.** The fence remembers nothing between firings
+  and `TS` stays pinned to the trigger time,
   so **making a "continue" signal a terminal exit means every re-fire matches it again on the first
   iteration and exits immediately** — an infinite loop that never reaches `sleep 30`. This is why the
   reviewer's own preamble is dropped inside the jq program. **Do not restore it out of kindness.** If
@@ -1210,8 +1233,11 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
 - **An empty `--head` is not "no branch", it is "no filter".** `git branch --show-current` prints
   nothing on a detached HEAD, and `gh pr list --head ""` then drops the filter and returns **the
   first open PR in the repository** — measured on this repository, where it returned an unrelated
-  Dependabot PR. Every fence therefore resolves the branch first and exits `no-branch` when it is
-  empty. Without that guard the wait fence reads a stranger's comments, step 12 reports a stranger's
+  Dependabot PR. Every fence therefore resolves the branch **before it resolves a PR**, and exits
+  `no-branch` when it is empty. It is not always the fence's first act — `wait-verdict` reads
+  `gh repo view` first and can exit `api stage=setup` before the branch is looked at — but nothing
+  reaches `gh pr list` without a non-empty branch, which is where the guard has to hold. Without that
+  guard the wait fence reads a stranger's comments, step 12 reports a stranger's
   CI as green, and only the merge fence's `sha=` pin keeps the mistake from becoming a merge — one
   interlock deep is not enough for a gate.
 - **"No bad marks" is not "good", and the remedy differs by fence.** Step 8 judges from the exit code
