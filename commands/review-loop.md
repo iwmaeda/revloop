@@ -824,12 +824,25 @@ approval, so it has to come from the person typing it.
       --jq '.[]|select(.pull_request_review_id==<review_id>)|{id,path,line:(.line // .original_line),body}'
     ```
 
-    **The first read is the body, and it is also the state check.** The wait fence takes every review
-    whose state is not `DISMISSED` and then **drops the state from its output**, so a `PENDING` review
-    — an unsubmitted draft, with no findings and no `submitted_at` — reaches `VERDICT=review` looking
-    exactly like a submitted one, and with no inline comments it lands on the clean row. The
-    two-trigger sweep filters `PENDING` itself; **the single-trigger path has only this read**, so do
-    not skip it. A `PENDING` state is not a verdict: treat it as `pending` and re-fire step 8.
+    **The first read is the body, and it is also the state check.** The wait fence keeps every review
+    whose state is not `DISMISSED` and then **drops the state from its output**, so every remaining
+    state reaches `VERDICT=review` looking alike. **Enumerate the state before reading anything else,
+    and fail closed on one this table does not list:**
+
+    | `state`             | Treat as                                                                                                                                               |
+    | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+    | `COMMENTED`         | findings — the measured shape. Read the body **and** the inline comments                                                                               |
+    | `APPROVED`          | findings if the reads return any; a clean finish only if they return none                                                                              |
+    | `CHANGES_REQUESTED` | **findings, always.** If both reads come back empty, **abort** — a review that asks for changes while showing none is a failed read, not a clean round |
+    | `PENDING`           | **abort** (`reason=draft-review`)                                                                                                                      |
+    | anything else       | **abort** (`reason=unknown-review-state`), naming the state                                                                                            |
+
+    **`PENDING` aborts rather than retrying, and that is deliberate.** An earlier draft of this step
+    said to treat it as `pending` and re-fire step 8. That loops forever: the fence keeps every
+    non-`DISMISSED` review and exits on its **first** poll, so each re-fire re-selects the same draft
+    having spent no wall clock and accrued no chunk, and unlike the ancestor row nothing bounds it —
+    exactly the infinite loop `## Notes` names. A draft stops being a draft only when its author
+    submits it, which no amount of re-firing causes.
 
     **`.line` is null far more often than not** — one measured PR had 31 of 33 findings with a null
     `line`, and **every one of them had `original_line`**. Without that fallback, nine findings in ten
@@ -862,12 +875,23 @@ approval, so it has to come from the person typing it.
     documented `gh` floor. It strips a **suffix**, not a substring, so a login that merely contains
     `[bot]` is left alone.
 
-    Take the reviews whose `login` is the reviewer's, whose `state` is neither `DISMISSED` nor
-    `PENDING` — a `PENDING` review is an unsubmitted draft, with no findings to read and no
-    `submitted_at` to bound — whose `commit8`
+    Take the reviews whose `login` is the reviewer's, whose `state` the table above does not abort on,
+    whose `commit8`
     equals `git rev-parse --short=8 HEAD`, and whose `submitted_at` is **at or after this round's first
-    trigger** — step 7's marker read returns that timestamp — then run the `comments` read once per
-    `id`. **The lower bound is not decoration**: the lost-baseline state can open a new round on an
+    trigger** — step 7's marker read returns that timestamp — then, for each `id`, read **its body and
+    its state as well as its comments**:
+
+    ```bash
+    gh api "repos/{owner}/{repo}/pulls/<n>/reviews/<id>" --jq '"\(.state) \(.body)"'
+    ```
+
+    **The body read is not the direct path's alone.** A review orphaned in the re-post gap is reached
+    by this sweep and by nothing else, and a round entering step 10 from the clean-comment or reaction
+    gate has no direct `review_id=` at all. If the sweep reads inline comments only, the measured
+    body-only finding is dropped on exactly the two paths that exist to recover it, and zero inline
+    comments falls through to step 12 and merges.
+
+    **The lower bound is not decoration**: the lost-baseline state can open a new round on an
     unchanged HEAD, so the commit alone would sweep in the previous round's reviews of the same commit
     and re-open findings you have already answered. **It is inclusive because these timestamps have
     second resolution**, and the two ways of being wrong are not equally bad: including a review that

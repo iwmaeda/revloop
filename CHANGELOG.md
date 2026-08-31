@@ -416,6 +416,24 @@ Fixed:
   looked at; and step 12 asked for the merge response body on every non-`ok` result when an abort
   exits before the PUT and has none. No fence changed.
 
+- **Three P1s, all of them made by the fix in the entry above.** **(1) The body read went to one path
+  again.** The two-trigger sweep returns metadata and then reads inline comments per `id`, so the
+  direct review's body was the only body ever fetched — and the sweep is the **only** reader for a
+  review orphaned in the re-post gap, and the only reader at all on a round entering step 10 from the
+  clean-comment or reaction gate. The measured body-only finding was therefore still dropped on
+  exactly the two paths that exist to recover it. The sweep now reads each selected review's body and
+  state alongside its comments. **(2) The new `PENDING` handling was an infinite loop.** It said to
+  treat a draft as `pending` and re-fire step 8; the fence keeps every non-`DISMISSED` review and
+  exits on its **first** poll, so each re-fire re-selects the same draft with no wall clock spent, no
+  chunk accrued and nothing bounding it — the exact loop `## Notes` names, introduced two paragraphs
+  after the note that names it. `PENDING` now aborts with `reason=draft-review`, because a draft stops
+  being one only when its author submits it. **(3) The state check enumerated one state and let the
+  rest through.** `CHANGES_REQUESTED` with no inline comments and a body without a severity badge was
+  read as clean and merged, though the state itself says otherwise; so was any state GitHub adds
+  later. Step 10 now has a state table: `COMMENTED` and `APPROVED` are read for findings,
+  `CHANGES_REQUESTED` **must** produce findings or abort, `PENDING` aborts, and an unrecognised state
+  aborts with `reason=unknown-review-state`. No fence changed.
+
 Changed:
 
 - **`--timeout` now caps one trigger's wait rather than one round's.** A round fires at most two
