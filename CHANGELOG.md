@@ -434,6 +434,19 @@ Fixed:
   `CHANGES_REQUESTED` **must** produce findings or abort, `PENDING` aborts, and an unrecognised state
   aborts with `reason=unknown-review-state`. No fence changed.
 
+- **The two readers are now one read, because splitting them failed twice in opposite directions.**
+  The round before last gave the direct path a body read and left the sweep reading comments only;
+  the fix for that gave the sweep a body read and left it reading **only** that — so on a round
+  entering step 10 from the clean-comment or reaction gate, where the direct query is skipped, an
+  inline-only finding on an orphaned review was never loaded. One half missing on each path, one
+  round apart, each introduced by the fix for the other. Step 10 now states **the per-review read**
+  once — body and state, plus inline comments — and both paths invoke it by name on whichever `id` is
+  in hand, rather than restating half of it each. The fail-closed rule covers both halves, and its
+  reasoning is corrected too: it still said an empty `comments` read looks like "zero inline comments,
+  which is a clean review", which stopped being true when zero inline comments stopped being clean.
+  **Two of the three shapes this round asked about came back with no instances** — the state table's
+  stop default holds, and every retry bound is stated where its retry is. No fence changed.
+
 Changed:
 
 - **`--timeout` now caps one trigger's wait rather than one round's.** A round fires at most two

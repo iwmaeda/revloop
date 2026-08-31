@@ -813,16 +813,24 @@ approval, so it has to come from the person typing it.
     that reads only the inline comments sees nothing there and takes step 9's clean row — so **always
     fetch the body as well**, and treat a body carrying a severity badge as findings.
     Severity comes from the badge at the head of each body. **On a round that arrived here
-    from `VERDICT=review`, step 8 already emitted `review_id=`** — do not look it up again. **A round
-    routed here by step 9's clean-comment or reaction gate has no `review_id=` at all**: skip the query
-    below, run only the two-trigger sweep, and read whatever reviews it returns. **Extract keys by
-    name, not by position.**
+    from `VERDICT=review`, step 8 already emitted `review_id=`** — do not look it up again; run the
+    per-review read below on it. **A round routed here by step 9's clean-comment or reaction gate has
+    no `review_id=` at all**: run the two-trigger sweep instead, and run **the same** per-review read
+    on every review it returns. **Extract keys by name, not by position.**
+
+    **The per-review read. Both halves, on every review either path reaches:**
 
     ```bash
-    gh api "repos/{owner}/{repo}/pulls/<n>/reviews/<review_id>" --jq '"\(.state) \(.body)"'
+    gh api "repos/{owner}/{repo}/pulls/<n>/reviews/<id>" --jq '"\(.state) \(.body)"'
     gh api --paginate "repos/{owner}/{repo}/pulls/<n>/comments?per_page=100" \
-      --jq '.[]|select(.pull_request_review_id==<review_id>)|{id,path,line:(.line // .original_line),body}'
+      --jq '.[]|select(.pull_request_review_id==<id>)|{id,path,line:(.line // .original_line),body}'
     ```
+
+    **`<id>` is whichever review is in hand** — `review_id=` on the direct path, each swept `id` on
+    the other — and **neither half is optional on either path**. A finding can be in either: the
+    body-only shape above is measured, and inline-only is the ordinary case. **Reading one half on one
+    path and the other half on the other is how this step has already failed twice**, once in each
+    direction, so the read is written once here and invoked by name rather than restated per path.
 
     **The first read is the body, and it is also the state check.** The wait fence keeps every review
     whose state is not `DISMISSED` and then **drops the state from its output**, so every remaining
@@ -878,30 +886,27 @@ approval, so it has to come from the person typing it.
     Take the reviews whose `login` is the reviewer's, whose `state` the table above does not abort on,
     whose `commit8`
     equals `git rev-parse --short=8 HEAD`, and whose `submitted_at` is **at or after this round's first
-    trigger** — step 7's marker read returns that timestamp — then, for each `id`, read **its body and
-    its state as well as its comments**:
+    trigger** — step 7's marker read returns that timestamp — then run **the per-review read above on
+    each `id`, both halves**.
 
-    ```bash
-    gh api "repos/{owner}/{repo}/pulls/<n>/reviews/<id>" --jq '"\(.state) \(.body)"'
-    ```
-
-    **The body read is not the direct path's alone.** A review orphaned in the re-post gap is reached
-    by this sweep and by nothing else, and a round entering step 10 from the clean-comment or reaction
-    gate has no direct `review_id=` at all. If the sweep reads inline comments only, the measured
-    body-only finding is dropped on exactly the two paths that exist to recover it, and zero inline
-    comments falls through to step 12 and merges.
+    **This sweep is the only reader on two paths.** A review orphaned in the re-post gap is reached by
+    it and by nothing else, and a round entering step 10 from the clean-comment or reaction gate has
+    no direct `review_id=` at all. **A half this sweep does not read is a half nothing reads**, so
+    dropping either one lands zero findings on step 12 and merges.
 
     **The lower bound is not decoration**: the lost-baseline state can open a new round on an
     unchanged HEAD, so the commit alone would sweep in the previous round's reviews of the same commit
     and re-open findings you have already answered. **It is inclusive because these timestamps have
     second resolution**, and the two ways of being wrong are not equally bad: including a review that
     shares its second with the trigger costs a re-read of findings you may already have answered, while
-    excluding one drops a review of the current commit on the path that merges. **If either read fails,
-    say so and do not merge** — the list read and the per-review `comments` read alike. REST 404s for
+    excluding one drops a review of the current commit on the path that merges. **If any read fails, say
+    so and do not merge** — the list read, and **both halves** of the per-review read. REST 404s for
     many minutes while GraphQL keeps answering (see Notes), so an empty list is indistinguishable from
-    "only one review", and an empty `comments` read is indistinguishable from "that review had zero
-    inline comments", which is a clean review. Both are the direction that loses findings, and the
-    second runs once per review, so a two-trigger round takes that risk twice. This also recovers a
+    "only one review", an empty `comments` read from "that review had zero inline comments", and an
+    empty body read from a boilerplate body. **All three lose findings in the same direction**, and
+    the body half is now the one that can decide a round on its own: zero inline comments is no longer
+    clean by itself, so a silently-empty body read is what turns a P1 into a clean finish. The
+    per-review read runs once per review, so a two-trigger round takes both of its risks twice. This also recovers a
     review orphaned in the window step 7 describes: it is older than the second trigger, so the fence
     never named it, but its commit is still HEAD.
 
