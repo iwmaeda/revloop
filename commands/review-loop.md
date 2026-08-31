@@ -728,14 +728,18 @@ approval, so it has to come from the person typing it.
    ```
 
    **A two-trigger round may not finish clean until step 10's review sweep has run.** The sweep lives
-   in step 10 and step 10 is only reached from `VERDICT=review`, so a round whose terminal signal is a
-   clean **comment** or a reaction went straight to 12 and never ran it — which is precisely the case
-   the sweep exists for. A review of the current commit orphaned in the window before the re-post is
+   in step 10, which the table below reaches from `VERDICT=review` — so before this gate existed, a
+   round whose terminal signal was a clean **comment** or a reaction went straight to 12 and never ran
+   it, which is precisely the case the sweep exists for. **The two clean rows now route through it**,
+   which is the only reason step 10 is reachable without a review at all. A review of the current
+   commit orphaned in the window before the re-post is
    then never read, its findings never replied to, and with `--auto --merge` the loop merges on the
    second trigger's clean signal while an unread review of that same commit sits on the pull request.
-   That is the one way the re-post path could have produced a wrong merge, and it is closed here
-   rather than in step 10, because step 9 is the only place both the clean path and the findings path
-   pass through. **A single-trigger round is unaffected** — there is no second answer to miss.
+   That is **one of the two ways** the re-post path could produce a wrong merge, and it is the one
+   that is closed — here rather than in step 10, because step 9 is the only place both the clean path
+   and the findings path pass through. The other is an orphaned abort-class comment followed by a
+   clean second answer; `## Notes` documents it and nothing recovers it. **A single-trigger round is
+   unaffected** — there is no second answer to miss.
 
    **`--is-ancestor` returns three values, not a boolean. Read `$?`:** `0` = ancestor, `1` = a valid
    commit that is not an ancestor (history diverged), `128` = not present locally at all
@@ -1032,8 +1036,9 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
 - **Never re-fire the trigger without new commits — unless nothing of yours can still bind a verdict.**
   Reviewers look at the diff, not at your replies, so firing again on the same HEAD **after a
   verdict** returns the same findings and spends the reviewer's budget for nothing. **Fire only when
-  `git rev-parse HEAD` differs from the last trigger's HEAD** — which is exactly what `marker_head=`
-  records, so the invariant survives a session restart with no local state and no timezone
+  `git rev-parse HEAD` differs from the last trigger's HEAD, unless one of the two exceptions below
+  applies** — which is exactly what `marker_head=` records, so the invariant survives a session
+  restart with no local state and no timezone
   arithmetic. **Two firings at an unchanged HEAD are nonetheless correct, and they belong to different
   runs.** The in-run exception answers the opposite failure: a trigger for which this run classified
   **no verdict at all** is, so far as this run can tell, a comment that went nowhere, and refusing to
@@ -1062,13 +1067,14 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   `pending` line exists, plus however long it takes to read that line and post. A signal landing in
   that gap is unseen by the expiring chunk and older than the new baseline, so the fence will never
   name it. **A review is recoverable and nothing else is**: step 10's two-trigger read finds any
-  review whose commit is HEAD whether or not the fence named it, but it reads `pulls/<n>/reviews` and
-  never comments, so **all four comment classes step 9 can reach are lost in that gap** — a clean
+  review by the configured reviewer at HEAD, at or after the round's first trigger, whether or not the
+  fence named it — but it reads `pulls/<n>/reviews` and never comments, so **all four comment classes
+  step 9 can reach are lost in that gap** — a clean
   verdict, a rate limit, an unrecognized bot body, and a `cid=` already classified as non-terminal —
   and so is a reaction on the superseded trigger, which the fence only ever reads from the newest
   trigger row. **Step 9 gates every clean finish on that sweep for exactly this reason**: the sweep
-  lives in step 10, step 10 is reached only from `VERDICT=review`, and without the gate a round ending
-  on a clean comment would skip the one thing that recovers the orphan — and merge past it under
+  lives in step 10, which the table otherwise reaches only from `VERDICT=review`, and without the gate
+  a round ending on a clean comment would skip the one thing that recovers the orphan — and merge past it under
   `--auto --merge`.
 - **The gap is not paid for equally by all four, and two of them are a real widening.** For a clean
   verdict or a rate limit the accepted argument holds: the behaviour the re-post replaces is an abort,
@@ -1088,8 +1094,10 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   baseline and never mentions the earlier one — and step 10's filter is an equality test on that one
   `review_id`, so the other review's findings are dropped for the life of the PR, since the next
   round's baseline is newer than both. The "commit is an ancestor of HEAD" row cannot catch it:
-  **both reviews name the same, current commit.** That is why step 10 reads every review at HEAD **at
-  or after the round's first trigger** on a two-trigger round, instead of trusting `review_id=`; the
+  **both reviews name the same, current commit.** That is why step 10 reads every review **by the
+  configured reviewer** at HEAD **at or after the round's first trigger** on a two-trigger round,
+  instead of trusting `review_id=`; the login filter is as load-bearing as the lower bound, because
+  without it the sweep carries another bot's findings into this round's replies, and the
   lower bound is what keeps a round reopened on an unchanged HEAD from re-reading the previous
   round's. What is _not_ a hazard is a review racing a
   clean comment — the fence returns a review whenever one exists and demotes the comment to `EXTRA=`,

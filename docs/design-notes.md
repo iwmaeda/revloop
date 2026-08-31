@@ -47,8 +47,11 @@ the baseline **forward**, so it can only reach the too-new row of the table abov
 one. The direction is the entire argument: the rejected refinement reaches for a verdict that is older
 than the baseline, which is how a previous round's "no issues" gets adopted, while a re-post can at
 worst drop a signal that landed in the 30-second window between the expiring chunk's last poll and the
-new comment. A review survives that window because the reviewer answers the second trigger too and
-`commit=` still pins it to HEAD; a comment-only signal can be lost. The behaviour it replaces is an
+new comment. **A review survives that window because something recovers it, not because it was never
+lost**: step 10's two-trigger sweep reads every review by the configured reviewer at HEAD, at or after
+the round's first trigger, whether or not the fence ever named it. Neither the reviewer answering the
+second trigger nor `commit=` pinning the first is guaranteed, so neither is the reason. A comment-only
+signal has no such recovery and can be lost. The behaviour it replaces is an
 abort, which loses that signal as well and the round with it — so for a clean verdict and for a rate
 limit, both of which repeat themselves, the change spends nothing it was not already spending.
 **For the two abort-class signals it is a real widening, and this is the one cost the direction

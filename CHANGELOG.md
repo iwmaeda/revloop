@@ -138,12 +138,14 @@ Fixed:
   finish", and so does `error reason=no-branch`, which had the same shape before this change.
 
 - **A two-trigger round could finish clean without ever running the review sweep.** The sweep lives in
-  step 10 and step 10 is reached only from `VERDICT=review`, so a round whose terminal signal was a
+  step 10, which the table reaches from `VERDICT=review`, so a round whose terminal signal was a
   clean **comment** or a reaction went straight to step 12 — which is precisely the case the sweep
   exists for. A review of the current commit orphaned before the re-post was then never read, its
   findings never replied to, and with `--auto --merge` the loop merged on the second trigger's clean
-  signal while an unread review of that same commit sat on the pull request. That is the one way the
-  re-post path could have produced a wrong merge. Step 9 now gates every clean finish on the sweep,
+  signal while an unread review of that same commit sat on the pull request. That is one of the two
+  ways the re-post path could produce a wrong merge, and the only one closed here; the other is an
+  orphaned abort-class comment answered clean on the second trigger. Step 9 now gates every clean
+  finish on the sweep,
   because step 9 is the only place both the clean path and the findings path pass through. A
   single-trigger round is unaffected: there is no second answer to miss.
 
@@ -318,6 +320,25 @@ Fixed:
   now a clean second answer can finish the round and merge past it. Every normative copy now carries
   the distinction its explanatory paragraph already required. **No behaviour changed and no fence
   changed** — this is the wording that instructs being brought level with the wording that explains.
+
+- **Closing four sets left five more, two of them opened by the previous round's own edit.** The same
+  request, repeated once the first four were closed, returned: **(1)** three places still saying step
+  10 is reached only from `VERDICT=review` — step 9's pre-table gate, this changelog, and a comment in
+  `tests/fence-verdict.test.sh` — when the gate that paragraph introduces is exactly what now routes a
+  two-trigger clean comment or reaction into the sweep; **(2)** `docs/design-notes.md` crediting an
+  orphaned review's survival to the reviewer answering the second trigger and to `commit=` pinning it,
+  neither of which is guaranteed, when what recovers it is step 10's round-bounded sweep; **(3)** two
+  copies still calling the missed-review case "the one way" the re-post could cause a wrong merge,
+  which the abort-class orphan path contradicts; **(4)** the runaway invariant's bolded imperative
+  still reading "fire only when HEAD differs" three lines above the sentence saying two firings at an
+  unchanged HEAD are correct; and **(5)** `## Notes` and `SKILL.md` prescribing "every review at HEAD"
+  without the configured-reviewer filter the operative rule in step 10 carries, which would sweep
+  another bot's findings into this round's replies. **(3) and (4) were introduced by the previous
+  round's fix** — it added each qualification next to an absolute statement it left standing, which is
+  the same one-member-of-the-class failure that round was fixing. Sweeping the three shapes across the
+  tree afterwards found **two more the review had not cited**, both in the same `## Notes` bullet: the
+  stale control flow again, and an unfiltered "any review whose commit is HEAD". No behaviour and no
+  fence changed.
 
 Changed:
 

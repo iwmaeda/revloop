@@ -144,8 +144,8 @@ expect "  the baseline is the re-post"          "$o" "trigger=2026-08-19T10:31:0
 # than assumed, because it is the whole reason step 10 stops trusting a single
 # review_id= on a round that fired twice: the filter there is an equality test,
 # so the review this fence does not name has its findings dropped for good.
-# Neither the ancestor row nor any other step-9 row can catch it — both reviews
-# carry the same, current commit.
+# No step-9 row can catch it on its own — both reviews carry the same, current
+# commit — which is why step 9 instead gates every clean finish on that sweep.
 o=$(r retry-both-answered)
 expect "two answers -> the newer review wins"   "$o" "review_id=820"
 refute "  the older answer is never mentioned"  "$o" "810"
