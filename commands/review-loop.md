@@ -699,17 +699,35 @@ approval, so it has to come from the person typing it.
    trigger in step 7 — **once it can establish the baseline is foreign**, which a `pending` line alone
    does not. A matching `trigger=` resets the count.
 
-9. Decide continue / finish / abort in one line. **Check five things before consulting the table:**
+9. Decide continue / finish / abort in one line. **Every check below applies only to the signal forms
+   that carry its fields.** The fence emits different keys for different verdicts, and a check read as
+   unconditional turns every signal missing that key into an abort. **This is not hypothetical: read
+   as unconditional, (c) and (d) abort every `pending`** — which makes the re-post path, and even
+   plain "continue", unreachable on the first silent chunk. Check the row against what it carries:
 
-   (a) `pr=` matches the PR number from step 6 — otherwise you are reading a different PR.
-   (b) You own the baseline by both halves of step 7's test: `trigger=` matches the `SINCE` from step
+   | Form       | `pr=` | `trigger=` | `marker_head=` `round=` `head=` | `login=` | `commit=` |
+   | ---------- | ----- | ---------- | ------------------------------- | -------- | --------- |
+   | `review`   | yes   | yes        | yes                             | yes      | yes       |
+   | `comment`  | yes   | yes        | yes                             | yes      | no        |
+   | `reaction` | yes   | yes        | yes                             | **no**   | no        |
+   | `pending`  | yes   | yes        | **no**                          | **no**   | no        |
+   | `error …`  | some  | **no**     | **no**                          | **no**   | no        |
+
+   (a) **Every form that carries `pr=`**: it matches the PR number from step 6 — otherwise you are
+   reading a different PR. `no-branch`, `no-pr` and `api stage=setup` carry none, because they failed
+   before resolving one; they go straight to their own rows rather than failing this check.
+   (b) **`review`, `comment`, `reaction`, `pending`**: you own the baseline by both halves of step 7's
+   test — `trigger=` matches the `SINCE` from step
    7, **and** no non-bot comment shares that second with a larger id than your marker's. The second
    half is not pedantry — the fence's tie-break is `databaseId`, and this repository's fixtures pin a
    same-second collision as its own input class.
-   (c) `marker_head=` equals `head=` **and `round=` is this round's number**. The `round=` half is the
+   (c) **`review`, `comment` and `reaction` only** — the three forms carrying a marker. `marker_head=`
+   equals `head=` **and `round=` is this round's number**. The `round=` half is the
    cheap half of check (b): a verdict line carries the winning marker's own fields, so it says outright
    which trigger won rather than leaving you to infer it from a second-resolution timestamp.
-   **This check only decides anything once (b) holds.** When `trigger=` is not your `SINCE` the
+   **A `pending` line carries none of these three keys**, so this check cannot be its abort; what a
+   re-post consults instead is step 7's own read of the newest marker.
+   **This check also only decides anything once (b) holds.** When `trigger=` is not your `SINCE` the
    baseline is somebody else's, so its marker carries a different `head=` and `round=` **as a matter of
    course** — that is the foreign-baseline row's "continue (twice)", not this abort. Reaching for this
    abort first turns the first mismatch into a stop, and the reconciliation the row promises is never
@@ -719,11 +737,18 @@ approval, so it has to come from the person typing it.
    hand-typed one carrying no marker, so it never had a head binding to compare against. It gets its
    own row below, because reporting it as "someone else pushed" sends the reader hunting for a push
    that never happened.
-   (d) `login=` matches the reviewer's configured login **after stripping a trailing `[bot]` from the
+   (d) **`review` and `comment` only** — the two forms carrying a login. It matches the reviewer's
+   configured login **after stripping a trailing `[bot]` from the
    configured value**. GraphQL returns `chatgpt-codex-connector`; REST and most documentation
    write `chatgpt-codex-connector[bot]`. **Comparing those two for equality rejects every
-   legitimate verdict**, so normalize before comparing.
-   (e) For `VERDICT=review`, reconcile `commit=` against `git rev-parse --short=8 HEAD`. If they
+   legitimate verdict**, so normalize before comparing. **A `reaction` carries no `login=` at all**, so
+   this check never stands between it and its clean row.
+   **`marker_head=none` takes precedence over this check.** On a compatibility baseline the winning
+   marker carries no `bot=`, so the fence's bot filter is empty and admits **any** bot — meaning the
+   login you are looking at may belong to a bot you never configured **because** the baseline is
+   foreign, not instead of it. Classify that as the lost baseline, whose row promises a later run
+   re-takes the baseline; reporting it as "another bot's verdict" is an abort that loses the recovery.
+   (e) **`VERDICT=review` only**: reconcile `commit=` against `git rev-parse --short=8 HEAD`. If they
    differ, ask whether it is an ancestor:
 
    ```bash
@@ -767,7 +792,7 @@ approval, so it has to come from the person typing it.
    | any output whose `trigger=` is not your `SINCE`                       | continue (twice)           | Not this round's verdict, whatever form it took. Re-fire step 8; **the third consecutive mismatch aborts** with `reason=foreign-baseline`. It never counts toward step 7's floor and can never authorise a re-post; against `--timeout` it costs what it spent — **nothing for a mismatched verdict, which exits on the first poll, and one chunk for a mismatched `pending`** |
    | `pending` (exceeding `--timeout`) + step 7's five conditions all hold | **re-post (once)**         | The trigger was delivered and drew no verdict this run classified — which is not proof that none was sent, so the report says a signal may have been orphaned. Post it again in step 7 — same `head=` and `round=`, plus `attempt=2` — then re-fire step 8. Record it in the report and in the field notes                                                                     |
    | `pending` (exceeding `--timeout`) + anything else                     | **abort**                  | Name which condition failed: `no-verdict attempts=2`, `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is silence _from the filtered bot_, so read the PR — a wrong `botLogin` looks identical                                                                                                                                       |
-   | `login=` not the configured reviewer                                  | **abort**                  | Do not read another bot's verdict as this round's. Report the login                                                                                                                                                                                                                                                                                                            |
+   | `login=` not the configured reviewer                                  | **abort**                  | Do not read another bot's verdict as this round's. Report the login. **Check `marker_head=` first**: on a compatibility baseline the bot filter is empty and admits any bot, so a foreign login is the lost-baseline row below, not this one                                                                                                                                   |
    | `marker_head=none` (a hand-typed trigger won the baseline)            | **abort**                  | The compatibility class anchors a baseline; it cannot bind a verdict to a commit. **Report and finish.** A later run re-takes the baseline with an ordinary trigger in step 7 — the lost-baseline state, never a re-post                                                                                                                                                       |
    | `EXTRA=` second line present                                          | follow the above           | A bot comment from the same round. **Rate limit takes precedence**                                                                                                                                                                                                                                                                                                             |
    | `error reason=untriggered-verdict`                                    | **abort**                  | **A verdict exists but no trigger does.** Read `bot=` for the reason                                                                                                                                                                                                                                                                                                           |

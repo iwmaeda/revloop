@@ -358,6 +358,22 @@ Fixed:
   found one more the review had not cited: a comment in `tests/fence-verdict.test.sh` still carrying
   the unqualified "it is accepted" argument. No behaviour and no fence changed.
 
+- **P1: the ordered pre-checks made the whole re-post path unreachable.** Step 9 said to "check five
+  things before consulting the table", and the five were written as though every verdict carried every
+  key. The fence does not work that way: `VERDICT=pending` emits only `pr=`, `trigger=` and `waited=`,
+  so **(c) and (d) could not be satisfied by any `pending` line at all** — and read literally that is
+  an abort on the first silent chunk, before either `pending` row is ever reached. The re-post this
+  branch exists to add was unreachable, and so was plain "continue". The same mismatch reached three
+  more forms: `reaction` carries no `login=`, so (d) stood between it and its clean row; the error
+  forms carry neither `trigger=` nor a marker, so they aborted at the wrong check and reported the
+  wrong reason rather than landing on their own rows; and on a compatibility baseline the marker
+  carries no `bot=`, so the fence's filter admits any bot and (d) could classify a lost baseline as
+  "another bot's verdict" — an abort either way, but one that loses the lost-baseline row's promise
+  that a later run re-takes the baseline. Each check now names the forms it applies to, as (e) already
+  did, over a table of which form emits which key; `marker_head=none` is given precedence over the
+  login check in both the check and the table row. **The fence was already right** — this is the
+  caller's reading of it being corrected, so no fence changed and no re-approval is owed.
+
 Changed:
 
 - **`--timeout` now caps one trigger's wait rather than one round's.** A round fires at most two
