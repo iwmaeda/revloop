@@ -249,7 +249,9 @@ Fixed:
   mismatched **`pending`** means the foreign trigger is itself unanswered, so the fence polls out all
   480 seconds before printing — and that is the only other shape a mismatch arrives in. Neither may be
   bounded on the clock, which is what the two-consecutive-mismatch rule is for. The false half had
-  been copied into this changelog as well, and is corrected above.
+  been copied into this changelog as well, and is corrected above. **Only step 8's re-fire paragraph
+  and this changelog were corrected then**; the two normative statements named in the sentence above
+  kept the absolute rule, and the entry below closes them.
 
 - **The list of what the re-post gap can drop named two comment classes; there are four.** The window
   between an expiring chunk's last poll and the new trigger loses any signal landing in it, and the
@@ -273,6 +275,24 @@ Fixed:
   does not advance the round; they cannot, because both triggers carry `round=3` by hand and the fence
   has no round-counting logic to get wrong. That comment now claims only what the assertion checks, and
   says plainly that the rule itself lives in prose this harness does not execute.
+
+- **The mismatch-cost split was written in the paragraph that explains it and in neither that
+  instructs.** The round before this one named three statements of what a reconciliation mismatch
+  costs, worked out that they are right about different inputs, and then corrected one of them and
+  this changelog. The two it left are the two a reader follows as instructions: step 8's
+  chunk-counting paragraph and step 9's foreign-baseline row both still said flatly that the chunk
+  counts toward `--timeout`. A mismatched **verdict** exits on the fence's first poll and spends no
+  wall clock, so charging it a chunk overstates the wait by eight minutes each time — two instant
+  foreign verdicts followed by two real `pending` chunks are charged the four chunks that stop an
+  attempt at the built-in `30m`, so the round aborts its own trigger having actually waited sixteen
+  minutes rather than thirty-two. Both now carry the split, and both keep the half that was never in
+  doubt: a mismatch watched somebody else's baseline, so it never counts toward step 7's floor and
+  can never authorise a re-post. **The class was named too narrowly rather than missed** — the
+  previous entry's own first sentence lists all three sites — so it is recorded here as one fix
+  applied at every site that states the rule, and the sweep that found them is a grep for the rule
+  rather than for the wording.
+  `docs/` states the floor and the budget arithmetic but never what a mismatch costs, so nothing
+  there needed the same edit.
 
 Changed:
 
