@@ -128,11 +128,14 @@ expect "  and the verdict after it is adopted"  "$o" "review_id=333"
 # The cost of re-posting, pinned rather than left as prose. The fence polls and
 # then sleeps 30 seconds, so a signal landing between the expiring chunk's last
 # poll and the new trigger is older than the new baseline and is dropped. This
-# is the too-new/liveness row of the table in docs/design-notes.md, and it is
-# accepted: the behaviour it replaces is an abort, which loses the same signal
-# and the round with it. DO NOT "fix" this case by walking the baseline back to
-# the older trigger — that is the refinement design-notes rejects, and it turns
-# a liveness bug into a safety one.
+# is the too-new row of the table in docs/design-notes.md. For a clean verdict
+# and for a rate limit it is a liveness cost and it is accepted: the behaviour
+# it replaces is an abort, which loses the same signal and the round with it.
+# For the two abort-class comments it is a safety cost that nothing offsets,
+# which is why a two-trigger round reports that a signal may have been orphaned.
+# DO NOT "fix" this case by walking the baseline back to the older trigger —
+# that is the refinement design-notes rejects, and it turns a liveness bug into
+# a safety one.
 o=$(r retry-gap)
 expect "a signal inside the gap is not adopted" "$o" "VERDICT=pending"
 refute "  the clean comment is not read"        "$o" "VERDICT=comment"

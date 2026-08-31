@@ -51,7 +51,8 @@ Added:
 
   **The direction is the safety argument.** A re-post moves the baseline **forward**, so it can only
   reach the too-new row of the table in [`docs/design-notes.md`](docs/design-notes.md) — a verdict that
-  arrived is dropped, a liveness failure. It cannot reach the too-old row, where a previous round's
+  arrived is dropped, a liveness failure for every class except the two abort-class comments, where
+  ending clean rather than stopping makes it a safety one. It cannot reach the too-old row, where a previous round's
   "no issues" becomes this round's clean verdict. That makes it the mirror image of the refinement that
   document rejects — walking the baseline back to an older trigger — rather than a quiet
   reintroduction of it.
@@ -128,7 +129,7 @@ Fixed:
   says to fire revloop's own trigger in step 7, at an unchanged HEAD — which the invariant, as this
   change first restated it, forbade. The premise is what the invariant actually protects: it bars a
   second trigger while one of yours can still bind a verdict. Two states end that premise, and **only
-  one of them is recovered inside the run**: nothing answered at all, which is the re-post with
+  one of them is recovered inside the run**: no verdict of yours classified, which is the re-post with
   `attempt=2` and the same `round=`. A newer trigger taking the baseline **aborts** — an abort is a
   stop, and the loop must not race a person for the newest comment, which is the runaway itself — and
   a later run re-takes the baseline with an **ordinary** trigger that advances the round, because the
@@ -339,6 +340,23 @@ Fixed:
   tree afterwards found **two more the review had not cited**, both in the same `## Notes` bullet: the
   stale control flow again, and an unfiltered "any review whose commit is HEAD". No behaviour and no
   fence changed.
+
+- **Two of the next four were control flow, not wording.** **(1)** Step 9's pre-table check (c) said to
+  abort whenever `marker_head=` or `round=` differs, which is true **only once the baseline is yours**:
+  a foreign baseline carries a different `head=` and `round=` as a matter of course, so a reader
+  performing the checks in order aborted on the first mismatch and never reached the
+  "continue (twice)" reconciliation the table promises. (c) is now explicitly conditional on (b).
+  **(2)** Step 10 opened with "step 8 already emitted `review_id=`", which the clean-comment and
+  reaction gate had just made false — those rounds reach step 10 with no review id at all, and the
+  ID-keyed query returns nothing. Step 10 now names both entries and sends the gated one straight to
+  the two-trigger sweep. **(3)** Four more copies of the literal-silence claim sat beside the
+  "no classified verdict" qualification. **(4)** The too-new drop was still classified as a liveness
+  failure in three places, including the class column of the `docs/design-notes.md` row whose
+  consequence column the previous round had already corrected — the same fix-one-column failure, one
+  column over. It is a liveness failure for the classes that repeat or are recovered and a **safety**
+  failure for the two abort-class comments, which end clean rather than stopping. Sweeping afterwards
+  found one more the review had not cited: a comment in `tests/fence-verdict.test.sh` still carrying
+  the unqualified "it is accepted" argument. No behaviour and no fence changed.
 
 Changed:
 

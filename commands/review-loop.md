@@ -475,7 +475,7 @@ approval, so it has to come from the person typing it.
    classified no verdict of any kind may be posted once more. (The lost-baseline state above also fires at unchanged HEAD,
    but never within the run that hit it — that one aborts first.) The failure that exception exists for
    is a comment that went nowhere — the pull request, the diff and CI are all healthy, and the round
-   dies because the reviewer never acted on a request it was sent. Post the second trigger only when all five of these hold:
+   dies having classified no verdict for a request it was sent. Post the second trigger only when all five of these hold:
 
    (a) Step 8 returned `VERDICT=pending`, this attempt's cumulative wait has passed `--timeout`, **and
    it spent at least three chunks — 24 minutes — of that wait watching your own trigger.** The floor is
@@ -493,7 +493,7 @@ approval, so it has to come from the person typing it.
    re-posted at all — it aborts, and a later run re-takes the baseline with an ordinary trigger once
    it can establish the baseline is foreign —
    because the round's problem is that nothing of yours is being watched rather than that something of
-   yours went unanswered.
+   yours drew no classified verdict.
    (c) No marker on this PR carries **this round's `round=`** together with an `attempt=`. Scope it to
    the round rather than to `head=`: the lost-baseline state can open a **new** round on an unchanged
    HEAD, so a `head=`-only search would let a previous round's re-post spend this round's budget and
@@ -594,8 +594,8 @@ approval, so it has to come from the person typing it.
    — dropping `EXTRA=` discards the rate-limit signal.
 
    **The 480-second budget is one chunk, not `--timeout`.** `--timeout` caps the **cumulative** wait
-   for **one trigger**, so on `pending` re-fire step 8 only, and treat that trigger as unanswered once
-   `chunks × 8 minutes` exceeds it (about four chunks at the default). The fence takes no arguments,
+   for **one trigger**, so on `pending` re-fire step 8 only, and treat that trigger as having drawn no
+   classified verdict once `chunks × 8 minutes` exceeds it (about four chunks at the default). The fence takes no arguments,
    so counting chunks is the caller's job, and so is knowing which attempt it is counting for.
 
    **A round therefore waits about twice `--timeout`, rounded up to whole chunks each time** — the
@@ -689,7 +689,7 @@ approval, so it has to come from the person typing it.
    exits the fence on its **first** poll, so it burns no wall clock and accrues no chunk: against a
    baseline that is permanently newer and already answered, "discard and re-fire" never reaches
    `--timeout` and never sleeps. A mismatched **`pending`** is the opposite, and it is the only other
-   way this can arrive: the foreign trigger is itself unanswered, so the fence polls out all 480
+   way this can arrive: the foreign trigger has itself drawn nothing the fence can name, so it polls out all 480
    seconds before printing, and that chunk is spent like any other. **Neither may be bounded on the
    clock** — the first never reaches it, and the second would make the bound depend on which kind of
    trigger somebody else happened to post. That is the infinite loop the Notes name, and this rule
@@ -708,8 +708,12 @@ approval, so it has to come from the person typing it.
    same-second collision as its own input class.
    (c) `marker_head=` equals `head=` **and `round=` is this round's number**. The `round=` half is the
    cheap half of check (b): a verdict line carries the winning marker's own fields, so it says outright
-   which trigger won rather than leaving you to infer it from a second-resolution timestamp. If they
-   differ, the newest trigger was fired against a
+   which trigger won rather than leaving you to infer it from a second-resolution timestamp.
+   **This check only decides anything once (b) holds.** When `trigger=` is not your `SINCE` the
+   baseline is somebody else's, so its marker carries a different `head=` and `round=` **as a matter of
+   course** — that is the foreign-baseline row's "continue (twice)", not this abort. Reaching for this
+   abort first turns the first mismatch into a stop, and the reconciliation the row promises is never
+   performed. If they differ **while the baseline is yours**, the newest trigger was fired against a
    different commit than the one checked out now — the runaway invariant is violated, or someone
    else pushed. Abort. **`marker_head=none` is not that case**: it means the newest trigger is a
    hand-typed one carrying no marker, so it never had a head binding to compare against. It gets its
@@ -774,8 +778,11 @@ approval, so it has to come from the person typing it.
    | `--max-rounds` reached                                                | **abort**                  | Not success. Do not merge                                                                                                                                                                                                                                                                                                                                                      |
 
 10. Read the findings. **A review body is boilerplate or empty; the findings are inline review
-    comments.** Severity comes from the badge at the head of each body. **Step 8 already emitted
-    `review_id=`** — do not look it up again. **Extract keys by name, not by position.**
+    comments.** Severity comes from the badge at the head of each body. **On a round that arrived here
+    from `VERDICT=review`, step 8 already emitted `review_id=`** — do not look it up again. **A round
+    routed here by step 9's clean-comment or reaction gate has no `review_id=` at all**: skip the query
+    below, run only the two-trigger sweep, and read whatever reviews it returns. **Extract keys by
+    name, not by position.**
 
     ```bash
     gh api --paginate "repos/{owner}/{repo}/pulls/<n>/comments?per_page=100" \
@@ -1058,8 +1065,10 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   than a key it would match `notattempt=2`.
 - **A re-post moves the baseline forward, never backward, and that is why it is allowed at all.**
   `docs/design-notes.md` tabulates the two directions: a baseline that is too old adopts a **previous**
-  round's verdict, which is a safety failure, and one that is too new drops a verdict that already
-  arrived, which is a liveness failure. A re-post can only cause the second. It is therefore the
+  round's verdict, which is always a safety failure, and one that is too new drops a verdict that
+  already arrived — a liveness failure for the three classes that repeat themselves or are recovered,
+  **and a safety failure for the two abort-class comments**, which end clean instead of stopping the
+  loop. A re-post can only cause the second, and only the abort-class half of it is a safety cost. It is therefore the
   mirror image of the refinement that document rejects — walking the baseline back to an older
   trigger when no verdict is found — and not a quiet reintroduction of it.
 - **What a re-post costs is the window between a chunk's last poll and the new trigger.** The fence

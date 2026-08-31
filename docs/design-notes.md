@@ -27,10 +27,10 @@ three working installations.
 The wait loop takes the newest trigger as its baseline and accepts a verdict arriving after it.
 Getting that wrong fails in two directions, and they are not equally bad:
 
-| Baseline | Consequence                                                                                                                 | Class        |
-| -------- | --------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| Too new  | A verdict that already arrived is dropped; the round times out and aborts — or, since the re-post, may finish clean instead | **liveness** |
-| Too old  | A **previous** round's "no issues" satisfies the filter → false clean verdict                                               | **safety**   |
+| Baseline | Consequence                                                                                                                 | Class                                                                |
+| -------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Too new  | A verdict that already arrived is dropped; the round times out and aborts — or, since the re-post, may finish clean instead | **liveness**, but **safety** when the dropped signal was abort-class |
+| Too old  | A **previous** round's "no issues" satisfies the filter → false clean verdict                                               | **safety**                                                           |
 
 Findings arriving as a _review_ are protected by comparing `commit=` against HEAD. Terminal signals
 arriving as a comment have no commit binding at all, so the timestamp is the only thing tying them to
