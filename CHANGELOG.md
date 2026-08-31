@@ -22,10 +22,12 @@ was already the caller's job for exactly that reason.
 
 Added:
 
-- **A trigger that is never answered is now posted a second time, once.** The failure: a trigger
-  comment is delivered, the reviewer never acts on it, and the round dies with the pull request, the
-  diff and CI all healthy. Step 8 returned `VERDICT=pending` until the budget ran out and step 9's
-  table said `abort` — no path in the procedure sent the request again. Step 7 now carries one narrow
+- **A trigger that draws no verdict the loop can classify is now posted a second time, once.** The
+  failure: a trigger comment is delivered, nothing the loop classifies comes back, and the round dies
+  with the pull request, the diff and CI all healthy. (**"Classified" is the operative word** — a
+  signal orphaned in the re-post gap leaves the round looking silent when it was not.) Step 8 returned
+  `VERDICT=pending` until the budget ran out and step 9's table said `abort` — no path in the
+  procedure sent the request again. Step 7 now carries one narrow
   exception to the runaway invariant, with five conditions that are all checkable from GitHub: the
   wait must have expired **and have spent at least three chunks watching your own trigger**, the
   `pending` line's baseline must be yours by both halves of the ownership test, no marker may already
@@ -33,9 +35,10 @@ Added:
   at all, and HEAD must not have moved.
   A rate-limit reply keeps its own row and that row still says **do not retry**; silence is the only
   signal the exception answers. The exception is carved **out of** step 9's exceeding-`--timeout`
-  abort rather than standing beside it, so exceeding the budget always terminates: written as several
-  conditional aborts it left a hole, where a newer hand-typed trigger made every later `pending` a
-  "continue" while blocking the re-post, and the caller polled forever.
+  abort rather than standing beside it, so exceeding the budget always terminates the attempt and a
+  round ends in at most two of them: written as several conditional aborts it left a hole, where a
+  newer hand-typed trigger made every later `pending` a "continue" while blocking the re-post, and the
+  caller polled forever.
 
   **The floor is three chunks — 24 minutes — and it is deliberately not a fraction of `--timeout`.**
   Deriving it from the flag was the first design and it is wrong: `--timeout 8m` would then re-post
@@ -293,6 +296,28 @@ Fixed:
   rather than for the wording.
   `docs/` states the floor and the budget arithmetic but never what a mismatch costs, so nothing
   there needed the same edit.
+
+- **The same narrative-versus-normative split ran through four more rules, across seven files.** Asked
+  to list every sibling of the class above rather than the first, the reviewer returned four sets, and
+  all four held up against the text. **(1) The runaway invariant admits two firings at an unchanged
+  HEAD, not one.** The silence re-post is recovered inside the run; the lost-baseline re-take is
+  performed by a later run, once it can establish the baseline is foreign. Step 7's opening imperative,
+  the `## Notes` bullet calling silence "the single exception", and `.agents/skills/revloop/SKILL.md`
+  all admitted only the first, so following them literally prevents the recovery the same documents
+  prescribe. **(2) "Never answered" overstates what the loop knows.** The operative condition is "no
+  classified verdict", and a signal can be orphaned in the gap between an expiring chunk's last poll
+  and the new trigger, so silence is what was _seen_ rather than what was _sent_. Step 7's prose, the
+  re-post section, the field-notes sentence, step 9's re-post row, both READMEs and
+  `docs/design-notes.md` all claimed literal silence. **(3) Exceeding `--timeout` does not always
+  terminate the round**, only the attempt; the round ends in at most two. **(4) The re-post path can
+  reach a wrong merge, and four places said otherwise** — the `## Unexercised paths` preamble claiming
+  every listed branch fails closed "never toward a wrong merge" while listing the re-post,
+  `docs/design-notes.md`'s too-new row and its "spends nothing it was not already spending", and
+  `docs/configuration.md` calling 64 minutes "the whole cost". The procedure's own cost paragraph
+  already says the opposite for the two abort-class signals: losing one used to end in an abort, and
+  now a clean second answer can finish the round and merge past it. Every normative copy now carries
+  the distinction its explanatory paragraph already required. **No behaviour changed and no fence
+  changed** — this is the wording that instructs being brought level with the wording that explains.
 
 Changed:
 

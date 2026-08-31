@@ -115,8 +115,11 @@ would undercount the round. Counting re-posts would let a reviewer that drops on
 
 `timeout` caps one trigger rather than one round, so a round that has to re-post waits about twice it,
 rounded up to whole 8-minute chunks each time: the built-in `30m` stops an attempt after four chunks,
-so a re-posting round runs about 64 minutes rather than 60. That is the whole cost of the re-post path, and it is the one
-number to change if the wall clock matters more to you than recovering a dropped trigger.
+so a re-posting round runs about 64 minutes rather than 60. That is the whole **wall-clock** cost of
+the re-post path, and it is the one number to change if the wall clock matters more to you than
+recovering a dropped trigger. It is not the path's only cost: a signal landing between an expiring
+chunk's last poll and the new trigger is orphaned, and for the two abort-class comment signals that is
+a widening no flag buys back. `commands/review-loop.md`'s `## Notes` gives the argument.
 
 ## `reviewers`
 

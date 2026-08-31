@@ -27,10 +27,10 @@ three working installations.
 The wait loop takes the newest trigger as its baseline and accepts a verdict arriving after it.
 Getting that wrong fails in two directions, and they are not equally bad:
 
-| Baseline | Consequence                                                                   | Class        |
-| -------- | ----------------------------------------------------------------------------- | ------------ |
-| Too new  | A verdict that already arrived is dropped; the round times out and aborts     | **liveness** |
-| Too old  | A **previous** round's "no issues" satisfies the filter → false clean verdict | **safety**   |
+| Baseline | Consequence                                                                                                                 | Class        |
+| -------- | --------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Too new  | A verdict that already arrived is dropped; the round times out and aborts — or, since the re-post, may finish clean instead | **liveness** |
+| Too old  | A **previous** round's "no issues" satisfies the filter → false clean verdict                                               | **safety**   |
 
 Findings arriving as a _review_ are protected by comparing `commit=` against HEAD. Terminal signals
 arriving as a comment have no commit binding at all, so the timestamp is the only thing tying them to
@@ -40,7 +40,7 @@ rejected. It trades a liveness bug for a safety bug, and with `--auto --merge` a
 unreviewed code.
 
 **Posting a second trigger is the mirror of that, and it is allowed.** When a trigger's whole budget
-passes with no verdict of any kind — `--timeout` caps one trigger, not one round — and at least three
+passes with no verdict the run could classify — `--timeout` caps one trigger, not one round — and at least three
 8-minute chunks were spent watching it, step 7 may post the trigger once more at the same HEAD. Both
 halves are required, so a `--timeout` short enough to end before the floor never re-posts at all. That moves
 the baseline **forward**, so it can only reach the too-new row of the table above — never the too-old
@@ -49,9 +49,14 @@ than the baseline, which is how a previous round's "no issues" gets adopted, whi
 worst drop a signal that landed in the 30-second window between the expiring chunk's last poll and the
 new comment. A review survives that window because the reviewer answers the second trigger too and
 `commit=` still pins it to HEAD; a comment-only signal can be lost. The behaviour it replaces is an
-abort, which loses that signal as well and the round with it, so the change spends nothing it was not
-already spending. The bound — **one re-post per round** — is stored in the marker rather than in the
-session, for the same reason `head=` is.
+abort, which loses that signal as well and the round with it — so for a clean verdict and for a rate
+limit, both of which repeat themselves, the change spends nothing it was not already spending.
+**For the two abort-class signals it is a real widening, and this is the one cost the direction
+argument does not cover**: an unrecognized bot body and an `interim-loop` exist to stop the loop and
+hand it to a human, losing one used to end in an abort anyway, and now a clean second answer can
+finish the round and merge past it. Nothing recovers that, which is why a two-trigger round says in
+the report that a signal may have been orphaned. The bound — **one re-post per round** — is stored in
+the marker rather than in the session, for the same reason `head=` is.
 
 **"Newest" is a computation, not a row position.** The fence's jq program builds one array from four
 generators, and array construction preserves generator order — so every compatibility row is emitted

@@ -48,10 +48,11 @@ not apply.
 
 The procedure's `## Notes` section states them; these are the ones most often lost in adaptation:
 
-- **Never re-fire a trigger without new commits**, except the one silence case the procedure names.
-  Compare `marker_head=` against current HEAD; the exception's conditions, and its budget of one, live
-  in the procedure and are counted from the markers on the pull request rather than from this session.
-  **A lost baseline is not that exception**: it aborts, and a later run re-takes it only once it can
+- **Never re-fire a trigger without new commits**, except in the two cases the procedure names — and
+  they belong to different runs. Compare `marker_head=` against current HEAD; the in-run exception is
+  silence, and its conditions and its budget of one live in the procedure, counted from the markers on
+  the pull request rather than from this session. **A lost baseline is not that exception**: it aborts,
+  and a later run re-takes the baseline with an ordinary trigger at an unchanged HEAD, once it can
   establish the baseline is foreign.
 - **A round that fired twice can have two reviews on the same commit.** The wait names one of them.
   Read the findings from every review at HEAD submitted at or after the round's first trigger, or the

@@ -286,13 +286,16 @@ approval, so it has to come from the person typing it.
    `commit.bodyLanguage`) — they are detected from the repository's own history, not imposed.
 
 7. Trigger the review. **Do not fire if HEAD has not changed since the last trigger** (the runaway
-   invariant, below) — **but "the last trigger" means the newest one on the pull request, not your
+   invariant, below) — **two states below carve exceptions out of that, one recovered in this run and
+   one only in a later one, and "the last trigger" means the newest one on the pull request, not your
    newest marker**, so when the read below shows a non-bot comment newer than your marker you have to
    establish which it is before the invariant can tell you anything. The invariant's premise is that a
    trigger of yours can still bind this round's verdict, and **two states end that premise — but only
    one of them is recovered inside the run.**
-   Your trigger was answered by nothing at all: this run re-posts it once, under "Re-posting a trigger
-   that went unanswered" below, same `round=` and `attempt=2`. Or a newer trigger took the baseline,
+   Your trigger produced no verdict this run classified: this run re-posts it once, under "Re-posting
+   a trigger that went unanswered" below, same `round=` and `attempt=2`. **That is not the same as
+   nothing having been sent** — a signal can be orphaned in the gap `## Notes` describes — which is
+   why condition (d) is written as "no classified verdict" and not as "no answer". Or a newer trigger took the baseline,
    which step 9 reaches as `marker_head=none` or `reason=foreign-baseline`: **this run aborts, because
    an abort is a stop**, and a later run fires an **ordinary** trigger here to re-take the baseline —
    no `attempt=`, and the round number advances, because the wait it replaces was spent. **That later
@@ -468,8 +471,8 @@ approval, so it has to come from the person typing it.
    reads back below, is the oldest marker carrying this `round=` and no `attempt`.
 
    **Re-posting a trigger that went unanswered.** The runaway invariant forbids firing again on an
-   unchanged HEAD, and **this run has exactly one exception to it**: a trigger that produced no verdict
-   of any kind may be posted once more. (The lost-baseline state above also fires at unchanged HEAD,
+   unchanged HEAD, and **this run has exactly one exception to it**: a trigger for which this run
+   classified no verdict of any kind may be posted once more. (The lost-baseline state above also fires at unchanged HEAD,
    but never within the run that hit it — that one aborts first.) The failure that exception exists for
    is a comment that went nowhere — the pull request, the diff and CI are all healthy, and the round
    dies because the reviewer never acted on a request it was sent. Post the second trigger only when all five of these hold:
@@ -534,7 +537,8 @@ approval, so it has to come from the person typing it.
    duplicate comments still sees a new one. **One re-post per round**: a second exhausted wait aborts.
    Say in the report that the round took two triggers — and in the round's first reply too, when the
    round produced findings to reply to — and append one line to `.revloop/field-notes.md`. A trigger
-   that was delivered and never answered is exactly the kind of event those notes exist to collect,
+   that was delivered and drew no verdict this run could classify is exactly the kind of event those
+   notes exist to collect,
    and how often it happens is the measurement that would turn (a)'s floor from derived into measured.
 
    **The chunk count does not survive a session restart, and the budget does.** A resumed round starts
@@ -753,7 +757,7 @@ approval, so it has to come from the person typing it.
    | `reaction`                                                            | **finish (clean)**         | An unexercised path — say so in the report. **On a two-trigger round run step 10's review sweep first**, same as the clean comment                                                                                                                                                                                                                                             |
    | `pending` (within `--timeout`)                                        | continue                   | Re-fire **step 8 only**, never step 7                                                                                                                                                                                                                                                                                                                                          |
    | any output whose `trigger=` is not your `SINCE`                       | continue (twice)           | Not this round's verdict, whatever form it took. Re-fire step 8; **the third consecutive mismatch aborts** with `reason=foreign-baseline`. It never counts toward step 7's floor and can never authorise a re-post; against `--timeout` it costs what it spent — **nothing for a mismatched verdict, which exits on the first poll, and one chunk for a mismatched `pending`** |
-   | `pending` (exceeding `--timeout`) + step 7's five conditions all hold | **re-post (once)**         | The trigger was delivered and never answered. Post it again in step 7 — same `head=` and `round=`, plus `attempt=2` — then re-fire step 8. Record it in the report and in the field notes                                                                                                                                                                                      |
+   | `pending` (exceeding `--timeout`) + step 7's five conditions all hold | **re-post (once)**         | The trigger was delivered and drew no verdict this run classified — which is not proof that none was sent, so the report says a signal may have been orphaned. Post it again in step 7 — same `head=` and `round=`, plus `attempt=2` — then re-fire step 8. Record it in the report and in the field notes                                                                     |
    | `pending` (exceeding `--timeout`) + anything else                     | **abort**                  | Name which condition failed: `no-verdict attempts=2`, `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is silence _from the filtered bot_, so read the PR — a wrong `botLogin` looks identical                                                                                                                                       |
    | `login=` not the configured reviewer                                  | **abort**                  | Do not read another bot's verdict as this round's. Report the login                                                                                                                                                                                                                                                                                                            |
    | `marker_head=none` (a hand-typed trigger won the baseline)            | **abort**                  | The compatibility class anchors a baseline; it cannot bind a verdict to a commit. **Report and finish.** A later run re-takes the baseline with an ordinary trigger in step 7 — the lost-baseline state, never a re-post                                                                                                                                                       |
@@ -1025,17 +1029,20 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   second by `databaseId`, before the newest is taken. The review and comment selections each read a
   single generator, which is why only the trigger selection and the untriggered-verdict diagnostic —
   the two that merge generators — are sorted.
-- **Never re-fire the trigger without new commits — unless the last one was never answered.**
+- **Never re-fire the trigger without new commits — unless nothing of yours can still bind a verdict.**
   Reviewers look at the diff, not at your replies, so firing again on the same HEAD **after a
   verdict** returns the same findings and spends the reviewer's budget for nothing. **Fire only when
   `git rev-parse HEAD` differs from the last trigger's HEAD** — which is exactly what `marker_head=`
   records, so the invariant survives a session restart with no local state and no timezone
-  arithmetic. The single exception answers the opposite failure: a trigger that produced **no verdict
-  at all** is a comment that went nowhere, and refusing to send it again ends a round whose pull
-  request, diff and CI are all healthy. **The premise is what the invariant actually protects**: it
-  bars a second trigger while one of yours can still bind a verdict. Two states end that premise —
-  nothing answered, and a newer trigger taking the baseline — and **only the first is recovered inside
-  the run**. The second aborts, because an abort is a stop and because a lost baseline usually means a
+  arithmetic. **Two firings at an unchanged HEAD are nonetheless correct, and they belong to different
+  runs.** The in-run exception answers the opposite failure: a trigger for which this run classified
+  **no verdict at all** is, so far as this run can tell, a comment that went nowhere, and refusing to
+  send it again ends a round whose pull request, diff and CI are all healthy. The other is the
+  lost-baseline re-take below, which no run performs for itself. **The premise is what the invariant
+  actually protects**: it bars a second trigger while one of yours can still bind a verdict. Two
+  states end that premise — no verdict of yours classified, and a newer trigger taking the baseline —
+  and **only the first is recovered inside the run**. The second aborts, because an abort is a stop
+  and because a lost baseline usually means a
   person is driving the pull request by hand; a later run re-takes it with an ordinary trigger once it
   can establish the baseline is foreign, which a `pending` line alone cannot. Step 7
   states the five conditions. The bound is **one re-post
@@ -1087,8 +1094,9 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   round's. What is _not_ a hazard is a review racing a
   clean comment — the fence returns a review whenever one exists and demotes the comment to `EXTRA=`,
   so a clean comment cannot outrank findings that arrived in the same round.
-- **Exceeding `--timeout` must always terminate, and the re-post is carved out of that abort rather
-  than standing beside it.** Written as several conditional aborts it leaves a hole, and the first
+- **Exceeding `--timeout` always terminates the attempt, and the re-post is carved out of that abort
+  rather than standing beside it — so a round ends in at most two attempts and never continues
+  indefinitely.** Written as several conditional aborts it leaves a hole, and the first
   draft had one: with a newer hand-typed trigger on the pull request, every later `pending` fails the
   `SINCE` reconciliation, which is a "continue" — while the re-post is blocked by that same
   reconciliation and the `timeout-before-retry` abort no longer applies, because the three-chunk floor
@@ -1234,8 +1242,10 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
 ## Unexercised paths
 
 Claims in this file are separated into what has been observed and what has not. The following branches
-have never been reached against live data. All of them fail closed — toward `retry`, `timeout`, or an
-abort, never toward a wrong merge — but **there is no guarantee they classify correctly**. A round that
+have never been reached against live data. **All but the last fail closed** — toward `retry`,
+`timeout`, or an abort, never toward a wrong merge — but **there is no guarantee they classify
+correctly**. The exception is the trigger re-post: `## Notes` shows it can finish a round clean over an
+orphaned abort-class signal, and its entry below repeats that. A round that
 takes one of these should say so in the report:
 
 - `VERDICT=reaction` — every measured trigger carried zero reactions, so this has never fired.
