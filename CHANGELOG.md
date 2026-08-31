@@ -7,7 +7,7 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
-## [Unreleased]
+## [0.4.0] - 2026-08-31
 
 **No fence changed, so nothing here asks anything of you.** The three shell fences in
 [`commands/review-loop.md`](commands/review-loop.md) are byte-identical to 0.3.0 and still match the
@@ -42,12 +42,12 @@ Added:
 
   **The floor is three chunks — 24 minutes — and it is deliberately not a fraction of `--timeout`.**
   Deriving it from the flag was the first design and it is wrong: `--timeout 8m` would then re-post
-  from inside codex's measured 2:53–10:07 range, which is the runaway the invariant exists to prevent,
+  from inside codex's measured 2:46–10:07 range, which is the runaway the invariant exists to prevent,
   reachable by typing a flag. A fixed floor in the unit the caller already counts cannot be pushed
   below the measured ceiling by any flag value. Twenty-four minutes is about 2.4× the widest verdict
-  ever measured, which leaves headroom on a card that records **every sample so far widening both
-  ends**. Below the floor there is no re-post and the round aborts exactly as it did before, under a
-  new reason, `timeout-before-retry`, that says so rather than blaming slowness.
+  ever measured, which leaves headroom on a card that records **every sample so far widening that
+  range at one end or both**. Below the floor there is no re-post and the round aborts exactly as it
+  did before, under a new reason, `timeout-before-retry`, that says so rather than blaming slowness.
 
   **The direction is the safety argument.** A re-post moves the baseline **forward**, so it can only
   reach the too-new row of the table in [`docs/design-notes.md`](docs/design-notes.md) — a verdict that
@@ -1176,6 +1176,7 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.4.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.4.0
 [0.3.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.3.0
 [0.2.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.2.0
 [0.1.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.1.0
