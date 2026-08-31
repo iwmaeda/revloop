@@ -381,7 +381,9 @@ Fixed:
   foreign-baseline retry instead of onto its own row; it is now scoped to the four forms that carry
   one. **(2)** The fence takes every review that is not `DISMISSED` and then drops the state from its
   output, and step 10 repeated the same rule — which admits a `PENDING` draft, a review with no
-  findings and no `submitted_at`. Step 10 now excludes `PENDING` explicitly. **(3)** "A clean comment
+  findings and no `submitted_at`. Step 10 excluded `PENDING` explicitly at this point — **superseded
+  two entries below**, where excluding it in the selection turned out to drop the very review whose
+  state should stop the round; step 10 now keeps it and lets the state table abort. **(3)** "A clean comment
   cannot outrank findings that arrived in the same round" was stated in the procedure and in this
   changelog, but the fence selects reviews with `$2>t`, so **a review sharing the trigger's own second
   is not selected at all** and a later clean comment wins the round. The trigger selection solves that
@@ -458,6 +460,15 @@ Fixed:
   `PENDING` review has no `submitted_at`, so the "at or after this round's first trigger" bound
   discards it too. The bound now applies only to reviews that have a timestamp, and a review by the
   reviewer at HEAD with none is a draft that aborts. No fence changed.
+
+- **One copy of the superseded `PENDING` rule was left in `## Notes`.** The entry above changed step
+  10 from excluding a draft review to keeping it and letting the state table abort; the note
+  describing the same gap still read "step 10's own read excludes those explicitly". Following that
+  copy reinstates the defect the entry above fixed — on a two-trigger round whose second trigger
+  returns clean, the stopping review is dropped from the sweep and `--auto --merge` proceeds. The note
+  now says keep, says why a selection that drops the stopping review defeats the stop, and records
+  that its own earlier wording was the last instance of that mistake. **This was round 20, the run's
+  cap: the fix is committed but no review round has seen it.** No fence changed.
 
 Changed:
 

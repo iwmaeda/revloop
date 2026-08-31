@@ -1215,8 +1215,11 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   collision with a `databaseId` tie-break and the review selection has no equivalent, so **this is a
   known gap rather than a covered case** — closing it is a fence edit, and therefore one re-approval
   for every user. The `state` filter has the same shape: the fence takes every review that is not
-  `DISMISSED`, which admits a `PENDING` draft, and step 10's own read excludes those explicitly.
-  GitHub shows a pending review only to its author, so neither has been observed.
+  `DISMISSED`, which admits a `PENDING` draft — and **step 10 deliberately keeps it rather than
+  filtering it out**, letting the state table abort with `reason=draft-review`. A selection that drops
+  the review whose state should stop the round defeats the stop, which is why this note says keep and
+  not exclude; an earlier version of it said exclude and was the last copy of that mistake.
+  GitHub shows a pending review only to its author, so neither gap has been observed.
 - **Exceeding `--timeout` always terminates the attempt, and the re-post is carved out of that abort
   rather than standing beside it — so a round ends in at most two attempts and never continues
   indefinitely.** Written as several conditional aborts it leaves a hole, and the first
