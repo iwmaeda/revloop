@@ -143,8 +143,12 @@ contain that rung, the rule led the report with nothing.
 **The floor and "do not triage by the badge" are compatible, and the boundary between them is where
 the flag is safe.** [`../reviewers/codex.md`](../reviewers/codex.md) derives that instruction from a
 measurement: the severity mix moves per pull request, so the badge cannot tell you what is worth
-reading. The floor never decides what to read. Every finding is fetched, classified, replied to, and
-listed whatever its rung; the floor decides only **when the loop may stop**. A version that skipped
+reading. The floor never decides what to read. Every finding is fetched, classified, recorded, and
+listed whatever its rung; the floor decides only **when the loop may stop**. **"Recorded" is the
+loop-agnostic word and it is deliberate**: a reply is where the pull-request loop puts it, and the
+local loop has no pull request to reply to, so its record is the commit's `Accepted:` block and the
+report. Writing the promise as "replied to" named a mechanism only one of the two loops has, which
+left the local loop appearing to owe a reply it has nowhere to post. A version that skipped
 fetching the accepted rungs would be the thing the card forbids, and it would also be cheaper — which
 is why the rule is written down instead of left to judgement.
 

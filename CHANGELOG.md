@@ -82,12 +82,15 @@ Added:
   its own review bar while the run still reports a clean convergence. `tests/schema.test.sh` now
   rejects it in both the `defaults` block and a reviewer entry.
 
-  **Accepting is not skipping the read.** An accepted finding is still fetched, classified, replied to
-  and listed; the floor decides only when the loop may stop. That boundary is where the flag is safe,
+  **Accepting is not skipping the read.** An accepted finding is still fetched, classified, recorded
+  and listed; the floor decides only when the loop may stop. **"Recorded" rather than "replied to",
+  because only one of the two loops has anywhere to reply**: the pull-request loop answers each
+  acceptance in a reply, and the local loop writes the same rung-and-floor pair into the commit's
+  `Accepted:` block and the report. That boundary is where the flag is safe,
   because `reviewers/codex.md` says outright **not to triage by the badge** — it measured one pull
   request returning 15 of 15 at P2 and another 15 of 15 at P1 — and a version of this flag that
   skipped fetching the accepted rungs would be exactly what that card forbids, and cheaper, which is
-  why the rule is written into the procedure rather than left to judgement. The reply for an
+  why the rule is written into the procedure rather than left to judgement. The record for an
   acceptance is required to name the rung and the floor, so that it cannot read like a decline: a
   decline asserts the finding is wrong and carries a citation, an acceptance concedes it is right and
   unfixed, and the reader deciding whether to merge cannot recover the difference afterwards.
@@ -144,11 +147,46 @@ Added:
   acceptance floor, when the floor is only allowed to bound _stopping_. A review consisting entirely
   of acceptable findings took the clean row straight to the report before step 8 had assigned a single
   `accepted` bucket — so the run announced a clean convergence over findings the reviewer raised, the
-  command parsed, and nobody classified or replied to. That is the exact claim `--accept-at` is sold
+  command parsed, and nobody classified or recorded. That is the exact claim `--accept-at` is sold
   on ("accepting is not skipping the read"), broken in the one case where accepting is the whole
   round. A finding reaching the report with no bucket is **accepted by nothing but its absence from
   the fixed list**, which is the distinction the acceptance reply exists to preserve. A genuinely
   clean round is unaffected: it takes the new first row and reaches step 9 as before.
+
+- **`--max-rounds` is checked where a round is opened — step 7 remotely, step 5 locally — and is
+  decided from no verdict at all.** Three placements were tried and the first two are recorded here
+  because each looked like the fix for the last. As the decision table's **last** row it was
+  unreachable, since every ordinary verdict matched something above it. As the **first** row it
+  aborts a round that came back clean on exactly the round the operator budgeted for, because the cap
+  aborts a loop that _has not converged_. As a **rule over the row's outcome** it still fails in both
+  directions: a `review` row says "go and read the findings", not "the loop has not converged", so
+  capping it rejects a valid final round — and a clean comment or a reaction is waved through, while
+  on a two-trigger round the mandatory step 10 sweep can then surface blocking findings and open the
+  next round past the cap. **The cap is not a property of a verdict**, which is why no position in
+  either table was ever going to be right. Deciding it where the round opens also costs nothing when
+  it fires: the wait, the trigger and the reviewer's quota are all still unspent.
+
+- **A verdict line carrying `marker_head=none` reaches the lost-baseline row instead of being
+  demoted to `pending`.** Step 8 reconciles a mismatched `trigger=` by treating every form as
+  `pending`, and step 7 states that a verdict line is the **only** positive evidence that the
+  baseline is foreign — precisely because it carries `marker_head=` where a `pending` line carries
+  nothing. So the reconciliation destroyed the one signal the recovery is defined in terms of. The
+  ordinary way to lose a baseline is a newer hand-typed trigger, which produces exactly the shape the
+  carve-out is for: `trigger=` not yours **and** `marker_head=none`. Without it that became three
+  mismatches and `reason=foreign-baseline`, which promises no recovery, while the `marker_head=none`
+  row — which promises a later run re-takes the baseline — was unreachable for its commonest cause,
+  in spite of two places saying it takes precedence.
+
+- **The `requiresPr` confirmation defers to the single stop, which previously only the `skill` half
+  did.** Fixing one of a promised pair is not fixing the pair: a reviewer that is `skill`-invoked
+  _and_ sets `requiresPr` is the case the "one stop" promise exists for, and it was the case that
+  still stopped twice. The shipped `ecc-review-pr` preset is both.
+
+- **The acceptance promise says "recorded" rather than "replied to", in all five places that made
+  it.** A reply is a mechanism only the pull-request loop has; the local loop opens none, so the
+  wording left it owing a reply it has nowhere to post. Its record is the commit's `Accepted:` block
+  and the report, and step 8 now states the obligation where the bucket is assigned rather than only
+  at step 4 — a record owed at one step and described at another is a record nobody writes.
 
 - **Both decision tables say how they are read, and their guards sit where first-match reading
   reaches them.** Neither table stated that the first matching row wins, and both were written with

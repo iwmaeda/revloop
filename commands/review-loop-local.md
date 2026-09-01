@@ -160,15 +160,23 @@ guess and is recorded as one; see `## Unexercised paths`.
 
    - **If no verify commands were configured or detected**, ask before continuing, and record "no
      verification ran" in the final report.
-   - **If the resolved reviewer's `requiresPr` is true, say so and take confirmation that the branch
-     already has an open pull request. Do not abort, and do not try to check.** The reviewer resolves
+   - **If the resolved reviewer's `requiresPr` is true, that the branch already has an open pull
+     request has to be confirmed — carry it into the single stop above rather than taking a second
+     one here. Do not abort, and do not try to check.** The reviewer resolves
      the pull request itself, inside its own invocation; this command has no `gh` grant and cannot
      see one, so the only two honest positions are to refuse the reviewer outright or to ask. It
      asks, because refusing would make a shipped preset unreachable on a branch where it works.
+     **This bullet does not take its own confirmation, for the same reason the `skill` one does not,
+     and leaving only one of the two deferred was a half-fix.** The bullet above promises the two are
+     **one** stop; a reviewer that is `skill`-invoked _and_ sets `requiresPr` is the case that promise
+     is about, and it is precisely the case that stopped twice while one bullet still asked on its
+     own. The shipped `ecc-review-pr` preset is both.
+
      **What follows from not being able to check is a rule in step 7, not one here**: for such a
      reviewer, a review returning **zero findings is never a clean round**. With no target it returns
      nothing, and with a clean diff it also returns nothing, and neither this command nor the
      reviewer can tell you which.
+
    - **If `--accept-at` was passed and the resolved reviewer has no `severityLevels`, abort with
      `reason=no-severity-ladder`.** Do not rank the findings yourself to supply one. **You are the
      party obliged to fix them**, so a ladder you author is a ladder you can author your way out of
@@ -218,7 +226,15 @@ guess and is recorded as one; see `## Unexercised paths`.
    edit is a change the reviewer may or may not have read depending on how it resolved its target —
    which makes a finding's absence uninterpretable.
 
-5. Run the review. **Do not run it if `HEAD` is unchanged since the last review of this run and the
+5. Run the review. **First check `--max-rounds`: if this would be round N+1 and N rounds have run,
+   abort with `reason=max-rounds` and run nothing.** This is the only place a round is opened, so it
+   is the only place the cap can be applied without guessing whether the round converged — step 7's
+   rows say what to do next, not whether the loop is done, and a clean review at the cap is a
+   convergence rather than a failure. It is also the cheapest place to stop: the reviewer has not
+   been invoked, so the tokens the cap exists to bound are still unspent. **Step 8's return to step 3
+   is subject to this**, because that path arrives back here and is stopped by the same check.
+
+   **Then: do not run it if `HEAD` is unchanged since the last review of this run and the
    tree is clean** — the local form of the runaway invariant:
 
    ```bash
@@ -329,16 +345,16 @@ guess and is recorded as one; see `## Unexercised paths`.
    `unconfirmed-empty-review` row said in its own prose that it takes precedence over the clean row
    while sitting below it, where first-match reading never reached it.
 
-   **`--max-rounds` is applied to the verdict rather than sitting in the table at all, and that is
-   not the same fix.** It was written as the last row, where every ordinary round matched something
-   above it, so **the only brake this loop has never engaged**. Moving it to the top is the obvious
-   correction and it is wrong: the cap says to abort if the loop **has not converged** in that many
-   rounds, so a first row would abort a round that came back clean on exactly the round the operator
-   budgeted for, reporting a converged run as a failure. The rule instead: **read the table, and if
-   the row it lands on says _continue_ while the cap is reached, abort with `--max-rounds` as the
-   reason.** A clean finish at the cap is a convergence. The cap is not a signal the reviewer
-   produces; it is a condition on what the signal is allowed to mean, and a row is the wrong shape
-   for it in either position.
+   **`--max-rounds` is not decided here and is not a row below. It is checked in step 5**, where a
+   round is opened. It was written as this table's last row, where every ordinary round matched
+   something above it, so **the only brake this loop has never engaged**. Moving it to the top is the
+   obvious correction and is wrong — the cap aborts a loop that **has not converged**, so a first row
+   aborts a round that came back clean on exactly the round the operator budgeted for. Making it a
+   rule over the row's outcome is wrong for a subtler reason and was this file's third attempt: the
+   rows here say what to do next, not whether the round converged, and a round is only known to have
+   converged after step 8 has bucketed everything. **The cap is not a property of a verdict**, so no
+   position in this table is the right one; step 5 is, because that is where a round begins and where
+   nothing has been spent yet.
 
    | Signal                                                    | Verdict                                | Next action                                                                              |
    | --------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -363,8 +379,10 @@ guess and is recorded as one; see `## Unexercised paths`.
    `--accept-at` honest.** Written as one row it sent a review consisting entirely of acceptable
    findings straight to the report, before step 8 had assigned a single `accepted` bucket — so the
    run announced a clean convergence over findings the reviewer had raised, this command had parsed,
-   and nobody had classified or replied to. The release's own claim for the flag is that an accepted
-   finding is still fetched, classified, replied to and listed; only the second row makes that true.
+   and nobody had classified or recorded. The release's own claim for the flag is that an accepted
+   finding is still fetched, classified, recorded and listed — **recorded rather than replied to,
+   because this loop opens no pull request and its record is the commit's `Accepted:` block and the
+   report** — and only the second row makes that true.
    It costs nothing on a genuinely clean round, which reaches 9 exactly as before once the three
    abort rows above it have not matched, and step 8's existing fall-through carries the second one
    there once the buckets are assigned.
@@ -409,7 +427,11 @@ guess and is recorded as one; see `## Unexercised paths`.
    buys another round. A cheap round is still a round, and ten of them cost what nobody budgeted.
 
    Sort each finding into **will fix / already fixed / declining the suggestion / accepted**, with
-   the fourth available only under `--accept-at` and only at or below the floor. Record the
+   the fourth available only under `--accept-at` and only at or below the floor. **An acceptance owes
+   a record naming the rung and the floor**, exactly as a decline owes a citation — step 4's
+   `Accepted:` block is where it goes, and the report carries the last round's, which no commit
+   reaches. The obligation is stated here as well as there because this is where the bucket is
+   assigned, and a record owed at one step and described at another is a record nobody writes. Record the
    fingerprint of every finding you answer, in whichever bucket — **that record is what makes step 6
    able to recognise a repeat**, and a bucket left out of it produces a finding that is re-reasoned
    every single round.

@@ -94,7 +94,11 @@ the local cap — which is the only brake that loop has. Both caps stay settable
 
 ## What is deliberately not configurable
 
-A key that can only hold the value it already has is a promise, not a setting. These are fixed:
+A key that can only hold the value it already has is a promise, not a setting. These are fixed.
+**Most of them name machinery only the pull-request loop has** — a merge fence, a wait fence, trigger
+markers, a retry budget — and are listed here rather than in a per-loop section because the reason
+they are fixed is the same in each case. `--merge`, `--auto` and `--accept-at` are the rows that bind
+both loops:
 
 | Not a key                                  | Why                                                                                                                                                                                                                                                                           |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -126,8 +130,11 @@ resolved reviewer's `severityLevels`, read most severe first, so on a `["P1","P2
 | With `--merge` and `--auto` together           | **Abort** (`unreviewed-accept-merge`)                                        |
 | With `--merge` alone, having accepted anything | Stop for confirmation, listing every accepted finding, before the CI wait    |
 
-**An accepted finding is still read, still replied to, and still listed in the report.** The flag
-decides when the loop may stop, never what it may skip reading. Why that boundary is where the flag is
+**An accepted finding is still read, still recorded, and still listed in the report.** The flag
+decides when the loop may stop, never what it may skip reading. **Where the record goes differs by
+loop, because only one of them has somewhere to reply**: the pull-request loop answers each accepted
+finding in a reply naming the rung and the floor, and the local loop, which opens no pull request,
+writes the same pair into the commit's `Accepted:` block and the report. Why that boundary is where the flag is
 safe, and why the loop refuses to invent a ladder for a reviewer that emits none, are in
 [design-notes.md](design-notes.md#the-acceptance-floor).
 

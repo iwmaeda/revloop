@@ -391,6 +391,17 @@ that instruction coexist.
    and `v` stayed at `1`. Spending the version signal on an additive change would teach the next reader
    that `v` moves for anything, which makes a genuinely breaking change indistinguishable.
 
+   **`--max-rounds` is checked here, against that number, before anything is posted.** This is the
+   only place a round is opened, so it is the only place the cap can be applied without guessing
+   whether the round converged: **if the round number you are about to write exceeds `--max-rounds`,
+   abort with `reason=max-rounds` and post nothing.** Do not merge. The cap was previously decided
+   from step 9's verdict, which cannot work in either direction — a `review` there means "go and read
+   the findings", so capping it aborts a round that turned out to be clean, while a clean comment or
+   a reaction is waved through and its two-trigger sweep can still open the next round. Deciding it
+   here also costs nothing when it fires: the wait, the trigger and the reviewer's budget are all
+   still unspent. **Step 11's return to step 3 is subject to this**, because that path reaches step 7
+   again and is stopped by the same check.
+
    **The round number is the count of the markers already on this PR that opened a round, plus one**
    — every `revloop:trigger` marker with no whitespace-separated token whose key is exactly `attempt`,
    since a marker that has one is a re-post of a round already open. **Read the key, do not search the
@@ -729,8 +740,19 @@ that instruction coexist.
    differ, the fence latched onto a trigger that is not this round's — usually because GitHub has not
    yet surfaced yours, sometimes because a newer one was posted. **The output is not this round's
    verdict whatever form it took**: do not adopt a `review`, a `comment` or a `reaction` that a
-   different trigger anchored, and never let a `pending` of this kind authorise a re-post. Treat all
-   four as `pending` and let step 9's `pending` rows decide what happens next.
+   different trigger anchored, and never let a `pending` of this kind authorise a re-post. Treat them
+   as `pending` and let step 9's `pending` rows decide what happens next.
+
+   **One exception, and without it the lost-baseline recovery this procedure promises cannot be
+   reached at all: a verdict line carrying `marker_head=none` goes to step 9's lost-baseline row, not
+   to `pending`.** Step 7 states that a verdict line is the **only** positive evidence that the
+   baseline is foreign, precisely because it carries `marker_head=` where a `pending` line carries
+   nothing — so demoting it to `pending` destroys the one signal the recovery is defined in terms of.
+   The ordinary way to lose a baseline is a newer hand-typed trigger, and that produces exactly this
+   shape: `trigger=` is not your `SINCE` **and** `marker_head=none`. Reconciled without the carve-out
+   it became three mismatches and `reason=foreign-baseline`, which promises no recovery, while the
+   `marker_head=none` row — which promises a later run re-takes the baseline — was unreachable for
+   its own commonest cause, despite both this step and step 9 saying it takes precedence.
 
    **The re-fire is bounded at two, and the bound counts consecutive results rather than the clock.**
    The two shapes of mismatch cost different things, and the bound is written to hold for both. A
@@ -832,15 +854,16 @@ that instruction coexist.
    of the same comment and swallowed it, aborting with a reason that sent the reader looking for an
    unknown bot instead of a known interim comment.
 
-   **The round cap is applied to the verdict, not ahead of it — which is why it is a rule here and
-   not a row below.** `--max-rounds` says to abort if the loop **has not converged** within that many
-   rounds, so: read the table, and if the row it lands on says _continue_ while the cap is reached,
-   abort instead with `--max-rounds` as the reason. **A round that finishes clean at the cap has
-   converged and is not an abort.** Written instead as the table's last row it was unreachable —
-   every verdict matched something above it — and written as the table's first row it would have been
-   worse, because it would abort the clean verdict that ends the run successfully on exactly the round
-   the operator budgeted for. Neither position works, because the cap is not a signal the fence
-   emits; it is a condition on what the signal is allowed to mean.
+   **`--max-rounds` is not decided here, and no row below carries it.** The cap belongs to step 7,
+   where a round is opened, and the reason is that **nothing at this step yet knows whether the round
+   converged.** The `review` rows say "continue" meaning "go and read the findings", not "the loop has
+   not converged" — a review with no findings is a convergence, and step 10 is the first place that is
+   known. A cap applied to a row here therefore aborts a clean review on exactly the round the
+   operator budgeted for. The clean-comment and `reaction` rows fail in the other direction: they say
+   finish, so a cap here waves them through, and on a two-trigger round their mandatory step 10 sweep
+   can then surface blocking findings and open round N+1 past the cap. **The cap is not a property of
+   a verdict at all**, which is why it was wrong as this table's last row, wrong as its first, and
+   wrong as a rule over its outcome.
 
    **Read `EXTRA=` before deciding from the primary line, not after.** It used to be a row of its
    own saying "follow the above — rate limit takes precedence", which is a rule about precedence
