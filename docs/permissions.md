@@ -7,6 +7,13 @@ so the unit is a mode plus the holes you open in it.
 This page is what to grant. Why the rules are shaped this way is in
 [`design-notes.md`](design-notes.md#permission-rules-and-fence-bytes).
 
+**Which rules you need depends on which command you run.** `/revloop:review-loop` talks to GitHub and
+needs the whole list below. **No step of `/revloop:review-loop-local` calls `gh`** — it ends at a
+commit — and its `allowed-tools` grants `Bash(git:*)` and nothing else, so none of the `gh` rules
+below are needed for the procedure itself. **A reviewer you point it at may still reach GitHub**: the
+shipped `ecc-review-pr` preset resolves a pull request through `gh`, and a `skill`-invoked reviewer
+does that inside this session under the grants this session already has.
+
 ## Claude Code: the rules to grant
 
 Put these in `.claude/settings.local.json` (per-developer, git-ignored) or `.claude/settings.json`
@@ -58,34 +65,42 @@ If that is not enough, grant subcommands individually — `Bash(git status:*)`, 
 extending the first time a step reaches for something not on it. Nobody has measured which
 repositories need which subset.
 
-**`tests/permissions.test.sh` keeps this list in step with the procedure**, in both directions and
-for both halves: every git subcommand and every `gh api` prefix appearing in a fenced `bash` block
-must be granted here, and every rule granted here must be used by one.
-
-An earlier round declined to test this at all, on the grounds that a grep for `git <word>` over
-`commands/review-loop.md` cannot tell a command from prose — the file says "makes git set the
-upstream" and names `git show HEAD` twice in order to forbid it. **That reason was wrong**: runnable
-commands live in fenced blocks and prose does not, so extracting from the blocks alone yields neither
-`set` nor `show` and needs no exclusion list. The list had already drifted three times by then
-(`switch`, `fetch`, `ls-files`), which is what the test would have caught.
-
-**The check runs in both directions**, because there are no prose-prescribed commands left to make it
-one-way. `git add` and `git commit` used to live in step 4's paragraph and `git fetch` in step 9's
-table, invisible to any scan of the blocks; three assertions named them by hand, which was a stand-in
-rather than a check. They are written in blocks now — step 4 told you to stage explicitly and never
-showed the command, and step 9 buried its recovery in a table cell, so both were improvements on
-their own. With the sets equal, **a granted rule no block uses fails too**: it is a permission
-nobody needs and a sign the two have drifted.
-
-The `gh api` half compares the **whole** prefix, scoped path included. Matching only the verb let
-`gh api -X PATCH "users/example"` reduce to `-X PATCH`, which is granted, while
-`Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` would not authorize that call at all.
+**`tests/permissions.test.sh` keeps this list in step with the procedures, in both directions**: every
+git subcommand and every `gh api` prefix appearing in a fenced `bash` block must be granted here, and
+every rule granted here must be used by one. So a drifted list fails the suite rather than a user's
+run — and an unused grant fails too, because it is a permission nobody needs. The `gh api` half
+compares the **whole** prefix, scoped path included; matching only the verb would let an off-scope
+call reduce to a rule that was never meant to authorize it.
 
 ### Verify commands are not pre-approved
 
 `.revloop.json` supplies the verify commands, so they are repository-supplied strings. Listing them in
 `allowed-tools` would pre-approve whatever a cloned repository puts there. They are excluded so the
 permission system always sees them, and step 1 prints them before anything runs.
+
+### Nor is a local reviewer's command
+
+The same rule for the string a `local-command` reviewer runs: it comes out of `.revloop.json`, it is
+absent from the local command's `allowed-tools`, and step 1 prints it before the first round. **It is
+deliberately not a fence** — a fence's "always allow" holds because its text never changes, and a
+review invocation varies by reviewer and by depth. The cost is a prompt per round, which is the
+correct price for the one string a local run is most about.
+
+**With `invoke: "skill"` there is no prompt, because there is no command string to match.** The
+`allowed-tools` line grants the `Skill` tool as a whole, and **granting a tool is not granting one
+argument to it**. Step 1 therefore stops and shows the resolved command before the first round on that
+path, and **`--auto` does not suppress that stop** — a substitute for a permission prompt that a flag
+can delete is not a substitute. If you would rather have the prompt, configure the reviewer as a
+subprocess.
+
+**A `subprocess` command may not begin with `git`**, and the schema rejects one that does. The local
+command grants `Bash(git:*)` for its own probe, and a rule matches a prefix, so such a command would
+run with no prompt at all — see [`../SECURITY.md`](../SECURITY.md#repository-supplied-configuration-is-untrusted).
+
+**That covers a longer name too**, because the rule above is the one being applied: the matcher
+compares strings, so `gitlint`, `git-review` and `git.exe` each start with the granted prefix however
+different a binary the shell would run. A review command named that way has to be configured as a
+`skill`, which no `Bash` rule matches, or renamed.
 
 ## Codex: approval policy and sandbox
 
@@ -131,30 +146,23 @@ same trade in a different shape. To widen the writable set without removing the 
 
 ### What was measured, and what was not
 
-| Claim                                                   | Status                                                         |
-| ------------------------------------------------------- | -------------------------------------------------------------- |
-| The flag names, config keys, and their accepted values  | **verified** — `codex-cli 0.147.0`, 2026-08                    |
-| A `workspace-write` sandbox commonly denies the network | **derived** — the setting exists; the default was not read out |
-| This configuration carries the loop start to finish     | **unverified** — never driven against a live pull request      |
-
-Verified means the names and value sets were read out of the installed binary's `--help` and embedded
-strings, not from vendor documentation, and each override confirmed accepted. The third row is the one
-that matters: this is the shape of the problem and a starting point, not a recipe someone drove end to
-end. If you drive it successfully, this section is worth a pull request. `codex --help` outranks this
-file whenever the two disagree.
+The flag names, config keys and accepted values above were read out of an installed Codex build rather
+than from vendor documentation. **What nobody has done is drive the loop end to end under this
+configuration** — it is the shape of the problem and a starting point, not a recipe. If you drive it
+successfully, this section is worth a pull request. `codex --help` outranks this file whenever the two
+disagree.
 
 ## Counting the prompts
 
-The install should reach zero prompts per round after the first approval, because every fence takes no
-arguments and so has a permanently identical command string.
+After the first approval the remote loop should reach zero prompts per round, because every fence
+takes no arguments and so has a permanently identical command string. **A local run is different by
+design**: its review command is prompted for every round, as `verify` is.
 
-Editing a fence therefore costs every user one re-approval. That is deliberate: the prompt is how you
-learn the bytes you granted standing permission to have changed. CI enforces it by comparing each
-fence against `tests/fence-hashes.txt`; recording a new hash is a separate, deliberate step documented
-in [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
+Editing a fence costs every user one re-approval; the protocol is in
+[`../CONTRIBUTING.md`](../CONTRIBUTING.md#editing-a-shell-fence).
 
-If your install does not reach zero prompts, that is a bug worth reporting — include the prompt text
-and the rule you granted.
+If your install does not reach zero prompts on a remote run, that is a bug worth reporting — include
+the prompt text and the rule you granted.
 
 ## Related docs
 

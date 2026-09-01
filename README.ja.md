@@ -5,11 +5,20 @@
 
 [English](README.md) ・ 日本語
 
-AI による PR のレビューと修正のループを収束するまで繰り返すワークフローをワンコマンドで実現する Claude Code / Codex 対応プラグインです。レビューのループ回数の増加を防止するフェンス機構を整備し、処理時間やトークン消費を抑えるように動作します。
+AI によるレビューと修正のループを収束するまで繰り返すワークフローを実現する Claude Code / Codex 対応プラグインです。レビューのループ回数の増加を防止するフェンス機構を整備し、処理時間やトークン消費を抑えるように設計されています。
 
-**revloop は、レビュアーが既に応答することを前提にします。** 選択したレビュアー
+コマンドは以下の2種が利用可能です。
+
+- `/revloop:review-loop`: リモート動作。レビュアー bot を GitHub 上で呼び出す。
+- `/revloop:review-loop-local`: ローカル動作。Claude Code 上で動作するレビューコマンドを利用する。
+
+**リモート動作のループは、レビュアーが既に応答することを前提にします。** 選択したレビュアー
 （codex・claude・gemini・カスタムのいずれか）の GitHub 連携がリポジトリにインストール済みで、
 コメントに応答する状態になっている必要があります。
+
+**ローカル動作のループは、Github 上のコメント欄にはアクセスしません。** また、ローカルの
+レビュアーはコードを書いたモデルと同一である場合があり、効果的な第三者レビューが実現できない
+場合があります。詳細は [`docs/design-notes.md`](docs/design-notes.md) を参照してください。
 
 基本的な実行コマンドは以下の通りです。
 
@@ -17,6 +26,9 @@ AI による PR のレビューと修正のループを収束するまで繰り�
 /revloop:review-loop
 /revloop:review-loop --reviewer gemini --max-rounds 15
 /revloop:review-loop --merge --auto
+
+/revloop:review-loop-local
+/revloop:review-loop-local --reviewer ecc-review-pr --accept-at HIGH
 ```
 
 ## 動作の流れ
@@ -36,20 +48,12 @@ AI による PR のレビューと修正のループを収束するまで繰り�
 1 件でも修正を行った場合はステップ 11 からステップ 3に戻り、次のラウンドが始まります。
 `--auto` オプションを設定することで、2つの停止点で止まらずに自動でループを続行できます。
 
-**大規模な変更を含む PR に対しては、レビュー待ちで数十分待機する場合もあります。**
-3 本の PR の連続 27 ラウンドでは、codex のレビューは **3 分弱〜10 分** で返ってきました。これまでの計測はいずれも範囲の上端か下端、あるいは両方を広げているため、目安として扱ってください ([`reviewers/codex.md`](reviewers/codex.md)、2026-08)。
+待ち時間の目安は、選んだレビュアーの[カード](reviewers/)に計測値として記録しています。API の
+利用制限等によりレビューが失敗した場合、ループは abort します。
 
-API の利用制限等によりレビューが失敗した場合はループは abort されます。
-
-**`--timeout` の全体にわたって、かつ 24 分以上、ループが判定できる応答が 1 件も返ってこない場合、ループは abort する前にトリガーをもう一度だけ投稿します**
-(既定の `--timeout` は 30 分なので両方を満たします)。そのため 1 ラウンドに対して `@codex review` のコメントが 2 件並ぶことがあります。
-両方の条件が必要です。24 分より前に待機が終わるほど `--timeout` が短い場合、ループは従来どおり abort し、再投稿は行いません。
-再投稿は判定できた応答が 1 件もないときだけ行われ、気に入らない応答が返ってきたときには行われません。1 ラウンドにつき 1 回までです。
-
-**「判定できなかった」ことは「何も送られてこなかった」ことの証明ではありません。** 待機の最後のポーリングと
-再投稿の間に届いた信号は取りこぼされます。コメント系の 2 つのクラスではこれは実質的な後退で、従来なら abort
-していたラウンドが clean で終了することがあります。再投稿を行ったラウンドはレポートにその旨を記載しますので、
-マージ前にプルリクエストを確認してください。
+判定できる応答が返らないまま待機の上限に達した場合、ループは abort する前にトリガーを 1 回だけ
+再投稿します。そのため 1 ラウンドに対してレビュー依頼のコメントが 2 件並ぶことがあります。発動条件と、
+それが安全である理由は [`docs/design-notes.md`](docs/design-notes.md) に記載しています。
 
 ## 導入
 
@@ -124,13 +128,25 @@ maxRounds        10                                 builtin
 }
 ```
 
+## 過剰なループの防止
+
+**LLM によるコードレビューでは些細な指摘が延々と出力されがちです。** そのような指摘によりループが不必要に長期化することを防ぐため、`--accept-at <level>` オプションが用意されています。
+
+```console
+/revloop:review-loop-local --reviewer ecc-review-pr --accept-at HIGH   # CRITICAL だけがブロックする
+```
+
+`--accept-at <level>` フラグで**未修正のまま残してよい最上位の深刻度（severityLevels）**を指定します。それより深刻度の高い指摘がすべて修正された時点でループは収束可能となります。
+
 ## 対応済みレビュアー
 
-| プリセット | トリガー                      | ステータス |
-| ---------- | ----------------------------- | ---------- |
-| `codex`    | `@codex review`               | verified   |
-| `gemini`   | `@gemini review` (カード参照) | verified   |
-| `claude`   | `@claude review`              | unverified |
+| プリセット      | 種別             | トリガー / コマンド               | ステータス |
+| --------------- | ---------------- | --------------------------------- | ---------- |
+| `codex`         | `github-comment` | `@codex review`                   | verified   |
+| `gemini`        | `github-comment` | `@gemini review` (カード参照)     | verified   |
+| `claude`        | `github-comment` | `@claude review`                  | unverified |
+| `code-review`   | `local-command`  | `claude -p "/code-review medium"` | unverified |
+| `ecc-review-pr` | `local-command`  | `ecc:review-pr`                   | unverified |
 
 各[カード](reviewers/)には計測内容・計測日時・出典が記録されています。現時点で copilot
 (reviewer request でレビュー依頼)には対応していません。
@@ -139,27 +155,28 @@ maxRounds        10                                 builtin
 
 以下の点については課題が残っています。
 
-| 制限                                   | 理由                                                                                                                           |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **fork では動かない**                  | `{owner}` が fork 側を指すのに PR は upstream にあるため、すべての呼び出しが誤ったリポジトリを指します。step 1 で abort します |
-| **同一リポジトリの topic branch のみ** | 1 ブランチにつき open PR 1 本。detached HEAD はどの PR のことか推測せず abort します                                           |
-| **マージは merge commit のみ**         | マージ用フェンスは引数を取らないのでコマンド文字列が変わりません。squash と rebase は使えません                                |
-| **`copilot` 非対応**                   | コメントによるトリガーを持たず、reviewer-request 経路は未実装です。                                                            |
+| 制限                                   | 理由                                                                                          |
+| -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **fork では動かない**                  | PR が upstream 側にあるため、誤ったリポジトリを対象としてしまいます。step 1 で abort します。 |
+| **同一リポジトリの topic branch のみ** | 1 ブランチにつき open PR 1 本が対象です。PR が同定できない場合は abort します。               |
+| **マージは merge commit のみ**         | squash と rebase は使えません。                                                               |
+| **`copilot` 非対応**                   | コメントによるトリガーを持たず、reviewer-request 経路が未実装です。                           |
+| **ローカルループは push しない**       | コミットまでで終了します。push と PR 作成は手動で行うか、リモート側のループを回してください。 |
 
 ## ドキュメント
 
-| ガイド                                                       | 内容                                                     |
-| ------------------------------------------------------------ | -------------------------------------------------------- |
-| [Install](docs/install.md)                                   | 前提、Claude Code、Codex、必要なもの、導入の確認         |
-| [Permissions](docs/permissions.md)                           | Claude Code の許可ルールと Codex の承認設定              |
-| [Configuration](docs/configuration.md)                       | `.revloop.json` のリファレンスと、無いときに検出される値 |
-| [Adding a reviewer](docs/adding-a-reviewer.md)               | 新しいレビュアーを測り、書き起こす                       |
-| [Design notes](docs/design-notes.md)                         | このループがこの形をしている理由                         |
-| [Known environment quirks](docs/known-environment-quirks.md) | 規範ではない観測。出所と日付つき                         |
-| [Contributing](CONTRIBUTING.md)                              | チェックの回し方と、フェンスを編集するときの手順         |
-| [Code of conduct](CODE_OF_CONDUCT.md)                        | Contributor Covenant 2.1                                 |
-| [Security](SECURITY.md)                                      | 脅威モデル: 信頼できない設定、信頼できないレビュアー出力 |
-| [English README](README.md)                                  | この README の英語版                                     |
+| ガイド                                                       | 内容                                             |
+| ------------------------------------------------------------ | ------------------------------------------------ |
+| [Install](docs/install.md)                                   | 前提、Claude Code、Codex、必要な作業、導入の確認 |
+| [Permissions](docs/permissions.md)                           | Claude Code の許可ルール、 Codex の承認設定      |
+| [Configuration](docs/configuration.md)                       | `.revloop.json` のリファレンス                   |
+| [Adding a reviewer](docs/adding-a-reviewer.md)               | Custom reviewer の設定方法                       |
+| [Design notes](docs/design-notes.md)                         | レビューループの設計                             |
+| [Known environment quirks](docs/known-environment-quirks.md) | 既知の制限事項やバグなど                         |
+| [Contributing](CONTRIBUTING.md)                              | チェックの実行方法、フェンス編集時の手順         |
+| [Code of conduct](CODE_OF_CONDUCT.md)                        | 開発指針                                         |
+| [Security](SECURITY.md)                                      | セキュリティ関係の留意事項                       |
+| [English README](README.md)                                  | 英語版 README                                    |
 
 ## ライセンス
 

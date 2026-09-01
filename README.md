@@ -5,56 +5,58 @@
 
 English ・ [日本語](README.ja.md)
 
-A Claude Code / Codex plugin that runs the whole AI review-and-fix loop on a pull request from one
-command, repeating it until the review converges.
+A Claude Code / Codex plugin that repeats an AI review-and-fix loop until it converges. Its fences
+keep a run from spending more rounds — and so more wall clock and more tokens — than the review
+needs.
 
-**revloop assumes a reviewer that already answers.** Whichever reviewer you select — Codex, Claude,
-Gemini, or a custom preset — its GitHub integration must already be installed on the repository and
-responding to comments.
+Two commands are available:
 
-The commands are:
+- `/revloop:review-loop` — remote. Summons a reviewer bot on GitHub.
+- `/revloop:review-loop-local` — local. Uses a review command that runs inside Claude Code.
+
+**The remote loop assumes a reviewer that already answers.** Whichever reviewer you select — Codex,
+Claude, Gemini, or a custom preset — its GitHub integration must already be installed on the
+repository and responding to comments.
+
+**The local loop never touches a GitHub comment thread.** Note also that a local reviewer may be the
+same model that wrote the code, in which case it is not an effective second opinion. See
+[`docs/design-notes.md`](docs/design-notes.md).
+
+The basic invocations are:
 
 ```console
 /revloop:review-loop
 /revloop:review-loop --reviewer gemini --max-rounds 15
 /revloop:review-loop --merge --auto
+
+/revloop:review-loop-local
+/revloop:review-loop-local --reviewer ecc-review-pr --accept-at HIGH
 ```
 
 ## How it works
 
 A run usually takes tens of minutes. **Most of that is time spent waiting for the reviewer.**
 
-| Phase       | Steps | What happens                                                                                                                  | Roughly how long             |
-| ----------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| **Resolve** | 1     | Probe the repository and build the resolved-configuration table with its `source` column                                      | seconds                      |
-| **Prepare** | 2–6   | Cut a topic branch, run verify, commit (**first stop point**), push, open the PR                                              | as long as your verify takes |
-| **Trigger** | 7     | Post the trigger comment, carrying a `revloop:trigger` marker that records the reviewer, the bot, the head sha, and the round | seconds                      |
-| **Wait**    | 8     | Poll GitHub until the verdict for _this_ trigger appears                                                                      | **minutes — see below**      |
-| **Decide**  | 9     | Classify the verdict as continue / finish / abort                                                                             | seconds                      |
-| **Fix**     | 10–11 | Read the inline findings, fix them, reply to every one                                                                        | minutes                      |
-| **Finish**  | 12    | Report the outcome; with `--merge`, wait for green CI and then merge (**second stop point**)                                  | CI-bound                     |
+| Phase       | Steps | What happens                                                                                                                  | Roughly how long        |
+| ----------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| **Resolve** | 1     | Probe the repository and build the resolved-configuration table with its `source` column                                      | seconds                 |
+| **Prepare** | 2–6   | Cut a topic branch, run verify, commit (**first stop point**), push, open the PR                                              | about 3 minutes         |
+| **Trigger** | 7     | Post the trigger comment, carrying a `revloop:trigger` marker that records the reviewer, the bot, the head sha, and the round | seconds                 |
+| **Wait**    | 8     | Poll GitHub until the verdict for _this_ trigger appears                                                                      | **minutes — see below** |
+| **Decide**  | 9     | Classify the verdict as continue / finish / abort                                                                             | seconds                 |
+| **Fix**     | 10–11 | Read the inline findings, fix them, reply to every one                                                                        | minutes                 |
+| **Finish**  | 12    | Report the outcome; with `--merge`, wait for green CI and then merge (**second stop point**)                                  | CI-bound                |
 
 If even one finding was fixed, step 11 goes back to step 3 and the next round begins. `--auto` keeps
 the loop running through both stop points instead of halting at them.
 
-**A pull request carrying a large change can sit in the wait for tens of minutes.** Across
-twenty-seven consecutive rounds on three pull requests, codex returned a verdict in **under 3 to 10
-minutes**, and every sample so far has widened that range at one end or both
-([`reviewers/codex.md`](reviewers/codex.md), 2026-08).
+How long a wait runs is recorded, as a measurement, on the [card](reviewers/) of the reviewer you
+chose. If the review fails because of a rate limit or a similar API restriction, the loop aborts.
 
-If the review fails because of a rate limit or a similar API restriction, the loop aborts.
-
-**If the reviewer returns nothing the loop can classify for a whole `--timeout` and for at least 24
-minutes — the built-in `--timeout` is 30 minutes, so both hold — the loop posts the trigger once more
-before giving up**, so a pull request can legitimately carry two `@codex review` comments for one
-round. Both conditions have to hold: with a `--timeout` short enough that the wait ends before 24
-minutes, the loop aborts as it did before and never re-posts. A trigger is only ever re-posted when
-nothing was classified, never on an answer it did not like, and never more than once per round.
-
-**"Nothing classified" is not proof that nothing was sent.** A signal arriving between the wait's last
-poll and the new trigger is orphaned, and for two of the comment classes that is a real widening: the
-round can now finish clean where it used to abort. A round that re-posts says so in its report, and
-the pull request is worth reading before it is merged.
+If the wait reaches its budget with no verdict the loop can classify, it posts the trigger once more
+before giving up — so a pull request can legitimately carry two review-request comments for one
+round. The conditions, and why re-posting is safe, are in
+[`docs/design-notes.md`](docs/design-notes.md).
 
 ## Install
 
@@ -132,42 +134,57 @@ To change any of it, or to add your own reviewer, write `.revloop.json`. The det
 }
 ```
 
+## Keeping the loop from running away
+
+**An LLM reviewing code tends to keep producing small findings.** To stop those from stretching a run
+out, there is `--accept-at <level>`.
+
+```console
+/revloop:review-loop-local --reviewer ecc-review-pr --accept-at HIGH   # only CRITICAL blocks
+```
+
+The flag names **the highest severity that may be left unfixed**, taken from the reviewer's
+`severityLevels`. Once every finding above that level is resolved, the loop may converge.
+
 ## Built-in reviewers
 
-| Preset   | Trigger                         | Status     |
-| -------- | ------------------------------- | ---------- |
-| `codex`  | `@codex review`                 | verified   |
-| `gemini` | `@gemini review` (see the card) | verified   |
-| `claude` | `@claude review`                | unverified |
+| Preset          | Kind             | Trigger or command                | Status     |
+| --------------- | ---------------- | --------------------------------- | ---------- |
+| `codex`         | `github-comment` | `@codex review`                   | verified   |
+| `gemini`        | `github-comment` | `@gemini review` (see the card)   | verified   |
+| `claude`        | `github-comment` | `@claude review`                  | unverified |
+| `code-review`   | `local-command`  | `claude -p "/code-review medium"` | unverified |
+| `ecc-review-pr` | `local-command`  | `ecc:review-pr`                   | unverified |
 
 Each [card](reviewers/) records what was measured, when, and where. copilot (which is asked for a
 review by reviewer request) is not supported at present.
 
 ## Limitations
 
-The loop is not general-purpose, and each of these is a deliberate stop rather than a rough edge:
+These are the rough edges that remain.
 
-| Limitation                        | Why                                                                                                                      |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **Forks are unsupported**         | `{owner}` resolves to your fork while the PR lives upstream, so every call addresses the wrong repository. Step 1 aborts |
-| **Same-repo topic branches only** | One open PR per branch. A detached HEAD aborts rather than guessing which PR you meant                                   |
-| **Merge commits only**            | The merge fence takes no arguments so its command string never changes. Squash and rebase are not available              |
-| **`copilot` unsupported**         | It has no comment trigger, and the reviewer-request path is not implemented.                                             |
+| Limitation                        | Why                                                                                                        |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Forks are unsupported**         | The pull request lives upstream, so calls would address the wrong repository. Step 1 aborts                |
+| **Same-repo topic branches only** | One open PR per branch. If the PR cannot be identified, the loop aborts                                    |
+| **Merge commits only**            | Squash and rebase are not available                                                                        |
+| **`copilot` unsupported**         | It has no comment trigger, and the reviewer-request path is not implemented                                |
+| **The local loop never pushes**   | It ends at a commit. Push and open the pull request yourself, or run the remote loop on the branch it left |
 
 ## Documentation
 
-| Guide                                                        | What it covers                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------- |
-| [Install](docs/install.md)                                   | Prerequisites, Claude Code, Codex, requirements, verifying it    |
-| [Permissions](docs/permissions.md)                           | Claude Code's rules to grant, and Codex's approval and sandbox   |
-| [Configuration](docs/configuration.md)                       | `.revloop.json` reference and what is detected when it is absent |
-| [Adding a reviewer](docs/adding-a-reviewer.md)               | Measuring a new reviewer and writing it up                       |
-| [Design notes](docs/design-notes.md)                         | Why the loop is shaped this way                                  |
-| [Known environment quirks](docs/known-environment-quirks.md) | Non-normative observations, attributed and dated                 |
-| [Contributing](CONTRIBUTING.md)                              | Running the checks, and the protocol for editing a fence         |
-| [Code of conduct](CODE_OF_CONDUCT.md)                        | Contributor Covenant 2.1                                         |
-| [Security](SECURITY.md)                                      | Threat model: untrusted config, untrusted reviewer output        |
-| [日本語版 README](README.ja.md)                              | This README in Japanese                                          |
+| Guide                                                        | What it covers                                                              |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| [Install](docs/install.md)                                   | Prerequisites, Claude Code, Codex, the work required, verifying the install |
+| [Permissions](docs/permissions.md)                           | Claude Code's permission rules, and Codex's approval settings               |
+| [Configuration](docs/configuration.md)                       | `.revloop.json` reference                                                   |
+| [Adding a reviewer](docs/adding-a-reviewer.md)               | How to configure a custom reviewer                                          |
+| [Design notes](docs/design-notes.md)                         | How the review loops are designed                                           |
+| [Known environment quirks](docs/known-environment-quirks.md) | Known limitations, bugs, and similar notes                                  |
+| [Contributing](CONTRIBUTING.md)                              | Running the checks, and the protocol for editing a fence                    |
+| [Code of conduct](CODE_OF_CONDUCT.md)                        | Development guidelines                                                      |
+| [Security](SECURITY.md)                                      | Security considerations                                                     |
+| [日本語版 README](README.ja.md)                              | This README in Japanese                                                     |
 
 ## License
 

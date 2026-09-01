@@ -1,22 +1,18 @@
 # Design notes
 
-Why the loop is shaped the way it is. The procedure's `## Notes` states each invariant next to the
+Why the loops are shaped the way they are. The procedures' `## Notes` state each invariant next to the
 failure that motivated it; this page covers decisions that span the whole design, and holds the
 reasoning the task guides link out to.
 
 ## Provenance
 
 revloop is the union of three independently hardened copies of the same procedure. None was best on
-its own — each had fixed bugs the others still had:
-
-- A reviewer's "no issues" phrase has a varying tail, so matching it for equality aborts clean rounds.
-- `line` is null on most inline comments (31 of 33 on one PR) while `original_line` is always present,
-  so a `line`-based reader drops nine findings in ten.
-- A failure token named `NOT_ALL_PASS` contains `ALL_PASS`, so `grep -q ALL_PASS` is true on failure.
-- A terminal exit on a non-terminal signal makes the wait loop exit on its first iteration every time
-  it is re-fired — an infinite loop that never sleeps.
-- REST returned 404 for many minutes while GraphQL served the same data, so a REST-based wait reported
-  a PR with 22 triggers as having none.
+its own — each had fixed bugs the others still had: a clean phrase matched for equality instead of as
+a prefix, a findings reader that trusted a field which is usually null, a failure token containing
+the success token as a substring, a wait loop that exited on a non-terminal signal, and a wait built
+on an endpoint that returns 404 while another serves the same data. Each of those is now a rule in
+[`../commands/review-loop.md`](../commands/review-loop.md)'s `## Notes`, stated with the failure it
+answers.
 
 The differences that were _not_ bugs became the configuration surface. `.revloop.json`'s field list is
 therefore not a guess about what people might want, but the list of what actually differed between
@@ -39,39 +35,21 @@ which is why the tempting refinement — walk back to an older trigger when no v
 rejected. It trades a liveness bug for a safety bug, and with `--auto --merge` a safety bug merges
 unreviewed code.
 
-**Posting a second trigger is the mirror of that, and it is allowed.** When a trigger's whole budget
-passes with no verdict the run could classify — `--timeout` caps one trigger, not one round — and at least three
-8-minute chunks were spent watching it, step 7 may post the trigger once more at the same HEAD. Both
-halves are required, so a `--timeout` short enough to end before the floor never re-posts at all. That moves
-the baseline **forward**, so it can only reach the too-new row of the table above — never the too-old
-one. The direction is the entire argument: the rejected refinement reaches for a verdict that is older
-than the baseline, which is how a previous round's "no issues" gets adopted, while a re-post can at
-worst drop a signal that landed in the 30-second window between the expiring chunk's last poll and the
-new comment. **A review survives that window because something recovers it, not because it was never
-lost**: step 10's two-trigger sweep reads every review by the configured reviewer at HEAD, at or after
-the round's first trigger, whether or not the fence ever named it. Neither the reviewer answering the
-second trigger nor `commit=` pinning the first is guaranteed, so neither is the reason. A comment-only
-signal has no such recovery and can be lost. The behaviour it replaces is an
-abort, which loses that signal as well and the round with it — so for a clean verdict and for a rate
-limit, both of which repeat themselves, the change spends nothing it was not already spending.
-**For the two abort-class signals it is a real widening, and this is the one cost the direction
-argument does not cover**: an unrecognized bot body and an `interim-loop` exist to stop the loop and
-hand it to a human, losing one used to end in an abort anyway, and now a clean second answer can
-finish the round and merge past it. Nothing recovers that, which is why a two-trigger round says in
-the report that a signal may have been orphaned. The bound — **one re-post per round** — is stored in
-the marker rather than in the session, for the same reason `head=` is.
+**Posting a second trigger is the mirror of that, and it is allowed.** A re-post moves the baseline
+**forward**, so it can only reach the too-new row above, never the too-old one. **The direction is the
+entire argument**: the rejected refinement reaches for a verdict older than the baseline, which is how
+a previous round's "no issues" gets adopted.
 
-**"Newest" is a computation, not a row position.** The fence's jq program builds one array from four
-generators, and array construction preserves generator order — so every compatibility row is emitted
-after every marker row, however much older it is. Taking the last row therefore selected the newest
-_hand-typed_ trigger whenever one existed at all, and on a pull request driven by hand before revloop
-was adopted those comments are permanent. That is the too-old row of the table above, reached without
-anyone choosing it: the previous round's verdict came straight back, on the first poll
-(`MIRock-jp/hippoblogs#98`, 2026-08). Trigger rows are now sorted by `createdAt`, and within one
-second by `databaseId`, before the newest is taken. What the sort enforces is that **the trigger
-posted later wins, whatever class it belongs to** — not that a marker outranks a hand-typed comment.
-Only the two selections that merge generators are sorted; the review and comment selections each read
-one generator and are already in the API's order.
+The cost is bounded but not zero. A review orphaned in the gap is recovered by step 10's two-trigger
+sweep; a comment-only signal has no such recovery, and for the two abort-class comments that is a real
+widening, which is why a two-trigger round says so in its report. The conditions, the budget, and the
+recovery are in the procedure's step 7 and step 10.
+
+**"Newest" is a computation, not a row position.** Trigger rows are sorted before the newest is taken,
+because the fence builds its array from several generators and generator order is not time order —
+taking the last row selected the newest _hand-typed_ trigger whenever one existed, which is the
+too-old row reached without anyone choosing it. What the sort enforces is that **the trigger posted
+later wins, whatever class it belongs to**.
 
 ## Why the loop marks its own triggers
 
@@ -86,32 +64,15 @@ arrived and presents as "the reviewer never responded". So the fence matches a s
 
 - **Reviewer-agnostic without widening.** A reviewer you invented gets the same exact matching the
   presets get. A preset alternation survives as a compatibility class so a hand-typed `@codex review`
-  still anchors a baseline — anchoring is all it does, and only while it is the newest trigger. Such a
-  trigger carries no `head=`, so the fence reports `marker_head=none` and step 9 aborts rather than
-  adopting the verdict.
+  still anchors a baseline — anchoring is all it does. Such a trigger carries no `head=`, so the fence
+  reports `marker_head=none` and step 9 aborts rather than adopting the verdict.
 - **`bot=` filters every other bot at fetch time.** Deploy-preview, coverage, a second reviewer — all
   discarded before classification. A bot that comments on every push satisfies the wait's exit
-  condition immediately, so the wait never waits. That was a real failure, caused by a Cloudflare
-  Pages preview bot. The two mechanisms compound in one direction: a compatibility baseline carries no
-  `bot=`, and an empty `bot=` disables the filter — so a round that lost its baseline to a hand-typed
-  comment also stopped filtering bots, and could read a foreign bot's review as the reviewer's.
-- **`head=` makes the runaway invariant checkable from GitHub alone**, with no local state a session
-  restart can destroy. It also retired a trap: the earlier derivation used `git log --date=format:`,
-  which renames a local wall-clock time to `Z` without converting it, shifting it by the UTC offset —
-  always in the direction that permits the re-trigger the invariant exists to prevent.
-  `--date=format-local:` converts; `--date=format:` does not.
-- **`attempt=` puts the re-post bound in the same place, and cost no fence edit to do it.** The fence
-  reads marker keys by name through a `case` with no default branch, so a key it does not know is
-  skipped, and the jq program's character filter passes `attempt=2` through untouched. **That is the
-  fact the whole design rests on**: a marker key can be added without changing a fence's bytes, so the
-  retry rule reaches users without costing any of them a re-approval. The key appears only on a
-  re-post — its absence means "first trigger of its round" — which keeps the round count a test on one
-  key rather than a comparison against a number, and keeps every ordinary round on the five-key body
-  `reviewers/codex.md` measured a reviewer accepting. The test reads the key rather than searching
-  the body, because a payload garbled by a focus can carry `attempt=` inside a longer token. A bound
-  counted in the session would be a bound a session restart refunds; this is the `head=` argument
-  again, applied to how many times a trigger has been sent rather than to which
-  commit it named.
+  condition immediately, so the wait never waits; that was a real failure.
+- **`head=` and `attempt=` put the run's bounds on GitHub rather than in the session**, where a
+  restart cannot refund them. Adding `attempt=` cost no fence edit, because the fence reads marker
+  keys by name and skips one it does not know — **a marker key can be added without changing any
+  fence's bytes**, and so without costing any user a re-approval.
 - **Config never reaches the fence.** Reviewer identity arrives via a comment revloop posted, not a
   file the fence parses, so a hostile `.revloop.json` has no path into a shell command or jq program.
 
@@ -122,28 +83,104 @@ prefix**, and that single fact shapes three decisions:
 
 - **`{owner}/{repo}` instead of a literal slug.** `gh api` expands both from the current remote, so no
   call needs a `$(...)` substitution — which is what makes `Bash(gh api repos/{owner}/{repo}/:*)`
-  possible. A blanket `Bash(gh api *)` would reach every repository your token can touch.
+  possible. A blanket rule over `gh api` would reach every repository your token can touch.
 - **`-X POST`, `-X PUT`, and `--paginate` need their own rules.** The flag precedes the path, so the
-  string starts with `gh api -X POST`, not `gh api repos/`. The procedure replies, merges via `PUT`,
-  and pages through findings, so all three are used and each is narrowed the same way.
+  string starts with `gh api -X POST`, not `gh api repos/`. All three are used, and each is narrowed
+  the same way.
 - **The wait scripts take no arguments.** A fence embedding the PR number, a timestamp, or a reviewer
   name would differ every round, "always allow" would never apply, and you would be prompted every
   round — exactly where `--auto` dies. The fences resolve the repository and PR themselves, so their
   text is permanently identical and one approval holds.
 
-**A fence's bytes are the thing you granted.** Editing one costs every user a re-approval, and that
-cost is a feature: the prompt is how a user learns the bytes changed. `tests/fence-hashes.txt` plus a
-CI gate makes the edit deliberate rather than accidental.
+**That is also why the fences are inline rather than shipped as scripts and called by path.** Behind a
+path the command string never changes while the file behind it does, so a plugin update could ship new
+content under a grant given once. Editing a fence therefore costs every user one re-approval, which is
+the point rather than the price; [`../CONTRIBUTING.md`](../CONTRIBUTING.md) has the protocol.
 
-That is also why the fences are not shipped as scripts and called by path. Behind
-`bash "$PLUGIN_ROOT/scripts/wait.sh"` the command string never changes, so a plugin update could ship
-arbitrary new content under a grant given once — for a public tool people auto-update from, that
-converts a one-time grant into standing permission over future code. Two supporting reasons: the
-install path contains the version (`cache/<marketplace>/<plugin>/<version>`), so path constancy would
-depend on undocumented matcher behaviour; and Codex's workspace-scoped sandbox may refuse to execute a
-script from outside the workspace, forcing a second implementation of the thing the design exists to
-keep singular. The same rule is why the wait fence's drop list of non-terminal comments is a literal
-alternation in its jq program rather than a config key.
+The same rule is why the wait fence's list of non-terminal comments to drop lives inside its jq
+program rather than in config: config that reached a fence would be config that changed what you
+granted.
+
+## The local loop is a second procedure, not a flag
+
+`review-loop-local.md` exists as its own file, and the alternative — a `--local` branch inside
+`review-loop.md` — was rejected using the argument that file already makes about `gh` feature
+detection: **two code paths halve the empirical coverage behind every claim, because any given run
+exercises only one.** That argument was about two ways of reaching the same outcome. Here the two are
+not the same outcome at all, which makes the split easier rather than harder to justify:
+
+|                     | Remote                                                                                                 | Local                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| The reviewer        | A GitHub App, in its own context                                                                       | A command on your machine                   |
+| The scarce resource | **Wall clock** — a quota and your patience, both visible                                               | **Tokens** — invisible while they are spent |
+| The verdict         | Arrives asynchronously; the baseline, the marker and the bot filter all exist to bind it to this round | Arrives as the command's own output         |
+| The memory          | The pull request                                                                                       | The commit                                  |
+| Permissions         | `gh` and `git`                                                                                         | `git`                                       |
+
+**Roughly half of `review-loop.md` is machinery for a problem the local loop does not have.** The
+baseline timestamp, the trigger marker, the re-post budget, the two-trigger sweep, and the whole wait
+fence exist because a verdict arrives later, from elsewhere, possibly for someone else's trigger.
+Carrying that across would mean every one of those rules had to be re-read as "does this still apply?"
+by whoever edits next. What the two **do** share is the prepare phase, which the local procedure cites
+by step number rather than restating.
+
+**The invariant that does transfer is the runaway one, and it transfers for a different reason.**
+Remotely, re-firing a trigger against an unchanged HEAD spends the reviewer's quota and a visible
+stretch of wall clock. Locally it spends tokens, and **nothing about it feels expensive** — which is
+precisely why it has to be written down. **It is not that a local round is quick**: measured rounds
+land inside the remote reviewer's own measured range ([`../reviewers/code-review.md`](../reviewers/code-review.md),
+[`../reviewers/codex.md`](../reviewers/codex.md)). The wall clock is not the difference between the
+loops; what a round spends while it passes is, and one of the two is invisible.
+
+## The acceptance floor
+
+`--accept-at` is the first consumer `severityLevels` has ever had. The schema says a key with no
+consumer is a promise the procedure does not keep, and this was that key: cards filled the ladder in,
+nothing read it, and the one place that reasoned about severity named a rung literally — one
+reviewer's vocabulary, hardcoded into a rule meant to apply to all of them. On a ladder that does not
+contain that rung, the rule led the report with nothing.
+
+**The floor and "do not triage by the badge" are compatible, and the boundary between them is where
+the flag is safe.** [`../reviewers/codex.md`](../reviewers/codex.md) derives that instruction from a
+measurement: the severity mix moves per pull request, so the badge cannot tell you what is worth
+reading. The floor never decides what to read. Every finding is fetched, classified, recorded, and
+listed whatever its rung; the floor decides only **when the loop may stop**. **"Recorded" is the
+loop-agnostic word and it is deliberate**: a reply is where the pull-request loop puts it, and the
+local loop has no pull request to reply to, so its record is the commit's `Accepted:` block and the
+report. Writing the promise as "replied to" named a mechanism only one of the two loops has, which
+left the local loop appearing to owe a reply it has nowhere to post. A version that skipped
+fetching the accepted rungs would be the thing the card forbids, and it would also be cheaper — which
+is why the rule is written down instead of left to judgement.
+
+**The loop never supplies a ladder the reviewer did not.** Asked to accept findings from a reviewer
+that emits no severity, it aborts rather than ranking them itself. It is the party obliged to fix
+them, so a ladder it authors is a ladder it can author its way out of the work with, and from outside
+the run that is indistinguishable from a reviewer that really graded them that way. This is not
+hypothetical: one shipped local preset is exactly that reviewer.
+
+Where the flag sits in the configuration surface, and the one combination it refuses, are in
+[`configuration.md`](configuration.md#the-acceptance-floor).
+
+## What a local run does not establish
+
+**A local reviewer may be the same model as the thing that wrote the code**, and then it is not an
+independent check. It shares the training, the habits and the blind spots of the author, and a
+reviewer cannot find a defect it would have written itself. Running it as a subprocess stops it from
+reading _this session's_ reasoning, which is a real and separate improvement — a reviewer that has
+just watched you justify a decision does not find that decision suspicious — but it does not make the
+reviewer a second opinion. **Only a different model does that**, and
+[`adding-a-reviewer.md`](adding-a-reviewer.md) records one as a candidate rather than shipping it,
+because nobody has driven it here.
+
+**So the local loop is a pre-flight and not a replacement**, and the report says so. The claim it can
+support is that fewer defects present when the remote trigger fires means fewer remote rounds. The
+claim it cannot support is that a clean local run means the change has been reviewed.
+
+**Its memory is the commit, and there is no local state file.** A findings ledger read back as input
+would break the rule field notes live under — never read a local file as input to a classification —
+and it would break it at the one place that decides whether the run passes. A resumed run re-reviews
+and re-derives instead, which is also the more correct answer: an acceptance is a judgement about the
+tree in front of you, and the tree may have moved.
 
 ## Field notes
 
@@ -159,28 +196,23 @@ A project's `.revloop/` is unrelated to `~/.revloop`, the clone path the Codex i
 
 The procedure this grew from shipped no regression tests, reasoning that copying the classification
 logic into a suite would duplicate the canonical artifact. That is right for a single-repository file
-and wrong for a public tool: a 45-line fence whose output drives a 20-row decision table, used by
-strangers, is not defensible without tests.
-
-The duplication objection is answered by construction. `tests/extract-fences.sh` pulls the fences _out_
-of the procedure and runs them against recorded API responses through a `gh` stub, so nothing is
-restated — what is pinned is the interface the decision table consumes. Three paths the original could
-only disclose as unexercised (`reaction`, `CHECKS_FAILED`/`SKIPPED`, legacy `StatusContext`) are now
-exercised against recorded data. `## Unexercised paths` survives for what genuinely remains unobserved
-against a live reviewer; keeping that list honest is more useful than making it short.
+and wrong for a public tool used by strangers — **and the duplication objection is answered by
+construction.** `tests/extract-fences.sh` pulls the fences _out_ of the procedure and runs them against
+recorded API responses through a `gh` stub, so nothing is restated; what is pinned is the interface the
+decision table consumes. `## Unexercised paths` survives for what genuinely remains unobserved against
+a live reviewer, and keeping that list honest is more useful than making it short.
 
 ## No feature detection on `gh`
 
-The verified floor is `gh` 2.4.0 (2022-03). At 2.4.0 `gh pr checks` has only `--web`, so CI status
-comes from `gh pr view --json statusCheckRollup` and merging goes through REST `PUT` rather than
-`gh pr merge`. Newer versions offer `--watch` and `--match-head-commit`; revloop uses neither. Two code
-paths would halve the empirical coverage behind every claim — any given machine exercises only one —
-and they buy nothing, since `--match-head-commit` is the `sha=` pin already in place and `--watch`
-replaces a poll that has to run detached anyway. `gh --version` is printed in the step-1 probe table,
-so the version is visible without being branched on.
+Only stable REST and GraphQL surfaces are used, and the loop never branches on the `gh` version. Newer
+versions offer conveniences revloop does not take, because two code paths would halve the empirical
+coverage behind every claim — any given machine exercises only one — and they buy nothing here.
+`gh --version` is printed in the step-1 probe table, so the version is visible without being branched
+on. The floor itself is in [`install.md`](install.md#requirements).
 
 ## Related docs
 
 - [Permissions](permissions.md) — the rules this reasoning produces
 - [Configuration](configuration.md#what-is-deliberately-not-configurable) — what is fixed, and why
 - [`../commands/review-loop.md`](../commands/review-loop.md) — the procedure, and its per-step `## Notes`
+- [`../commands/review-loop-local.md`](../commands/review-loop-local.md) — the local procedure

@@ -1,6 +1,6 @@
 ---
 description: Branch → split commits → push → PR → trigger a reviewer → fix findings, until it converges
-argument-hint: "[--reviewer <name>] [--merge] [--auto] [--max-rounds <n>] [--timeout <dur>]"
+argument-hint: "[--reviewer <name>] [--merge] [--auto] [--accept-at <level>] [--max-rounds <n>] [--timeout <dur>]"
 disable-model-invocation: true
 allowed-tools: Bash(gh api repos/{owner}/{repo}/:*), Bash(gh api -X POST repos/{owner}/{repo}/:*), Bash(gh api -X PUT repos/{owner}/{repo}/:*), Bash(gh api -X PATCH repos/{owner}/{repo}/:*), Bash(gh api --paginate repos/{owner}/{repo}/:*), Bash(gh api graphql:*), Bash(gh pr:*), Bash(gh repo view:*), Bash(git:*), Read, Edit, Write, Grep, Glob
 ---
@@ -20,17 +20,36 @@ so an interrupted run resumes with the same command.
 | `--reviewer <name>` | config         | A preset (`codex`, `gemini`, `claude`) or a name from `.revloop.json`                  |
 | `--merge`           | off, flag only | After convergence, wait for green CI and **then** merge                                |
 | `--auto`            | off, flag only | Do not stop for confirmation. **The flag itself is the approval**                      |
+| `--accept-at <lvl>` | off, flag only | Findings at `<lvl>` and below may be left unfixed. Everything above it still blocks    |
 | `--max-rounds <n>`  | `10`           | Abort if the loop has not converged within this many rounds                            |
 | `--timeout <dur>`   | `30m`          | **Cumulative** cap on waiting for **one trigger's** verdict. A round fires at most two |
 
 There are exactly two stop points — **the commit-split proposal** and **just before merging** — and
-`--auto` suppresses both. **An abort is a stop, not a question**: in either mode, report and finish.
+`--auto` suppresses both. `--accept-at` adds a third, **the accepted-findings list before the CI
+wait**, on `--merge` runs that accepted anything; step 1 refuses the combination in which `--auto`
+would suppress it, so that one is never suppressed. **An abort is a stop, not a question**: in either
+mode, report and finish.
 
-**`--merge` and `--auto` have no configuration key, and adding one would be a defect.** Every other
-default can come from `.revloop.json`, but that file belongs to whatever repository you are working
-in, including one you just cloned. A repository that could set `auto` would delete both of your
-confirmation points, and one that could set `merge` would grant its own merge. The flag is the
-approval, so it has to come from the person typing it.
+**`--merge`, `--auto` and `--accept-at` have no configuration key, and adding one would be a defect.**
+Every other default can come from `.revloop.json`, but that file belongs to whatever repository you
+are working in, including one you just cloned. A repository that could set `auto` would delete both of
+your confirmation points, one that could set `merge` would grant its own merge, and one that could set
+`accept-at` would lower its own review bar while the run still reported a clean convergence. The flag
+is the approval, so it has to come from the person typing it.
+
+**`--accept-at <level>` names the highest rung that may be left unfixed.** The rungs are the resolved
+reviewer's `severityLevels`, read most-severe-first, so `--accept-at P2` on a `["P1","P2","P3"]` ladder
+leaves P1 blocking and makes P2 and P3 acceptable. **With the flag absent — the default — nothing is
+acceptable**, and every finding is fixed or declined with a citation exactly as it was before the flag
+existed.
+
+**Accepting is not skipping the read.** An accepted finding is still fetched, still classified, still
+replied to, and still listed in the report with its reason. The flag changes one thing: whether an
+unfixed finding at that rung stops the loop from finishing. A run that stopped reading at the floor
+would miss the finding whose badge is wrong, and the badge is wrong often enough to have been
+measured — `reviewers/codex.md` records one pull request returning 15 of 15 at P2 and another 15 of 15
+at P1, which is why that card says not to triage by the badge. `## Notes` states how this flag and
+that instruction coexist.
 
 `--max-rounds 10` is a **circuit breaker, not a target**. Measured PR round counts run to 30
 (`reviewers/codex.md`). Hitting the cap is not success and never merges.
@@ -65,7 +84,9 @@ approval, so it has to come from the person typing it.
 
    Print a resolved-configuration table with a `source` column whose value is one of
    `flag` / `config` / `detected` / `builtin`, covering at least: reviewer, base branch, verify
-   commands, branch prefixes, commit style, max rounds, timeout, merge. Give the reviewer row as
+   commands, branch prefixes, commit style, max rounds, timeout, merge, acceptAt. **The `acceptAt`
+   row may only read `flag` or `builtin`** — there is no config key for it, so a `config` in that
+   cell means one was invented. Give the reviewer row as
    `<name> (<status>, <expectedLatency>)` — a preset whose card says `unverified` is a fact the
    operator wants before the round starts, not after it fails.
 
@@ -99,15 +120,39 @@ approval, so it has to come from the person typing it.
    - **If no verify commands were configured or detected**, ask before continuing, and record "no
      verification ran" in the final report. **With `--merge`, abort instead** — do not merge code that
      nothing checked.
+   - **If the resolved reviewer's `kind` is `local-command`, abort with
+     `reason=not-a-github-reviewer`** and name the command that does drive it: `review-loop-local`.
+     **This check has to come before the `trigger` one below, and that ordering is the whole reason
+     it exists.** The schema forbids a `local-command` reviewer from carrying a `trigger` at all, so
+     such a reviewer fails the next check on every run — and read in the other order this row is
+     unreachable for exactly the configuration it was added to diagnose, leaving the operator a
+     missing field as the cause when the cause is a reviewer built for the other loop.
    - **If the resolved reviewer has no `trigger`, abort with `reason=no-comment-trigger`.** Step 7
      posts a comment; that is the only way this procedure starts a review. A reviewer that is
-     summoned as a requested reviewer instead is not supported.
+     summoned as a requested reviewer instead is not supported. **Reached only by a `github-comment`
+     reviewer**, per the row above.
    - **If the resolved reviewer's `markerTolerated` is `no`, abort with
      `reason=marker-not-tolerated`.** There is no path that posts the trigger without the marker,
      and steps 8 and 9 read the round's whole identity out of it. There is no degraded mode.
    - **If the resolved reviewer's `status` is not `verified`, say so in the table and repeat it in
      the final report.** Continue — an unverified preset is a starting point, not a fault — but the
      reader of the report should not have to open a card to learn that nobody has watched it work.
+   - **If `--accept-at` was passed and the resolved reviewer has no `severityLevels`, abort with
+     `reason=no-severity-ladder`.** Do not rank the findings yourself to supply one. **You are the
+     party obliged to fix them**, so a ladder you author is a ladder you can author your way out of
+     the work with, and nothing outside this run could tell that apart from a reviewer that really
+     graded them that way. This is the `--reviewer` rule — never guess — applied to the rungs
+     instead of the name.
+   - **If `--accept-at` names a level the ladder does not hold, abort with
+     `reason=unknown-accept-level`** and print the ladder. Match the rung as a whole string: the
+     ladder is ordered, so a name matched loosely to the neighbouring rung moves the floor by one
+     without anything saying so, and one rung is the difference between blocking on a P1 and
+     accepting it.
+   - **If `--accept-at`, `--merge` and `--auto` are all present, abort with
+     `reason=unreviewed-accept-merge`.** Each is defensible alone. Together they merge code carrying
+     findings that nobody fixed, past a report that no human is stopping to read, because `--auto`
+     suppresses the very confirmation step 12 uses to show the accepted list. Two of the three are
+     always available: drop `--auto` and confirm the list, or drop `--accept-at` and fix everything.
 
 2. If you are on the base branch, cut a topic branch (**never commit on the base branch**). If you are
    already on a topic branch, do nothing. Name it from the prefixes in the resolved configuration:
@@ -345,6 +390,17 @@ approval, so it has to come from the person typing it.
    the jq program's character filter passes it through untouched. `attempt=` was added under that rule
    and `v` stayed at `1`. Spending the version signal on an additive change would teach the next reader
    that `v` moves for anything, which makes a genuinely breaking change indistinguishable.
+
+   **`--max-rounds` is checked here, against that number, before anything is posted.** This is the
+   only place a round is opened, so it is the only place the cap can be applied without guessing
+   whether the round converged: **if the round number you are about to write exceeds `--max-rounds`,
+   abort with `reason=max-rounds` and post nothing.** Do not merge. The cap was previously decided
+   from step 9's verdict, which cannot work in either direction — a `review` there means "go and read
+   the findings", so capping it aborts a round that turned out to be clean, while a clean comment or
+   a reaction is waved through and its two-trigger sweep can still open the next round. Deciding it
+   here also costs nothing when it fires: the wait, the trigger and the reviewer's budget are all
+   still unspent. **Step 11's return to step 3 is subject to this**, because that path reaches step 7
+   again and is stopped by the same check.
 
    **The round number is the count of the markers already on this PR that opened a round, plus one**
    — every `revloop:trigger` marker with no whitespace-separated token whose key is exactly `attempt`,
@@ -684,8 +740,19 @@ approval, so it has to come from the person typing it.
    differ, the fence latched onto a trigger that is not this round's — usually because GitHub has not
    yet surfaced yours, sometimes because a newer one was posted. **The output is not this round's
    verdict whatever form it took**: do not adopt a `review`, a `comment` or a `reaction` that a
-   different trigger anchored, and never let a `pending` of this kind authorise a re-post. Treat all
-   four as `pending` and let step 9's `pending` rows decide what happens next.
+   different trigger anchored, and never let a `pending` of this kind authorise a re-post. Treat them
+   as `pending` and let step 9's `pending` rows decide what happens next.
+
+   **One exception, and without it the lost-baseline recovery this procedure promises cannot be
+   reached at all: a verdict line carrying `marker_head=none` goes to step 9's lost-baseline row, not
+   to `pending`.** Step 7 states that a verdict line is the **only** positive evidence that the
+   baseline is foreign, precisely because it carries `marker_head=` where a `pending` line carries
+   nothing — so demoting it to `pending` destroys the one signal the recovery is defined in terms of.
+   The ordinary way to lose a baseline is a newer hand-typed trigger, and that produces exactly this
+   shape: `trigger=` is not your `SINCE` **and** `marker_head=none`. Reconciled without the carve-out
+   it became three mismatches and `reason=foreign-baseline`, which promises no recovery, while the
+   `marker_head=none` row — which promises a later run re-takes the baseline — was unreachable for
+   its own commonest cause, despite both this step and step 9 saying it takes precedence.
 
    **The re-fire is bounded at two, and the bound counts consecutive results rather than the clock.**
    The two shapes of mismatch cost different things, and the bound is written to hold for both. A
@@ -777,8 +844,34 @@ approval, so it has to come from the person typing it.
    **`--is-ancestor` returns three values, not a boolean. Read `$?`:** `0` = ancestor, `1` = a valid
    commit that is not an ancestor (history diverged), `128` = not present locally at all
    (`fatal: Not a valid commit name`). Writing `if git merge-base …; then … else … fi` **collapses
-   `128` into `1`**, diagnosing "history diverged" when the answer is "run `git fetch`". Rows 3 and 4
-   below are exactly that distinction.
+   `128` into `1`**, diagnosing "history diverged" when the answer is "run `git fetch`". Two of the
+   `review` rows below are exactly that distinction.
+
+   **The table is ordered, and the first row whose signal matches decides.** Checks (a) to (e) run
+   first and catch the foreign baseline, the mismatched marker and the wrong login before any row is
+   consulted; the ordering below is what covers the rest. `interim-loop` now precedes "any other bot
+   body", which is a strictly wider description
+   of the same comment and swallowed it, aborting with a reason that sent the reader looking for an
+   unknown bot instead of a known interim comment.
+
+   **`--max-rounds` is not decided here, and no row below carries it.** The cap belongs to step 7,
+   where a round is opened, and the reason is that **nothing at this step yet knows whether the round
+   converged.** The `review` rows say "continue" meaning "go and read the findings", not "the loop has
+   not converged" — a review with no findings is a convergence, and step 10 is the first place that is
+   known. A cap applied to a row here therefore aborts a clean review on exactly the round the
+   operator budgeted for. The clean-comment and `reaction` rows fail in the other direction: they say
+   finish, so a cap here waves them through, and on a two-trigger round their mandatory step 10 sweep
+   can then surface blocking findings and open round N+1 past the cap. **The cap is not a property of
+   a verdict at all**, which is why it was wrong as this table's last row, wrong as its first, and
+   wrong as a rule over its outcome.
+
+   **Read `EXTRA=` before deciding from the primary line, not after.** It used to be a row of its
+   own saying "follow the above — rate limit takes precedence", which is a rule about precedence
+   placed where first-match reading never reaches it: the fence emits `EXTRA=` only alongside a
+   `review`, and the `review` rows are above. So: **if `EXTRA=` carries the reviewer's rate-limit
+   pattern, the round aborts on that whatever the primary line said** — the findings in the review
+   are real but the quota is gone, and continuing spends rounds against a reviewer that cannot
+   answer. Any other `EXTRA=` body is context for the report and changes no verdict.
 
    | Signal                                                                | Verdict                    | Next action                                                                                                                                                                                                                                                                                                                                                                    |
    | --------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -789,8 +882,8 @@ approval, so it has to come from the person typing it.
    | `review` with zero inline comments                                    | **not clean by itself**    | **Decide after fetching in 10** — step 8 does not count them, and **the body can carry the whole finding** (measured). Read the body before concluding clean                                                                                                                                                                                                                   |
    | `comment` whose body **starts with** the reviewer's clean phrase      | **finish (clean)**         | Go to 12 — but **on a two-trigger round run step 10's review sweep first**, or a review orphaned before the re-post is never read                                                                                                                                                                                                                                              |
    | `comment` matching the reviewer's rate-limit pattern                  | **abort**                  | **Do not retry.** The quota recovers with time; retrying only burns rounds                                                                                                                                                                                                                                                                                                     |
-   | `comment` with any other bot body                                     | **abort**                  | Print the body in full and hand it to a human. Do not guess                                                                                                                                                                                                                                                                                                                    |
    | `comment` whose `cid=` you already classified as non-terminal         | **abort** (`interim-loop`) | The reviewer emits an interim comment this fence does not know. Report `cid=` and the body. Recovering means adding its pattern to the fence's drop list — a fence edit, so one re-approval for every user                                                                                                                                                                     |
+   | `comment` with any other bot body                                     | **abort**                  | Print the body in full and hand it to a human. Do not guess                                                                                                                                                                                                                                                                                                                    |
    | `reaction`                                                            | **finish (clean)**         | An unexercised path — say so in the report. **On a two-trigger round run step 10's review sweep first**, same as the clean comment                                                                                                                                                                                                                                             |
    | `pending` (within `--timeout`)                                        | continue                   | Re-fire **step 8 only**, never step 7                                                                                                                                                                                                                                                                                                                                          |
    | any output whose `trigger=` is not your `SINCE`                       | continue (twice)           | Not this round's verdict, whatever form it took. Re-fire step 8; **the third consecutive mismatch aborts** with `reason=foreign-baseline`. It never counts toward step 7's floor and can never authorise a re-post; against `--timeout` it costs what it spent — **nothing for a mismatched verdict, which exits on the first poll, and one chunk for a mismatched `pending`** |
@@ -798,13 +891,11 @@ approval, so it has to come from the person typing it.
    | `pending` (exceeding `--timeout`) + anything else                     | **abort**                  | Name which condition failed: `no-verdict attempts=2`, `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is silence _from the filtered bot_, so read the PR — a wrong `botLogin` looks identical                                                                                                                                       |
    | `login=` not the configured reviewer                                  | **abort**                  | Do not read another bot's verdict as this round's. Report the login. **Check `marker_head=` first**: on a compatibility baseline the bot filter is empty and admits any bot, so a foreign login is the lost-baseline row below, not this one                                                                                                                                   |
    | `marker_head=none` (a hand-typed trigger won the baseline)            | **abort**                  | The compatibility class anchors a baseline; it cannot bind a verdict to a commit. **Report and finish.** A later run re-takes the baseline with an ordinary trigger in step 7 — the lost-baseline state, never a re-post                                                                                                                                                       |
-   | `EXTRA=` second line present                                          | follow the above           | A bot comment from the same round. **Rate limit takes precedence**                                                                                                                                                                                                                                                                                                             |
    | `error reason=untriggered-verdict`                                    | **abort**                  | **A verdict exists but no trigger does.** Read `bot=` for the reason                                                                                                                                                                                                                                                                                                           |
    | `error reason=no-pr` / `no-trigger`                                   | **abort**                  | Report verbatim. Suspect step 6 and whether a PR exists                                                                                                                                                                                                                                                                                                                        |
    | `error reason=no-branch`                                              | **abort**                  | Detached HEAD, so the fence refused to resolve a PR. **Report and finish**; check out the topic branch before re-running                                                                                                                                                                                                                                                       |
    | `error reason=api` (no `stage=setup`)                                 | **abort**                  | Five consecutive fetch failures inside the loop. Suspect `gh` connectivity                                                                                                                                                                                                                                                                                                     |
    | `error reason=api stage=setup`                                        | **abort**                  | **Failed before resolving the PR.** Suspect auth or network, not a missing PR                                                                                                                                                                                                                                                                                                  |
-   | `--max-rounds` reached                                                | **abort**                  | Not success. Do not merge                                                                                                                                                                                                                                                                                                                                                      |
 
 10. Read the findings — **from the inline comments and from the review body, because either can
     carry them.** Findings are normally inline review comments and the body is normally boilerplate,
@@ -925,7 +1016,10 @@ approval, so it has to come from the person typing it.
     review orphaned in the window step 7 describes: it is older than the second trigger, so the fence
     never named it, but its commit is still HEAD.
 
-    Sort each into **will fix / already fixed / declining the suggestion**. `reviewThreads
+    Sort each into **will fix / already fixed / declining the suggestion / accepted**. The fourth
+    bucket exists only when `--accept-at` was passed, and a finding may enter it only when its rung
+    is at or below the floor — **read the rung off the finding, never off how hard the fix looks**.
+    A finding above the floor has three buckets, as it always did. `reviewThreads
 { isOutdated }` narrows the reading quickly — **`isResolved` is useless because nobody presses
     Resolve** (measured 0 resolved, 31 of 32 outdated) — but confirm against the diff.
 
@@ -991,11 +1085,37 @@ approval, so it has to come from the person typing it.
     reading was right but the premise stale, or whether you are declining the suggestion. **Always
     cite the sha for anything already fixed** — an uncited "already fixed" is indistinguishable from
     a dodge. **When declining, cite a `path:line`, a test name, or a doc**; "this is intentional" is
-    not enough. If even one item needs fixing, go back to 3. **If every item is fixed or declined,
+    not enough.
+
+    **An accepted finding gets a reply too, and it says which flag accepted it**: name the rung and
+    the floor, as `Accepted at <rung> under --accept-at <floor>.`, then one line on why it is
+    survivable. **Do not word it as a decline.** A decline is a judgement that the finding is wrong
+    or already answered and it carries a citation; an acceptance concedes the finding is right and
+    unfixed, and the two must not read alike on the pull request — the reader deciding whether to
+    merge needs to know which one they are looking at. An acceptance without that sentence is a
+    decline without a citation, which this step already forbids.
+
+    If even one item needs fixing, go back to 3. **If every item is fixed, declined, or accepted,
     fall through to 12.**
 
-12. If `--merge` was not passed, report and finish. **If you classified a P1 as "declining the
-    suggestion", lead the report with it.** Otherwise wait for green CI, then merge.
+12. If `--merge` was not passed, report and finish. **Lead the report with every finding at the
+    ladder's top rung that you did not fix** — declined and accepted alike. **The rung is read from
+    the resolved reviewer's `severityLevels`, not written into this step.** **With no ladder, lead
+    with every finding you did not fix** — the shape `claude.md` already ships, carrying no
+    `severityLevels` at all. A rule written only for the laddered case leads with nothing on a
+    reviewer that has none, which is the same defect as the hardcoded rung rather than its fix. The
+    rung was written here as
+    the literal `P1` for four releases, which is codex's vocabulary: on the
+    `["blocker","major","minor"]` ladder this repository ships as an example, the rule named a rung
+    that does not exist and so led with nothing, on the one reviewer class where nobody had watched
+    the loop run. Otherwise wait for green CI, then merge.
+
+    **With `--merge` and at least one accepted finding, stop for confirmation before the CI wait,
+    and list every accepted finding with its rung.** This is a third stop point and it exists only
+    on that combination: `--accept-at` converges a run over findings that are real, unfixed, and
+    conceded, and merging them is a decision a person makes once they have seen the list. Step 1 has
+    already refused the case where `--auto` would suppress this stop, so reaching here means the
+    stop is available.
 
     **Do not decide CI by "no pending".** A failed fetch produces empty output, and empty contains
     neither `pending` nor `fail`, so every naive negative check **turns a failure into a pass**.
@@ -1124,6 +1244,35 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
 - **A verdict that arrives in seconds is probably a failure.** Measured reviewer latency runs to
   minutes; rate-limit replies come back in seconds. On abort, record the round number and PR in the
   report so the loop can be resumed.
+
+### The acceptance floor
+
+- **`severityLevels` had no consumer until this flag, and step 12 had a hardcoded rung.** The schema
+  says a key with no consumer is a promise the procedure does not keep, and this was that key: the
+  ladder was configurable, three cards filled it in, and nothing read it — while step 12 named `P1`
+  literally, which is one reviewer's vocabulary. Both halves were the same defect seen from the two
+  ends, and one flag closes both.
+- **`--accept-at` and "do not triage by the badge" are not in conflict, and the distinction is where
+  the flag is safe.** `reviewers/codex.md` derives that instruction from a measurement — the severity
+  mix moves per pull request, 15 of 15 at P2 on one and 15 of 15 at P1 on another — so **the badge
+  cannot tell you what to read**. This flag never decides what to read. Every finding is fetched,
+  classified, replied to, and listed whatever its rung; the floor decides only **when the loop may
+  stop**. A version of this flag that skipped fetching the accepted rungs would be the thing the card
+  forbids, and it would also be cheaper, which is exactly why the rule is written down rather than
+  left to judgement.
+- **The floor is off by default, and it is flag-only, for the same reason `--merge` is.** A run with
+  no flag behaves as it did before the flag existed. That is not politeness: it means the default
+  configuration of every repository that installs an update keeps its review bar, and the only way to
+  lower one is for a person to type the lower bar on the command line, where the report will then
+  say so.
+- **Accepting is not declining, and the reply says which.** A decline asserts the finding is wrong,
+  stale, or already answered, and step 11 requires it to cite something. An acceptance concedes the
+  finding is right and unfixed. Wording them alike would let the cheaper act borrow the stronger
+  one's evidence, and the reader of the pull request has no way to recover the difference afterwards.
+- **The one combination that is refused is `--accept-at --merge --auto`.** The gate rests on a human
+  reading the accepted list before the merge, and `--auto` exists to delete exactly that kind of
+  stop. Refusing the triple in step 1 keeps the argument for the flag true; allowing it and hoping
+  the report is read is the same bet `--merge` already declines to make from a config file.
 
 ### The wait loop
 
