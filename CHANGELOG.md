@@ -7,6 +7,241 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
+## [0.5.0] - 2026-09-01
+
+**No fence changed, so nothing here asks anything of you.** The three shell fences in
+[`commands/review-loop.md`](commands/review-loop.md) are byte-identical to 0.4.0 and still match the
+hashes in `tests/fence-hashes.txt`, which `tests/fence-guards.test.sh` reports on every run — so there
+is **no re-approval to give**. The granted rule list in
+[`docs/permissions.md`](docs/permissions.md) is unchanged as well, and the new command grants a
+strict subset of it: `Bash(git:*)` and nothing else.
+
+**That is not luck, and it is the reason this release looks the way it does.** The local loop runs a
+command that comes out of `.revloop.json`, and the tempting shape for it was a fence — a fixed string
+the permission system approves once. A fence is safe **because its bytes never change**, and this
+string is per-project by construction, so a fence here would either prompt every round anyway or hand
+a cloned repository a pre-approved slot. `verify` had already answered the question: show the string
+in the step-1 table, keep it out of `allowed-tools`, and let the permission system see it every time.
+The cost is one prompt per round for the one string most worth looking at.
+
+Added:
+
+- **`/revloop:review-loop-local`, a second procedure that drives a review command on your machine and
+  ends at a commit.** It never calls `gh`, opens no pull request, and merges nothing. The failure it
+  answers is arithmetic this repository had already written down and could not act on:
+  `reviewers/codex.md` derives that **the number of remote rounds is roughly the number of defects
+  present when the trigger fires**, and step 3 of the remote procedure has told you since 0.1.0 to run
+  step 10's sweeps one step early for that reason — by hand, unaided, as "read the change you are
+  about to push". This command is that instruction with a reviewer behind it.
+
+  **It is a separate file rather than a `--local` branch**, and the argument against two code paths
+  in [`docs/design-notes.md`](docs/design-notes.md) is what settles it rather than what stands in the
+  way. That argument is about two ways of reaching the **same** outcome halving the coverage behind
+  every claim. These are not the same outcome: roughly half of `review-loop.md` — the baseline
+  timestamp, the trigger marker, the re-post budget, the two-trigger sweep, the wait fence — exists
+  because a verdict arrives later, from elsewhere, possibly for someone else's trigger. None of that
+  is true when the reviewer hands you its own output, and carrying it across would leave every one of
+  those rules to be re-read as "does this still apply?" by whoever edits next. What the two share is
+  the prepare phase, and the local procedure **cites it by step number rather than restating it**,
+  because `CONTRIBUTING.md` forbids the copy and a restatement is three places to fix the next
+  whitespace-preflight defect instead of one.
+
+  **The scarce resource is different, and the procedure is shaped around that.** A remote round costs
+  minutes of someone else's compute and a quota that runs out, and both are visible. A local round
+  costs tokens, and **nothing in the room displays that** — so four rules exist only because of it: the review
+  is not re-run while HEAD is unchanged and the tree is clean (the runaway invariant, transplanted for
+  a different reason — remotely the cost is obvious, locally there is nothing else to notice it), a
+  finding whose fingerprint this run already answered is counted and **not reasoned about again**, a
+  round carries at most ten findings into the fix step, and `--max-rounds` defaults to 5 rather than
+  10 because the cap is the only brake there is.
+
+  **An unreadable result is its own abort, and never a clean round.** The built-in review command's
+  output shape depends on the effort level and on the model running it — the same command returns a
+  fenced JSON array in one configuration and one line per finding in another — so a parser written
+  against the shape its author happened to see returns **zero findings** against the other. Zero
+  findings is what a clean review looks like. Step 10 of the remote procedure states this rule three
+  times for three different reads; it is stated here for the one read this command has.
+
+- **`--accept-at <level>`, on both loops: the highest severity that may be left unfixed.** The failure
+  is in this repository's own field notes, three times. `iwmaeda/revloop#13` hit `--max-rounds 10`
+  still returning findings, was re-run at 20, hit that too with the last five rounds returning P1, and
+  ended at a rate limit. The only exit the procedure had was `abort`, and there was no way to say
+  "the top rung is clear, the rest is understood, this is done". `reviewers/gemini.md` records the
+  same shape from the other end at 30–50 findings in a single round.
+
+  **It is the first consumer `severityLevels` has ever had.** The schema says a key with no consumer
+  is a promise the procedure does not keep, and for four releases this was that key: three cards
+  filled the ladder in, nothing read it, and the one place that reasoned about severity — step 12's
+  "lead the report with a declined P1" — named **codex's vocabulary** literally. On the
+  `["blocker","major","minor"]` ladder shipped in `examples/revloop.custom-reviewer.json`, that rule
+  named a rung that does not exist and therefore led with nothing, on a reviewer class nobody had
+  driven. Step 12 now reads the top rung off the resolved reviewer.
+
+  **It is off by default, and a run without the flag behaves exactly as 0.4.0 did.** It is flag-only
+  for the reason `--merge` and `--auto` are: a repository you just cloned must not be able to lower
+  its own review bar while the run still reports a clean convergence. `tests/schema.test.sh` now
+  rejects it in both the `defaults` block and a reviewer entry.
+
+  **Accepting is not skipping the read.** An accepted finding is still fetched, classified, replied to
+  and listed; the floor decides only when the loop may stop. That boundary is where the flag is safe,
+  because `reviewers/codex.md` says outright **not to triage by the badge** — it measured one pull
+  request returning 15 of 15 at P2 and another 15 of 15 at P1 — and a version of this flag that
+  skipped fetching the accepted rungs would be exactly what that card forbids, and cheaper, which is
+  why the rule is written into the procedure rather than left to judgement. The reply for an
+  acceptance is required to name the rung and the floor, so that it cannot read like a decline: a
+  decline asserts the finding is wrong and carries a citation, an acceptance concedes it is right and
+  unfixed, and the reader deciding whether to merge cannot recover the difference afterwards.
+
+  **`--accept-at --merge --auto` aborts.** The floor's safety argument is that a person reads the
+  accepted list before the merge, and `--auto` exists to delete that class of stop. With `--merge`
+  alone, an accepted finding adds a third stop point that lists them.
+
+  **The loop never supplies a ladder the reviewer did not.** Asked to accept from a reviewer that
+  emits no severity, step 1 aborts with `no-severity-ladder` rather than ranking the findings itself.
+  It is the party obliged to fix them, so a ladder it authors is one it can author its way out of the
+  work with, and from outside the run that is indistinguishable from a reviewer that really graded
+  them that way. This is not hypothetical: the built-in review command shipped as a preset below is
+  exactly that reviewer.
+
+- **Reviewers now have a `kind`, and the schema enforces which fields each may carry.** `kind` is
+  absent from every configuration written before this release and absent means `github-comment`, so
+  nothing changes meaning. A `local-command` reviewer requires `invoke` and `command`, may carry
+  `requiresPr`, and **may not carry** `botLogin`, `trigger`, `markerTolerated`, `cleanPatterns` or
+  `rateLimitPatterns`; the reverse holds too, so a `github-comment` reviewer may not carry `command`.
+  Without the second direction `kind` would be a label rather than a discriminator, and a reviewer
+  could be given a field its loop never reads — the same defect as a config key with no consumer.
+
+  **`requiresPr` exists because "returned nothing" and "found nothing" are the same empty result.**
+  A review command that resolves a pull request itself has no target when there is none, and reading
+  that as a clean round is the failure mode this whole family of procedures is built around. **The
+  loop cannot check whether a pull request exists** — it has no `gh` grant, which is the point of it
+  — so the key does not buy an abort the way `markerTolerated: "no"` does. It buys two things that
+  are checkable: a confirmation before the first round, and a standing rule in step 7 that **zero
+  findings from such a reviewer is never a clean round**. An abort was the first design and it made
+  a shipped preset unreachable on the branches where it actually works.
+
+  **There is no `effort` key.** Whatever depth argument a review command takes belongs inside
+  `command`, which is the string the step-1 table shows and the string the permission system matches.
+  A separate key would put half the invocation where neither of those looks.
+
+  **The one guard on that string — a `subprocess` command may not be `git` — states its terminator as
+  a complement rather than as a list of separators.** The rule is the leading token: the local command
+  grants `Bash(git:*)` for its own probe, a permission rule matches a prefix, and so a repository
+  whose `command` begins with `git` would run with no prompt at all. The obvious spelling,
+  `^\s*git(\s|$)`, reads only whitespace and end-of-string as ending the word — and the shell ends a
+  word on six more characters, so `git;rm -rf /`, `git&&rm -rf /`, `git|tee`, `git>out`, `git<in`,
+  `git&` and `git"" push` each named `git` as the first word and each passed. **Every separator that
+  is not listed is a member of the input space**, and no corpus can witness one, because none of those
+  strings exists anywhere in this tree. Requiring instead that `git` **not be continued by an
+  identifier character** closes the set rather than enumerating it, and keeps the forms that must stay
+  accepted: `gitlint`, `git-review` and `git.exe` are different commands. `tests/schema.test.sh` pins
+  both directions.
+
+- **`defaults.localReviewer`, because `defaults.reviewer` is one key and the two loops need different
+  values.** Every configuration written before this release points `reviewer` at a `github-comment`
+  reviewer, so the local loop reading that key would abort `not-a-local-reviewer` on every run until
+  `--reviewer` was typed. Falling back to "the only local reviewer defined" would be a guess, which
+  is what an unknown `--reviewer` already refuses to make.
+
+- **`defaults.localMaxRounds`, for the same reason and a sharper one.** One key with a per-loop
+  built-in was the first design, and it is wrong: a `maxRounds` written for the remote loop silently
+  raised the local cap from 5 to whatever it said, and **the local loop's cap is the only brake it
+  has** — a remote round announces itself with a push, a comment, a wait and a quota, and a local one
+  announces nothing. Both stay settable from config, unlike `--accept-at`, because they bound spend
+  rather than safety.
+
+- **Two `local-command` presets, both `unverified`, with cards that say what that means here.**
+  Each records **what the installed command declares**, read out of a named version, in a
+  `### From the installed command` subsection. `reviewers/code-review.md` additionally carries five
+  observed rounds in a subsection of their own, because the command was driven while this release was
+  written; `reviewers/ecc-review-pr.md` has no such subsection, because it was not, and says so where
+  the subsection would be. **Both stay `unverified`**, and `reviewers/README.md` now says why that
+  word is narrower here: the bar for a local reviewer is the loop driven to convergence, and observing
+  the command answer — five times or fifty — is not that.
+
+  Two of those declarations are worth reading before choosing a preset. The built-in command's
+  reporting surface **carries no severity field at all** — severity is only the order of the list — so
+  its card carries no ladder and `--accept-at` aborts against it; its own per-round cap, 4 findings at
+  the lowest effort rising to 15 at the highest, is the brake instead. And `ecc:review-pr`'s
+  `critical` / `important` / `advisory` are a **confidence rule, not an output format**: they appear
+  once each in a closing section, the command has no heading template, and the vocabulary that reaches
+  the output comes from an agent it dispatches, which tags findings `CRITICAL` / `HIGH` / `MEDIUM` /
+  `LOW`. That four-rung ladder is what the card carries, because a ladder taken from the documented
+  three would name rungs the output never emits and `--accept-at important` would match nothing and
+  block everything.
+
+- **A third provenance form for reviewer cards: the artifact and its exact version, plus a month.**
+  `ecc 2.2.0, 2026-09`. Neither existing form fits a local reviewer — it is not observed on a pull
+  request and not inside a private repository — and an artifact version is **more** checkable than the
+  anonymised form, since anyone can install that version and read the same file where nobody outside
+  can open `repo C` at all. `tests/provenance.test.sh` pins it on the same axes as the other two, and
+  `reviewers/README.md` states the limit the form carries: it cites a **declaration**, not a
+  behaviour, and a card written from the artifact alone stays `unverified`.
+
+  **A second limit is pinned rather than described**: the lowercase-name rule excludes capitalised
+  prose before a version, and does **not** exclude this project's own name, so `revloop 0.4.0` plus a
+  month passes as provenance for a bullet about somebody else's reviewer. Closing that means judging
+  what a sentence is about, which is the judgement the per-sentence check was already declined for.
+  There is a case asserting the gap exists, because a limit stated in a comment and contradicted by
+  the code is worse than no comment — and this file had gone green on its own failure case once
+  before.
+
+**One thing this release does not claim, and the reason it is worth saying here.** The local
+procedure and both its presets ship `unverified`. Rounds do exist: this release's own diff was put
+through `claude -p "/code-review medium"` as the `code-review` preset specifies, five times, fixing
+everything between rounds. It returned **9, 7, 6, 8 and 10 findings with not one recurrence among the
+40**, and **every one was a real defect in this release's own new files**. **Every round after the
+first found defects the previous round's fixes had introduced** — a stale claim left by a changed
+rule, a rule interaction created by a fix, a truncation created by a budget, and a permission bypass
+created by a grant.
+
+**The run reached the local `--max-rounds` built-in of 5 without converging, with the last round
+returning more than any before it.** That is the same outcome `.revloop/field-notes.md` records three
+times for the remote reviewer, reached here in a fifth of the wall clock by a different reviewer.
+**So "the reviewer eventually runs out of things to say" is not what ends either loop** — which is the
+argument for `--accept-at` restated as a measurement rather than as a worry, on the release that adds
+it. No run under the floor has been made yet, so whether it ends this one is the open question.
+
+**The sample also corrected a premise this release was built on.** "A local round returns at once"
+was written into the procedure, the design notes, the schema and both READMEs before anything was
+measured, and it is false: the five rounds ran 5m27s to 8m39s, inside the remote reviewer's own
+2:46–10:07. The
+wall clock is not what separates the two loops. **What a round spends is** — and the local one spends
+tokens, which nothing in the room displays. Every rule that had rested on "there is no cost to
+notice" now rests on "the cost is invisible", which is the argument that was actually true.
+
+**The sample contradicted the card it was written from, in two places.** The shape that came back was
+neither shape read out of the binary, and round 1 returned nine findings where the documented cap for
+that effort level is eight. **A card written from a declaration is a card that can be wrong**, which
+is the limit `reviewers/README.md` now states for the artifact provenance form — demonstrated on its
+first use, by the artifact it was added for.
+
+**Both contradictions are the case `unparsed-review-output` exists for.** A parser written from the
+declarations would have matched neither run, returned zero findings, and been read as a clean review.
+That abort row was written before the sample and is the reason the sample cost nothing.
+
+Changed:
+
+- **Step 1 of the pull-request loop now aborts on a `local-command` reviewer, under its own reason.**
+  Such a reviewer has no `trigger`, so the run already stopped — at `no-comment-trigger`, which names
+  a missing field when the cause is a reviewer built for the other loop. `reason=not-a-github-reviewer`
+  says which, and names the command that does drive it.
+
+- **Step 12's report rule now has a no-ladder case, which the hardcoded-rung fix had not.** Replacing
+  the literal `P1` with "the ladder's top rung" is correct for the three cards that carry a ladder and
+  leads with nothing for `claude.md`, which carries none. With no ladder it leads with everything left
+  unfixed.
+
+- **Three tests now read every procedure in `commands/`, not the first one that existed.**
+  `tests/permissions.test.sh`, `tests/fence-guards.test.sh` and `tests/procedure-refs.test.sh` each
+  named `commands/review-loop.md` outright, so a second procedure would have been exempt from the
+  granted-command check, the `allowed-tools` check and the line-number-citation check — **which is the
+  same drift those files exist to catch, one level up**. The list is globbed rather than written out
+  for that reason, and an unexpanded glob is failed on explicitly, because awk over a path that does
+  not exist prints nothing and every subset check reads that as "no commands used". The marker guard
+  stays scoped to the one procedure that posts a trigger; globbing it would report a missing marker as
+  a defect in a file that posts none.
+
 ## [0.4.0] - 2026-08-31
 
 **No fence changed, so nothing here asks anything of you.** The three shell fences in

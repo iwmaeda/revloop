@@ -12,12 +12,14 @@
 # observations with no citation at all and survived several reviews; the rule had
 # required a citation the entire time.
 #
-# The Provenance section gives two forms, and they are not interchangeable
-# fragments: a public observation cites the pull request directly, and a private
-# one is anonymised as `repo X` **with the month it was taken**. So the check is
-# a PR reference, or a repo tag AND a month — not any one of three. Written as a
-# flat alternation it accepted `repo C` with no month, and a bare `2026-08` with
-# no source at all, either of which is a bullet nobody can go and check.
+# The Provenance section gives three forms, and they are not interchangeable
+# fragments: a public observation cites the pull request directly, a private one
+# is anonymised as `repo X` **with the month it was taken**, and one read out of
+# an installed review command names the artifact and its exact version, again
+# with a month. So the check is a PR reference, or a repo tag AND a month, or an
+# artifact version AND a month — not any one of five. Written as a flat
+# alternation it accepted `repo C` with no month, and a bare `2026-08` with no
+# source at all, either of which is a bullet nobody can go and check.
 #
 # One exemption, and it is the one the rule already documents because it is
 # mechanical rather than a judgement: a bullet opening \`**Derived from …**\` names
@@ -51,6 +53,43 @@ echo "provenance"
 PR_REF='(^|[^A-Za-z0-9_.#/-])[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[1-9][0-9]*([^0-9A-Za-z]|$)'
 REPO_TAG='repo [A-Z]([^A-Za-z]|$)'
 MONTH='(^|[^0-9])[0-9]{4}-(0[1-9]|1[0-2])([^0-9]|$)'
+# THE THIRD FORM, added for reviewers that are not GitHub Apps. A local review
+# command is not observed on a pull request and not in a private repository; it
+# is observed in an installed artifact, and what makes such an observation
+# checkable is the artifact's exact version. `ecc 2.2.0` plus a month is more
+# checkable than `repo C` plus one, not less: anyone can install that version
+# and read the same file, where nobody outside can open repo C at all.
+#
+# THE MONTH IS PART OF THE PATTERN, NOT A SEPARATE CONJUNCT. Requiring "a
+# version somewhere in the bullet AND a month somewhere in it" accepted
+# `this repository's 0.5.0 diff, 2026-09` — a version, a month, and no artifact
+# named — and that shape had already reached a card. Anchoring the month
+# immediately after the version makes the pair one citation instead of two
+# coincidences, for the same reason a repo tag alone was never enough.
+#
+# The name is required lowercase, which is how every one of them is actually
+# spelled (`ecc`, `codex`, `claude-code`). What that excludes is a capitalised
+# word before a dotted triple — `Measured 2.4.0`, `Verified 1.2.3` — which is how
+# such a collision reads in this corpus's prose.
+#
+# WHAT IT STILL DOES NOT EXCLUDE is a lowercase word that is not an artifact
+# name. `revloop 0.4.0, 2026-08` passes, so a bullet can cite **this project's
+# own version** as provenance for another artifact's behaviour; so does
+# `the floor is 2.4.0, 2026-08`, where the "name" is the word `is`. Two earlier
+# versions of this comment claimed otherwise, once about capitalisation and once
+# about adjacency, and each claim was false when it was written. The cases below
+# pin both rather than describing them, because a limit stated in a comment and
+# contradicted by the code is worse than no comment — this file had already gone
+# green on its own failure case once.
+#
+# Neither is closed by widening the shape further. The form is "an artifact and
+# its version", `revloop` is an artifact with versions, and `is` is only
+# distinguishable from an artifact name by knowing what the sentence is about.
+# That is the judgement the per-sentence provenance check was declined for below.
+# **The unit is what a grep can see, and this sits outside it.** Caught by
+# review, and by the cards keeping observations and readings in named
+# subsections so a misfiled one is visible.
+ARTIFACT_REF='(^|[^A-Za-z0-9_.#/-])[a-z][a-z0-9-]*[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+,[[:space:]]*[0-9]{4}-(0[1-9]|1[0-2])([^0-9]|$)'
 # The documented exemption names what it rests on. `- **Derived from** …` closes
 # the marker with no source, and `- **Derived from   **` closes it with only
 # spaces; neither is that exemption, so the span must contain something legible.
@@ -61,6 +100,7 @@ has() { printf '%s\n' "$2" | grep -qE "$1"; }
 cited() { # cited <text> -> CITED | UNCITED
   if has "$PR_REF" "$1"; then echo CITED
   elif has "$REPO_TAG" "$1" && has "$MONTH" "$1"; then echo CITED
+  elif has "$ARTIFACT_REF" "$1"; then echo CITED
   else echo UNCITED
   fi
 }
@@ -82,6 +122,22 @@ expect "a month needs a left boundary" "$(cited 'seen in repo C, 12026-08')"    
 expect "a reference needs one too"     "$(cited 'seen on xowner/repo#8')"          CITED
 expect "PR 0 is not a pull request"    "$(cited 'seen on owner/repo#0suffix')"     UNCITED
 expect "a reference needs a right end" "$(cited 'seen on owner/repo#8x')"          UNCITED
+# The artifact form, pinned on the same axes the other two were.
+expect "an artifact and its month"     "$(cited 'read from ecc 2.2.0, 2026-09')"   CITED
+expect "a hyphenated artifact name"    "$(cited 'in claude-code 2.1.233, 2026-09')" CITED
+expect "an artifact without a month"   "$(cited 'read from ecc 2.2.0')"            UNCITED
+expect "a month with no version"       "$(cited 'read from the ecc plugin, 2026-09')" UNCITED
+expect "a two-part version is not one" "$(cited 'read from ecc 2.2, 2026-09')"     UNCITED
+expect "a capitalised name is not one" "$(cited 'read from ECC 2.2.0, 2026-09')"   UNCITED
+expect "a four-part version is not"    "$(cited 'read from ecc 2.2.0.1, 2026-09')" UNCITED
+expect "a month elsewhere is not one"  "$(cited 'ran the 0.5.0 diff in 2026-09')"  UNCITED
+expect "a version and a loose month"   "$(cited \"the 0.5.0 diff, reviewed 2026-09\")" UNCITED
+# THE KNOWN LIMITS, PINNED. These are not assertions that the behaviour is right;
+# they assert the behaviour is what the comment above says it is. If a later
+# change closes one, its line fails and the comment is rewritten with it, which
+# is the only way the two stay in step.
+expect "this project's own version passes" "$(cited 'read from revloop 0.4.0, 2026-08')" CITED
+expect "a function word reads as a name"   "$(cited 'the floor is 2.4.0, 2026-08')"      CITED
 
 exempt() { if printf '%s\n' "$1" | grep -qE "$DERIVED"; then echo EXEMPT; else echo CHECKED; fi; }
 expect "a derivation naming its source" "$(exempt '- **Derived from the samples above**, so')" EXEMPT

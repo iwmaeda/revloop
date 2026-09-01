@@ -31,12 +31,30 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "permissions"
 
-PROC="$ROOT/commands/review-loop.md"
+# EVERY PROCEDURE IN commands/ IS CHECKED, not only the first one that existed.
+# The list is globbed rather than written out, because a procedure added without
+# being named here would be exempt from this whole file — which is the same
+# drift the file exists to catch, one level up. That is not hypothetical:
+# review-loop-local.md arrived as the second procedure and runs git.
+PROCS=("$ROOT"/commands/*.md)
 DOC="$ROOT/docs/permissions.md"
 
-# Subcommands the procedure runs, taken from fenced bash blocks only.
-USED=$(awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "$PROC" \
-  | grep -oE '\bgit [a-z][a-z-]*' | sed 's/^git //' | sort -u)
+# An unexpanded glob is a single path that does not exist, and awk on it prints
+# nothing — which every subset check below reads as "no commands used", the
+# empty-input hole this file already guards for its two lists. Fail on it here,
+# where the cause is still legible, rather than three assertions later.
+if [ ! -f "${PROCS[0]}" ]; then
+  FAIL=$((FAIL + 1)); printf '  FAIL commands/*.md matched no file\n'
+fi
+
+# The text of every fenced bash block in every procedure. Runnable commands live
+# in blocks and prose does not, so extracting from the blocks alone needs no
+# exclusion list — the procedure says "makes git set the upstream" in prose and
+# names `git show HEAD` twice in order to forbid it.
+blocks() { awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "${PROCS[@]}"; }
+
+# Subcommands the procedures run, taken from fenced bash blocks only.
+USED=$(blocks | grep -oE '\bgit [a-z][a-z-]*' | sed 's/^git //' | sort -u)
 # Subcommands docs/permissions.md grants individually.
 GRANTED=$(grep -oE 'Bash\(git [a-z][a-z-]*' "$DOC" | sed 's/^Bash(git //' | sort -u)
 
@@ -45,7 +63,7 @@ GRANTED=$(grep -oE 'Bash\(git [a-z][a-z-]*' "$DOC" | sed 's/^Bash(git //' | sort
 # "no bad marks is not good" hole the procedure warns about. The counts
 # themselves are not pinned: they change whenever a step legitimately does.
 nz() { if [ "$1" -gt 0 ]; then echo NONEMPTY; else echo EMPTY; fi; }
-expect "the procedure's blocks do run git" "$(nz "$(printf '%s\n' "$USED" | grep -c .)")" NONEMPTY
+expect "the procedures' blocks do run git" "$(nz "$(printf '%s\n' "$USED" | grep -c .)")" NONEMPTY
 expect "the doc grants a git list"         "$(nz "$(printf '%s\n' "$GRANTED" | grep -c .)")" NONEMPTY
 
 # comm needs sorted input; both are. -23 leaves lines only in the first file.
@@ -103,7 +121,7 @@ canon() { # canon <text> -> form | UNCLASSIFIED
 }
 
 # The text of every fenced bash block, scanned as text rather than line by line.
-GH_TXT=$(awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "$PROC")
+GH_TXT=$(blocks)
 # THE SCOPED PATH IS PART OF THE RULE, so it is part of the pattern. Matching
 # only the verb reduced `gh api -X PATCH "users/example"` to `-X PATCH`, which is
 # granted — while `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` would not
@@ -124,7 +142,7 @@ gh_total=$((gh_inline + gh_split))
 gh_canon=$(printf '%s\n' "$GH_TXT" | grep -oE "$GH_CANON" | grep -c .)
 
 nz() { if [ "$1" -gt 0 ]; then echo NONEMPTY; else echo EMPTY; fi; }
-expect "the procedure's blocks do call gh api"      "$(nz "$gh_total")" NONEMPTY
+expect "the procedures' blocks do call gh api"     "$(nz "$gh_total")" NONEMPTY
 expect "every gh api invocation is canonical"       "$gh_canon" "$gh_total"
 
 # Every canonical occurrence, not one per line.

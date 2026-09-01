@@ -1,0 +1,37 @@
+{
+  "$schema": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/revloop.schema.json",
+  "version": 1,
+  "project": {
+    "baseBranch": "main",
+    "verify": ["npm run check:all"],
+    "verifyNotes": "check:all does not run npm audit; CI runs it as its own job",
+    "branchPrefixes": ["feat", "fix", "docs", "chore"],
+    "commit": {
+      "style": "conventional",
+      "subjectLanguage": "en",
+      "bodyLanguage": "en",
+      "verifiedLabel": "Verified:",
+      "onePerRound": true
+    }
+  },
+  "defaults": { "localReviewer": "code-review", "localMaxRounds": 5 },
+  "reviewers": {
+    "code-review": {
+      "displayName": "Claude Code review",
+      "kind": "local-command",
+      "invoke": "subprocess",
+      "command": "claude -p \"/code-review medium\"",
+      "expectedLatency": "5-9m",
+      "status": "unverified"
+    },
+    "ecc-review-pr": {
+      "displayName": "ECC review-pr",
+      "kind": "local-command",
+      "invoke": "skill",
+      "command": "ecc:review-pr",
+      "requiresPr": true,
+      "severityLevels": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+      "status": "unverified"
+    }
+  }
+}

@@ -39,15 +39,12 @@ is how you tell a value you chose from a value revloop guessed, without reading 
 | Situation                             | Behaviour                                                                                                                                   |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | No `.revloop.json`                    | Detect everything. Normal                                                                                                                   |
-| Malformed JSON                        | **Abort.** No fallback                                                                                                                      |
+| Malformed JSON                        | **Abort.** Never fall back to the presets — that would ignore the custom reviewer the file configures while the run still looked healthy    |
 | Unknown key                           | Not validated at runtime; ignored. `tests/schema.test.sh` rejects it in CI against fixtures, per the schema's `additionalProperties: false` |
 | Unknown `version`                     | **Abort**                                                                                                                                   |
 | `--reviewer` names nothing known      | **Abort** and list the available names. Never guess                                                                                         |
 | No verify command found or configured | Ask before continuing; record "no verification ran" in the report                                                                           |
 | ...and `--merge` was passed           | **Abort.** Do not merge code that nothing checked                                                                                           |
-
-Malformed config aborts rather than falling back, because a silent fallback to the presets would
-ignore exactly the custom reviewer a user configured, while the run still looked healthy.
 
 ## `project`
 
@@ -59,9 +56,8 @@ ignore exactly the custom reviewer a user configured, while the run still looked
 | `branchPrefixes`   | Allowed topic-branch prefixes                                             |
 | `pr.titleLanguage` | Language for the PR title                                                 |
 
-Almost every repository has one umbrella command (`npm run check:all`, `make check`) that does _not_
-cover everything CI runs — one project's skipped the tests, another's skipped `npm audit`. Write the
-gap into `verifyNotes` so the loop closes it before pushing; a red CI costs a whole review round.
+An umbrella check command usually does _not_ cover everything CI runs. Write the gap into
+`verifyNotes` so the loop closes it before pushing; a red CI costs a whole review round.
 
 ### `project.commit`
 
@@ -80,51 +76,91 @@ gap into `verifyNotes` so the loop closes it before pushing; a red CI costs a wh
 Defaults for the command flags; a flag always overrides its default. Resolution is flag, then this
 block, then the built-in, and step 1 prints which one won.
 
-| Key         | Meaning                                                               | Built-in |
-| ----------- | --------------------------------------------------------------------- | -------- |
-| `reviewer`  | A preset (`codex`, `gemini`, `claude`) or a name from `reviewers`     | —        |
-| `maxRounds` | Circuit breaker on the number of review rounds                        | `10`     |
-| `timeout`   | Cumulative cap on waiting for one **trigger's** verdict, e.g. `"45m"` | `30m`    |
+| Key              | Meaning                                                               | Built-in |
+| ---------------- | --------------------------------------------------------------------- | -------- |
+| `reviewer`       | Default `--reviewer` for **the pull-request loop**                    | —        |
+| `localReviewer`  | Default `--reviewer` for **the local loop**                           | —        |
+| `maxRounds`      | Circuit breaker for **the pull-request loop**                         | `10`     |
+| `localMaxRounds` | Circuit breaker for **the local loop**                                | `5`      |
+| `timeout`        | Cumulative cap on waiting for one **trigger's** verdict, e.g. `"45m"` | `30m`    |
 
-`--merge` and `--auto` have no entry here on purpose — see below.
+**The reviewer and the round cap are two keys each, one per loop**, because the loops want different
+values and sharing a key silently applies the wrong one. A `reviewer` written before the local loop
+existed names a `github-comment` reviewer, and a `maxRounds` written for the remote loop would raise
+the local cap — which is the only brake that loop has. Both caps stay settable from config, unlike
+`--accept-at`, because they bound spend rather than safety.
+
+`--merge`, `--auto` and `--accept-at` have no entry here on purpose — see below.
 
 ## What is deliberately not configurable
 
 A key that can only hold the value it already has is a promise, not a setting. These are fixed:
 
-| Not a key                                  | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--merge` / `--auto` defaults              | This file comes from the repository you are in, including one you just cloned. It must not grant its own merge or delete your confirmation points. **The flag is the approval**                                                                                                                                                                                                                                                                                                                   |
-| Merge method                               | The merge fence sends `merge_method=merge` and takes no arguments, so its command string never changes                                                                                                                                                                                                                                                                                                                                                                                            |
-| "Require clean CI before merge"            | The gate re-runs its own check inside the merge step and cannot be loosened from a file                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Which endpoints carry a verdict            | The wait fence pulls comments, reviews and reactions in one call, always. Watching one is how a poll waits forever                                                                                                                                                                                                                                                                                                                                                                                |
-| Interim-comment patterns                   | The drop list lives **inside** the wait fence, because config never reaches a fence. Teaching it a new preamble is a fence edit — one re-approval for every user                                                                                                                                                                                                                                                                                                                                  |
-| The round number                           | Counted from the `revloop:trigger` markers already on the PR that opened a round, plus one. The PR is the memory, so a resumed run needs no local state. It counts revloop's rounds, so a PR adopted mid-flight restarts at 1                                                                                                                                                                                                                                                                     |
-| The retry budget and the silence threshold | One re-post per round, and never before three silent 8-minute chunks. A budget above one has nothing measured behind it, and it spends the reviewer's quota — the same class as `--merge`, so not something the repository you happen to be standing in gets to raise. The threshold is fixed in chunks rather than derived from `timeout` because a derived one could be pushed below the reviewer's measured latency by _lowering_ a flag, which is the runaway the invariant exists to prevent |
+| Not a key                                  | Why                                                                                                                                                                                                                                                                           |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--merge` / `--auto` defaults              | This file comes from the repository you are in, including one you just cloned. It must not grant its own merge or delete your confirmation points. **The flag is the approval**                                                                                               |
+| `--accept-at`, anywhere                    | Same class. A repository that could set its own acceptance floor would lower its own review bar on a checkout you just cloned                                                                                                                                                 |
+| Merge method                               | The merge fence sends `merge_method=merge` and takes no arguments, so its command string never changes                                                                                                                                                                        |
+| "Require clean CI before merge"            | The gate re-runs its own check inside the merge step and cannot be loosened from a file                                                                                                                                                                                       |
+| Which endpoints carry a verdict            | The wait fence pulls comments, reviews and reactions in one call, always. Watching one is how a poll waits forever                                                                                                                                                            |
+| Interim-comment patterns                   | The drop list lives **inside** the wait fence, because config never reaches a fence. Teaching it a new preamble is a fence edit — one re-approval for every user                                                                                                              |
+| The round number                           | Counted from the trigger markers already on the pull request. The pull request is the memory, so a resumed run needs no local state                                                                                                                                           |
+| The retry budget and the silence threshold | One re-post per round, and not before a fixed floor of silence. Raising either spends the reviewer's quota — the same class as `--merge`. The floor is fixed rather than derived from `timeout`, so that lowering a flag cannot push it under the reviewer's measured latency |
 
-Counting rounds from GitHub rather than from commit subjects is what lets an interrupted run resume in
-a fresh session: a round that ended with no findings still cost you a wait, and it left a marker but no
-commit. The count is of markers alone, so a pull request driven by hand before revloop was adopted
-starts again at 1 — an exact number anyone can reproduce by hand, rather than one that depends on
-replaying the wait fence's compatibility pattern outside the fence. A marker carrying an `attempt` key
-is excluded from that count because it re-posts a round that was already open, and it is written
-**only** on a re-post so the exclusion stays a one-line test. That test reads the key: a raw search for
-`attempt=` also matches `notattempt=2` and a quoted `"attempt=2"` in a garbled payload, either of which
-would undercount the round. Counting re-posts would let a reviewer that drops one comment halve
-`maxRounds` without anyone noticing.
+**`timeout` caps one trigger, not one round**, so a round that re-posts waits about twice it. That is
+the wall-clock cost of the re-post path, and `timeout` is the one number to change if the wall clock
+matters more to you than recovering a dropped trigger. The rest of the argument — including what the
+path can still lose — is in [design-notes.md](design-notes.md#the-baseline-timestamp-is-the-whole-safety-argument).
 
-`timeout` caps one trigger rather than one round, so a round that has to re-post waits about twice it,
-rounded up to whole 8-minute chunks each time: the built-in `30m` stops an attempt after four chunks,
-so a re-posting round runs about 64 minutes rather than 60. That is the whole **wall-clock** cost of
-the re-post path, and it is the one number to change if the wall clock matters more to you than
-recovering a dropped trigger. It is not the path's only cost: a signal landing between an expiring
-chunk's last poll and the new trigger is orphaned, and for the two abort-class comment signals that is
-a widening no flag buys back. `commands/review-loop.md`'s `## Notes` gives the argument.
+## The acceptance floor
+
+`--accept-at <level>` names **the highest rung that may be left unfixed**. The rungs come from the
+resolved reviewer's `severityLevels`, read most severe first, so on a `["P1","P2","P3"]` ladder
+`--accept-at P2` leaves P1 blocking and makes P2 and P3 acceptable. Both loops take it.
+
+| Situation                                      | Behaviour                                                                    |
+| ---------------------------------------------- | ---------------------------------------------------------------------------- |
+| Flag absent                                    | Nothing is acceptable. Identical to the behaviour before the flag existed    |
+| Reviewer has no `severityLevels`               | **Abort** (`no-severity-ladder`). The loop never invents a ladder for itself |
+| `<level>` is not a rung on that ladder         | **Abort** (`unknown-accept-level`), listing the ladder                       |
+| With `--merge` and `--auto` together           | **Abort** (`unreviewed-accept-merge`)                                        |
+| With `--merge` alone, having accepted anything | Stop for confirmation, listing every accepted finding, before the CI wait    |
+
+**An accepted finding is still read, still replied to, and still listed in the report.** The flag
+decides when the loop may stop, never what it may skip reading. Why that boundary is where the flag is
+safe, and why the loop refuses to invent a ladder for a reviewer that emits none, are in
+[design-notes.md](design-notes.md#the-acceptance-floor).
 
 ## `reviewers`
 
 Adds to or overrides the presets. See [adding-a-reviewer.md](adding-a-reviewer.md) for the full field
 list and how to fill it in from measurements.
+
+**A reviewer is one of two kinds.** `kind` is absent from every file written before the second kind
+existed, and absent means `github-comment`, so nothing that worked before changes meaning.
+
+| `kind`           | Required            | Also takes                                                         | May not carry                                                                  |
+| ---------------- | ------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `github-comment` | `botLogin`          | `trigger`, `markerTolerated`, `cleanPatterns`, `rateLimitPatterns` | `invoke`, `command`, `requiresPr`                                              |
+| `local-command`  | `invoke`, `command` | `requiresPr`                                                       | `botLogin`, `trigger`, `markerTolerated`, `cleanPatterns`, `rateLimitPatterns` |
+
+`displayName`, `severityLevels`, `expectedLatency` and `status` belong to both. The separation is
+enforced by the schema rather than left to the reader, because a field the other kind's loop never
+reads is a setting that appears to work and does nothing.
+
+| Key          | Meaning                                                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `invoke`     | `subprocess` runs `command` as a shell command line and reads its stdout; `skill` invokes it in this session                                           |
+| `command`    | The skill name, or the command line. Shown in the step-1 table before it runs and never pre-approved, exactly as `verify` is                           |
+| `requiresPr` | True when the command resolves an open pull request itself. The local loop cannot check, so step 1 asks and step 7 refuses to call zero findings clean |
+
+**Prefer `subprocess`.** The reviewer's file reads land in its own context rather than the loop's, and
+it does not read the reasoning that produced the code under review. Some commands accept nothing else,
+because a host may forbid a command from being started by the model rather than by a person.
+
+**There is no `effort` key.** Whatever argument the review command takes for its depth belongs inside
+`command`, which is the string the step-1 table shows you and the string the permission system
+matches.
 
 Every pattern here is used model-side only. None of it is interpolated into a shell command or a jq
 program, which is what keeps a `.revloop.json` from a cloned repository from becoming a code-execution

@@ -69,19 +69,112 @@
       "additionalProperties": false,
       "description": "Defaults for the command flags. A flag always overrides its default. --merge and --auto are deliberately absent: this file comes from whatever repository you are working in, and a repository must not be able to turn on merging or to remove the two human confirmation points. Those two are settable by flag only, because the flag is the approval.",
       "properties": {
-        "reviewer": { "type": "string" },
-        "maxRounds": { "type": "integer", "minimum": 1 },
+        "reviewer": {
+          "type": "string",
+          "description": "Default for --reviewer on the pull-request loop only. Step 1 of that procedure aborts with reason=not-a-github-reviewer when the resolved name is a local-command reviewer, rather than falling through to the missing-trigger abort, which reports the wrong cause. A project driving both loops sets localReviewer as well."
+        },
+        "localReviewer": {
+          "type": "string",
+          "description": "Default for --reviewer on the local loop. It exists because `reviewer` is one key and the two loops need different values: every configuration written before the local loop points `reviewer` at a github-comment reviewer, and inheriting it would abort the local loop with reason=not-a-local-reviewer on every run until --reviewer was typed. Falling back to 'the only local reviewer defined' instead would be a guess, which is the thing an unknown --reviewer already refuses to make."
+        },
+        "maxRounds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Circuit breaker on the number of rounds, for the pull-request loop only. It stays settable from config, unlike --accept-at, because it bounds spend rather than safety: raising it costs rounds and never merges anything."
+        },
+        "localMaxRounds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Circuit breaker for the local loop. Separate from maxRounds because the two bound different things: a remote round spends a quota and a stretch of wall clock a person notices, while a local round spends tokens and nothing in the room displays that, so the cap is the only brake there is. It is NOT that a local round is quick: measured rounds run 5m27s to 8m39s, inside the remote reviewer's own range, so what differs is what a round spends and not how long it takes. Sharing one key let a remote-oriented value silently raise the local cap, which defeats the only limit that loop has. Built-in 5."
+        },
         "timeout": { "type": "string", "pattern": "^[0-9]+[smh]$" }
       }
     },
     "reviewers": {
       "type": "object",
-      "description": "Adds to, or overrides, the built-in presets. Every pattern here is used model-side only; none of it reaches a shell or a jq program. That is also the limit of what config can express: the wait fence watches reviews and comments unconditionally, and its list of non-terminal bot comments to drop lives inside the fence, so a reviewer that posts a preamble before its verdict needs a fence edit rather than a config key.",
+      "description": "Adds to, or overrides, the built-in presets. Every pattern here is used model-side only; none of it reaches a shell or a jq program. That is also the limit of what config can express: the wait fence watches reviews and comments unconditionally, and its list of non-terminal bot comments to drop lives inside the fence, so a reviewer that posts a preamble before its verdict needs a fence edit rather than a config key. A reviewer is one of two kinds and the required keys differ; see `kind`.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["botLogin"],
+        "allOf": [
+          {
+            "if": {
+              "properties": { "kind": { "const": "local-command" } },
+              "required": ["kind"]
+            },
+            "then": {
+              "required": ["invoke", "command"],
+              "not": {
+                "anyOf": [
+                  { "required": ["botLogin"] },
+                  { "required": ["trigger"] },
+                  { "required": ["markerTolerated"] },
+                  { "required": ["cleanPatterns"] },
+                  { "required": ["rateLimitPatterns"] }
+                ]
+              }
+            },
+            "else": {
+              "required": ["botLogin"],
+              "not": {
+                "anyOf": [
+                  { "required": ["invoke"] },
+                  { "required": ["command"] },
+                  { "required": ["requiresPr"] }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "invoke": { "const": "skill" } },
+              "required": ["invoke"]
+            },
+            "then": {
+              "properties": {
+                "command": { "pattern": "^[a-z0-9][a-z0-9-]*(:[a-z0-9][a-z0-9-]*)?$" }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "invoke": { "const": "subprocess" } },
+              "required": ["invoke"]
+            },
+            "then": {
+              "properties": {
+                "command": {
+                  "not": { "pattern": "^\\s*git($|[^A-Za-z0-9_.-])" },
+                  "description": "A subprocess command may not be git. The local command's own allowed-tools grants Bash(git:*), and a permission rule matches a command-string prefix — so a repository-supplied command beginning with git would run with no prompt at all, which is the one thing the not-pre-approved rule exists to prevent. `git push --force` is the shape that matters. THE TERMINATOR IS A COMPLEMENT, NOT A LIST OF SEPARATORS. `git(\\s|$)` was the first form and it read only whitespace and end-of-string as ending the word, so every other character the shell ends a word on walked through it: `git;rm -rf /`, `git&&rm -rf /`, `git|tee`, `git>out`, `git<in`, `git&` and `git\"\" push` are each a command line whose first word is git, and all seven were accepted. Enumerating separators closes only the members somebody thought of; requiring that git not be continued by an identifier character closes the set, and it keeps the forms that must stay accepted — gitlint, git-review and git.exe are different commands, and a rule about the leading token must not ban them."
+                }
+              }
+            }
+          }
+        ],
         "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["github-comment", "local-command"],
+            "default": "github-comment",
+            "description": "Absent means github-comment, so every configuration written before this key existed keeps its meaning. github-comment is driven by posting a trigger to a pull request and reading GitHub; it requires botLogin. local-command is driven by running a review command on this machine; it requires invoke and command, and it may carry none of the GitHub-only keys, because nothing in the local loop posts a comment or filters a bot."
+          },
+          "invoke": {
+            "type": "string",
+            "enum": ["subprocess", "skill"],
+            "description": "local-command only. subprocess runs `command` as a shell command line and reads its stdout; it is the only option for a review command whose host forbids model invocation, and it buys context isolation because the reviewer's file reads never enter the loop's own context. skill invokes `command` as a skill in this session."
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "pattern": "^[^\\u0000-\\u001f]*[^\\u0000-\\u001f ][^\\u0000-\\u001f]*$",
+            "description": "local-command only. With invoke=skill this is a skill name and is narrowed further to ^[a-z0-9][a-z0-9-]*(:[a-z0-9][a-z0-9-]*)?$. With invoke=subprocess it is a command line, so it is treated exactly as project.verify is: printed in the step-1 table before it runs and deliberately absent from allowed-tools, so the permission system always sees it. Any effort or focus argument the review command takes belongs in this string; there is no separate key for it, because the string is what the operator is shown and what the permission system matches."
+          },
+          "requiresPr": {
+            "type": "boolean",
+            "default": false,
+            "description": "local-command only. True when the review command resolves an open pull request itself and cannot run without one. The local loop opens none and has no gh grant, so it cannot check; it does not abort and does not guess. Step 1 asks the operator to confirm one exists, and step 7 refuses to read zero findings from such a reviewer as a clean round, because with no target and with a clean diff it returns the same nothing. An abort was the first design and made a shipped preset unreachable on the branches where it works."
+          },
           "displayName": { "type": "string" },
           "trigger": {
             "type": "string",
@@ -100,7 +193,13 @@
             "description": "Anchor these at the start. A reviewer's clean phrase often has a varying tail, so equality tests break."
           },
           "rateLimitPatterns": { "type": "array", "items": { "type": "string" } },
-          "severityLevels": { "type": "array", "items": { "type": "string" } },
+          "severityLevels": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "uniqueItems": true,
+            "description": "The reviewer's severity vocabulary, ORDERED MOST SEVERE FIRST. This ordering is the ladder --accept-at names: --accept-at <level> makes that level and everything below it acceptable, and leaves everything above it blocking. A reviewer that emits no severity has no key here, and --accept-at aborts with reason=no-severity-ladder rather than letting the loop invent a ladder for itself — the loop is the party obliged to fix the finding, so letting it rank its own findings would let it rank its way out of the work."
+          },
           "expectedLatency": {
             "type": "string",
             "description": "Printed in the step-1 table. A verdict far below this range is usually a failure, not a review."

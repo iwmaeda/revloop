@@ -1,7 +1,7 @@
 # Install
 
-Put revloop in place on Claude Code or Codex, then confirm a reviewer bot answers. Permission rules
-are not here — they are in [`permissions.md`](permissions.md).
+Put revloop in place on Claude Code or Codex, then confirm a reviewer answers. Permission rules are
+not here — they are in [`permissions.md`](permissions.md).
 
 ## Quickstart
 
@@ -12,12 +12,12 @@ are not here — they are in [`permissions.md`](permissions.md).
 /plugin install revloop@revloop
 ```
 
-The command is then `/revloop:review-loop`. Plugin-provided commands are always namespaced as
-`/<plugin>:<command>`, so there is no bare `/revloop`.
+The commands are then `/revloop:review-loop` and `/revloop:review-loop-local`. Plugin-provided
+commands are always namespaced as `/<plugin>:<command>`, so there is no bare `/revloop`.
 
-It is deliberately not model-invocable (`disable-model-invocation: true`), and the Claude Code
-plugin manifest ships no `skills` key. This loop pushes, comments on pull requests, and can merge;
-it should only ever start because a person asked for it.
+**Both are deliberately not model-invocable**, and the plugin manifest ships no `skills` key. One
+pushes, comments and can merge; the other commits and runs a command out of your configuration.
+Neither should start except because a person asked for it.
 
 ### Codex
 
@@ -32,8 +32,8 @@ export REVLOOP_PROCEDURE=~/.revloop/commands/review-loop.md
 
 `.agents/skills/revloop/SKILL.md` is a router, not a copy of the procedure: it resolves
 `commands/review-loop.md` and reads it. `REVLOOP_PROCEDURE` is what makes that work once the skill has
-been copied away from the repository — without it the router searches relative to itself, then upward,
-and aborts if it finds nothing rather than improvising.
+been copied away from the repository. **The router covers the remote loop only** — nobody has driven
+the local one from Codex, so it is not claimed as supported.
 
 Codex grants shell and network access through an approval policy and a sandbox rather than an
 allowlist; see
@@ -42,43 +42,42 @@ allowlist; see
 
 ## Prerequisites
 
-revloop assumes a reviewer that already answers. It posts a trigger and waits for a verdict only the
-reviewer can produce; it installs nothing. A `@codex review` comment goes to
-`chatgpt-codex-connector[bot]`, a `@gemini review` comment to `gemini-code-assist[bot]`, and so on for
-whichever reviewer you selected — never to the Codex or Claude Code session you are running, and that
-session cannot answer on its behalf. Installing the integration happens on the reviewer's own GitHub
-App page, outside this project's scope.
+**This section is about the remote loop.** The local loop needs a review command installed on your
+machine instead — the built-in one, or a plugin's — and nothing on GitHub at all.
 
-To confirm it works, comment your reviewer's trigger (`@codex review`, `@gemini review`, or your
-custom trigger) by hand on any open pull request and check that the bot replies. For how long the loop
-then waits, see [How it works](../README.md#how-it-works); the budgets that bound it are in
-[`commands/review-loop.md`](../commands/review-loop.md).
+The remote loop assumes a reviewer that already answers. It posts a trigger and waits for a verdict
+only the reviewer can produce; **it installs nothing**. The trigger goes to the reviewer's own GitHub
+App — never to the Codex or Claude Code session you are running, which cannot answer on its behalf —
+and installing that App is outside this project's scope.
+
+To confirm it works, comment your reviewer's trigger by hand on any open pull request and check that
+the bot replies. The [card](../reviewers/) for that reviewer records how long an answer took.
 
 ## Requirements
 
-| Tool  | Floor                | Note                                                                                          |
-| ----- | -------------------- | --------------------------------------------------------------------------------------------- |
-| `gh`  | **2.4.0** (verified) | Authenticated. Only stable REST and GraphQL surfaces are used                                 |
-| `git` | **2.22** (derived)   | `git branch --show-current`, 2019-06. Verified against 2.34.1; the floor itself is by feature |
-| `jq`  | **not required**     | `gh` embeds a jq implementation; the procedure never pipes to `jq`                            |
+| Tool  | Floor                | Note                                                                                            |
+| ----- | -------------------- | ----------------------------------------------------------------------------------------------- |
+| `gh`  | **2.4.0** (verified) | Authenticated. Only stable REST and GraphQL surfaces are used. **Not needed by the local loop** |
+| `git` | **2.22** (derived)   | The release that introduced `git branch --show-current`                                         |
+| `jq`  | **not required**     | `gh` embeds a jq implementation; the procedure never pipes to `jq`                              |
 
-The two floors are graded differently on purpose. `gh` 2.4.0 is where the procedure was actually
-driven — the version a machine had, not one chosen from a changelog. `git` 2.22 is the release that
-introduced the one command every fence depends on, so it is derived, and labelled as such. The
-optional `git switch` alternative in step 2 needs 2.23. **One subcommand exists at the `gh` floor
-and does not work**: `gh pr edit` sends a Projects (classic) field GitHub has retired, so the
-procedure updates a pull request body through REST `PATCH` instead — see
-[`known-environment-quirks.md`](known-environment-quirks.md). The reviewer bot is a requirement too, but not
-a local one — see [Prerequisites](#prerequisites).
+The two floors are graded differently on purpose. The `gh` floor is a version the procedure was
+actually driven on; the `git` floor is derived from the one command every fence depends on, and
+labelled as such. **One `gh` subcommand exists at the floor and does not work** — see
+[`known-environment-quirks.md`](known-environment-quirks.md), which is also why the procedure prefers
+the stable REST surface to a subcommand.
 
 ## Verify the install
 
 ```console
 /revloop:review-loop
+/revloop:review-loop-local
 ```
 
-On a clean tree with no changes it should print the resolved-configuration table and stop. If it
-prints a permission prompt for every step, work through [`permissions.md`](permissions.md).
+On a clean tree with no changes either should print its resolved-configuration table and stop. Read
+the local one's **review command** row before you run it for real: it is the string that will be
+executed, it comes out of `.revloop.json`, and it is deliberately not pre-approved. If the remote
+loop prints a permission prompt for every step, work through [`permissions.md`](permissions.md).
 
 ## Related docs
 

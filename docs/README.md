@@ -1,7 +1,9 @@
 # revloop documentation
 
-Guides for installing, configuring, and extending revloop. The procedure the loop actually executes
-is [`commands/review-loop.md`](../commands/review-loop.md); these pages surround it.
+Guides for installing, configuring, and extending revloop. The procedures the loops actually execute
+are [`commands/review-loop.md`](../commands/review-loop.md), which drives a reviewer on a pull
+request, and [`commands/review-loop-local.md`](../commands/review-loop-local.md), which drives a
+review command on your machine and ends at a commit. These pages surround them.
 
 ## Get started
 
@@ -11,11 +13,12 @@ is [`commands/review-loop.md`](../commands/review-loop.md); these pages surround
 
 ## Extend
 
-- [Adding a reviewer](adding-a-reviewer.md) — measure a new reviewer bot and write its card
+- [Adding a reviewer](adding-a-reviewer.md) — measure a reviewer, bot or local command, and write
+  its card
 
 ## Understand
 
-- [Design notes](design-notes.md) — why the loop is shaped this way
+- [Design notes](design-notes.md) — why the two loops are shaped this way
 - [Known environment quirks](known-environment-quirks.md) — dated, non-normative observations
 
 Contributing, the threat model, and the release history live at the repository root:

@@ -123,11 +123,20 @@ caught() { # caught <text> -> CAUGHT | MISSED
   if printf '%s\n' "$1" | grep -qiE "$CITATION"; then echo CAUGHT; else echo MISSED; fi
 }
 
-PROC="$ROOT/commands/review-loop.md"
+# EVERY procedure is scanned, not only the first one. The rule is that a
+# procedure may cite its own steps and never its own line numbers, and it
+# applies to whichever file is being read — a guard naming one file would leave
+# the next procedure free to acquire exactly the citations this forbids.
+PROCS=("$ROOT"/commands/*.md)
+if [ ! -f "${PROCS[0]}" ]; then
+  FAIL=$((FAIL + 1)); printf '  FAIL commands/*.md matched no file\n'
+fi
 # Marked with a literal the pattern itself cannot produce, so the assertion is
 # not narrower than the pattern.
-HITS=$(depaginate "$PROC" | grep -niE "$CITATION" | sed 's/^/CITATION /') || true
-refute "no citation in the forms below reaches the procedure" "$HITS" "CITATION "
+for proc in "${PROCS[@]}"; do
+  HITS=$(depaginate "$proc" | grep -niE "$CITATION" | sed 's/^/CITATION /') || true
+  refute "no citation in the forms below reaches $(basename "$proc")" "$HITS" "CITATION "
+done
 
 # The corpus cannot witness a form the pattern fails to reject, so every member
 # gets a case. Grouped by the axis it closes.
