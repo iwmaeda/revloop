@@ -150,6 +150,40 @@ Added:
   the fixed list**, which is the distinction the acceptance reply exists to preserve. A genuinely
   clean round is unaffected: it takes the new first row and reaches step 9 as before.
 
+- **Both decision tables say how they are read, and their guards sit where first-match reading
+  reaches them.** Neither table stated that the first matching row wins, and both were written with
+  the exhaustive outcome rows on top — so the cross-cutting guards beneath them could not fire. In
+  the local loop nothing mitigated it, because that table is the entire decision: `No findings at
+all` matched every zero-finding result, and an unreadable output, a command that never ran, and a
+  `requiresPr` reviewer with no pull request **all parse as zero findings**. Each is a run finishing
+  clean over a review that did not happen, which is the failure this whole family of procedures
+  exists to prevent, and `unconfirmed-empty-review` asserted in its own prose that it takes
+  precedence over the clean row while sitting below it. The three aborts now precede it. In the
+  pull-request loop the equivalent cases are already caught by checks (a) to (e) before any row is
+  read, and two ordering defects were not: `interim-loop` sat behind "any other bot body", a
+  strictly wider description of the same comment that swallowed it and aborted with a reason that
+  sends the reader hunting an unknown bot; and `EXTRA=`, whose whole content is the rule "rate limit
+  takes precedence", was the **last** row, while the fence only ever emits it alongside a `review`
+  whose rows are above. `EXTRA=` is now a rule read before the primary line, and `interim-loop`
+  precedes the row that shadowed it.
+
+- **`--max-rounds` is applied to the verdict in both loops, and is no longer a row in either table.**
+  It was the last row of both, where every ordinary verdict matched something above it, so **the one
+  brake that cannot be reached by waiting longer was the one thing waiting longer always skipped**.
+  Moving it to the top is the obvious correction and is worse: the cap aborts a loop that **has not
+  converged**, so a first row would abort a round that came back clean on exactly the round the
+  operator budgeted for, and report a converged run as a failure. Neither position works, because
+  the cap is not a signal the reviewer produces — it is a condition on what a signal is allowed to
+  mean. The rule is now stated as one: read the table, and if the row it lands on says _continue_
+  while the cap is reached, abort with `--max-rounds` as the reason; a clean finish at the cap is a
+  convergence.
+
+- **The local loop's `skill` confirmation no longer takes its own stop.** The bullet said "take
+  confirmation of it before the first round" and the bullet below it promised that the `skill` and
+  `requiresPr` confirmations are **one** stop — and step 1's judgements are read in order, so a
+  reviewer setting both stopped twice. Two stops where one was promised teaches the operator that
+  the stops are approximate, which is the wrong lesson about the only stop `--auto` cannot suppress.
+
 - **Step 1 of the pull-request loop checks the reviewer's `kind` before it checks for a `trigger`.**
   `reason=not-a-github-reviewer` was added this release so a `local-command` reviewer passed to the
   wrong loop reports the right cause — but it sat _after_ the `no-comment-trigger` row, and the schema

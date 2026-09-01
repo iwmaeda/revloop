@@ -130,15 +130,24 @@ guess and is recorded as one; see `## Unexercised paths`.
      `reason=not-a-local-reviewer`** and name the command that does drive it. A `github-comment`
      reviewer has a `trigger` and a `botLogin` and no way to be run here; failing over to
      "review it yourself" would report a self-review as a review.
-   - **If the resolved reviewer's `invoke` is `skill`, show the resolved `command` and take
-     confirmation of it before the first round.** Every other
-     repository-supplied string this project runs is shown to you by the permission system, because
-     it arrives as a shell command the system can match. **A skill name does not**: this command's
-     `allowed-tools` grants `Skill` as a whole, and a grant of a tool is not a grant of one argument
-     to it, so nothing between `.revloop.json` and the invocation asks you anything. The stop is the
-     substitute, and it is exempt from `--auto` because a suppressible substitute for a permission
-     prompt is not one. `invoke: subprocess` needs no such confirmation — the shell command is
-     matched and prompted for like any other, which is the second reason it is the default.
+   - **If the resolved reviewer's `invoke` is `skill`, the resolved `command` has to be shown and
+     confirmed before the first round — carry it into the single stop below rather than stopping
+     here.** Every other repository-supplied string this project runs is shown to you by the
+     permission system, because it arrives as a shell command the system can match. **A skill name
+     does not**: this command's `allowed-tools` grants `Skill` as a whole, and a grant of a tool is
+     not a grant of one argument to it, so nothing between `.revloop.json` and the invocation asks
+     you anything. The stop is the substitute, and it is exempt from `--auto` because a suppressible
+     substitute for a permission prompt is not one. `invoke: subprocess` needs no such confirmation —
+     the shell command is matched and prompted for like any other, which is the second reason it is
+     the default.
+
+     **This bullet deliberately does not take the confirmation itself, and that is a correction.** It
+     used to read "take confirmation of it before the first round", and this list is read in order —
+     so a `skill` reviewer that also sets `requiresPr` stopped here, and then stopped again below,
+     while the bullet below promised the two are **one** stop. Two stops where one was promised is
+     not a harmless surplus: the operator learns the stops are approximate, which is the wrong thing
+     to learn about the only stop `--auto` cannot suppress.
+
    - **The `requiresPr` confirmation and the `invoke: skill` confirmation are one stop, taken once
      before the first round, and `--auto` does not suppress it.** Naming both is not pedantry: they
      are not adjacent in this list, and "those two" read against whichever pair a reader had just
@@ -308,18 +317,38 @@ guess and is recorded as one; see `## Unexercised paths`.
    findings in a single round, and the built-in reviewer's own per-round caps run from 4 at its
    lowest effort to 15 at its highest. Ten is a `builtin` number with nothing measured behind it yet.
 
-7. Decide in one line.
+7. Decide in one line. **The table is ordered, and the first row whose signal matches decides.**
+   Say that outright, because the rows are not mutually exclusive and this table is the whole
+   decision — unlike step 9 of [`review-loop.md`](review-loop.md), nothing runs before it. **The
+   guards come first for that reason, and their order is the mechanism rather than presentation.**
+   Written with the outcome rows on top, `No findings at all` matched every zero-finding result and
+   the three aborts beneath it could not be reached: an unreadable output parses as zero findings,
+   and so does a command that never ran, and so does a `requiresPr` reviewer with no pull request to
+   look at. **Each of those is a run finishing clean over a review that did not happen**, which is
+   the one failure this whole family of procedures exists to prevent — and the
+   `unconfirmed-empty-review` row said in its own prose that it takes precedence over the clean row
+   while sitting below it, where first-match reading never reached it.
+
+   **`--max-rounds` is applied to the verdict rather than sitting in the table at all, and that is
+   not the same fix.** It was written as the last row, where every ordinary round matched something
+   above it, so **the only brake this loop has never engaged**. Moving it to the top is the obvious
+   correction and it is wrong: the cap says to abort if the loop **has not converged** in that many
+   rounds, so a first row would abort a round that came back clean on exactly the round the operator
+   budgeted for, reporting a converged run as a failure. The rule instead: **read the table, and if
+   the row it lands on says _continue_ while the cap is reached, abort with `--max-rounds` as the
+   reason.** A clean finish at the cap is a convergence. The cap is not a signal the reviewer
+   produces; it is a condition on what the signal is allowed to mean, and a row is the wrong shape
+   for it in either position.
 
    | Signal                                                    | Verdict                                | Next action                                                                              |
    | --------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------- |
-   | No findings at all                                        | **finish (clean)**                     | Go to 9                                                                                  |
+   | The command failed, or returned nothing at all            | **abort** (`review-command-failed`)    | Print the exit status and the output. Suspect the command string in the step-1 table     |
+   | The output does not match the shape the card records      | **abort** (`unparsed-review-output`)   | **Never read this as clean.** Print what came back                                       |
+   | Zero findings, from a reviewer whose `requiresPr` is true | **abort** (`unconfirmed-empty-review`) | Not a clean round. Confirm the pull request still exists, then re-run                    |
+   | No findings at all                                        | **finish (clean)**                     | Go to 9. Reached only once the three rows above have not matched                         |
    | Findings, but none above the acceptance floor             | continue                               | **Go to 8 to bucket them as `accepted`**, which falls through to 9. Never straight to 9  |
    | At least one **new** finding above the floor              | continue                               | Go to 8                                                                                  |
    | Every finding above the floor is a repeat                 | continue (once)                        | **Re-check each repeat against the tree**, then go to 8. If that fixes nothing, 8 aborts |
-   | The output does not match the shape the card records      | **abort** (`unparsed-review-output`)   | **Never read this as clean.** Print what came back                                       |
-   | The command failed, or returned nothing at all            | **abort** (`review-command-failed`)    | Print the exit status and the output. Suspect the command string in the step-1 table     |
-   | Zero findings, from a reviewer whose `requiresPr` is true | **abort** (`unconfirmed-empty-review`) | Not a clean round. Confirm the pull request still exists, then re-run                    |
-   | `--max-rounds` reached                                    | **abort**                              | Not success                                                                              |
 
    **`unparsed-review-output` is a row of its own because the alternative is the failure this whole
    family of loops is built to avoid.** An unreadable result and "the reviewer found nothing" are
@@ -336,11 +365,12 @@ guess and is recorded as one; see `## Unexercised paths`.
    run announced a clean convergence over findings the reviewer had raised, this command had parsed,
    and nobody had classified or replied to. The release's own claim for the flag is that an accepted
    finding is still fetched, classified, replied to and listed; only the second row makes that true.
-   It costs nothing on a genuinely clean round, which now takes the first row and reaches 9 exactly
-   as before, and step 8's existing fall-through carries the second one there once the buckets are
-   assigned.
+   It costs nothing on a genuinely clean round, which reaches 9 exactly as before once the three
+   abort rows above it have not matched, and step 8's existing fall-through carries the second one
+   there once the buckets are assigned.
 
-   **`unconfirmed-empty-review` takes precedence over the clean row, and only for `requiresPr`.** A
+   **`unconfirmed-empty-review` takes precedence over the clean row, and the table's order is now
+   what supplies that rather than this sentence. It applies only to `requiresPr`.** A
    reviewer that resolves its own pull request returns nothing when the diff is clean and nothing when
    there is no pull request to look at. This command cannot tell those apart — it has no `gh` grant,
    which is the point of it — and one of the two is a run finishing over a review that never happened.
