@@ -7,7 +7,7 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
-## [0.5.0] - 2026-09-01
+## [0.5.0] - 2026-09-02
 
 **No fence changed, so nothing here asks anything of you.** The three shell fences in
 [`commands/review-loop.md`](commands/review-loop.md) are byte-identical to 0.4.0 and still match the
@@ -1504,6 +1504,7 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.5.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.5.0
 [0.4.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.4.0
 [0.3.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.3.0
 [0.2.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.2.0

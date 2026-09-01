@@ -12,7 +12,7 @@ needs.
 Two commands are available:
 
 - `/revloop:review-loop` — remote. Summons a reviewer bot on GitHub.
-- `/revloop:review-loop-local` — local. Uses a review command that runs inside Claude Code.
+- `/revloop:review-loop-local` — local. Uses a review command that runs on your machine.
 
 **The remote loop assumes a reviewer that already answers.** Whichever reviewer you select — Codex,
 Claude, Gemini, or a custom preset — its GitHub integration must already be installed on the
