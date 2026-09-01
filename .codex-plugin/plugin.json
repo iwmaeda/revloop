@@ -1,7 +1,7 @@
 {
   "name": "revloop",
   "version": "0.5.0",
-  "description": "Run an AI review-and-fix loop until it converges: against a reviewer bot on a pull request, or against a review command on your machine.",
+  "description": "Branch, split commits, push, open a PR, trigger an AI reviewer, fix its findings, and repeat until the review converges.",
   "author": {
     "name": "MAEDA, Iwao",
     "url": "https://github.com/iwmaeda"
@@ -9,7 +9,7 @@
   "homepage": "https://github.com/iwmaeda/revloop",
   "repository": "https://github.com/iwmaeda/revloop",
   "license": "MIT",
-  "keywords": ["code-review", "pull-request", "github", "workflow", "automation", "local-review"],
+  "keywords": ["code-review", "pull-request", "github", "workflow", "automation"],
   "skills": "./.agents/skills/",
   "interface": {
     "displayName": "revloop",
