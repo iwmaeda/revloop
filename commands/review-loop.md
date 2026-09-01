@@ -120,19 +120,23 @@ that instruction coexist.
    - **If no verify commands were configured or detected**, ask before continuing, and record "no
      verification ran" in the final report. **With `--merge`, abort instead** — do not merge code that
      nothing checked.
+   - **If the resolved reviewer's `kind` is `local-command`, abort with
+     `reason=not-a-github-reviewer`** and name the command that does drive it: `review-loop-local`.
+     **This check has to come before the `trigger` one below, and that ordering is the whole reason
+     it exists.** The schema forbids a `local-command` reviewer from carrying a `trigger` at all, so
+     such a reviewer fails the next check on every run — and read in the other order this row is
+     unreachable for exactly the configuration it was added to diagnose, leaving the operator a
+     missing field as the cause when the cause is a reviewer built for the other loop.
    - **If the resolved reviewer has no `trigger`, abort with `reason=no-comment-trigger`.** Step 7
      posts a comment; that is the only way this procedure starts a review. A reviewer that is
-     summoned as a requested reviewer instead is not supported.
+     summoned as a requested reviewer instead is not supported. **Reached only by a `github-comment`
+     reviewer**, per the row above.
    - **If the resolved reviewer's `markerTolerated` is `no`, abort with
      `reason=marker-not-tolerated`.** There is no path that posts the trigger without the marker,
      and steps 8 and 9 read the round's whole identity out of it. There is no degraded mode.
    - **If the resolved reviewer's `status` is not `verified`, say so in the table and repeat it in
      the final report.** Continue — an unverified preset is a starting point, not a fault — but the
      reader of the report should not have to open a card to learn that nobody has watched it work.
-   - **If the resolved reviewer's `kind` is `local-command`, abort with
-     `reason=not-a-github-reviewer`** and name the command that does drive it. Such a reviewer has no
-     `trigger`, so without this the run reaches the `no-comment-trigger` abort instead and reports a
-     missing field as the cause when the cause is a reviewer built for the other loop.
    - **If `--accept-at` was passed and the resolved reviewer has no `severityLevels`, abort with
      `reason=no-severity-ladder`.** Do not rank the findings yourself to supply one. **You are the
      party obliged to fix them**, so a ladder you author is a ladder you can author your way out of

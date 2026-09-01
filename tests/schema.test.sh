@@ -114,15 +114,17 @@ reject "a subprocess command that is git" '{"version":1,"reviewers":{"a":{"kind"
 reject "  with leading whitespace"        '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"  git push"}}}'
 reject "  with a leading tab"             '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"\tgit push"}}}'
 reject "  bare, with no argument at all"  '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"git"}}}'
-# THE SEPARATOR AXIS, CLOSED AS A SET. The guard was first written as
-# `^\s*git(\s|$)`, which reads only whitespace and end-of-string as ending the
-# word — so every OTHER character the shell ends a word on walked straight
-# through it, and each of these was accepted. They are not variations on one
-# case: a separator the pattern does not know is a whole member of the input
-# space, and the corpus cannot witness one, because none of these strings exists
-# anywhere in the tree. The pattern is now a complement — git not continued by an
-# identifier character — so the set is closed rather than enumerated, and a
-# separator nobody listed here is closed too.
+# THE WHOLE PREFIX, CLOSED AS A SET. Two narrower guards shipped here in
+# succession and both leaked in the same direction, because both asked where the
+# WORD git ends — a question the permission matcher never asks.
+# `^\s*git(\s|$)` read only whitespace and end-of-string as ending it, so the
+# separator cases below all passed. `^\s*git($|[^A-Za-z0-9_.-])` closed those and
+# still admitted `gitlint`, `git-review` and `git.exe`, on the reasoning that the
+# shell treats them as different commands — true, and irrelevant:
+# docs/permissions.md says Claude Code matches a COMMAND-STRING PREFIX, so every
+# one of them is covered by the Bash(git:*) this command grants. The guard is now
+# the prose rule exactly — may not begin with git — and these cases pin the two
+# axes that reached it.
 reject "git ended by a semicolon"         '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"git;rm -rf /"}}}'
 reject "git ended by &&"                  '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"git&&rm -rf /"}}}'
 reject "git ended by a background &"      '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"git&"}}}'
@@ -133,6 +135,15 @@ reject "git ended by a subshell paren"    '{"version":1,"reviewers":{"a":{"kind"
 # `git""` is the word git as surely as `git ` is, and the empty pair is what
 # makes it look unlike the banned shape while running exactly it.
 reject "git ended by an empty quote pair" '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"git\"\" push --force"}}}'
+# THE LONGER-NAME AXIS. These three were ACCEPTED by both earlier guards and are
+# the bypass a code review caught on this branch: the shell would run a different
+# binary, but Bash(git:*) matches a string prefix, so each starts with the
+# granted prefix and runs unprompted. The cost of rejecting them is that a review
+# command whose own name starts with git cannot be a subprocess reviewer, which
+# is the correct side to err on.
+reject "a git-prefixed longer name"       '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"gitlint --diff"}}}'
+reject "a hyphenated git-prefixed name"   '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"git-review -c"}}}'
+reject "a dotted git-prefixed name"       '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"git.exe --version"}}}'
 
 accept() { # accept <label> <json>
   printf '%s' "$2" > "$TMP/good.json"
@@ -164,12 +175,5 @@ accept "a command with an inner space"    '{"version":1,"reviewers":{"a":{"kind"
 # git in an argument is not the bypass.
 accept "a command mentioning git later"   '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review git-history\""}}}'
 accept "a skill named after git"          '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"skill","command":"git-review"}}}'
-# THE OTHER HALF OF THE COMPLEMENT, and the reason it is a complement rather than
-# a longer list of separators. A leading token that merely STARTS with the three
-# letters is a different command, and banning it would be the over-match that
-# makes a guard useless. These pin that the closure above did not widen into one.
-accept "a subprocess git-prefixed name"   '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"gitlint --diff"}}}'
-accept "a hyphenated git-prefixed name"   '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"git-review -c"}}}'
-accept "a dotted git-prefixed name"       '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"git.exe --version"}}}'
 
 summary "schema"

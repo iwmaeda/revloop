@@ -97,6 +97,11 @@ subprocess.
 command grants `Bash(git:*)` for its own probe, and a rule matches a prefix, so such a command would
 run with no prompt at all — see [`../SECURITY.md`](../SECURITY.md#repository-supplied-configuration-is-untrusted).
 
+**That covers a longer name too**, because the rule above is the one being applied: the matcher
+compares strings, so `gitlint`, `git-review` and `git.exe` each start with the granted prefix however
+different a binary the shell would run. A review command named that way has to be configured as a
+`skill`, which no `Bash` rule matches, or renamed.
+
 ## Codex: approval policy and sandbox
 
 Codex has no allowlist. It gates two things separately — when it asks before running a command

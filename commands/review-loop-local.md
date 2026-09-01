@@ -40,6 +40,13 @@ its own probe, and a repository-supplied command starting with `git` would there
 prompt at all** — which is precisely what keeping the command out of `allowed-tools` exists to
 prevent. `git push --force` is the shape that matters. The schema rejects it.
 
+**"Begins with" is the whole rule, and a longer name is not an exception to it.** `gitlint`,
+`git-review` and `git.exe` are different binaries to the shell and identical to the matcher, which
+compares strings and never asks where a word ends. So they are refused too, and the cost is real: a
+review command whose own name starts with `git` cannot be a `subprocess` reviewer here. Configure it
+as a `skill` — a skill name is not a shell command and no `Bash` rule ever sees it — or rename the
+entry point.
+
 | Flag                | Default        | Effect                                                                              |
 | ------------------- | -------------- | ----------------------------------------------------------------------------------- |
 | `--reviewer <name>` | config         | A `local-command` reviewer: a preset, or a name from `.revloop.json`                |
@@ -279,12 +286,23 @@ guess and is recorded as one; see `## Unexercised paths`.
    a rank, for the reason step 1 aborts on `--accept-at` without a ladder.
 
    **When step 8 has bucketed those ten, come back for the next ten from the same review, until every
-   finding above the floor is in a bucket.** The budget exists to bound how many findings are held in
-   mind at once, and batching bounds that just as well as truncating does. **Truncating was the first
-   design and it is a way to finish clean over unread findings**: step 8 falls through to 9 when
-   nothing in front of it needs fixing, and with a truncated list "in front of it" meant ten of
-   twenty-five. The other fifteen were above the floor, never read, and step 5's invariant then
-   forbids the round that would have read them, because nothing changed the tree.
+   finding is in a bucket — not every finding above the floor.** The budget exists to bound how many
+   findings are held in mind at once, and batching bounds that just as well as truncating does.
+   **Truncating was the first design and it is a way to finish clean over unread findings**: step 8
+   falls through to 9 when nothing in front of it needs fixing, and with a truncated list "in front
+   of it" meant ten of twenty-five. The other fifteen were above the floor, never read, and step 5's
+   invariant then forbids the round that would have read them, because nothing changed the tree.
+
+   **Bounding this at the floor was the same hole reached from the other side, and it is the one
+   `--accept-at` was most able to hide.** The floor decides **when the loop may stop**, never **what
+   gets read** — "accepting is not skipping the read" is the boundary the whole flag rests on, and a
+   finding below the floor that is never carried into step 8 is never bucketed, so step 9 lists it
+   with no bucket and the reply that must name its rung and the floor is never written. The finding
+   would then be **accepted in the report by nothing more than its absence from the fixed list**,
+   which is exactly the distinction the acceptance reply exists to preserve: a decline asserts the
+   finding is wrong and cites something, an acceptance concedes it is right and unfixed. Reading is
+   cheap here — the finding is already fetched and parsed — and the thing being bounded is how many
+   are reasoned about at once, which batching bounds whatever the rungs say.
 
    A reviewer can return far more than a round can act on: `reviewers/gemini.md` measured 30 to 50
    findings in a single round, and the built-in reviewer's own per-round caps run from 4 at its
@@ -294,7 +312,8 @@ guess and is recorded as one; see `## Unexercised paths`.
 
    | Signal                                                    | Verdict                                | Next action                                                                              |
    | --------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------- |
-   | No findings above the acceptance floor                    | **finish (clean)**                     | Go to 9                                                                                  |
+   | No findings at all                                        | **finish (clean)**                     | Go to 9                                                                                  |
+   | Findings, but none above the acceptance floor             | continue                               | **Go to 8 to bucket them as `accepted`**, which falls through to 9. Never straight to 9  |
    | At least one **new** finding above the floor              | continue                               | Go to 8                                                                                  |
    | Every finding above the floor is a repeat                 | continue (once)                        | **Re-check each repeat against the tree**, then go to 8. If that fixes nothing, 8 aborts |
    | The output does not match the shape the card records      | **abort** (`unparsed-review-output`)   | **Never read this as clean.** Print what came back                                       |
@@ -310,6 +329,16 @@ guess and is recorded as one; see `## Unexercised paths`.
    It varies with the effort level and with the model that runs it — the same command can return a
    fenced JSON array in one configuration and one line per finding in another. A parser written
    against the shape someone saw once will silently return zero findings on the other.
+
+   **The clean row is "no findings", not "none above the floor", and splitting the two is what keeps
+   `--accept-at` honest.** Written as one row it sent a review consisting entirely of acceptable
+   findings straight to the report, before step 8 had assigned a single `accepted` bucket — so the
+   run announced a clean convergence over findings the reviewer had raised, this command had parsed,
+   and nobody had classified or replied to. The release's own claim for the flag is that an accepted
+   finding is still fetched, classified, replied to and listed; only the second row makes that true.
+   It costs nothing on a genuinely clean round, which now takes the first row and reaches 9 exactly
+   as before, and step 8's existing fall-through carries the second one there once the buckets are
+   assigned.
 
    **`unconfirmed-empty-review` takes precedence over the clean row, and only for `requiresPr`.** A
    reviewer that resolves its own pull request returns nothing when the diff is clean and nothing when
@@ -334,9 +363,11 @@ guess and is recorded as one; see `## Unexercised paths`.
    the single round, checkable inside it.
 
    **It needs its own row rather than falling to a neighbouring one, and the neighbour it would fall
-   to is the clean finish.** "No findings above the floor" and "no _new_ findings above the floor"
-   are one word apart, and the first is the row that ends the run reporting success. A reader without
-   this row lands there and finishes over unfixed blocking findings. **This row is also the one place
+   to is a finish.** "No findings above the floor" and "no _new_ findings above the floor" are one
+   word apart, and the first now routes through step 8 rather than ending the run — but it still
+   reaches 9 by step 8's fall-through, so a reader without this row lands there and finishes over
+   unfixed blocking findings just the same. Splitting the clean row moved where that finish is
+   reached from; it did not remove the need for this one. **This row is also the one place
    step 6's "do not reason about a repeat again" is suspended**: the repeat is being re-checked
    precisely because the reviewer disagrees that it was answered, and re-using the stored answer
    would make the re-check a formality and the abort automatic.
@@ -354,10 +385,10 @@ guess and is recorded as one; see `## Unexercised paths`.
    every single round.
 
    **Work through every batch step 6 hands you before deciding anything.** The decision below is
-   about the round, and the round is not over while findings above the floor are still unbucketed.
-   Deciding after the first batch sends a 25-finding review back to step 3 with fifteen of its
-   findings never read — the same hole truncating had, reached by exiting early instead of by
-   cutting the list short.
+   about the round, and the round is not over while **any** finding is still unbucketed — not merely
+   any above the floor, for the reason step 6 gives. Deciding after the first batch sends a
+   25-finding review back to step 3 with fifteen of its findings never read — the same hole
+   truncating had, reached by exiting early instead of by cutting the list short.
 
    **Then: if even one finding is in `will fix`, go to 3.** The next round re-verifies and re-commits
    before it reviews, which is what makes step 5's invariant satisfiable.

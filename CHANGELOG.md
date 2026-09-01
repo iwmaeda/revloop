@@ -124,18 +124,39 @@ Added:
   `command`, which is the string the step-1 table shows and the string the permission system matches.
   A separate key would put half the invocation where neither of those looks.
 
-  **The one guard on that string — a `subprocess` command may not be `git` — states its terminator as
-  a complement rather than as a list of separators.** The rule is the leading token: the local command
-  grants `Bash(git:*)` for its own probe, a permission rule matches a prefix, and so a repository
-  whose `command` begins with `git` would run with no prompt at all. The obvious spelling,
-  `^\s*git(\s|$)`, reads only whitespace and end-of-string as ending the word — and the shell ends a
-  word on six more characters, so `git;rm -rf /`, `git&&rm -rf /`, `git|tee`, `git>out`, `git<in`,
-  `git&` and `git"" push` each named `git` as the first word and each passed. **Every separator that
-  is not listed is a member of the input space**, and no corpus can witness one, because none of those
-  strings exists anywhere in this tree. Requiring instead that `git` **not be continued by an
-  identifier character** closes the set rather than enumerating it, and keeps the forms that must stay
-  accepted: `gitlint`, `git-review` and `git.exe` are different commands. `tests/schema.test.sh` pins
-  both directions.
+  **The one guard on that string — a `subprocess` command may not begin with `git` — is a plain string
+  prefix, and two narrower spellings leaked before it got there.** The local command grants
+  `Bash(git:*)` for its own probe, and `docs/permissions.md` states the model the whole rule rests on:
+  **Claude Code matches a command-string prefix.** So the set to reject is every string starting with
+  those three characters, and both earlier attempts instead asked where the _word_ `git` ends — a
+  question the matcher never asks. `^\s*git(\s|$)` read only whitespace and end-of-string as ending
+  it, so `git;rm -rf /`, `git&&rm -rf /`, `git&`, `git|tee`, `git>out`, `git<in` and `git"" push` all
+  passed. `^\s*git($|[^A-Za-z0-9_.-])` closed those and still admitted `gitlint`, `git-review` and
+  `git.exe`, on the reasoning that the shell would run a different binary — true, and irrelevant.
+  **The prose in `docs/permissions.md`, `SECURITY.md` and the procedure said "may not begin with
+  `git`" the whole time; the implementation is now that sentence and nothing else.** The cost is
+  stated where a reader configuring a reviewer will meet it: a review command whose own name starts
+  with `git` cannot be a `subprocess` reviewer, and has to be configured as a `skill` — which no
+  `Bash` rule matches — or renamed. `tests/schema.test.sh` pins both axes.
+
+- **Step 6 of the local loop buckets every finding, not every finding above the floor, and step 7's
+  clean row is "no findings" rather than "none above the floor".** Both bounded _reading_ by the
+  acceptance floor, when the floor is only allowed to bound _stopping_. A review consisting entirely
+  of acceptable findings took the clean row straight to the report before step 8 had assigned a single
+  `accepted` bucket — so the run announced a clean convergence over findings the reviewer raised, the
+  command parsed, and nobody classified or replied to. That is the exact claim `--accept-at` is sold
+  on ("accepting is not skipping the read"), broken in the one case where accepting is the whole
+  round. A finding reaching the report with no bucket is **accepted by nothing but its absence from
+  the fixed list**, which is the distinction the acceptance reply exists to preserve. A genuinely
+  clean round is unaffected: it takes the new first row and reaches step 9 as before.
+
+- **Step 1 of the pull-request loop checks the reviewer's `kind` before it checks for a `trigger`.**
+  `reason=not-a-github-reviewer` was added this release so a `local-command` reviewer passed to the
+  wrong loop reports the right cause — but it sat _after_ the `no-comment-trigger` row, and the schema
+  forbids a `local-command` reviewer from carrying a `trigger` at all. So the new row was unreachable
+  for exactly the configuration it diagnoses, and every such run reported a missing field instead. The
+  ordering is now stated in the row itself as the reason it exists. It unshadows
+  `marker-not-tolerated` the same way, which such a reviewer also cannot carry.
 
 - **`defaults.localReviewer`, because `defaults.reviewer` is one key and the two loops need different
   values.** Every configuration written before this release points `reviewer` at a `github-comment`
