@@ -28,7 +28,8 @@ argument is, and because the resolved value comes from the flag or the builtin a
 `.revloop.json`.
 
 **`requiresPr` on a local card now decides two things**, and the second is not about this file: it is
-what the local loop reads to place its publish step, before each review or once after convergence. So
+what the local loop reads to place its publish step — before each review or once after convergence —
+on a run that publishes at all, `--no-publish` skipping both. So
 record it from the command's behaviour, not from whether a pull request happened to exist when you
 looked.
 
@@ -72,8 +73,10 @@ observed — and keeps everything neither can support under `## Not measured`. *
 artifact alone has only the first subsection**, and stays `unverified`.
 
 **`unverified` means something narrower for a local reviewer than the table above says, and the
-difference is worth stating.** "Driven end to end through a real PR" is not available: there is no
-pull request. The equivalent bar is **the loop driven to convergence** — findings observed, fixed, and
+difference is worth stating.** "Driven end to end through a real PR" is not available: **the
+reviewer never runs on the pull request.** The loop opens one by default now, but the review happened
+on your machine before it existed, and under `--no-publish` there is none at all. The equivalent bar
+is **the loop driven to convergence** — findings observed, fixed, and
 a later round returning none. Observing the command answer is not that, however many times it answers.
 
 **Every sentence in a `## Measured` bullet is either an observation carrying its provenance, or sits

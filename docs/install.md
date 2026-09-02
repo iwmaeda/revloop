@@ -16,7 +16,8 @@ The commands are then `/revloop:review-loop` and `/revloop:review-loop-local`. P
 commands are always namespaced as `/<plugin>:<command>`, so there is no bare `/revloop`.
 
 **Both are deliberately not model-invocable**, and the plugin manifest ships no `skills` key. One
-pushes, comments and can merge; the other commits and runs a command out of your configuration.
+pushes, comments and can merge; the other commits, runs a command out of your configuration, and —
+unless `--no-publish` — pushes and opens a pull request of its own. **Neither merges but the first.**
 Neither should start except because a person asked for it.
 
 ### Codex

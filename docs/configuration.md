@@ -179,9 +179,10 @@ because a host may forbid a command from being started by the model rather than 
 matches.
 
 **`requiresPr` decides two things.** Besides the confirmation above, it is what the local loop reads
-to decide **where** it publishes: a reviewer that needs a pull request is published to before every
-round, because it would otherwise read a stale diff; a reviewer that reads the local range is
-published to once, after the loop converges. The second placement is not caution —
+to decide **where** it publishes, on a run that publishes at all: a reviewer that needs a pull request
+is published to before every round, because it would otherwise read a stale diff; a reviewer that
+reads the local range is published to once, after the loop converges. `--no-publish` skips both — the
+key chooses between the two placements, never whether there is one. The second placement is not caution —
 [`../reviewers/code-review.md`](../reviewers/code-review.md) records that the shipped default reviewer
 resolves its target against the branch's upstream when there is one, and a push creates one, at which
 point the range is empty and the review comes back with nothing.

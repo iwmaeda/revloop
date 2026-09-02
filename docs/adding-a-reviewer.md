@@ -142,7 +142,9 @@ recorded on another configuration.
 pushed.** `/code-review` diffs against the branch's upstream when there is one, so a push empties its
 range and it returns nothing —
 [`../reviewers/code-review.md`](../reviewers/code-review.md) records the derivation. The local loop
-publishes after convergence for exactly this reason, and it reads `requiresPr` to decide. **So write
+publishes **after** convergence for a `requiresPr: false` reviewer for exactly this reason, and
+**before every round** for a `requiresPr: true` one; it reads that key to decide, and `--no-publish`
+skips both. **So write
 down how the command picks its target, not only what it emits**: it is what decides whether the loop
 can publish before reviewing, and getting it wrong produces a clean-looking run over no review at all.
 
