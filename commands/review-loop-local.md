@@ -428,8 +428,12 @@ guess and is recorded as one; see `## Unexercised paths`.
    edit is a change the reviewer may or may not have read depending on how it resolved its target —
    which makes a finding's absence uninterpretable.
 
-5. Publish. **Skip this step entirely under `--no-publish`** — the run then ends at a commit, exactly
-   as every run of this command did before publishing existed.
+5. Publish. **Two conditions skip this step, and naming only the flag is how the trap below gets
+   reached.** Skip it under `--no-publish`, where the run then ends at a commit exactly as every run
+   of this command did before publishing existed; and skip it for a `requiresPr: false` reviewer,
+   whose placement is step 10. The table below decides the second, and **a reader who takes the flag
+   as the whole gate publishes the shipped default reviewer here** — which is the one thing this
+   step's placement exists to prevent.
 
    **Where this step runs is decided by the reviewer, not by a flag**, and it is the one derived
    thing in this procedure:
@@ -657,7 +661,7 @@ guess and is recorded as one; see `## Unexercised paths`.
    finding is still fetched, classified, recorded and listed — **recorded rather than replied to,
    because under `--no-publish` this loop opens no pull request, and its record is then the commit's
    `Accepted:` block and the report** — and only the second row makes that true. Otherwise the
-   pull-request body carries them too, which is where the last round's finally land.
+   pull-request body carries them too, which is where the last round's acceptances finally land.
    It costs nothing on a genuinely clean round, which reaches 10 exactly as before once the three
    abort rows above it have not matched, and step 9's existing fall-through carries the second one
    there once the buckets are assigned.
@@ -759,8 +763,13 @@ guess and is recorded as one; see `## Unexercised paths`.
     without a fix. **No abort reaches it at all** — that is the whole rule about which runs publish,
     and it is enforced by there being no path from an abort to this number.
 
-    **Skip it with neither flag**, and skip it when step 5 already ran — a reviewer that was
-    published to before every round has nothing left to publish.
+    **Skip it under `--no-publish`**, and skip it when step 5 already ran — a reviewer that was
+    published to before every round has nothing left to publish. **It said "with neither flag" for
+    one release, which is a fossil of the draft where `--push` and `--pr` were opt-in.** Once
+    publishing became the default, "neither flag" named the _ordinary_ run, so the sentence skipped
+    publishing on exactly the runs that must publish — every `requiresPr: false` reviewer, the
+    shipped default among them. A gate phrased as the absence of flags does not survive its flags
+    being inverted; this one is phrased as the flag that exists.
 
 11. Report. Give the round count, the commit each round produced, every finding with its rung and its
     bucket, the checks that ran, and **which model reviewed**. **Lead with every finding at the
@@ -772,17 +781,21 @@ guess and is recorded as one; see `## Unexercised paths`.
     Say that the reviewer's `status` is not `verified` if it is not, and say which unexercised paths
     the run took.
 
-    **Say where the branch went**: the branch name, and the pull request's number and URL. **Then
-    write this same report into the pull-request body** — as the body itself when step 10 created it,
-    or through the `PATCH` in step 5 when step 5 did. That is where the last round's `Accepted:` block
-    finally lands, which step 4 records no commit can carry.
+    **Say where the branch went.** With publishing: the branch name, and the pull request's number
+    and URL, and **then write this same report into the pull-request body** — as the body itself when
+    step 10 created it, or through the `PATCH` in step 5 when step 5 did. That is where the last
+    round's `Accepted:` block finally lands, which step 4 records no commit can carry. **Under
+    `--no-publish`, neither half of that is reachable**: say the branch is unpushed and stop there.
+    There is no pull request, so a number named here would be invented, and a body written here would
+    be the `gh` call the flag exists to forbid — the two ways an unconditional instruction can be
+    followed on that run, and both are worse than saying less.
 
     **Say what the run did not establish, and the list is longer than it was.** It was reviewed by a
     reviewer whose independence is limited in the way `## Notes` describes, and — with `--review-model`
     at its default — by a model junior to the one that wrote the fixes. **Nothing here read CI and
     nothing merged**: a pull request this command opened is an unreviewed pull request with a
-    pre-flight attached, which is exactly what it is for and not more. Under `--no-publish`, say that
-    the branch is unpushed. **On an abort, say that too, and say which side of it you are on**: a
+    pre-flight attached, which is exactly what it is for and not more. **On an abort, say where the
+    branch went too, and say which side of it you are on**: a
     before-review placement has pushed and an after-convergence one has not, and "the branch is on
     GitHub" is not something a reader should have to infer from which reviewer was configured.
 
