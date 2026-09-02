@@ -11,15 +11,17 @@ needs.
 
 Two commands are available:
 
-- `/revloop:review-loop` — remote. Summons a reviewer bot on GitHub.
-- `/revloop:review-loop-local` — local. Uses a review command that runs on your machine.
+- `/revloop:review-loop` — remote. Summons a reviewer bot on GitHub, and can merge.
+- `/revloop:review-loop-local` — local. Uses a review command that runs on your machine, and opens the
+  pull request itself.
 
 **The remote loop assumes a reviewer that already answers.** Whichever reviewer you select — Codex,
 Claude, Gemini, or a custom preset — its GitHub integration must already be installed on the
 repository and responding to comments.
 
-**The local loop never touches a GitHub comment thread.** Note also that a local reviewer may be the
-same model that wrote the code, in which case it is not an effective second opinion. See
+**The local loop never touches a GitHub comment thread, and never merges.** It pushes the converged
+branch and opens a pull request for it (`--no-publish` stops it at the commit). **Its review runs on a
+light model by default** (`sonnet`, changed with `--review-model`). See
 [`docs/design-notes.md`](docs/design-notes.md).
 
 The basic invocations are:
@@ -30,6 +32,8 @@ The basic invocations are:
 /revloop:review-loop --merge --auto
 
 /revloop:review-loop-local
+/revloop:review-loop-local --no-publish
+/revloop:review-loop-local --review-model opus --max-rounds 3
 /revloop:review-loop-local --reviewer ecc-review-pr --accept-at HIGH
 ```
 
@@ -58,6 +62,25 @@ before giving up — so a pull request can legitimately carry two review-request
 round. The conditions, and why re-posting is safe, are in
 [`docs/design-notes.md`](docs/design-notes.md).
 
+### The local loop
+
+The spine is the remote loop's. With no waiting phase, it finishes in eleven steps.
+
+| Phase       | Steps   | What happens                                                               |
+| ----------- | ------- | -------------------------------------------------------------------------- |
+| **Resolve** | 1       | Probe and print the resolved table, including which model will review      |
+| **Prepare** | 2–4     | Cut a topic branch, run verify, commit (**the stop point**)                |
+| **Publish** | 5 or 10 | Push, and open a pull request if the branch has none                       |
+| **Review**  | 6       | Run the review command on the light model, and read its output             |
+| **Decide**  | 7–8     | Fingerprint the findings and decide what happens next                      |
+| **Fix**     | 9       | Fix, and answer the findings that are wrong                                |
+| **Finish**  | 11      | Report — and write that report into the pull-request body, if it published |
+
+**Which of the two publish steps runs is read off the reviewer, not off a flag.** A reviewer that
+resolves its own pull request is published to at 5, before every round; every other reviewer once at
+10, after the loop converges — because a push would otherwise empty the range the shipped default
+reviewer diffs. `--no-publish` skips both.
+
 ## Install
 
 The details are in [`docs/install.md`](docs/install.md).
@@ -68,6 +91,8 @@ The details are in [`docs/install.md`](docs/install.md).
 /plugin marketplace add iwmaeda/revloop
 /plugin install revloop@revloop
 ```
+
+**Both commands need an authenticated `gh`** (except a local run with `--no-publish`).
 
 Grant the permissions the work needs at the same time, by adding the following to
 `.claude/settings.local.json`. The details are in [`docs/permissions.md`](docs/permissions.md).
@@ -83,6 +108,8 @@ Grant the permissions the work needs at the same time, by adding the following t
       "Bash(gh api --paginate repos/{owner}/{repo}/:*)",
       "Bash(gh api graphql:*)",
       "Bash(gh pr:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr list:*)",
       "Bash(gh repo view:*)",
       "Bash(git:*)"
     ]
@@ -148,13 +175,16 @@ The flag names **the highest severity that may be left unfixed**, taken from the
 
 ## Built-in reviewers
 
-| Preset          | Kind             | Trigger or command                | Status     |
-| --------------- | ---------------- | --------------------------------- | ---------- |
-| `codex`         | `github-comment` | `@codex review`                   | verified   |
-| `gemini`        | `github-comment` | `@gemini review` (see the card)   | verified   |
-| `claude`        | `github-comment` | `@claude review`                  | unverified |
-| `code-review`   | `local-command`  | `claude -p "/code-review medium"` | unverified |
-| `ecc-review-pr` | `local-command`  | `ecc:review-pr`                   | unverified |
+| Preset          | Kind             | Trigger or command                                      | Status     |
+| --------------- | ---------------- | ------------------------------------------------------- | ---------- |
+| `codex`         | `github-comment` | `@codex review`                                         | verified   |
+| `gemini`        | `github-comment` | `@gemini review` (see the card)                         | verified   |
+| `claude`        | `github-comment` | `@claude review`                                        | unverified |
+| `code-review`   | `local-command`  | `claude --model {reviewModel} -p "/code-review medium"` | unverified |
+| `ecc-review-pr` | `local-command`  | `claude --model {reviewModel} -p "/ecc:review-pr"`      | unverified |
+
+`{reviewModel}` is expanded by the local loop before the command runs — to `--review-model` if you
+typed it, otherwise to `sonnet`.
 
 Each [card](reviewers/) records what was measured, when, and where. copilot (which is asked for a
 review by reviewer request) is not supported at present.
@@ -163,13 +193,13 @@ review by reviewer request) is not supported at present.
 
 These are the rough edges that remain.
 
-| Limitation                        | Why                                                                                                        |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **Forks are unsupported**         | The pull request lives upstream, so calls would address the wrong repository. Step 1 aborts                |
-| **Same-repo topic branches only** | One open PR per branch. If the PR cannot be identified, the loop aborts                                    |
-| **Merge commits only**            | Squash and rebase are not available                                                                        |
-| **`copilot` unsupported**         | It has no comment trigger, and the reviewer-request path is not implemented                                |
-| **The local loop never pushes**   | It ends at a commit. Push and open the pull request yourself, or run the remote loop on the branch it left |
+| Limitation                        | Why                                                                                                                                                                                                 |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Forks are unsupported**         | The pull request lives upstream, so calls would address the wrong repository. Both loops abort in step 1 — the local one only when it is publishing, so `--no-publish` is the way to work in a fork |
+| **Same-repo topic branches only** | One open PR per branch. If a loop looks one up and cannot identify it, it aborts                                                                                                                    |
+| **Merge commits only**            | Squash and rebase are not available                                                                                                                                                                 |
+| **`copilot` unsupported**         | It has no comment trigger, and the reviewer-request path is not implemented                                                                                                                         |
+| **The local loop never merges**   | It ends at a pushed branch with an open pull request, or at a commit under `--no-publish`. Merge it separately                                                                                      |
 
 ## Documentation
 

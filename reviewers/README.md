@@ -19,6 +19,20 @@ The fields differ with the kind and the schema enforces the split: a `github-com
 `command` and a `requiresPr`. Neither may carry the other's — a `botLogin` on a local reviewer is a
 field nothing reads, which is the same defect as a config key with no consumer.
 
+**A `local-command` card's `command` should carry `{reviewModel}` wherever the command takes a
+model.** The local loop expands it — to `--review-model` if it was typed, otherwise to the built-in
+`sonnet` — so the card is where a reviewer declares that it _can_ be pinned. A card that omits it
+declares that it cannot, and `--review-model` then aborts against that reviewer rather than passing
+silently. **There is no `model` field**: the placeholder is in `command` for the same reason an effort
+argument is, and because the resolved value comes from the flag or the builtin and never from
+`.revloop.json`.
+
+**`requiresPr` on a local card now decides two things**, and the second is not about this file: it is
+what the local loop reads to place its publish step — before each review or once after convergence —
+on a run that publishes at all, `--no-publish` skipping both. So
+record it from the command's behaviour, not from whether a pull request happened to exist when you
+looked.
+
 `severityLevels` belongs to both and means the same thing in both: **the reviewer's severity
 vocabulary, ordered most severe first**. It is the ladder `--accept-at` names. A card omits it when
 the reviewer emits no severity, and omitting it is a measurement like any other — it makes
@@ -59,8 +73,10 @@ observed — and keeps everything neither can support under `## Not measured`. *
 artifact alone has only the first subsection**, and stays `unverified`.
 
 **`unverified` means something narrower for a local reviewer than the table above says, and the
-difference is worth stating.** "Driven end to end through a real PR" is not available: there is no
-pull request. The equivalent bar is **the loop driven to convergence** — findings observed, fixed, and
+difference is worth stating.** "Driven end to end through a real PR" is not available: **the
+reviewer never runs on the pull request.** The loop opens one by default now, but the review happened
+on your machine before it existed, and under `--no-publish` there is none at all. The equivalent bar
+is **the loop driven to convergence** — findings observed, fixed, and
 a later round returning none. Observing the command answer is not that, however many times it answers.
 
 **Every sentence in a `## Measured` bullet is either an observation carrying its provenance, or sits

@@ -20,15 +20,15 @@
       "displayName": "Claude Code review",
       "kind": "local-command",
       "invoke": "subprocess",
-      "command": "claude -p \"/code-review medium\"",
+      "command": "claude --model {reviewModel} -p \"/code-review medium\"",
       "expectedLatency": "5-9m",
       "status": "unverified"
     },
     "ecc-review-pr": {
       "displayName": "ECC review-pr",
       "kind": "local-command",
-      "invoke": "skill",
-      "command": "ecc:review-pr",
+      "invoke": "subprocess",
+      "command": "claude --model {reviewModel} -p \"/ecc:review-pr\"",
       "requiresPr": true,
       "severityLevels": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
       "status": "unverified"

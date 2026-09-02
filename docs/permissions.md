@@ -7,12 +7,20 @@ so the unit is a mode plus the holes you open in it.
 This page is what to grant. Why the rules are shaped this way is in
 [`design-notes.md`](design-notes.md#permission-rules-and-fence-bytes).
 
-**Which rules you need depends on which command you run.** `/revloop:review-loop` talks to GitHub and
-needs the whole list below. **No step of `/revloop:review-loop-local` calls `gh`** — it ends at a
-commit — and its `allowed-tools` grants `Bash(git:*)` and nothing else, so none of the `gh` rules
-below are needed for the procedure itself. **A reviewer you point it at may still reach GitHub**: the
-shipped `ecc-review-pr` preset resolves a pull request through `gh`, and a `skill`-invoked reviewer
-does that inside this session under the grants this session already has.
+**Which rules you need depends on which command you run, and on how you run it.**
+`/revloop:review-loop` talks to GitHub and needs the whole list below. `/revloop:review-loop-local`
+needs a strict subset — including four `gh` rules, since it pushes and opens a pull request by
+default.
+
+| Run                              | What it needs                                                                                                                             |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `review-loop-local`              | `Bash(git:*)`, plus `Bash(gh pr list:*)`, `Bash(gh pr create:*)`, `Bash(gh repo view:*)`, `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` |
+| `review-loop-local --no-publish` | `Bash(git:*)`. **No step calls `gh`** — it ends at a commit                                                                               |
+| `review-loop`                    | The whole list                                                                                                                            |
+
+**A reviewer you point either command at may reach GitHub on its own account**: the shipped
+`ecc-review-pr` preset resolves a pull request, and a `skill`-invoked reviewer does that inside this
+session under the grants this session already has.
 
 ## Claude Code: the rules to grant
 
@@ -30,12 +38,18 @@ Put these in `.claude/settings.local.json` (per-developer, git-ignored) or `.cla
       "Bash(gh api --paginate repos/{owner}/{repo}/:*)",
       "Bash(gh api graphql:*)",
       "Bash(gh pr:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr list:*)",
       "Bash(gh repo view:*)",
       "Bash(git:*)"
     ]
   }
 }
 ```
+
+**`gh pr create` and `gh pr list` are listed separately because `review-loop-local` holds those two
+rather than the broad `Bash(gh pr:*)`**, which would pre-approve `gh pr merge` for a command that
+never merges.
 
 A plugin cannot grant itself permissions. No install-time hook merges anything into your settings,
 which is why this is a copy-and-paste list.
@@ -52,11 +66,16 @@ procedure's fenced blocks, so a verb used without a rule fails the suite rather 
 The narrowness argument above is about `gh api`; it does not extend to the `git` rule.
 
 `Bash(git:*)` matches every git subcommand, including `git push --force`, `git reset --hard`, and
-`git remote add`. The procedure forbids force-pushing — a rebase re-anchors every inline comment and
+`git remote add`. The procedures forbid force-pushing — a rebase re-anchors every inline comment and
 makes the `commit_id` comparison meaningless — but that is a rule the model follows, not one the
 permission system enforces. The blast radius is your working tree and the branches your token can
-write. Two things bound it: the procedure never constructs a `--force` push, and step 1 aborts on a
-fork, so the branches are your own.
+write. Two things bound it: neither procedure ever constructs a `--force` push, and step 1 aborts on
+a fork, so the branches are your own.
+
+**`review-loop-local` holds this rule too, and pushes with it unless `--no-publish`.** The same shape
+applies to its four `gh` rules: the grants are present on every run, and it is the procedure rather
+than the permission system that keeps them within their purpose. That is why they are the narrow
+ones.
 
 If that is not enough, grant subcommands individually — `Bash(git status:*)`, `Bash(git diff:*)`,
 `Bash(git log:*)`, `Bash(git add:*)`, `Bash(git commit:*)`, `Bash(git checkout:*)`,
@@ -93,14 +112,32 @@ path, and **`--auto` does not suppress that stop** — a substitute for a permis
 can delete is not a substitute. If you would rather have the prompt, configure the reviewer as a
 subprocess.
 
-**A `subprocess` command may not begin with `git`**, and the schema rejects one that does. The local
-command grants `Bash(git:*)` for its own probe, and a rule matches a prefix, so such a command would
-run with no prompt at all — see [`../SECURITY.md`](../SECURITY.md#repository-supplied-configuration-is-untrusted).
+**A `subprocess` command may not begin with `git`, with `gh`, or with the `{reviewModel}`
+placeholder**, and the schema rejects all three. The local command grants `Bash(git:*)` for its own
+probe and four `gh` rules for publishing, and a rule matches a prefix, so such a command would run
+with no prompt at all — see
+[`../SECURITY.md`](../SECURITY.md#repository-supplied-configuration-is-untrusted).
 
 **That covers a longer name too**, because the rule above is the one being applied: the matcher
-compares strings, so `gitlint`, `git-review` and `git.exe` each start with the granted prefix however
-different a binary the shell would run. A review command named that way has to be configured as a
-`skill`, which no `Bash` rule matches, or renamed.
+compares strings, so `gitlint`, `git-review`, `git.exe`, `ghreview` and `gh.exe` each start with a
+granted prefix however different a binary the shell would run. A review command named that way has to
+be configured as a `skill`, which no `Bash` rule matches, or renamed.
+
+**The `gh` ban is wider than the four rules that motivate it**, which is deliberate: banning the four
+granted spellings instead would be four rules that have to track a grant list every future step can
+extend, and a ban that lags its grants by one release is the hole itself.
+
+**The placeholder ban exists because expansion happens after the prefix is checked.** `{reviewModel}`
+is substituted before the command runs, so `{reviewModel} push --force` under `--review-model git`
+becomes a string beginning with `git` — the first two bans defeated by a value that arrived after
+them. The schema removes the shape, and the procedure re-checks the expanded string before running it.
+
+### The review model is the one interpolated value
+
+`--review-model <name>` is **expanded into a command line** at the `{reviewModel}` placeholder — the
+only value either procedure splices into a shell command. It comes from the flag or from the builtin
+`sonnet`, never from `.revloop.json`, and is refused unless it matches
+`^[A-Za-z0-9][A-Za-z0-9._:-]*$`.
 
 ## Codex: approval policy and sandbox
 
@@ -156,7 +193,10 @@ disagree.
 
 After the first approval the remote loop should reach zero prompts per round, because every fence
 takes no arguments and so has a permanently identical command string. **A local run is different by
-design**: its review command is prompted for every round, as `verify` is.
+design**: its review command is prompted for every round, as `verify` is. **The string you are
+prompted with is the expanded one** — `{reviewModel}` already substituted — because that is the string
+that will run, and being shown a template while a different string executes is the failure the whole
+not-pre-approved rule is about.
 
 Editing a fence costs every user one re-approval; the protocol is in
 [`../CONTRIBUTING.md`](../CONTRIBUTING.md#editing-a-shell-fence).
