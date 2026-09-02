@@ -109,13 +109,14 @@ detection: **two code paths halve the empirical coverage behind every claim, bec
 exercises only one.** That argument was about two ways of reaching the same outcome. Here the two are
 not the same outcome at all, which makes the split easier rather than harder to justify:
 
-|                     | Remote                                                                                                 | Local                                       |
-| ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| The reviewer        | A GitHub App, in its own context                                                                       | A command on your machine                   |
-| The scarce resource | **Wall clock** — a quota and your patience, both visible                                               | **Tokens** — invisible while they are spent |
-| The verdict         | Arrives asynchronously; the baseline, the marker and the bot filter all exist to bind it to this round | Arrives as the command's own output         |
-| The memory          | The pull request                                                                                       | The commit                                  |
-| Permissions         | `gh` and `git`                                                                                         | `git`                                       |
+|                     | Remote                                                                                                 | Local                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| The reviewer        | A GitHub App, in its own context                                                                       | A command on your machine                                          |
+| The scarce resource | **Wall clock** — a quota and your patience, both visible                                               | **Tokens** — invisible while they are spent                        |
+| The verdict         | Arrives asynchronously; the baseline, the marker and the bot filter all exist to bind it to this round | Arrives as the command's own output                                |
+| The memory          | The pull request                                                                                       | The commit                                                         |
+| Permissions         | `gh` and `git`                                                                                         | `git`, plus four narrow `gh` rules                                 |
+| Where it ends       | A merged pull request, with `--merge`                                                                  | A commit; a pushed branch; an open pull request. **Never a merge** |
 
 **Roughly half of `review-loop.md` is machinery for a problem the local loop does not have.** The
 baseline timestamp, the trigger marker, the re-post budget, the two-trigger sweep, and the whole wait
@@ -163,18 +164,83 @@ Where the flag sits in the configuration surface, and the one combination it ref
 
 ## What a local run does not establish
 
-**A local reviewer may be the same model as the thing that wrote the code**, and then it is not an
-independent check. It shares the training, the habits and the blind spots of the author, and a
-reviewer cannot find a defect it would have written itself. Running it as a subprocess stops it from
-reading _this session's_ reasoning, which is a real and separate improvement — a reviewer that has
-just watched you justify a decision does not find that decision suspicious — but it does not make the
-reviewer a second opinion. **Only a different model does that**, and
-[`adding-a-reviewer.md`](adding-a-reviewer.md) records one as a candidate rather than shipping it,
-because nobody has driven it here.
+**A local reviewer that is the same model as the thing that wrote the code is not an independent
+check.** It shares the training, the habits and the blind spots of the author, and a reviewer cannot
+find a defect it would have written itself. Running it as a subprocess stops it from reading _this
+session's_ reasoning, which is a real and separate improvement — a reviewer that has just watched you
+justify a decision does not find that decision suspicious — but it does not make the reviewer a second
+opinion. **Only a different model does that.**
+
+**The `--review-model` default supplies one, and the model is a property of how a command is invoked
+rather than of which command you pick.** Pinning `sonnet` in the shipped preset's own `command` gets
+there without a new reviewer, and it does so **while making the round cheaper rather than more
+expensive** — which is why the feature was reached for as a cost measure and is recorded here as an
+evidentiary one.
+
+**It is a weaker check than a peer, and a different weakness.** The failure it removes is a reviewer
+blind to its own habits; the failure it introduces is a reviewer that may not follow the reasoning it
+is auditing. **Nothing measures which trade is better**, and
+[`../reviewers/code-review.md`](../reviewers/code-review.md) is explicit that its five measured rounds
+predate the pin, so the finding counts there describe a configuration this project does not ship. What
+is claimed is only that the second is a check and the first was not.
 
 **So the local loop is a pre-flight and not a replacement**, and the report says so. The claim it can
 support is that fewer defects present when the remote trigger fires means fewer remote rounds. The
 claim it cannot support is that a clean local run means the change has been reviewed.
+
+**Opening a pull request does not change that, and the shape of the feature is built so it cannot be
+read as changing it.** A pull request this command opens has been through a pre-flight and no review; the
+remote loop is still what reviews it. That is why there is no `--merge` here: `wait-ci` and `merge`
+are two fences that already exist and could have been reused in an afternoon, and reusing them would
+have let a run merge code on a junior model's verdict, past a claim this very section makes. **The
+absent flag is the load-bearing part of the design, not the missing part.**
+
+## Why publishing is the default, and why its placement is derived
+
+**The local loop is for carrying a change to the place the remote loop starts from**, so it does that
+without being asked: it pushes the converged branch and opens a pull request for it.
+
+**What that costs is real and is not hidden.** Three situations cannot publish at all — a fork, a
+repository with no `origin`, and a remote that is not GitHub — and the ordinary invocation aborts on
+each of them, with `reason=fork-unsupported` or `reason=publish-unavailable`, naming `--no-publish` as
+the way through. **`gh` is a requirement of the ordinary run**, which [`install.md`](install.md)
+records. Those are the price; the flag is what pays it.
+
+**`--no-publish` has no configuration key, and not for the reason its neighbours have none.**
+`--merge` and `--auto` are absent from `.revloop.json` because a repository you cloned must not be
+able to grant itself an action. Publishing is the default, so a key here could only ever turn it
+**off**, and a key that removes an action grants nothing. It is flag-only because nothing measured
+says a project wants it: a _not yet_, not a _never_.
+
+**Where the publishing happens is a separate question**, and it is read off the reviewer's
+`requiresPr` rather than given a flag of its own.
+
+|                     | Where it publishes             | Because                                                                                   |
+| ------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
+| `requiresPr: true`  | Before every round's review    | The reviewer resolves the pull request itself, so it must exist and must track `HEAD`     |
+| `requiresPr: false` | Once, after the loop converges | A push sets an upstream, and the shipped default reviewer resolves its target against one |
+
+**The second row is a measured trap and not a preference.**
+[`../reviewers/code-review.md`](../reviewers/code-review.md) records that `/code-review` diffs against
+the branch's upstream when there is one, falling back to the base branch when there is not, and reads
+the working tree when the range is empty. Push, and all three clauses land on nothing: the branch has
+an upstream, `HEAD` equals it, and the commit step has just left the tree clean. **A round run after a
+push returns zero findings, and zero findings is what a clean review looks like** — the failure the
+whole `unparsed-review-output` row exists to prevent, arriving through a feature that looks unrelated
+to reviewing.
+
+**A `--publish-before-review` switch would therefore have been a way to configure that failure.**
+Deriving the placement from a key that already records the relevant fact means there is nothing to set
+to the wrong answer — the same reasoning that keeps the base branch detected rather than guessed.
+
+**Under `--no-publish`, a `requiresPr` reviewer costs a confirmation that an open pull request exists,
+and the decision table refuses to read zero findings from one as clean.** Both exist because that run
+**cannot check**. On an ordinary run publishing supplies the check — step 5 pushed and confirmed an
+open pull request for this `HEAD` immediately before the reviewer ran — so neither arises.
+
+**`--auto` deletes a question and leaves the uncertainty; publishing answers the question.** That is
+why a flag which merely suppresses stops may not touch this one, and why publishing may retire it: a
+stop standing in for a missing check belongs exactly where the check is missing.
 
 **Its memory is the commit, and there is no local state file.** A findings ledger read back as input
 would break the rule field notes live under — never read a local file as input to a classification —

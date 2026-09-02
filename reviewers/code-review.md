@@ -2,25 +2,29 @@
 
 The review command built into Claude Code, driven as a subprocess.
 
-| Field            | Value                                                |
-| ---------------- | ---------------------------------------------------- |
-| `kind`           | `local-command`                                      |
-| `invoke`         | `subprocess` — the host forbids model invocation     |
-| `command`        | `claude -p "/code-review medium"`                    |
-| `severityLevels` | **none** — the reporting surface carries no severity |
-| `requiresPr`     | `false`                                              |
-| verdict on       | the command's stdout                                 |
-| `status`         | `unverified`                                         |
-| `lastChecked`    | 2026-09                                              |
+| Field            | Value                                                   |
+| ---------------- | ------------------------------------------------------- |
+| `kind`           | `local-command`                                         |
+| `invoke`         | `subprocess` — the host forbids model invocation        |
+| `command`        | `claude --model {reviewModel} -p "/code-review medium"` |
+| `severityLevels` | **none** — the reporting surface carries no severity    |
+| `requiresPr`     | `false`                                                 |
+| verdict on       | the command's stdout                                    |
+| `status`         | `unverified`                                            |
+| `lastChecked`    | 2026-09                                                 |
 
 ```json
 {
   "kind": "local-command",
   "invoke": "subprocess",
-  "command": "claude -p \"/code-review medium\"",
+  "command": "claude --model {reviewModel} -p \"/code-review medium\"",
   "status": "unverified"
 }
 ```
+
+**`{reviewModel}` is expanded by the local loop before the command runs** — to `--review-model` if it
+was typed, otherwise to the builtin `sonnet`. **Every measurement below predates that pin**, and
+`## Not measured` says what that costs.
 
 **Five rounds have been observed; convergence has not.** The behavioural bullets below come from
 driving the command as this preset specifies, five times, on one change, fixing every finding between
@@ -54,7 +58,7 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
   and the token cost, which is the one that differs, is the figure nothing here measures.
 - **Not one finding recurred across the five rounds** — 40 findings, 40 distinct, with each round's
   fixed before the next ran (claude-code 2.1.233, 2026-09). **Derived, and deliberately nothing
-  more:** four transitions on one change say the repeat suppression in step 6 of the local procedure
+  more:** four transitions on one change say the repeat suppression in step 7 of the local procedure
   went unexercised, not that it is unnecessary. The rounds where it would fire are the ones where a
   fix is partial, and none of these was.
 - **The count did not fall: 9, 7, 6, 8, 10.** Each round's fixes added text and the next round
@@ -112,7 +116,7 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
   come back as a fenced JSON array of objects; on at least one model family at `medium` and `high`
   effort the report is instead one line per finding, a path and line followed by a summary, emitted
   after a tool call (claude-code 2.1.233, 2026-09). **Both observed runs returned a third shape that
-  is neither**, which is recorded above. **Derived, and the reason step 7 of
+  is neither**, which is recorded above. **Derived, and the reason step 8 of
   [`../commands/review-loop-local.md`](../commands/review-loop-local.md) gives an unreadable result
   its own abort row:** a parser written against whichever shape its author saw returns **zero
   findings** against the others, and zero findings is what a clean review looks like.
@@ -125,6 +129,21 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
   replaces that (claude-code 2.1.233, 2026-09). **Derived:** on the unpushed topic branch this loop
   works on, the default resolves to the whole branch against the base, which is the scope the loop
   wants and the reason `command` carries no target argument.
+- **Derived from the same rule, and it is the reason the local loop publishes after convergence
+  rather than before each round: a push changes what this reviewer reviews, to nothing.**
+  `git push -u origin HEAD` gives the branch an upstream, so the first clause applies instead of the
+  second; `HEAD` then equals the upstream, so the range is empty; and the loop's commit step has just
+  left the tree clean, so the working-tree fallback finds nothing either. **A round run after a push
+  returns zero findings, and zero findings is what a clean review looks like** — the failure the
+  `unparsed-review-output` abort exists to prevent, arriving instead through a feature that looks
+  unrelated to reviewing. This is a property of the reviewer and is recorded here rather than in the
+  procedure, which reads it off `requiresPr`.
+- **It takes `--model`, and the shipped preset now uses it** (claude-code 2.1.233, 2026-09).
+  **Derived:** this is the only lever the local loop has on what a round costs, since the command's
+  own effort level moves the number of findings rather than the price of producing them. It is also
+  the only thing that makes this reviewer a different model from the one driving the loop, which
+  `../docs/design-notes.md` records as the one condition under which a local review is a check rather
+  than a second opinion from the same source.
 - **The effort levels are `low`, `medium`, `high`, `xhigh` and `max`, and `ultra` is not one of
   them** — it is a separate subcommand that routes to a cloud review and falls back to a local `max`
   run when that is unavailable (claude-code 2.1.233, 2026-09). **Derived:** putting `ultra` in
@@ -133,6 +152,16 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
 
 ## Not measured
 
+- **Anything about the preset as it now ships.** All five rounds below ran
+  `claude -p "/code-review medium"` with **no `--model` at all**, inheriting whatever the CLI
+  defaulted to; the shipped `command` now pins `{reviewModel}`, which resolves to `sonnet` unless
+  `--review-model` says otherwise. **So the finding counts, the wall clock, the output shape and the
+  absence of repeats below describe a configuration this project no longer ships.** They are kept
+  because they are the only measurements that exist and because most of what they establish is about
+  the command rather than the model — but nothing here says how a lighter reviewer changes them, and
+  **the direction of the error is not knowable from this sample either**: fewer findings from a
+  lighter model may mean fewer defects present or fewer defects found, and this card cannot tell you
+  which. Re-running the five rounds under the pin is the single most useful measurement available.
 - **Convergence.** It was not reached, and this sample cannot say whether it is reachable. What is
   known is that five rounds did not reach it and that the count rose at the end. **What would settle
   it is a run under `--accept-at`** — the floor is the mechanism for ending a loop the reviewer will
@@ -154,3 +183,10 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
 - **How a nested invocation behaves under this loop** — its cost, whether it re-authenticates, and
   what it does when the outer session is itself non-interactive. What is known is that its sandbox
   differed from the caller's, recorded above.
+- **The token cost of a round at any model.** This is the figure the whole local loop is shaped
+  around and the one nothing here measures, before or after the pin. Until it exists, "sonnet is
+  cheaper" is an inference from pricing and not a measurement of this reviewer.
+- **Whether a push really empties this reviewer's target.** The bullet above is derived from the
+  command's own target-resolution rule, read out of the installed command; **nobody has pushed a
+  branch and re-run it.** The procedure's publish placement rests on that derivation, so a run that
+  falsifies it is worth a pull request.

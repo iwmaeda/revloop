@@ -43,7 +43,8 @@ allowlist; see
 ## Prerequisites
 
 **This section is about the remote loop.** The local loop needs a review command installed on your
-machine instead — the built-in one, or a plugin's — and nothing on GitHub at all.
+machine — the built-in one, or a plugin's — and an authenticated `gh`, except under `--no-publish`.
+What it does **not** need is a reviewer bot: nothing on GitHub has to answer it.
 
 The remote loop assumes a reviewer that already answers. It posts a trigger and waits for a verdict
 only the reviewer can produce; **it installs nothing**. The trigger goes to the reviewer's own GitHub
@@ -55,11 +56,11 @@ the bot replies. The [card](../reviewers/) for that reviewer records how long an
 
 ## Requirements
 
-| Tool  | Floor                | Note                                                                                            |
-| ----- | -------------------- | ----------------------------------------------------------------------------------------------- |
-| `gh`  | **2.4.0** (verified) | Authenticated. Only stable REST and GraphQL surfaces are used. **Not needed by the local loop** |
-| `git` | **2.22** (derived)   | The release that introduced `git branch --show-current`                                         |
-| `jq`  | **not required**     | `gh` embeds a jq implementation; the procedure never pipes to `jq`                              |
+| Tool  | Floor                | Note                                                                                                                  |
+| ----- | -------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `gh`  | **2.4.0** (verified) | Authenticated. Only stable REST and GraphQL surfaces are used. **The local loop needs it too, unless `--no-publish`** |
+| `git` | **2.22** (derived)   | The release that introduced `git branch --show-current`                                                               |
+| `jq`  | **not required**     | `gh` embeds a jq implementation; the procedure never pipes to `jq`                                                    |
 
 The two floors are graded differently on purpose. The `gh` floor is a version the procedure was
 actually driven on; the `git` floor is derived from the one command every fence depends on, and
@@ -76,7 +77,9 @@ the stable REST surface to a subcommand.
 
 On a clean tree with no changes either should print its resolved-configuration table and stop. Read
 the local one's **review command** row before you run it for real: it is the string that will be
-executed, it comes out of `.revloop.json`, and it is deliberately not pre-approved. If the remote
+executed, it comes out of `.revloop.json`, and it is deliberately not pre-approved. It is printed with
+`{reviewModel}` already expanded, and the **review model** row beside it reads `sonnet` unless you
+passed `--review-model`. If the remote
 loop prints a permission prompt for every step, work through [`permissions.md`](permissions.md).
 
 ## Related docs

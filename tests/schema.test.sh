@@ -145,6 +145,64 @@ reject "a git-prefixed longer name"       '{"version":1,"reviewers":{"a":{"kind"
 reject "a hyphenated git-prefixed name"   '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"git-review -c"}}}'
 reject "a dotted git-prefixed name"       '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"git.exe --version"}}}'
 
+# THE SAME RULE, APPLIED TO THE SECOND GRANT. The local command pushes and opens
+# a pull request by default, so it holds four gh prefixes — `gh pr create`,
+# `gh pr list`, `gh repo view` and `gh api -X PATCH repos/{owner}/{repo}/` — and
+# each is a pre-approved slot exactly as Bash(git:*) is. The ban is on bare `gh`, DELIBERATELY WIDER THAN THE
+# GRANTS: four spellings would have to track a grant list that every future step
+# can extend, and a ban lagging its grants by one release is the hole itself. So
+# the axes pinned for git are pinned again here, including the longer-name one
+# that both earlier git guards leaked on.
+reject "a subprocess command that is gh"  '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"gh pr merge 1"}}}'
+reject "  gh with leading whitespace"     '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"  gh pr create"}}}'
+reject "  gh with a leading tab"          '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"\tgh repo view"}}}'
+reject "  gh bare"                        '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"gh"}}}'
+reject "gh ended by a semicolon"          '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"gh;rm -rf /"}}}'
+reject "a gh-prefixed longer name"        '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"ghreview --diff"}}}'
+reject "a hyphenated gh-prefixed name"    '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"gh-review -c"}}}'
+reject "a dotted gh-prefixed name"        '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"gh.exe --version"}}}'
+
+# THE SAME HOLE, REACHED THROUGH EXPANSION. {reviewModel} is substituted before
+# the command runs, so a placeholder at position 0 lets the VALUE decide the
+# leading token — and the value is an operator-typed flag. `--review-model git`
+# against the first command below expands to `git push --force`, which matches
+# the granted prefix and runs with no prompt: the two bans above, defeated by
+# something that arrives after they were checked. The procedure also re-checks
+# the expanded string, because a static rule about a template is not a rule
+# about what ran; this makes the shape unwritable in the first place.
+reject "a leading {reviewModel}"          '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"{reviewModel} push --force"}}}'
+reject "  a leading placeholder, spaced"  '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"  {reviewModel} -p x"}}}'
+# THE SAME AXES THE TWO BANS ABOVE PIN, because this is the same kind of rule —
+# a literal string prefix — and an enumeration thinner than its siblings' is a
+# claim that this prefix has fewer ways to be written, which is not true of any
+# of the three. What ends the placeholder is not whitespace: every form below
+# begins with it, so every one is banned, and the shell would run each of them.
+reject "placeholder ended by a semicolon" '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"{reviewModel};rm -rf /"}}}'
+reject "placeholder ended by an &&"       '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"{reviewModel}&&rm -rf /"}}}'
+reject "placeholder ended by a pipe"      '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"{reviewModel}|tee out"}}}'
+reject "placeholder ended by a redirect"  '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"{reviewModel}>out"}}}'
+# The longer-name axis, which is the one both earlier git guards leaked on. A
+# joined suffix does not stop the string from beginning with the placeholder.
+reject "a placeholder-prefixed longer name" '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"{reviewModel}lint --diff"}}}'
+reject "  a bare placeholder"             '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"{reviewModel}"}}}'
+
+# --review-model has no config key, for a sharper reason than --merge and
+# --auto: its value is expanded INTO A COMMAND LINE, so a key here would be the
+# first thing this project interpolates into a shell command out of a
+# repository-supplied file. There is likewise no per-reviewer model key.
+reject "reviewModel defaulted from config" '{"version":1,"defaults":{"reviewModel":"sonnet"}}'
+reject "localReviewModel from config"     '{"version":1,"defaults":{"localReviewModel":"sonnet"}}'
+reject "a model key on a reviewer"        '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p x","model":"sonnet"}}}'
+
+# The local loop PUBLISHES BY DEFAULT, and --no-publish turns that off. So the
+# usual argument for keeping a flag out of config does not reach it: a key here
+# could only remove an action, and removing one grants nothing. These cases pin
+# a NOT YET rather than a NEVER — the schema is closed by additionalProperties,
+# so adding the key is a deliberate act with a test to delete, not a drift.
+reject "publish defaulted from config"    '{"version":1,"defaults":{"publish":true}}'
+reject "noPublish defaulted from config"  '{"version":1,"defaults":{"noPublish":true}}'
+reject "localPublish defaulted from config" '{"version":1,"defaults":{"localPublish":false}}'
+
 accept() { # accept <label> <json>
   printf '%s' "$2" > "$TMP/good.json"
   if v "$TMP/good.json"; then
@@ -175,5 +233,19 @@ accept "a command with an inner space"    '{"version":1,"reviewers":{"a":{"kind"
 # git in an argument is not the bypass.
 accept "a command mentioning git later"   '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review git-history\""}}}'
 accept "a skill named after git"          '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"skill","command":"git-review"}}}'
+# The gh ban is the leading token too. A command that merely names gh in an
+# argument is not the bypass, and a skill name is not a shell command at all —
+# no Bash rule ever sees one, which is the documented way out of both bans.
+accept "a command mentioning gh later"    '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review gh-actions\""}}}'
+accept "a skill named after gh"           '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"skill","command":"gh-review"}}}'
+
+# The two shipped presets, in the form they ship. Both carry {reviewModel}, so
+# both are pinned to the builtin sonnet unless --review-model says otherwise,
+# and neither begins with the placeholder.
+accept "the shipped code-review preset"   '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} -p \"/code-review medium\""}}}'
+accept "the shipped ecc-review-pr preset" '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} -p \"/ecc:review-pr\"","requiresPr":true,"severityLevels":["CRITICAL","HIGH","MEDIUM","LOW"]}}}'
+# A command with no placeholder stays valid: it is simply not pinned by the
+# loop, and the step-1 table says so rather than pretending it is.
+accept "a subprocess command, unpinned"   '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review medium\""}}}'
 
 summary "schema"

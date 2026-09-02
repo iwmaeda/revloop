@@ -7,6 +7,134 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
+## [Unreleased]
+
+**No fence changed, so there is no re-approval to give.** The three shell fences in
+[`commands/review-loop.md`](commands/review-loop.md) are byte-identical and still match the hashes in
+`tests/fence-hashes.txt`.
+
+**Two things do ask something of you, and both are about `/revloop:review-loop-local`.** It now
+**pushes and opens a pull request by default**, which means: add `Bash(gh pr create:*)` and
+`Bash(gh pr list:*)` to your permission rules — [`docs/permissions.md`](docs/permissions.md) has the
+full list — and **`gh` is now a requirement of that command**, where it previously needed nothing on
+GitHub at all. `--no-publish` is the run that still needs neither.
+
+**Those two narrow rules are deliberately not the `Bash(gh pr:*)` the remote loop holds.** That rule
+covers `gh pr merge`. The local command has no merge step and no `--merge` flag, so it does not hold
+the rule that merges — a grant is a capability, and the command that cannot merge should not be able
+to.
+
+Added:
+
+- **`/revloop:review-loop-local` carries the branch to a pull request.** The loop ended at a commit
+  and left the branch for a person or for the remote loop; it now pushes it and opens a pull request,
+  reaching the place `/revloop:review-loop` starts from. **`--no-publish` ends the run at the commit**
+  and is the only flag on the feature — an earlier draft of this release had `--push` and `--pr` as
+  opt-in flags instead, and inverting the default removed one flag, the "push but no pull request"
+  middle state, and every rule that existed only to describe it. Neither flag ever reached a release,
+  so nothing in the wild is being taken away.
+
+  **Where the publishing happens is read off the reviewer's `requiresPr`, not off a flag, and that is
+  the load-bearing decision in this release.** A reviewer that resolves its own pull request is
+  published to before every round, because it would otherwise read a stale diff. Everything else is
+  published to once, after the loop converges — **because a push breaks the shipped default
+  reviewer.** [`reviewers/code-review.md`](reviewers/code-review.md) records that `/code-review` diffs
+  against the branch's upstream when there is one; `git push -u origin HEAD` creates one, `HEAD` then
+  equals it, the range is empty, and the commit step has just left the tree clean. A round run after a
+  push returns **zero findings**, and zero findings is what a clean review looks like. That is the
+  failure this whole family of procedures exists to prevent, reachable through a feature that looks
+  unrelated to reviewing — so a `--publish-before-review` switch would have been a way to configure
+  it, and the placement is derived instead.
+
+  **One stop disappears on the ordinary run, and it is a removal rather than a suppression.** A
+  `requiresPr` reviewer used to cost a confirmation that an open pull request existed, and the
+  decision table used to refuse to read zero findings from one as clean. Both existed because the loop
+  **could not check**. Publishing supplies the check — step 5 pushed and confirmed an open pull
+  request for this `HEAD` immediately before the reviewer ran. `--auto` deletes a question and leaves
+  the uncertainty; this answers the question, which is why it may remove a stop `--auto` is not
+  allowed to touch. **Both survive under `--no-publish`**, which is the run that still cannot check.
+
+  **It also closes a gap this project had written down and could not fix.** The last round's
+  `Accepted:` block reaches no commit — a run that converges by accepting makes no further commit to
+  carry it — and the procedure's own text used to end that paragraph by telling you the acceptances
+  "belong in the pull-request body you write next", an instruction to a person about an artifact the
+  command could not write. It writes it now.
+
+  **What the default costs is stated rather than hidden.** Three situations cannot publish at all — a
+  fork, a repository with no `origin`, and a remote that is not GitHub — and step 1 aborts on them
+  with `reason=fork-unsupported` or `reason=publish-unavailable`, naming `--no-publish` as the way
+  through. Under opt-in flags a user in any of those simply never typed one and the loop worked. **A
+  fork is not a rare place to work**, and that is the price of the default.
+
+- **`--review-model <name>`, defaulting to `sonnet`.** The review runs on a light model; the fixing
+  stays on whatever model is running the procedure. **This began as a cost change and is recorded as
+  an evidentiary one**, because of something the project had already written down twice:
+  [`docs/design-notes.md`](docs/design-notes.md) and
+  [`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md) both said a local reviewer sharing the
+  fixer's model is not an independent check, and that **only a different model makes it one** — and
+  both then listed "a reviewer that runs a different model" as a candidate nobody had shipped. **That
+  framing was wrong in a way worth naming: it treated the model as a property of which command you
+  pick.** It is a property of how the command is invoked. So the cheap configuration and the more
+  independent one turn out to be the same configuration, and it needed no new reviewer.
+
+  **The model reaches the reviewer through a `{reviewModel}` placeholder in its `command`, and not by
+  splicing a flag in.** Splicing guesses the command's CLI — one reviewer spells it `--model`, another
+  `-m`, another an environment variable, another takes no model at all — and this project aborts
+  rather than guesses everywhere else. The placeholder lets whoever wrote the command, the only party
+  that knows, say where the model goes.
+
+  **There is no configuration key for it, and for a sharper reason than the flags above.** Its value
+  is **expanded into a command line**, so a key would be the first thing revloop interpolates into a
+  shell command out of a repository-supplied file —
+  [`docs/configuration.md`](docs/configuration.md) states the opposite as an invariant. It comes from
+  the flag or the builtin, and is refused unless it matches `^[A-Za-z0-9][A-Za-z0-9._:-]*$`.
+
+  **A flag that cannot act aborts rather than passing silently.** `--review-model` against an
+  `invoke: skill` reviewer, or against a `subprocess` one whose command carries no placeholder, aborts
+  with `reason=no-model-boundary` and names the fix. This is the rule `--accept-at` already follows
+  against a reviewer with no ladder, and it bites harder: somebody typing `--review-model haiku` to
+  spend less would otherwise be billed for the strongest model with nothing saying so.
+
+- **`--no-publish` has no configuration key, and inheriting its neighbours' reason would have been
+  wrong.** `--merge`, `--auto` and `--accept-at` have none because a repository you just cloned must
+  not be able to **grant itself** an action. **Publishing is the default, so a key could only turn it
+  off, and a key that removes an action grants nothing.** It stays flag-only because nothing measured
+  says a project wants it — a _not yet_, not a _never_, and `tests/schema.test.sh` pins the rejection
+  so that adding `defaults.localPublish` is a deliberate act with a test to delete.
+
+Changed:
+
+- **Both shipped local presets pin `{reviewModel}`, and `ecc-review-pr` moves from `invoke: skill` to
+  `subprocess`.** A skill runs in the loop's own session, on the loop's model, spending the loop's
+  context, and nothing inside a session can lower the model it is running on — so it was the one
+  shipped preset that tripped the new abort. **The switch discards no measurement**, because
+  [`reviewers/ecc-review-pr.md`](reviewers/ecc-review-pr.md) was written entirely from the installed
+  command and never from a run. What it adds is unknown rather than measured, and the card says so:
+  whether a subprocess reaches `gh` — which that reviewer needs — and whether the plugin's skills load
+  in a `-p` session. `invoke: skill` remains supported for hosts that forbid the other.
+
+- **`reviewers/code-review.md`'s five measured rounds no longer describe the shipped preset**, and the
+  card leads with that. They ran `claude -p "/code-review medium"` with no `--model` at all; the
+  preset now pins one. The finding counts, the wall clock, the output shape and the absence of repeats
+  are kept because they are the only measurements that exist and most of what they establish is about
+  the command rather than the model — but **the direction of the error is not knowable from that
+  sample**: fewer findings from a lighter reviewer may mean fewer defects present or fewer defects
+  found.
+
+- **The local procedure is eleven steps rather than nine**, with publishing at 5 and at 10, and every
+  internal citation renumbered. `tests/procedure-refs.test.sh` permits step citations and forbids line
+  numbers, so nothing but reading catches a stale one; they were swept by hand.
+
+- **A `subprocess` command may not begin with `gh`, or with the `{reviewModel}` placeholder.** The
+  first is the existing `git` rule applied to the second grant, and it is **deliberately wider than
+  the four rules that motivate it** — banning the granted spellings instead would be four rules that
+  have to track a grant list every future step can extend, and a ban that lags its grants by one
+  release is the hole itself. The second closes the same hole reached through expansion:
+  `{reviewModel} push --force` under `--review-model git` would otherwise become exactly the banned
+  shape, since expansion happens after the prefix is checked. The procedure additionally re-checks the
+  **expanded** string before running it, because a static rule about a template is not a rule about
+  what ran. `tests/schema.test.sh` pins every axis of both.
+
 ## [0.5.0] - 2026-09-02
 
 **No fence changed, so nothing here asks anything of you.** The three shell fences in

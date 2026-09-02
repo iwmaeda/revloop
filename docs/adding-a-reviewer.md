@@ -111,6 +111,8 @@ above does not apply; this one does.
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Can the model start it, or only a person?                         | `invoke` — `skill` for the first, `subprocess` for the second                      |
 | What exactly is the command line or skill name?                   | `command`                                                                          |
+| **Where does it take a model, if it does?**                       | `{reviewModel}` at that spot in `command`. Nowhere, if it does not                 |
+| **How does it resolve its review target?**                        | the card's prose. **A push can change the answer** — see the trap below            |
 | Does it need an open pull request?                                | `requiresPr`                                                                       |
 | What severity vocabulary reaches its **output**?                  | `severityLevels`, ordered most severe first                                        |
 | What shape is that output — a JSON block, tagged lines, headings? | the card's prose. **This is the one that decides whether it can be driven at all** |
@@ -132,7 +134,20 @@ output never carries, so `--accept-at` matches nothing and blocks everything.
 
 **Trap: an output shape can depend on the model and the effort level, not just on the command.**
 Record the shape **per configuration you actually ran** — a parser written against one shape returns
-zero findings against another, and zero findings is exactly what a clean review looks like.
+zero findings against another, and zero findings is exactly what a clean review looks like. The local
+loop's default resolves `{reviewModel}` to `sonnet`, so a shape recorded on another model is a shape
+recorded on another configuration.
+
+**Trap: a reviewer that resolves its own target may resolve a different one once the branch is
+pushed.** `/code-review` diffs against the branch's upstream when there is one, so a push empties its
+range and it returns nothing —
+[`../reviewers/code-review.md`](../reviewers/code-review.md) records the derivation. The local loop
+publishes after convergence for exactly this reason, and it reads `requiresPr` to decide. **So write
+down how the command picks its target, not only what it emits**: it is what decides whether the loop
+can publish before reviewing, and getting it wrong produces a clean-looking run over no review at all.
+
+**Trap: `invoke: skill` has no model boundary.** A skill runs in the loop's own session, on the loop's
+model. Use `subprocess` with `{reviewModel}` in `command` unless the host forbids it.
 
 **Trap: a reviewer with no severity is normal, and the card should say so rather than invent one.**
 Leave `severityLevels` out; `--accept-at` then aborts against that reviewer, which is the intended
@@ -143,16 +158,18 @@ not ask for. Prefer a command with nothing to suppress, and record what a reject
 
 ### Candidates worth measuring
 
-Two review commands have a stronger contract than either shipped preset, and **neither ships**, because
-nobody has driven them here. Both are worth a card if you do.
+One review command has a stronger contract than either shipped preset, and **it does not ship**,
+because nobody has driven it here. It is worth a card if you do.
 
 - **A workflow-based reviewer that returns a schema-enforced result** — a verdict, a blocking list and
   an advisory list, deduplicated and adversarially verified before it returns. That is the taxonomy the
   acceptance floor is for, already machine-readable. The cost is that it spawns many agents.
-- **A reviewer that runs a different model from the one driving the loop.** Among the commands
-  surveyed, exactly one does, which makes it the only local reviewer that could be an independent
-  check rather than a second opinion from the same source — see
-  [`design-notes.md`](design-notes.md#what-a-local-run-does-not-establish).
+
+**A reviewer running a different model from the one driving the loop already ships**, so it is not on
+that list. The model is a property of how a command is invoked, not of which command you pick, so both
+presets pin `{reviewModel}` and the local loop defaults it to `sonnet`. **Nothing has been driven that
+way**; it carries its own "not measured" section. See
+[`design-notes.md`](design-notes.md#what-a-local-run-does-not-establish).
 
 ## Reviewers with no comment trigger
 

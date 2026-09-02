@@ -1,23 +1,23 @@
 # ecc-review-pr
 
-The `review-pr` command from the ECC plugin, invoked as a skill.
+The `review-pr` command from the ECC plugin, driven as a subprocess.
 
-| Field            | Value                                         |
-| ---------------- | --------------------------------------------- |
-| `kind`           | `local-command`                               |
-| `invoke`         | `skill`                                       |
-| `command`        | `ecc:review-pr`                               |
-| `severityLevels` | `["CRITICAL", "HIGH", "MEDIUM", "LOW"]`       |
-| `requiresPr`     | **`true`** — it resolves a pull request first |
-| verdict on       | what the skill reports                        |
-| `status`         | `unverified`                                  |
-| `lastChecked`    | 2026-09                                       |
+| Field            | Value                                              |
+| ---------------- | -------------------------------------------------- |
+| `kind`           | `local-command`                                    |
+| `invoke`         | `subprocess`                                       |
+| `command`        | `claude --model {reviewModel} -p "/ecc:review-pr"` |
+| `severityLevels` | `["CRITICAL", "HIGH", "MEDIUM", "LOW"]`            |
+| `requiresPr`     | **`true`** — it resolves a pull request first      |
+| verdict on       | the command's stdout                               |
+| `status`         | `unverified`                                       |
+| `lastChecked`    | 2026-09                                            |
 
 ```json
 {
   "kind": "local-command",
-  "invoke": "skill",
-  "command": "ecc:review-pr",
+  "invoke": "subprocess",
+  "command": "claude --model {reviewModel} -p \"/ecc:review-pr\"",
   "requiresPr": true,
   "severityLevels": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
   "status": "unverified"
@@ -25,14 +25,36 @@ The `review-pr` command from the ECC plugin, invoked as a skill.
 ```
 
 **This card records what the installed command declares, not what a run of it produced.** Nobody has
-driven `review-loop-local` with this reviewer.
+driven `review-loop-local` with this reviewer, in either invocation.
 
-**`requiresPr` is true, and the local loop cannot check it.** The reviewer resolves the pull request
-itself, inside its own invocation; the local loop has no `gh` grant and never opens one. So step 1
-neither aborts nor guesses — it **asks you to confirm that the branch already has an open pull
-request** — and step 7 refuses to read a zero-finding result from this reviewer as a clean round,
-because with no target and with a clean diff it returns the same nothing. Run it on a branch whose
-pull request the remote loop opened, or that you opened by hand.
+**It shipped as `invoke: skill` and no longer does, and the reason is that a skill has no model
+boundary.** A skill runs in the loop's own session: on the loop's model, spending the loop's context.
+Nothing inside a session can lower the model that session is running on, so `--review-model` against
+a `skill` reviewer aborts with `reason=no-model-boundary` — and this was the one shipped preset that
+tripped it. A subprocess is started with a command line, and a model is a token in one.
+
+**The switch discards no measurement, because there was none.** Every bullet below is read out of the
+installed command rather than observed from a run, and both invocations drive the same command, so
+none of them changes. What the switch adds is unknown rather than measured, and `## Not measured`
+lists it.
+
+**`invoke: skill` remains supported** and is the only option for a review command whose host forbids
+subprocess invocation. Configure it that way if you must, and read the `review model` row in the
+step-1 table as `this session's model — no boundary exists`.
+
+**`requiresPr` is true, and the local loop now satisfies it by itself on an ordinary run.** The
+reviewer resolves the pull request inside its own invocation; the loop opens one for it.
+
+| Local run      | What happens                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------ |
+| default        | The loop opens the pull request if the branch has none and pushes to it **before every round**. Nothing to confirm |
+| `--no-publish` | Step 1 **asks you to confirm** one exists, and step 8 refuses to read a zero-finding result as a clean round       |
+
+Under `--no-publish` the loop opens no pull request and makes no `gh` call, so it can neither check
+nor guess: with no target and with a clean diff this reviewer returns the same nothing. **The ordinary
+run is the supported way to use this preset** — it supplies the check the confirmation was standing in
+for. Under the flag, run it on a branch whose pull request the remote loop opened, or that you opened
+by hand.
 
 ## Measured
 
@@ -60,10 +82,14 @@ run; every bullet is read out of the command as installed.
 - **It requires a pull request.** Its first step resolves one through `gh` and, given no argument,
   looks for the pull request of the current branch (ecc 2.2.0, 2026-09). **Derived, and the reason
   `requiresPr` exists as a key at all:** with no pull request the command has no target, and a
-  reviewer that returns nothing is indistinguishable from one that found nothing. The loop cannot
-  resolve that from outside — it has no `gh` grant — so the key buys a confirmation before the first
-  round and a standing refusal to read zero findings from this reviewer as clean, rather than an
-  abort that would make the preset unreachable on a branch where it works.
+  reviewer that returns nothing is indistinguishable from one that found nothing. Under `--no-publish`
+  the loop cannot resolve that from outside — it opens no pull request and makes no `gh` call — so the
+  key buys a confirmation before the first round and a standing refusal to read zero findings from
+  this reviewer as clean, rather than an abort that would make the preset unreachable on a branch
+  where it works. **On the ordinary run the same key buys something else entirely**: it is what tells
+  the loop to publish _before_ each review rather than after convergence, so the target exists and
+  tracks `HEAD`, and both the confirmation and the refusal fall away with nothing left to be uncertain
+  about.
 - **It dispatches six specialised agents and aggregates them by deduplicating overlapping findings
   and ranking by severity, described in prose with no key, no schema and no threshold**
   (ecc 2.2.0, 2026-09). **Derived:** the deduplication is inside one review, across agents, and is
@@ -76,10 +102,21 @@ run; every bullet is read out of the command as installed.
 
 ## Not measured
 
+- **Whether it runs as a subprocess at all.** The preset now spells the invocation
+  `claude -p "/ecc:review-pr"`, and **nobody has run that.** Two things about it are open and the
+  first is load-bearing: whether the subprocess reaches `gh`, which this reviewer needs to resolve its
+  pull request — [`code-review.md`](code-review.md) measured a subprocess whose sandbox differed from
+  the caller's and could not run the test suite, so a narrower sandbox here is a live possibility —
+  and whether the ECC plugin's skills are loaded in a `-p` session at all. **If either fails, the
+  reviewer returns nothing**, which is why the local loop's `unconfirmed-empty-review` row still
+  matters under `--no-publish`, and why the `skill` form stays one line away.
 - **What a run actually emits.** The command carries no output template, so the aggregate shape is
   whatever the model produces; the agent template above specifies one of six inputs to that, not the
   result. **Nothing here has been observed coming back.** If the shape turns out not to be stable,
   the honest move is `status: unsupported`, not a looser parse.
 - **Whether the confidence rule's three words ever appear in output at all.**
 - Findings per round, recurrence across rounds, rounds to converge, and tokens per round.
+- **What the six agents it dispatches run on.** The command is invoked with `--model`, and whether
+  that reaches agents the command spawns for itself is not something reading the command establishes.
+  If it does not, the pin buys less than it appears to.
 - Whether the six agents' findings arrive already merged in practice, or arrive as six sections.
