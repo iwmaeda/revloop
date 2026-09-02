@@ -66,15 +66,15 @@ round. The conditions, and why re-posting is safe, are in
 
 The spine is the remote loop's. With no waiting phase, it finishes in eleven steps.
 
-| Phase       | Steps   | What happens                                                          |
-| ----------- | ------- | --------------------------------------------------------------------- |
-| **Resolve** | 1       | Probe and print the resolved table, including which model will review |
-| **Prepare** | 2–4     | Cut a topic branch, run verify, commit (**the stop point**)           |
-| **Publish** | 5 or 10 | Push, and open a pull request if the branch has none                  |
-| **Review**  | 6       | Run the review command on the light model, and read its output        |
-| **Decide**  | 7–8     | Fingerprint the findings and decide what happens next                 |
-| **Fix**     | 9       | Fix, and answer the findings that are wrong                           |
-| **Finish**  | 11      | Report, and write that report into the pull-request body              |
+| Phase       | Steps   | What happens                                                               |
+| ----------- | ------- | -------------------------------------------------------------------------- |
+| **Resolve** | 1       | Probe and print the resolved table, including which model will review      |
+| **Prepare** | 2–4     | Cut a topic branch, run verify, commit (**the stop point**)                |
+| **Publish** | 5 or 10 | Push, and open a pull request if the branch has none                       |
+| **Review**  | 6       | Run the review command on the light model, and read its output             |
+| **Decide**  | 7–8     | Fingerprint the findings and decide what happens next                      |
+| **Fix**     | 9       | Fix, and answer the findings that are wrong                                |
+| **Finish**  | 11      | Report — and write that report into the pull-request body, if it published |
 
 **Which of the two publish steps runs is read off the reviewer, not off a flag.** A reviewer that
 resolves its own pull request is published to at 5, before every round; every other reviewer once at
@@ -193,13 +193,13 @@ review by reviewer request) is not supported at present.
 
 These are the rough edges that remain.
 
-| Limitation                        | Why                                                                                                      |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| **Forks are unsupported**         | The pull request lives upstream, so calls would address the wrong repository. Both loops abort in step 1 |
-| **Same-repo topic branches only** | One open PR per branch. If the PR cannot be identified, the loop aborts                                  |
-| **Merge commits only**            | Squash and rebase are not available                                                                      |
-| **`copilot` unsupported**         | It has no comment trigger, and the reviewer-request path is not implemented                              |
-| **The local loop never merges**   | It ends at a pushed branch with an open pull request. Merge it separately                                |
+| Limitation                        | Why                                                                                                                                                                                                 |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Forks are unsupported**         | The pull request lives upstream, so calls would address the wrong repository. Both loops abort in step 1 — the local one only when it is publishing, so `--no-publish` is the way to work in a fork |
+| **Same-repo topic branches only** | One open PR per branch. If a loop looks one up and cannot identify it, it aborts                                                                                                                    |
+| **Merge commits only**            | Squash and rebase are not available                                                                                                                                                                 |
+| **`copilot` unsupported**         | It has no comment trigger, and the reviewer-request path is not implemented                                                                                                                         |
+| **The local loop never merges**   | It ends at a pushed branch with an open pull request, or at a commit under `--no-publish`. Merge it separately                                                                                      |
 
 ## Documentation
 

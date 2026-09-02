@@ -116,7 +116,9 @@ added the first time somebody types the flag often enough to ask.
 not a replacement; merging on its verdict alone would contradict the project's own claim about what
 this loop establishes. So the combination step 1 of [`review-loop.md`](review-loop.md) refuses cannot
 arise here; the acceptance list is still led with in the report. If you want a merge, run that
-procedure on the branch this one leaves behind — pushed, and with its pull request already open.
+procedure on the branch this one leaves behind — **on an ordinary run** already pushed and with its
+pull request open, and under `--no-publish` still sitting at the commit for that procedure to push
+itself.
 
 `--max-rounds 5` is lower than the remote loop's ten on purpose, and **not because a local round is
 faster** — measured, it is not. It is because a local round's cost is invisible. A remote round
@@ -178,15 +180,19 @@ guess and is recorded as one; see `## Unexercised paths`.
    gh pr list --head "$(git branch --show-current)" --state open --json number,url
    ```
 
-   **If the `gh repo view` call fails at all, abort with `reason=publish-unavailable`** and say that
-   `--no-publish` runs everything up to the commit. One reason covers no `origin`, a remote that is
+   **On a publishing run, if the `gh repo view` call fails at all, abort with
+   `reason=publish-unavailable`** and say that `--no-publish` runs everything up to the commit.
+   **Under that flag this abort is unreachable rather than suppressed**: the block above never runs,
+   so the call whose failure it reads never happens. It is written as a condition anyway, because the
+   two sibling judgements below already carry theirs and a checklist in which half the entries state
+   their precondition reads as though the other half have none. One reason covers no `origin`, a remote that is
    not GitHub, a `gh` that is absent, and a `gh` that is not authenticated — **four causes, one
    operator move**, and telling them apart would need three more probes to reach an identical piece
    of advice. Print what the call said; that is where the cause is.
 
    **`--state open` is not optional**, for the reason [`review-loop.md`](review-loop.md) step 1 gives:
-   without it a merged pull request answers, and step 5 then treats this branch as already published
-   to a pull request that is closed.
+   without it a merged pull request answers, and **whichever of steps 5 and 10 this run publishes at**
+   then treats this branch as already published to a pull request that is closed.
 
    Print a resolved-configuration table with a `source` column of `flag` / `config` / `detected` /
    `builtin`, covering at least: reviewer, review command, review model, expected latency, base
@@ -356,10 +362,12 @@ guess and is recorded as one; see `## Unexercised paths`.
      and the report repeats it — the treatment `status: unverified` already gets. Nobody typed a
      request that could not be honoured.
 
-   - **If `isFork` is true, abort with `reason=fork-unsupported`**, and say that `--no-publish` runs
-     everything up to the commit. This is [`review-loop.md`](review-loop.md) step 1's judgement,
-     reached here for the same cause: in a fork the `{owner}` placeholder resolves to your fork while
-     the pull request lives upstream, so the body update would address the wrong repository.
+   - **On a publishing run, if `isFork` is true, abort with `reason=fork-unsupported`**, and say
+     that `--no-publish` runs everything up to the commit. Unreachable under the flag for the same
+     reason as the row above — `isFork` comes from that same skipped call. This is
+     [`review-loop.md`](review-loop.md) step 1's judgement, reached here for the same cause: in a
+     fork the `{owner}` placeholder resolves to your fork while the pull request lives upstream, so
+     the body update would address the wrong repository.
 
      **This abort is the price of the default, and it is worth naming as a loss.** While publishing
      was opt-in, a fork simply never typed the flag and the loop worked there with no `gh` at all.
@@ -367,7 +375,8 @@ guess and is recorded as one; see `## Unexercised paths`.
      what gives it back, which is most of why the flag exists.
 
    - **Unless `--no-publish` was passed: if the upstream is `origin/<base>` and you are not on the
-     base branch, unset it before step 5 pushes** (`git branch --unset-upstream`). Step 5's
+     base branch, unset it before this run's publish step pushes** (`git branch --unset-upstream`)
+     — step 5 for a `requiresPr: true` reviewer, step 10 for every other. That step's
      `git push -u origin HEAD` then sets the right one. This is
      [`review-loop.md`](review-loop.md) step 1's judgement and its measured failure is the reason it
      is copied rather than cited: left alone, the push goes straight to the base branch, bypassing
@@ -421,8 +430,9 @@ guess and is recorded as one; see `## Unexercised paths`.
      **Publishing closes it, and closing it is one of the two reasons the default changed.** This
      file used to end the paragraph with "if you want the final acceptances in the history, they
      belong in the pull-request body you write next" — an instruction to a person, for an artifact
-     this command could not write. Step 5 writes it now. **Under `--no-publish` the gap is exactly as
-     it was**, and the acceptances live in the report alone.
+     this command could not write. **This run's publish step writes it now** — step 5 for a
+     `requiresPr: true` reviewer, step 10 for every other. **Under `--no-publish` the gap is exactly
+     as it was**, and the acceptances live in the report alone.
 
    **The tree must be clean when this step ends.** Steps 6 and 7 review a commit, and an uncommitted
    edit is a change the reviewer may or may not have read depending on how it resolved its target —
@@ -742,8 +752,9 @@ guess and is recorded as one; see `## Unexercised paths`.
    [`review-loop.md`](review-loop.md) already has, and it was missing here.
 
    **The fall-through is to 10 and not to 11, and the difference is a whole feature.** Step 10 is
-   where a converged run publishes, so a fall-through that skipped it would leave publishing working
-   on every convergence except the one reached by accepting or declining everything — the exact runs
+   where a converged run publishes when step 5 did not, so a fall-through that skipped it would
+   leave publishing working on every convergence except the one reached by accepting or declining
+   everything — the exact runs
    `--accept-at` exists to produce. A step reached on one convergence path and not the
    other is a step that works until somebody uses the flag it was built beside.
 
@@ -795,9 +806,12 @@ guess and is recorded as one; see `## Unexercised paths`.
     at its default — by a model junior to the one that wrote the fixes. **Nothing here read CI and
     nothing merged**: a pull request this command opened is an unreviewed pull request with a
     pre-flight attached, which is exactly what it is for and not more. **On an abort, say where the
-    branch went too, and say which side of it you are on**: a
-    before-review placement has pushed and an after-convergence one has not, and "the branch is on
-    GitHub" is not something a reader should have to infer from which reviewer was configured.
+    branch went too, and read that off the three resolved publish points rather than off the
+    placement alone.** Under `--no-publish` nothing was pushed. On a publishing run, a before-review
+    placement has pushed **if the abort came after step 5 ran at all** — a step-1 abort precedes every
+    push there is — and an after-convergence one has not. "The branch is on GitHub" is not something a
+    reader should have to infer from which reviewer was configured, and it is not something the
+    placement answers on its own.
 
 ## Notes
 
@@ -910,8 +924,8 @@ A run that takes one should say so in the report and append a line to `.revloop/
   that is not GitHub, or in a repository with no `origin`, and none of those has been driven either.
 - **`publish-unavailable`.** No sample. Four causes reach it — no `origin`, a non-GitHub remote, `gh`
   absent, `gh` unauthenticated — and **only that they all make `gh repo view` fail has been reasoned,
-  not observed.** A cause that fails some other way would reach step 5 instead, where the failure is
-  louder but later.
+  not observed.** A cause that fails some other way would reach this run's publish step instead —
+  step 5 or step 10 — where the failure is louder but later.
 - **`--review-model`, and the `sonnet` default.** The five measured rounds on
   [`../reviewers/code-review.md`](../reviewers/code-review.md) ran on **whatever model that CLI
   defaulted to**, with no `--model` in the command at all. So the finding counts, the wall clock and
