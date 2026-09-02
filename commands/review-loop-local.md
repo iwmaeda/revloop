@@ -436,7 +436,10 @@ guess and is recorded as one; see `## Unexercised paths`.
 
    **The tree must be clean when this step ends.** Steps 6 and 7 review a commit, and an uncommitted
    edit is a change the reviewer may or may not have read depending on how it resolved its target —
-   which makes a finding's absence uninterpretable.
+   which makes a finding's absence uninterpretable. **On the before-review placement this is not the
+   last word**: step 5's push runs between here and the review and can fire a `pre-push` hook that
+   rewrites files, so that step re-checks and aborts rather than letting the precondition lapse
+   between the step that establishes it and the steps that need it.
 
 5. Publish. **Two conditions skip this step, and naming only the flag is how the trap below gets
    reached.** Skip it under `--no-publish`, where the run then ends at a commit exactly as every run
@@ -492,10 +495,28 @@ guess and is recorded as one; see `## Unexercised paths`.
    `gh pr edit`:
 
    ```bash
+   gh pr list --head "$(git branch --show-current)" --state open --json number,url  # THIS round's read
    git push -u origin HEAD
+   git status --porcelain -uall     # a pre-push hook may have rewritten the tree; must come back empty
    gh pr create --base <base> --title '<title>' --body-file <scratch>/body.md
    gh api -X PATCH "repos/{owner}/{repo}/pulls/<n>" -F body=@<scratch>/body.md   # updates go here
    ```
+
+   **The open-pull-request read is this round's, not step 1's, and the create-if-none decision is
+   made from it.** Step 1's read can be arbitrarily stale by the time a `requiresPr: true` reviewer
+   reaches its second round — a pull request can be closed or merged between the two — and step 8's
+   narrowing of `unconfirmed-empty-review` rests on this run having confirmed an open pull request
+   **for this `HEAD`, this round**. Taking the decision from step 1 would leave that claim asserting a
+   check nobody performed, which is the same defect as a stop suppressed rather than supplied.
+
+   **Then re-check that the tree is still clean, and abort with `reason=dirty-after-push` if it is
+   not.** Step 4 leaves the tree clean and steps 6 and 7 need it clean, but on this placement a push
+   now runs between them — and `git push` fires a `pre-push` hook unless `--no-verify` is passed, so a
+   repository whose hook reformats or regenerates files can dirty the tree after the check and before
+   the review. **Do not pass `--no-verify`** to dodge it: the hook is the repository's, and silently
+   skipping it is a larger decision than this procedure gets to make. **Do not commit the hook's
+   output either** — that would move `HEAD` past the commit just pushed. Abort and let a person decide,
+   which is what every other precondition failure here does.
 
    Two rules about the body, and they differ by placement:
 
@@ -706,8 +727,11 @@ guess and is recorded as one; see `## Unexercised paths`.
    reviewer that reads the diff in front of it means what it says.
 
    **What the row turns on is whether this run confirmed an open pull request for this `HEAD` this
-   round, and the ordinary run does.** Step 5 pushed to it and confirmed it was open immediately
-   before the reviewer ran, so the ambiguity is gone and zero findings mean what they say. **The row
+   round, and the ordinary run does.** Step 5 reads the branch's open pull requests **that round**,
+   creates one if none answered, and pushes `HEAD` to it — so the ambiguity is gone and zero findings
+   mean what they say. **That read is step 5's own and not step 1's**, which is what makes this
+   sentence true rather than merely plausible: step 1's answer can be stale by the second round, and a
+   narrowing that rested on it would be a stop retired against a check nobody ran. **The row
    therefore fires only under `--no-publish`**, where this command opens no pull request and makes no
    `gh` call and cannot tell the two nothings apart; step 1's confirmation lowers the odds and does
    not remove them, since a pull request can be merged or closed between that stop and the round.
@@ -958,5 +982,8 @@ A run that takes one should say so in the report and append a line to `.revloop/
 - **`no-model-boundary` and `unsafe-model-name`.** Neither abort has fired. The first is reachable
   today only by configuring a `skill` reviewer, or a `subprocess` one without the placeholder, and
   then typing the flag.
+- **`dirty-after-push`.** No sample. It needs a repository whose `pre-push` hook rewrites tracked
+  files **and** a `requiresPr: true` reviewer, so it is reachable only on the placement that has never
+  pushed a round. That `git push` runs the hook is documented rather than observed here.
 - **`unsafe-review-command`.** Unreachable through the schema, which is the point of it, so it has
   never fired and cannot be exercised without hand-editing a validated file.

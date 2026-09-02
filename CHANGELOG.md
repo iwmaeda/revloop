@@ -49,9 +49,12 @@ Added:
   **One stop disappears on the ordinary run, and it is a removal rather than a suppression.** A
   `requiresPr` reviewer used to cost a confirmation that an open pull request existed, and the
   decision table used to refuse to read zero findings from one as clean. Both existed because the loop
-  **could not check**. Publishing supplies the check — step 5 pushed and confirmed an open pull
-  request for this `HEAD` immediately before the reviewer ran. `--auto` deletes a question and leaves
-  the uncertainty; this answers the question, which is why it may remove a stop `--auto` is not
+  **could not check**. Publishing supplies the check — step 5 reads the branch's open pull requests
+  **that round**, creates one if none answered, and pushes `HEAD` to it immediately before the
+  reviewer runs. The read is the round's own rather than step 1's, because step 1's can be stale by
+  the second round and a stop retired against a stale read is suppressed rather than supplied.
+  `--auto` deletes a question and leaves the uncertainty; this answers the question, which is why it
+  may remove a stop `--auto` is not
   allowed to touch. **Both survive under `--no-publish`**, which is the run that still cannot check.
 
   **It also closes a gap this project had written down and could not fix.** The last round's

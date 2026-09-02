@@ -236,8 +236,11 @@ to the wrong answer — the same reasoning that keeps the base branch detected r
 
 **Under `--no-publish`, a `requiresPr` reviewer costs a confirmation that an open pull request exists,
 and the decision table refuses to read zero findings from one as clean.** Both exist because that run
-**cannot check**. On an ordinary run publishing supplies the check — step 5 pushed and confirmed an
-open pull request for this `HEAD` immediately before the reviewer ran — so neither arises.
+**cannot check**. On an ordinary run publishing supplies the check — step 5 reads the branch's open
+pull requests **that round**, creates one if none answered, and pushes `HEAD` to it immediately
+before the reviewer runs — so neither arises. **The read has to be the round's own**: step 1's
+answer can be stale by the second round, and a stop retired against a stale read would be suppressed
+rather than supplied, which is the distinction this whole paragraph rests on.
 
 **`--auto` deletes a question and leaves the uncertainty; publishing answers the question.** That is
 why a flag which merely suppresses stops may not touch this one, and why publishing may retire it: a
