@@ -122,8 +122,13 @@ Changed:
   found.
 
 - **The local procedure is eleven steps rather than nine**, with publishing at 5 and at 10, and every
-  internal citation renumbered. `tests/procedure-refs.test.sh` permits step citations and forbids line
-  numbers, so nothing but reading catches a stale one; they were swept by hand.
+  internal citation renumbered. **`--max-rounds` is now checked wherever a round opens** — step 5 for
+  a `requiresPr: true` reviewer, whose push is that round's first act, and step 6 for every other.
+  The cap used to sit at the first step of a round that spent tokens; publishing put a step that
+  pushes in front of it, so on the last permitted round the fix reached the pull request before the
+  cap aborted, leaving a commit there that the loop never reviewed.
+  `tests/procedure-refs.test.sh` permits step citations and forbids line numbers, so nothing but
+  reading catches a stale one; they were swept by hand.
 
 - **A `subprocess` command may not begin with `gh`, or with the `{reviewModel}` placeholder.** The
   first is the existing `git` rule applied to the second grant, and it is **deliberately wider than

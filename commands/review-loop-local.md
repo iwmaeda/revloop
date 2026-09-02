@@ -468,6 +468,23 @@ guess and is recorded as one; see `## Unexercised paths`.
    to the wrong answer. A `--publish-before-review` switch would be a way to configure the failure
    above.
 
+   **On the before-review placement, check `--max-rounds` here, before the push. If this would be
+   round N+1 and N rounds have run, abort with `reason=max-rounds` and push nothing.** For a
+   `requiresPr: true` reviewer this step is where the round opens — it pushes on that round's behalf
+   — so by the time step 6 looks at the cap the round has already had an irreversible remote effect.
+   **The reasoning is step 6's and is unchanged: the cap belongs where a round opens, before anything
+   is spent. What moved is where that is.** Before publishing existed, a round's first expensive step
+   and its first side-effecting step were the same step; publishing put a side-effecting one in front
+   of it and the cap did not follow.
+
+   **The path that reaches it is step 9's return to step 3 on the last permitted round**: it
+   re-verifies, re-commits, and would push that fix to the pull request to prepare a review the cap
+   then forbids — leaving a commit on the pull request that this loop never reviewed, and making the
+   claim below that every push here was correct when it happened false for exactly one push.
+
+   **The after-convergence placement needs no check here**, because step 10 is reached only on
+   convergence and no abort reaches it at all.
+
    Then: **push, and create the pull request if none exists. This is
    [`review-loop.md`](review-loop.md) steps 5 and 6 unchanged**, in full and by name — the
    never-`--force` rule, the `-u origin HEAD` form, the create-if-none rule, the body passed as a
@@ -497,11 +514,16 @@ guess and is recorded as one; see `## Unexercised paths`.
    right way round**: publishing is the act of saying the change is ready for someone else, and an
    aborted run has not established that. A before-review placement that has already pushed is left as
    it is — the pushes happened, they were correct when they happened, and unpushing is not a thing
-   this procedure does.
+   this procedure does. **That claim is only true because the cap is checked in step 5 as well**: the
+   one push it would not have covered is the one made to prepare a round the cap forbids, and that
+   push no longer happens.
 
 6. Run the review. **First check `--max-rounds`: if this would be round N+1 and N rounds have run,
-   abort with `reason=max-rounds` and run nothing.** This is the only place a round is opened, so it
-   is the only place the cap can be applied without guessing whether the round converged — step 8's
+   abort with `reason=max-rounds` and run nothing.** **On a `requiresPr: true` reviewer step 5 has
+   already applied this and aborted before pushing, so here it is a second gate rather than the
+   first; on every other reviewer step 5 is skipped and this is where the round opens.** Either way
+   the cap is applied where the round opens, which is the only place it can be applied without
+   guessing whether the round converged — step 8's
    rows say what to do next, not whether the loop is done, and a clean review at the cap is a
    convergence rather than a failure. It is also the cheapest place to stop: the reviewer has not
    been invoked, so the tokens the cap exists to bound are still unspent. **Step 9's return to step 3
@@ -633,15 +655,16 @@ guess and is recorded as one; see `## Unexercised paths`.
    `unconfirmed-empty-review` row said in its own prose that it takes precedence over the clean row
    while sitting below it, where first-match reading never reached it.
 
-   **`--max-rounds` is not decided here and is not a row below. It is checked in step 6**, where a
-   round is opened. It was written as this table's last row, where every ordinary round matched
+   **`--max-rounds` is not decided here and is not a row below. It is checked where a round opens** —
+   step 5 for a `requiresPr: true` reviewer, whose push is that round's first act, and step 6 for
+   every other. It was written as this table's last row, where every ordinary round matched
    something above it, so **the only brake this loop has never engaged**. Moving it to the top is the
    obvious correction and is wrong — the cap aborts a loop that **has not converged**, so a first row
    aborts a round that came back clean on exactly the round the operator budgeted for. Making it a
    rule over the row's outcome is wrong for a subtler reason and was this file's third attempt: the
    rows here say what to do next, not whether the round converged, and a round is only known to have
    converged after step 9 has bucketed everything. **The cap is not a property of a verdict**, so no
-   position in this table is the right one; step 6 is, because that is where a round begins and where
+   position in this table is the right one; the step where the round begins is, because that is where
    nothing has been spent yet.
 
    | Signal                                                                                    | Verdict                                | Next action                                                                               |
