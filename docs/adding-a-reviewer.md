@@ -19,6 +19,7 @@ Open a scratch PR, post the reviewer's trigger, and record:
 | What does it say when it finds nothing?             | `cleanPatterns`                                                                          |
 | What does it say when it is rate-limited?           | `rateLimitPatterns`                                                                      |
 | What severity vocabulary does it use?               | `severityLevels`                                                                         |
+| What does each of its rungs mean?                   | `severityMap`, onto `critical` / `high` / `medium` / `low`                               |
 | How long did it take?                               | `expectedLatency`                                                                        |
 | Does it still answer with the marker appended?      | `markerTolerated`                                                                        |
 | Do findings arrive as a review, a comment, or both? | the card's prose                                                                         |
@@ -66,6 +67,7 @@ In `.revloop.json`:
       "cleanPatterns": ["^Acme Review: no issues found"],
       "rateLimitPatterns": ["quota exceeded"],
       "severityLevels": ["blocker", "major", "minor"],
+      "severityMap": { "blocker": "critical", "major": "high", "minor": "low" },
       "expectedLatency": "2-8m",
       "markerTolerated": "unverified",
       "status": "unverified"
@@ -115,6 +117,7 @@ above does not apply; this one does.
 | **How does it resolve its review target?**                        | the card's prose. **A push can change the answer** — see the trap below            |
 | Does it need an open pull request?                                | `requiresPr`                                                                       |
 | What severity vocabulary reaches its **output**?                  | `severityLevels`, ordered most severe first                                        |
+| What does each of those rungs mean?                               | `severityMap`, onto revloop's four canonical rungs                                 |
 | What shape is that output — a JSON block, tagged lines, headings? | the card's prose. **This is the one that decides whether it can be driven at all** |
 | Does it cap how many findings one run returns?                    | the card's prose                                                                   |
 | Does it write files or post anywhere?                             | the card's prose                                                                   |
@@ -152,8 +155,29 @@ can publish before reviewing, and getting it wrong produces a clean-looking run 
 model. Use `subprocess` with `{reviewModel}` in `command` unless the host forbids it.
 
 **Trap: a reviewer with no severity is normal, and the card should say so rather than invent one.**
-Leave `severityLevels` out; `--accept-at` then aborts against that reviewer, which is the intended
-outcome.
+Leave `severityLevels` out, and `severityMap` with it. `--accept-at` then aborts against that reviewer
+with `no-severity-ladder`, which is the intended outcome; `--grade-severity` is the documented way
+past it, and it is a flag rather than a card field for a reason worth not working around. **A card
+records what its reviewer emits, and a reviewer does not start emitting severities because someone
+typed a flag** — so a card must never gain a `severityLevels` it did not measure in order to make the
+floor "work". [`../reviewers/code-review.md`](../reviewers/code-review.md) is the shipped example of
+doing this correctly: the absence is measured, stated in the header table, and the flag is named as
+the way around it.
+
+**Trap: the map is a judgement and the ladder is a measurement, and a card must not let the first
+borrow the second's authority.** `severityLevels` can be checked against the reviewer's output;
+nothing checks that its `P1` and another reviewer's `CRITICAL` describe the same thing. So the map
+goes in the config block like any other key, and **the card says under `## Not measured` that it is a
+judgement** — including which canonical rung a short ladder had to skip. A three-rung ladder cannot be
+spread over four without a choice, and a card that ships the choice silently has made a recommendation
+look like an observation.
+
+**Trap: a canonical rung and a native rung can be spelled alike, and native wins.** `--accept-at`
+matches `severityLevels` first, as a whole string and case-sensitively, before it tries the canonical
+ladder case-insensitively. A reviewer that emits a literal `high` therefore takes `--accept-at high`
+down the native path whatever its map says. That is the safe order — it is what keeps every
+pre-existing invocation meaning what it meant — but it means the resolved floor is worth reading off
+the step-1 table rather than assumed, which is why that table prints it expanded.
 
 **Trap: some commands write into the work tree or post to GitHub.** That is a side effect the loop did
 not ask for. Prefer a command with nothing to suppress, and record what a rejected one did.

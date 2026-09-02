@@ -34,9 +34,28 @@ record it from the command's behaviour, not from whether a pull request happened
 looked.
 
 `severityLevels` belongs to both and means the same thing in both: **the reviewer's severity
-vocabulary, ordered most severe first**. It is the ladder `--accept-at` names. A card omits it when
-the reviewer emits no severity, and omitting it is a measurement like any other — it makes
-`--accept-at` abort rather than letting the loop rank findings it is itself obliged to fix.
+vocabulary, ordered most severe first**, and it is the **emitted** vocabulary rather than the one the
+reviewer's documentation defines. It is the ladder `--accept-at` names on its native pass. A card
+omits it when the reviewer emits no severity, and omitting it is a measurement like any other — it
+makes `--accept-at` abort rather than letting the loop rank findings it is itself obliged to fix.
+
+**`severityMap` belongs to both as well, and it is a different kind of claim from the key beside
+it.** It carries each rung of `severityLevels` onto revloop's canonical ladder —
+`critical > high > medium > low` — which is what lets `--accept-at high` mean one thing against
+reviewers that do not share a vocabulary. **The ladder is measured and the map is judged.** Nothing
+establishes that one reviewer's `P1` and another's `CRITICAL` describe the same thing, so the map is
+a separate key rather than an ordering folded into the ladder, and **a card states under
+`## Not measured` that its map is a judgement** — leaving it beside the ladder without saying so is
+the "looks measured" failure this page exists to prevent. A card omits the map when it has no ladder
+to map from; `--accept-at` then aborts on a canonical level rather than deriving a map from position,
+which would be the loop authoring a ladder one key over from where that is already forbidden.
+
+**Neither key is what `--grade-severity` reads.** That flag is for a reviewer with no ladder at all,
+and the rungs it produces come from a grader outside this loop rather than from a card. **It is not a
+card field and must not become one**: a card records what its reviewer emits, and a reviewer that
+emits no severity does not start emitting one because a flag was typed. What the card should say
+about it is what `code-review.md` says — that the absence is measured, and that the flag is the
+documented way past it.
 
 ## Status vocabulary
 

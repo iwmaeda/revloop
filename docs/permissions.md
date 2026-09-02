@@ -112,6 +112,22 @@ path, and **`--auto` does not suppress that stop** — a substitute for a permis
 can delete is not a substitute. If you would rather have the prompt, configure the reviewer as a
 subprocess.
 
+### Nor is the grader's command, and it is procedure-owned rather than repository-supplied
+
+`--grade-severity` starts a second subprocess per round — a grader, on the resolved review model —
+and it is treated like the review command in every way but one: **its command line comes from the
+procedure and never from `.revloop.json`.** A review command is what the operator chose to run and
+the step-1 table shows it before it runs; a grader the repository could choose would be a shell
+string nobody asked for, started under a flag whose whole purpose is to let findings go unfixed.
+Only the model is interpolated into it, through the same `{reviewModel}` resolution and the same
+`^[A-Za-z0-9][A-Za-z0-9._:-]*$` refusal.
+
+**It is deliberately not a fence, for the reason the review command is not one**: a fence's "always
+allow" holds because its bytes never change, and this string carries a model. So it is absent from
+`allowed-tools`, the permission system sees it every round, and step 1 prints it in full and expanded
+beside the review command. **A run with `--grade-severity` therefore costs two prompts a round rather
+than one**, which is the correct price for the second string a graded run is most about.
+
 **A `subprocess` command may not begin with `git`, with `gh`, or with the `{reviewModel}`
 placeholder**, and the schema rejects all three. The local command grants `Bash(git:*)` for its own
 probe and four `gh` rules for publishing, and a rule matches a prefix, so such a command would run

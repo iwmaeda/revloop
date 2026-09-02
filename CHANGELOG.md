@@ -26,6 +26,60 @@ to.
 
 Added:
 
+- **`--accept-at` takes one vocabulary, whatever the reviewer calls its rungs.** The level is matched
+  against the resolved reviewer's `severityLevels` first — as a whole string, case-sensitively, which
+  is what the flag always did, so **no existing invocation changes meaning** — and only then against
+  revloop's own canonical ladder, `critical > high > medium > low`, carried onto the reviewer's rungs
+  by a new **`severityMap`** key. Three emitted vocabularies already coexisted among the shipped
+  presets, so a floor written in one reviewer's words aborted against the others and the flag read as
+  broken rather than as reviewer-specific.
+
+  **The map is a judgement and the ladder is a measurement, and they are two keys for that reason.**
+  Nothing establishes that one reviewer's `P1` and another's `CRITICAL` describe the same thing, so
+  each card ships its map in the config block and says under `## Not measured` that it is a judgement
+  — including which canonical rung a three-rung ladder had to skip. The loop **never derives a map
+  from rung position**: a canonical level against an unmapped reviewer aborts with
+  `reason=no-severity-map`, because reading `critical` off "rung 1 of 3" is the loop authoring a
+  ladder one key over from where that was already forbidden. A partial or inverted map aborts with
+  `reason=bad-severity-map`.
+
+  **`severityMap` is settable from `.revloop.json` and `--accept-at` still is not**, which is a line
+  worth being explicit about: `severityLevels`' own **order** has always carried the same power to
+  move a floor, so the map is no new class of it. The mitigation covers both — **step 1 now prints
+  the resolved floor expanded**, as the sets of the reviewer's own rungs that block and that are
+  acceptable, before the first round runs.
+
+- **`--grade-severity`: an acceptance floor against a reviewer that emits no severity.** This is the
+  ordinary case rather than an edge one — [`reviewers/code-review.md`](reviewers/code-review.md)
+  measures that the local loop's own default preset emits none, so `--accept-at` aborted against it,
+  and that card had been asking for a run under the floor to settle whether the loop converges at all.
+  **That measurement was not merely unmade; it was unreachable.**
+
+  The flag is **off unless typed** and has no configuration key, for the reason `--accept-at` has
+  none. Without it, a reviewer with no ladder still aborts with `reason=no-severity-ladder`, exactly
+  as before. It is **refused against a reviewer that has a ladder** (`grade-over-ladder`), because
+  regrading a rung the reviewer emitted replaces a measurement with an inference, and typing it with
+  no floor aborts too (`grade-without-floor`) — the rungs would have no consumer.
+
+  **It narrows "the loop never supplies a ladder the reviewer did not"; it does not repeal it**, and
+  [`docs/design-notes.md`](docs/design-notes.md) argues the new boundary rather than deleting the old
+  paragraph. That rule was never about where a rung comes from — it is about the party obliged to fix
+  the finding, and about a reader who cannot check afterwards which kind of rung they are looking at.
+  So: **the grader is a separate subprocess** on the review model, with none of the loop's context,
+  and it does not fix what it grades. **It is not told the acceptance floor**, which is the
+  load-bearing half — a grader that knows what will be spared is answering "how much work should the
+  caller do" instead of "how severe is this". And **every graded rung is marked `graded`** in the
+  pull-request reply, the commit's `Accepted:` block, the pull-request body and both reports, which is
+  the direct answer to "from outside the run that is indistinguishable from a reviewer that really
+  graded them that way".
+
+  **What this does not establish is that a grader's rungs are any good.** Nothing measures that, the
+  reports say a graded convergence is the weaker result, and an unreadable grader aborts
+  (`unparsed-grading-output`) while a finding it declined to rank is treated as blocking and listed as
+  `ungraded`. A graded run costs **two permission prompts a round** rather than one: the grader's
+  command line is this procedure's own rather than the repository's, but it carries a model, so it is
+  no more a fence than the review command is.
+
 - **`/revloop:review-loop-local` carries the branch to a pull request.** The loop ended at a commit
   and left the branch for a person or for the remote loop; it now pushes it and opens a pull request,
   reaching the place `/revloop:review-loop` starts from. **`--no-publish` ends the run at the commit**

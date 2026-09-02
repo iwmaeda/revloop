@@ -160,6 +160,54 @@ them, so a ladder it authors is a ladder it can author its way out of the work w
 the run that is indistinguishable from a reviewer that really graded them that way. This is not
 hypothetical: one shipped local preset is exactly that reviewer.
 
+**`--grade-severity` narrows that sentence and does not repeal it, and the narrowing is worth stating
+precisely, because the loose version of it would give the whole thing away.** The rule's argument has
+never been about where a rung comes from. It is about **a party** — the one that has to do the work —
+and about **a reader** who cannot check afterwards which kind of rung they are looking at. So the flag
+has to answer both halves, and both answers are mechanisms rather than assurances.
+
+**The grader is not that party.** It is a subprocess with its own model, none of this session's
+context, and nothing to gain from the answer: it does not fix what it grades. That is the same
+boundary `invoke: subprocess` already buys the reviewer, applied to the one judgement the reviewer
+declined to make.
+
+**The grader is not told the floor.** This is the load-bearing half, and it is the one an
+implementation would drop first because passing the floor along looks helpful. A grader that knows
+everything at or below `high` will be left unfixed has been handed the lever the rule exists to keep
+away from the loop, and it would not take bad faith to pull it — a rung is a judgement call often
+enough that a nudge decides it. Given only the ladder, it answers "how severe is this", which has an
+answer. Given the floor, it answers "how much work should the caller do", which is the question the
+rule forbids anyone inside the run from answering.
+
+**And the indistinguishability is answered by the record.** Every graded rung says so — in the
+pull-request reply, in the local loop's commit `Accepted:` block, in the pull-request body, and once
+at the top of the report, naming the model. The objection was that nothing outside the run could tell
+a self-authored ladder from a reviewer's; the answer is that the run says which, in every place it
+writes a rung down.
+
+**What none of this establishes is that the grader's rungs are any good.** Nothing has measured
+whether a light model ranks findings the way the people who wrote them would, and shipping the flag is
+not evidence that it does. The claim is narrower and it is the whole claim: **the rungs come from
+somewhere other than the party that benefits from them, and the run says where.** A graded convergence
+is a weaker result than a reported one, for the same reason and in the same direction as
+[a local run being a pre-flight rather than a review](#what-a-local-run-does-not-establish) — and the
+report is written to say so rather than to let the flag's presence imply it.
+
+**The flag is refused against a reviewer that already has a ladder**, which is what keeps it from
+becoming a general lever. Regrading a rung the reviewer emitted replaces a measurement with an
+inference, and once that were allowed the cheapest route past any inconvenient P1 would be to re-rank
+it — which is the original objection, arriving through the door the flag opened.
+
+**One reviewer's rungs are not another's, and the map that says so is a judgement rather than a
+measurement.** `--accept-at` resolves natively first and only then against revloop's own
+`critical > high > medium > low`, carried across by a per-reviewer `severityMap`. The two-key split is
+deliberate: `severityLevels` records what a reviewer **emits** and can be checked against its output,
+while a map asserting that one reviewer's `P1` and another's `CRITICAL` describe the same thing cannot
+be checked against anything. Folding the second into the first would let a judgement inherit a
+measurement's authority, which is the failure `../reviewers/README.md` is built to prevent — so the
+map is a separate key, cards say under `## Not measured` that theirs is a judgement, and step 1 prints
+the floor a map produced before a round runs.
+
 Where the flag sits in the configuration surface, and the one combination it refuses, are in
 [`configuration.md`](configuration.md#the-acceptance-floor).
 

@@ -164,14 +164,22 @@ To change any of it, or to add your own reviewer, write `.revloop.json`. The det
 ## Keeping the loop from running away
 
 **An LLM reviewing code tends to keep producing small findings.** To stop those from stretching a run
-out, there is `--accept-at <level>`.
+out, there is `--accept-at <level>`. It names **the highest severity that may be left unfixed**; once
+every finding above that level is resolved, the loop may converge.
 
 ```console
-/revloop:review-loop-local --reviewer ecc-review-pr --accept-at HIGH   # only CRITICAL blocks
+/revloop:review-loop-local --reviewer ecc-review-pr --accept-at high   # only CRITICAL blocks
 ```
 
-The flag names **the highest severity that may be left unfixed**, taken from the reviewer's
-`severityLevels`. Once every finding above that level is resolved, the loop may converge.
+The level you pass is either one of the reviewer's own severities, named in its `severityLevels`, or
+one of the severities revloop defines — `critical > high > medium > low`.
+
+The `code-review` preset built into Claude Code emits no `severityLevels`. For a reviewer like that,
+`--grade-severity` has a grading model, run as a separate process, estimate the severity instead.
+
+```console
+/revloop:review-loop-local --accept-at high --grade-severity
+```
 
 ## Built-in reviewers
 

@@ -31,6 +31,7 @@
       "command": "claude --model {reviewModel} -p \"/ecc:review-pr\"",
       "requiresPr": true,
       "severityLevels": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+      "severityMap": { "CRITICAL": "critical", "HIGH": "high", "MEDIUM": "medium", "LOW": "low" },
       "status": "unverified"
     }
   }

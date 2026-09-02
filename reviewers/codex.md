@@ -16,6 +16,7 @@
   "cleanPatterns": ["^Codex Review: Didn't find any major issues\\."],
   "rateLimitPatterns": ["You have reached your Codex usage limits"],
   "severityLevels": ["P1", "P2", "P3"],
+  "severityMap": { "P1": "critical", "P2": "high", "P3": "low" },
   "markerTolerated": "verified"
 }
 ```
@@ -125,5 +126,14 @@ for code reviews.` followed by a dashboard link (same comment). **Derived:** a r
 
 ## Not measured
 
+- **Whether the shipped `severityMap` is right.** It carries `P1` to `critical`, `P2` to `high` and
+  `P3` to `low`, and **nothing here measures that any of those three pairs describe the same thing** —
+  the map is a judgement about vocabulary, not an observation of this reviewer. Two things are known
+  and neither settles it: this ladder has three rungs and the canonical one has four, so **some rung
+  had to be skipped and `medium` is the one this map skips**; and the severity mix moves per pull
+  request, measured above, so a map calibrated on one PR's spread would not transfer anyway. It is
+  shipped because `--accept-at` needs one to reach the canonical pass at all, it is overridable from
+  `.revloop.json`, and the loop prints the floor it produces — as the sets of `P1`/`P2`/`P3` that
+  block and that do not — before the first round runs.
 - The documented "👍 reaction when there are no findings" path. Every measured trigger carried zero
   reactions.

@@ -71,6 +71,13 @@ reject "auto defaulted from config"  '{"version":1,"defaults":{"auto":true}}'
 reject "acceptAt defaulted from config"   '{"version":1,"defaults":{"acceptAt":"HIGH"}}'
 reject "acceptAt on a reviewer"           '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","acceptAt":"P2"}}}'
 
+# --grade-severity is the same class again, and it is the one that turns the
+# no-severity-ladder abort into a run that grades findings the reviewer did not.
+# A repository that could switch that on would decide, for a checkout you just
+# cloned, that its own reviewer's silence is no obstacle to converging.
+reject "gradeSeverity from config"        '{"version":1,"defaults":{"gradeSeverity":true}}'
+reject "gradeSeverity on a reviewer"      '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","gradeSeverity":true}}}'
+
 # --- the two reviewer kinds ------------------------------------------------
 #
 # The kinds share one object with additionalProperties:false, so every key of
@@ -91,6 +98,16 @@ reject "a skill name with a slash"        '{"version":1,"reviewers":{"a":{"kind"
 reject "a command with a newline"         '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p x\nrm -rf /"}}}'
 reject "an empty severityLevels ladder"   '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":[]}}}'
 reject "a ladder with a repeated rung"    '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["P1","P1"]}}}'
+
+# severityMap carries the native ladder onto revloop's canonical one, so a value
+# outside that ladder names a rung --accept-at can never be given, and a map with
+# no ladder to map FROM is a key with no consumer. Neither the map's totality nor
+# its ordering is checkable here — the schema cannot read the other key's
+# contents — so step 1 aborts on those with reason=bad-severity-map, and these
+# two cases are all the schema half can carry.
+reject "a map onto a rung off the ladder" '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["P1"],"severityMap":{"P1":"blocker"}}}}'
+reject "a map with no severityLevels"     '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityMap":{"P1":"critical"}}}}'
+reject "an empty severityMap"             '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["P1"],"severityMap":{}}}}'
 
 # The other direction: a github-comment reviewer may not carry the local keys.
 # Without this the two kinds would share every key and `kind` would be a label
@@ -247,5 +264,12 @@ accept "the shipped ecc-review-pr preset" '{"version":1,"reviewers":{"a":{"kind"
 # A command with no placeholder stays valid: it is simply not pinned by the
 # loop, and the step-1 table says so rather than pretending it is.
 accept "a subprocess command, unpinned"   '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review medium\""}}}'
+
+# The map belongs to both kinds, exactly as the ladder does, and the canonical
+# rungs are the only values it may name. The identity case is not a curiosity:
+# ecc-review-pr emits the canonical words already and still ships a map, because
+# --accept-at reaches the canonical pass only when a map exists.
+accept "a github reviewer with a map"     '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["P1","P2","P3"],"severityMap":{"P1":"critical","P2":"high","P3":"low"}}}}'
+accept "a local reviewer with a map"      '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p x","severityLevels":["CRITICAL","HIGH","MEDIUM","LOW"],"severityMap":{"CRITICAL":"critical","HIGH":"high","MEDIUM":"medium","LOW":"low"}}}}'
 
 summary "schema"
