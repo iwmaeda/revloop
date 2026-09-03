@@ -42,7 +42,7 @@ is the point — so what is asked of you is to expect the prompt rather than to 
 **The fourth is an invocation that has stopped working, and it is the one thing here that used to
 work and now aborts.** `--accept-at` against `ecc-review-pr` — including the spelling this README
 carried as an example, `--accept-at HIGH` — now ends in `reason=no-severity-ladder`. That preset
-shipped `severityLevels` and a `severityMap` this release removes, because **four rounds of driving
+shipped `severityLevels` and a `severityMap` this release removes, because **five rounds of driving
 it established that it emits neither**: the four-rung ladder was read out of one of the six agents
 the command dispatches, the only one with a written output format, and none of that format reaches
 the aggregate. What is asked of you is to add `--grade-severity` beside the floor, which is what the
@@ -311,8 +311,9 @@ Changed:
   what ran. `tests/schema.test.sh` pins every axis of both.
 
 - **Both shipped local presets have now been driven, and most of what that established is that the
-  cards were wrong.** Nine rounds against `iwmaeda/revloop#22`: five of `ecc-review-pr`, which had
-  never been run at all, and four of `code-review`, one of them the first clean round that reviewer
+  cards were wrong.** Eight rounds against `iwmaeda/revloop#22`: five of `ecc-review-pr`, which had
+  never been run at all, and three of `code-review`, each of them a clean round — the first that
+  reviewer
   has ever returned. Neither loop converged on `reviewers/README.md`'s bar, so **both cards stay
   `unverified`** — the third and fourth runs in this repository to end at a cap rather than at a clean
   round, after codex's two. What changed is the evidence under them.
@@ -336,13 +337,14 @@ Changed:
   price of a round.
 
 - **`ecc-review-pr` emits the command's confidence words as headings, and its latency is the highest
-  measured in this repository.** Four rounds returned 3, 10, 6, 7 and 7 findings — 33, all distinct,
+  measured in this repository.** Five rounds returned 3, 10, 6, 7 and 7 findings — 33, all distinct,
   no repeat in any of them — in 5m09s, 9m17s, 9m17s, 12m05s and 11m29s, above `code-review`'s
   5m27s–8m39s and above the remote reviewer's 2:46–10:07 at the top end. Six dispatched agents are not
   the cheap end of the local loop.
 
-- **Nine rounds across two reviewers produced no repeat, so `repeat-findings` is still an abort
-  nothing has entered**, and the repeat fingerprint is still unexercised. That is now measured rather
+- **Thirteen rounds across the two presets produced no repeat, so `repeat-findings` is still an abort
+  nothing has entered**, and the repeat fingerprint is still unexercised — 73 findings, 73 distinct,
+  counting the five `code-review` rounds recorded for 0.5.0. That is now measured rather
   than assumed, and it is recorded on both cards.
 
 - **`tests/version.test.sh` compares the lockfile as well.** The version lived in five manifests and

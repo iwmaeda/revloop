@@ -27,12 +27,19 @@ The review command built into Claude Code, driven as a subprocess.
 was typed, otherwise to the builtin `sonnet`. **Every measurement below predates that pin**, and
 `## Not measured` says what that costs.
 
-**Five rounds have been observed; convergence has not.** The behavioural bullets below come from
-driving the command as this preset specifies, five times, on one change, fixing every finding between
-rounds. **No round was clean**, and the fifth reached the local loop's `--max-rounds` built-in still
-returning findings — so this is a **cap-reached run, not a converged one**, which is exactly the
-outcome `.revloop/field-notes.md` records three times for the remote reviewer. `status` stays
-`unverified`: for a local reviewer that word turns on convergence, not on the command answering.
+**Eight rounds have been observed across two runs, and convergence has not.** The first run drove the
+command five times on one change, fixing every finding between rounds: **no round was clean**, and the
+fifth reached the local loop's `--max-rounds` built-in still returning findings — a **cap-reached run,
+not a converged one**, which is the outcome `.revloop/field-notes.md` records three times for the
+remote reviewer. The second run drove it three times under the `sonnet` pin this preset now ships and
+**every one of those rounds was clean**, which is the first clean round this command has returned
+here and still not a convergence: a run whose every round found nothing never observed a finding,
+never fixed one, and so never had a later round come back clean **after** one.
+
+**`status` stays `unverified`, and the two runs fail the bar from opposite sides.** For a local
+reviewer that word turns on the loop driven to convergence — findings observed, fixed, and a later
+round returning none — and one run has the first two without the third while the other has the third
+without the first two.
 
 ## Measured
 
@@ -95,7 +102,9 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
 
 ### From the 0.6.0 runs
 
-**One run, on one commit, and it is here rather than in the section above because it was observed.**
+**Three rounds on `iwmaeda/revloop#22`, all under the `sonnet` pin, on diffs of one, four and eleven
+files.** They are here rather than in the section above because they were observed, and separate from
+`### From five runs` because that run had no `--model` in the command at all.
 
 - **A push does not empty this reviewer's target.** On a branch pushed with `git push -u origin HEAD`,
   with the upstream set to `origin/<topic>`, `HEAD` equal to it and the tree clean — the exact state
@@ -113,10 +122,26 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
   returned the other one, and ran with no `--model` at all (`iwmaeda/revloop#22`). Same command, same
   effort level, same repository, different model. **Derived:** the shape is not stable across
   configurations, which is what `unparsed-review-output` is an abort rather than a loose parse for.
-- **1m56s, against the five rounds' 5m27s to 8m39s** (`iwmaeda/revloop#22`). **Derived:** this widens
-  no range, because the two samples are not comparable — those five reviewed 27 files and this reviewed
-  one — and what it establishes is that the wall clock is a property of the diff and not of the
-  command.
+- **1m56s, 2m57s and 3m34s, against the five rounds' 5m27s to 8m39s** (`iwmaeda/revloop#22`), on
+  diffs of 1, 4 and 11 files. **Derived:** this widens no range, because the samples are not
+  comparable — those five reviewed 27 files — and what it establishes is that the wall clock rises
+  with the diff and that all three pinned rounds were faster than any unpinned one.
+- **All three pinned rounds returned zero findings**, where the five unpinned rounds returned 9, 7,
+  6, 8 and 10 (`iwmaeda/revloop#22`). **Derived, and it is a question rather than a result:** the
+  diffs differ and the branch had already been carried to convergence by five rounds of another
+  reviewer, so this cannot separate "fewer defects were present" from "fewer were found" — which is
+  precisely the direction-of-error this card's `## Not measured` names as unknowable from its own
+  sample, now unknowable from a second one.
+- **A zero-finding round arrives as prose stating the count, and not as either declared shape**
+  (`iwmaeda/revloop#22`, three rounds). One carried a fenced `[]` after the prose, one an inline
+  `[]`, one neither — and none carried a `Findings (N):` line. **Derived:** what the loop can match on
+  is that the result names what it reviewed and states its count, which is the same signal
+  [`ecc-review-pr.md`](ecc-review-pr.md) records for its own reviewer, and it is recorded as a
+  measured shape rather than reached by loosening a parser.
+- **`--grade-severity` was set on all three rounds and the grader never started** — step 7 obtains
+  rungs after the findings are parsed, and every round parsed none (`iwmaeda/revloop#22`).
+  **Derived:** the flag's whole failure ladder is still unentered, and the reason is not that it was
+  avoided. Grading a reviewer that returns nothing is the one case the flag cannot be exercised by.
 
 ### From the installed command
 
@@ -195,9 +220,10 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
   **the direction of the error is not knowable from this sample either**: fewer findings from a
   lighter model may mean fewer defects present or fewer defects found, and this card cannot tell you
   which. Re-running the five rounds under the pin is the single most useful measurement available.
-- **Convergence.** It was not reached, and this sample cannot say whether it is reachable. What is
-  known is that five rounds did not reach it and that the count rose at the end. **What would settle
-  it is a run under `--accept-at --grade-severity`** — the floor is the mechanism for ending a loop
+- **Convergence.** It was not reached by either run, and neither sample can say whether it is
+  reachable. Five rounds did not reach it and the count rose at the end; three later rounds returned
+  nothing at all, which is a clean round and not a loop driven to one. **What would settle it is a
+  round that returns findings under `--accept-at --grade-severity`** — the floor is the mechanism for ending a loop
   the reviewer will not end, and against this reviewer the floor needs the grader to have any rungs
   to stand on — and no such run has been made. That is the question most worth answering next, and
   the one `status` turns on. **It was not merely unmade before; it was unreachable**, because

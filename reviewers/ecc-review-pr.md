@@ -24,13 +24,13 @@ The `review-pr` command from the ECC plugin, driven as a subprocess.
 }
 ```
 
-**Five runs exist now, and what they establish is mostly that this card was wrong.** The command runs,
+**Six runs exist now, and what they establish is mostly that this card was wrong.** The command runs,
 answers in about five minutes and returns usable findings — and it emits neither the ladder nor the
 report shape read out of it below. `status` stays `unverified`: for a local reviewer that word turns
 on convergence, and no round of this reviewer has yet come back clean.
 
 **It also does not run at all in a repository that has not been configured**, which nothing here
-predicted and which is the first thing to check. See `### From the first five runs`.
+predicted and which is the first thing to check. See `### From the first six runs`.
 
 **It shipped as `invoke: skill` and no longer does, and the reason is that a skill has no model
 boundary.** A skill runs in the loop's own session: on the loop's model, spending the loop's context.
@@ -70,7 +70,7 @@ zero-finding result would reach step 8's clean row and the run would converge ov
 happened.
 
 **What stopped it is that the blocked command answers in prose, and that is an observation rather than
-a guarantee.** Across four rounds the working ones opened by naming the pull request they had
+a guarantee.** Across five rounds the working ones opened by naming the pull request they had
 reviewed — its number, its title and its changed files — and the blocked one said instead that it
 could not confirm one existed. **So the shape this card records for the loop to match includes naming
 the target**, which is the only signal that survives the process boundary: nothing outside the
@@ -79,12 +79,13 @@ subprocess can see whether `gh` answered. A result that does not name what it re
 
 ## Measured
 
-### From the first five runs
+### From the first six runs
 
-**All five ran `claude --model sonnet -p "/ecc:review-pr"` against `iwmaeda/revloop#22`.** The first
-reviewed nothing and the other four are consecutive rounds of one loop, each answering the previous
+**All six ran `claude --model sonnet -p "/ecc:review-pr"` against `iwmaeda/revloop#22`.** The first
+reviewed nothing and the other five are consecutive rounds of one loop, each answering the previous
 round's fixes. The only difference between the first and the second was the repository's permission
-configuration.
+configuration. **The loop ended at `--max-rounds 5` without a clean round**, so it is a cap-reached
+run and not a converged one, and `status` stays `unverified` on that.
 
 - **Unconfigured, it does not review at all, and it does not fail either.** In a checkout with no
   `.claude/settings.local.json`, the command exited **0** after **52s** and returned prose: that `gh`
@@ -118,23 +119,24 @@ configuration.
   is a property of a `-p` subprocess in this environment rather than of either reviewer.
 - **Every working round opened by naming the pull request it had reviewed** — number, title and
   changed files — and the blocked round said instead that it could not confirm one existed
-  (`iwmaeda/revloop#22`, four rounds). **Derived, and it is why this is in the recorded shape rather
+  (`iwmaeda/revloop#22`, five rounds). **Derived, and it is why this is in the recorded shape rather
   than a note:** it is the only evidence the loop can have that the reviewer reached its target, since
   nothing outside the subprocess can see whether `gh` answered, and on a publishing run
   `unconfirmed-empty-review` has already been satisfied by the loop's own pull-request read.
 - **All three of the command's confidence words are emitted, as headings.** Rounds 1 and 2 returned
-  `## Important` and `## Advisory`; round 3 returned `## Critical` above them; round 4 returned
-  `## Important` alone and said outright that there were no critical findings (`iwmaeda/revloop#22`).
-  **Derived:** they behave as section titles for a round's findings, and three headings observed
-  across four rounds is still not a ladder — nothing here establishes that they are ordered rungs a
-  floor could sit between, which is why `severityLevels` stays off this card.
-- **Findings per round, and no repeat in any of them: 3, 10, 6 and 7 — 26 findings, 26 distinct**
+  `## Important` and `## Advisory`; round 3 returned `## Critical` above them; rounds 4 and 5 returned
+  `## Important` alone, the first saying outright that there were no critical findings and the second
+  naming two advisory items it was deliberately excluding (`iwmaeda/revloop#22`). **Derived:** they
+  behave as section titles for a round's findings, and three headings observed across five rounds is
+  still not a ladder — nothing here establishes that they are ordered rungs a floor could sit between,
+  which is why `severityLevels` stays off this card.
+- **Findings per round, and no repeat in any of them: 3, 10, 6, 7 and 7 — 33 findings, 33 distinct**
   (`iwmaeda/revloop#22`). Each round's findings were answered before the next ran, and the count did
   not fall. **Derived:** this matches what `code-review.md` records for its own five rounds — 40
-  findings, 40 distinct — so across two reviewers and nine rounds the local loop's repeat suppression
+  findings, 40 distinct — so across two reviewers and thirteen rounds the local loop's repeat suppression
   has never had a repeat to suppress, and `repeat-findings` remains an abort nothing has entered.
-- **The wall clock rises with the diff: 5m09s, 9m17s, 9m17s, 12m05s** (`iwmaeda/revloop#22`). Round 1
-  read one file and the later rounds four, the last of them the largest. **Derived:** these are the
+- **The wall clock rises with the diff: 5m09s, 9m17s, 9m17s, 12m05s and 11m29s**
+  (`iwmaeda/revloop#22`). Round 1 read one file and the later rounds four. **Derived:** these are the
   slowest local rounds this repository has measured — above `code-review`'s 5m27s–8m39s, and at the
   top end above the remote reviewer's 2:46–10:07. Six dispatched agents are not free, and a round of
   this reviewer is not the cheap end of the local loop.
@@ -158,7 +160,7 @@ beside it.
   a verdict line of `APPROVE`, `WARNING` or `BLOCK`; its stated criteria are approve on no `CRITICAL`
   or `HIGH`, warn on `HIGH` alone, and block on any `CRITICAL` (ecc 2.2.0, 2026-09). **This card took
   that ladder as the reviewer's and shipped it, and the run disproved it** — see
-  `### From the first five runs`. **Derived, and it is the lesson rather than the detail:** an agent's
+  `### From the first six runs`. **Derived, and it is the lesson rather than the detail:** an agent's
   specification is a claim about that agent's output and not about the aggregate that consumes it, and
   the bullet above already said only one of six specifies a format. Reading a ladder out of one
   contributor was the "looks measured" failure `reviewers/README.md` exists to prevent, committed on
@@ -192,23 +194,24 @@ beside it.
   not otherwise. **What the unconfigured run shows is that failing this way is silent** — exit 0, no
   findings — so a host with a narrower sandbox, or a grant list shaped differently from `README.md`'s,
   would look the same. The `skill` form stays one line away for that case.
-- **Whether the shape holds under any other model or effort.** Four consecutive rounds under the
+- **Whether the shape holds under any other model or effort.** Five consecutive rounds under the
   `sonnet` pin returned the same one — the command's confidence words as headings, findings numbered
-  beneath them, an inline confidence percentage — so it is stable across four diffs and one
+  beneath them, an inline confidence percentage — so it is stable across five diffs and one
   configuration. **That is exactly as far as it goes**, and `code-review.md` records the same command
-  returning two different shapes under two different models, which is the reason to expect this one
+  returning three different shapes under two different models, which is the reason to expect this one
   to move as well. If it turns out not to hold, the honest move is `status: unsupported`, not a looser
   parse.
 - **Whether this reviewer's headings are a ladder.** All three confidence words have now been emitted
   as headings, and they appeared in the same order every time one of them was used. **Ordering
-  observed is not ordering asserted**: nothing in four rounds establishes that these are rungs a floor
+  observed is not ordering asserted**: nothing in five rounds establishes that these are rungs a floor
   could sit between rather than section titles a model chose, and a card that read three headings as a
   three-rung ladder would be repeating the mistake this card was just corrected for one paragraph up.
   So it declares no `severityLevels`, `--accept-at` aborts against it with `no-severity-ladder`, and
   `--grade-severity` is the documented way past — the same position `code-review.md` holds, reached
   from the opposite direction: that card never had a ladder and this one had the wrong one.
-- **Rounds to converge, and tokens per round.** Four rounds have run and **none of them came back
-  clean**, so this card cannot say convergence is reachable — only that it was not reached in four.
+- **Rounds to converge, and tokens per round.** Five rounds have run, **none of them came back clean**,
+  and the count did not fall — so this card cannot say convergence is reachable, only that the loop
+  reached its cap without it.
   Recurrence is measured and is zero; the token cost of a round is not measured here or anywhere else
   in this repository, and it is the resource the local loop is shaped around.
 - **What the six agents it dispatches run on.** The command is invoked with `--model`, and whether
@@ -216,5 +219,5 @@ beside it.
   If it does not, the pin buys less than it appears to.
 - **Whether the merge holds on a diff larger than one branch's worth.** Every round returned a single
   aggregated report rather than six sections, several times naming which agents had converged on one
-  finding (`iwmaeda/revloop#22`, four rounds) — so the merge is observed on diffs of one and of four
+  finding (`iwmaeda/revloop#22`, five rounds) — so the merge is observed on diffs of one, four and eleven
   files, and on nothing wider.

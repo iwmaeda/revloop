@@ -416,7 +416,7 @@ guess and is recorded as one; see `## Unexercised paths`.
      does not hold, is not order-preserving, or leaves no distinction between the ladder's ends, and
      `grade-without-floor` on `--grade-severity` with no floor to consume its rungs. **The fifth,
      `grade-over-ladder`, is now unreachable through a shipped preset and is kept for a configured
-     reviewer.** It was written when `ecc-review-pr` shipped a ladder; four rounds established that
+     reviewer.** It was written when `ecc-review-pr` shipped a ladder; five rounds established that
      the ladder was read out of one dispatched agent and never emitted, so both shipped local presets
      now carry none and `--grade-severity` is the ordinary way to give either one a floor. The abort
      still says to drop the flag rather than that the reviewer is unsupported.
@@ -1109,17 +1109,35 @@ These are load-bearing. Each one exists because the obvious alternative fails.
 
 ## Unexercised paths
 
-**Nothing in this file has been driven end to end against a live reviewer.** Every path below is
-therefore unobserved, not merely unusual, and the whole procedure sits at the same standing as a
-reviewer card marked `unverified`. All of them fail closed — toward an abort — except where noted.
-A run that takes one should say so in the report and append a line to `.revloop/field-notes.md`.
+**This file has now been driven, and it has not been driven to a convergence.** Eight rounds against
+`iwmaeda/revloop#22` — five of `ecc-review-pr` ending at `--max-rounds`, and three of `code-review`
+that each returned nothing — plus one `ecc-review-pr` invocation that aborted before a round began,
+exercised steps 1 through 9 and neither reached the bar
+[`../reviewers/README.md`](../reviewers/README.md) sets. Every path below is unobserved except where
+this section now says otherwise, and the whole procedure still sits at the same standing as a reviewer
+card marked `unverified`. All of them fail closed — toward an abort — except where noted. A run that
+takes one should say so in the report and append a line to `.revloop/field-notes.md`.
 
-- **Every step.** The presets ship `unverified` and so does this procedure.
-- **`--max-rounds 5`.** Chosen as half the remote default because a local round's cost is invisible —
-  **not because it has no wall clock**, which the five measured rounds falsified
+- **Steps 10 and 11, and every step under the abort path.** Steps 1 to 9 have run. Step 10 has never
+  run: the `requiresPr` reviewer published at step 5 instead, and the run that would have reached 10
+  was on a branch already pushed. **Both shipped presets remain `unverified`**, and so does this
+  procedure.
+- **A round that reads findings from a reviewer this loop has to fix.** Those eight rounds produced 33
+  findings and every one of them came from `ecc-review-pr`; `code-review` returned none in three
+  rounds. So step 9's buckets other than `will fix` — `already fixed`, `declining the suggestion`,
+  `accepted` — have been reached only by hand-classification inside those five rounds, and never with
+  a rung attached.
+- **Whether `--max-rounds 5` is the right number.** The cap has now fired: `ecc-review-pr` reached it
+  with rounds returning 3, 10, 6, 7 and 7 findings and no downward trend, so the brake engaged and the
+  run stopped — which says the mechanism works and nothing about whether five is where it belongs. It
+  was chosen as half the remote default because a local round's cost is invisible, **not because it
+  has no wall clock**, which the five measured rounds falsified
   ([`../reviewers/code-review.md`](../reviewers/code-review.md)). Nothing measured stands behind the
   number.
-- **`--grade-severity`, and every rule under it.** No run has graded a finding. The grader's prompt,
+- **`--grade-severity`, and every rule under it.** No run has graded a finding, and the three rounds
+  that carried the flag could not: step 7 grades after the findings are parsed, and each of those
+  rounds parsed none. A reviewer that returns nothing is the one case the flag cannot be exercised by,
+  which is worth stating because it looks from the invocation as though it was. The grader's prompt,
   its output shape, its cost on top of the round, whether it ranks the same unchanged finding the
   same way twice, and how often it declines to rank one at all are all unobserved. **Every failure
   path step 10 of [`remote-loop.md`](remote-loop.md) defines fails closed, and none has fired**: a
@@ -1141,15 +1159,19 @@ A run that takes one should say so in the report and append a line to `.revloop/
   the floor expanded is the only thing standing between that and a run nobody questions.
 - **The ten-finding batch size in step 7.** Bounded by what can be held in mind at once rather than
   by a measurement. **Since it batches rather than truncates, no finding is dropped by it**, so
-  unlike the first draft of that rule it fails closed. The five measured rounds returned 9, 7, 6, 8
-  and 10, so a second batch has never been taken and the batching itself is unexercised.
+  unlike the first draft of that rule it fails closed. The largest round yet measured returned exactly
+  ten (`ecc-review-pr`, round 2), and the five earlier `code-review` rounds returned 9, 7, 6, 8 and
+  10 — so a second batch has never been taken and the batching itself is unexercised, twice now by one
+  finding.
 - **The repeat fingerprint.** Its normalisation is derived from how a repeat has been observed to
   differ in the remote loop, not from a measured local sample. Too loose and a real finding is
   suppressed as a repeat; too tight and nothing is ever recognised. **Only the first direction is a
   safety failure**, and it is the one nothing here can currently rule out.
-- **`repeat-findings`.** No sample. Five consecutive rounds have been observed against the
-  `code-review` preset and **not one repeat occurred in any of them**, so the path this abort guards
-  has never been entered — see [`../reviewers/code-review.md`](../reviewers/code-review.md).
+- **`repeat-findings`, and the fingerprint it rests on.** No sample. Thirteen rounds have now been
+  observed across the two presets — five, then five, then three, on `iwmaeda/revloop#22` and on the
+  `code-review` run before it — and **not one repeat occurred in any of them**, 73 findings all
+  distinct. So the path this abort guards has never been entered, and neither has the suppression it
+  guards: the fingerprint has never had two findings to match.
 - **Publishing, at the after-convergence placement.** The before-review placement has now pushed
   rounds and opened a pull request (`iwmaeda/revloop#22`); step 10 has never run. **The narrowed
   `unconfirmed-empty-review` row has still never been the reason a zero-finding round was read as
