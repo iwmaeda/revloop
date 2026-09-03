@@ -661,7 +661,8 @@ guess and is recorded as one; see `## Unexercised paths`.
    shell string nobody asked for, running under a flag whose whole purpose is to let findings go
    unfixed. It is **not a fence** for the reason the review command is not one — the model is a token
    in it, so its bytes are not fixed — so it is absent from `allowed-tools`, the permission system
-   sees it, and it costs one prompt per round. Step 1 has already printed it.
+   sees it, and it costs **one prompt per round on top of the review command's** — the second of the
+   two a graded local run pays. Step 1 has already printed it.
 
    **What reaches the grader, and what must not:**
 
@@ -679,8 +680,8 @@ guess and is recorded as one; see `## Unexercised paths`.
 
    **A grader is not a second reviewer.** It never adds a finding, never removes one, and never
    revisits whether one is real. It assigns a rung to each finding it was handed, and that is all —
-   which is why it may run on a light model and why `--grade-over-ladder` refuses to let it touch a
-   reviewer that already graded its own output.
+   which is why it may run on a light model and why step 1 aborts with `reason=grade-over-ladder`
+   rather than letting it touch a reviewer that already graded its own output.
 
    Then:
 

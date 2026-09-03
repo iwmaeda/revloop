@@ -13,7 +13,8 @@ text, so editing one costs every user a single re-approval. See
 [`commands/review-loop.md`](commands/review-loop.md) are byte-identical and still match the hashes in
 `tests/fence-hashes.txt`.
 
-**Two things do ask something of you, and both are about `/revloop:review-loop-local`.** It now
+**Three things ask something of you. The first two are permission rules to add, and both are about
+`/revloop:review-loop-local`.** It now
 **pushes and opens a pull request by default**, which means: add `Bash(gh pr create:*)` and
 `Bash(gh pr list:*)` to your permission rules — [`docs/permissions.md`](docs/permissions.md) has the
 full list — and **`gh` is now a requirement of that command**, where it previously needed nothing on
@@ -23,6 +24,13 @@ GitHub at all. `--no-publish` is the run that still needs neither.
 covers `gh pr merge`. The local command has no merge step and no `--merge` flag, so it does not hold
 the rule that merges — a grant is a capability, and the command that cannot merge should not be able
 to.
+
+**The third is a permission prompt, it appears only if you type `--grade-severity`, and it is the one
+item here that touches both commands.** The grader is a subprocess carrying a model, so it is
+deliberately absent from both `allowed-tools` lines and the permission system sees it every round:
+**two prompts a round on a local run** where there was one, and **one on a pull-request run** where
+that loop had never started a model subprocess at all. **There is no rule to add** — leaving it out
+is the point — so what is asked of you is to expect the prompt rather than to read it as a defect.
 
 Added:
 
@@ -88,9 +96,11 @@ Added:
   **What this does not establish is that a grader's rungs are any good.** Nothing measures that, the
   reports say a graded convergence is the weaker result, and an unreadable grader aborts
   (`unparsed-grading-output`) while a finding it declined to rank is treated as blocking and listed as
-  `ungraded`. A graded run costs **two permission prompts a round** rather than one: the grader's
-  command line is this procedure's own rather than the repository's, but it carries a model, so it is
-  no more a fence than the review command is.
+  `ungraded`. A graded run costs **one more permission prompt a round** than the same run without the
+  flag — two rather than one in the local loop, where the review command is already prompted for, and
+  one rather than none in the pull-request loop, whose reviewer is a GitHub app rather than a process
+  it starts. The grader's command line is this procedure's own rather than the repository's, but it
+  carries a model, so it is no more a fence than the review command is.
 
 - **`/revloop:review-loop-local` carries the branch to a pull request.** The loop ended at a commit
   and left the branch for a person or for the remote loop; it now pushes it and opens a pull request,
