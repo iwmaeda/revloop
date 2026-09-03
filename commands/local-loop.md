@@ -415,10 +415,11 @@ guess and is recorded as one; see `## Unexercised paths`.
      a map nothing consults cannot move a floor — on a map that is not total, names a rung the ladder
      does not hold, is not order-preserving, or leaves no distinction between the ladder's ends, and
      `grade-without-floor` on `--grade-severity` with no floor to consume its rungs. **The fifth,
-     `grade-over-ladder`, is reached more often here than there** — `ecc-review-pr` is a shipped
-     local preset **with** a ladder, so `--grade-severity` against it is a plausible typing rather
-     than a hypothetical, and the abort says to drop the flag rather than that the reviewer is
-     unsupported.
+     `grade-over-ladder`, is now unreachable through a shipped preset and is kept for a configured
+     reviewer.** It was written when `ecc-review-pr` shipped a ladder; four rounds established that
+     the ladder was read out of one dispatched agent and never emitted, so both shipped local presets
+     now carry none and `--grade-severity` is the ordinary way to give either one a floor. The abort
+     still says to drop the flag rather than that the reviewer is unsupported.
    - **If the resolved reviewer's `status` is not `verified`, say so in the table and repeat it in
      the final report.** Every preset this command ships is currently `unverified`.
 
