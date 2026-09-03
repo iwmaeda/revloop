@@ -31,7 +31,7 @@ AI によるレビューと修正のループを収束するまで繰り返す�
 /revloop:local-loop
 /revloop:local-loop --no-publish
 /revloop:local-loop --review-model opus --max-rounds 3
-/revloop:local-loop --reviewer ecc-review-pr --accept-at HIGH
+/revloop:local-loop --reviewer ecc-review-pr --accept-at high --grade-severity
 ```
 
 ## 動作の流れ
@@ -161,12 +161,12 @@ maxRounds        10                                 builtin
 このフラグで**未修正のまま残してよい最上位の深刻度**を指定し、それより深刻度の高い指摘がすべて修正された時点でループは収束可能となります。
 
 ```console
-/revloop:local-loop --reviewer ecc-review-pr --accept-at high   # CRITICAL の解消が必須
+/revloop:remote-loop --accept-at P2   # codex 自身の深刻度は P1 > P2 > P3
 ```
 
 `--accept-at` に指定できる値は、`severityLevels` で指定されたモデル固有の深刻度か、 revloop で定義されている深刻度（`critical > high > medium > low`）のいずれかです。
 
-Claude Code 組み込みの `code-review` プリセットは、severityLevels を出力しません。
+**ローカル用プリセットはいずれも severity を出力しません**。したがって両者に対して `--accept-at` を単独で指定すると abort します。
 そのような reviewer に対しては、 `--grade-severity` オプションを指定することで、別プロセスで起動する採点モデルに severity を推定させることができます。
 
 ```console

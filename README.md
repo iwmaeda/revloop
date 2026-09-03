@@ -34,7 +34,7 @@ The basic invocations are:
 /revloop:local-loop
 /revloop:local-loop --no-publish
 /revloop:local-loop --review-model opus --max-rounds 3
-/revloop:local-loop --reviewer ecc-review-pr --accept-at HIGH
+/revloop:local-loop --reviewer ecc-review-pr --accept-at high --grade-severity
 ```
 
 ## How it works
@@ -168,14 +168,15 @@ out, there is `--accept-at <level>`. It names **the highest severity that may be
 every finding above that level is resolved, the loop may converge.
 
 ```console
-/revloop:local-loop --reviewer ecc-review-pr --accept-at high   # only CRITICAL blocks
+/revloop:remote-loop --accept-at P2   # against codex, whose own rungs are P1 > P2 > P3
 ```
 
 The level you pass is either one of the reviewer's own severities, named in its `severityLevels`, or
 one of the severities revloop defines — `critical > high > medium > low`.
 
-The `code-review` preset built into Claude Code emits no `severityLevels`. For a reviewer like that,
-`--grade-severity` has a grading model, run as a separate process, estimate the severity instead.
+**Neither local preset emits a severity**, so `--accept-at` alone aborts against both. For a reviewer
+like that, `--grade-severity` has a grading model, run as a separate process, estimate the severity
+instead.
 
 ```console
 /revloop:local-loop --accept-at high --grade-severity

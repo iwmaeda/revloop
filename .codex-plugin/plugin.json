@@ -1,6 +1,6 @@
 {
   "name": "revloop",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Branch, split commits, push, open a PR, trigger an AI reviewer, fix its findings, and repeat until the review converges.",
   "author": {
     "name": "MAEDA, Iwao",

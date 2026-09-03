@@ -7,7 +7,7 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
-## [Unreleased]
+## [0.6.0] - 2026-09-03
 
 **No fence changed, so there is no re-approval to give.** The three shell fences in
 [`commands/remote-loop.md`](commands/remote-loop.md) are byte-identical and still match the hashes in
@@ -20,7 +20,7 @@ the command list — which is the thing the rename exists to remove. What is ask
 the invocation, and **nothing else**: no flag, no default, no `.revloop.json` key and no permission
 rule moves, so a repository already configured for 0.5.0 needs no migration.
 
-**Three more things ask something of you. The first two are permission rules to add, and both are
+**Four more things ask something of you. The first two are permission rules to add, and both are
 about `/revloop:local-loop`.** It now **pushes and opens a pull request by default**, which means:
 add `Bash(gh pr create:*)` and `Bash(gh pr list:*)` to your permission rules —
 [`docs/permissions.md`](docs/permissions.md) has the full list — and **`gh` is now a requirement of
@@ -38,6 +38,30 @@ deliberately absent from both `allowed-tools` lines and the permission system se
 **two prompts a round on a local run** where there was one, and **one on a pull-request run** where
 that loop had never started a model subprocess at all. **There is no rule to add** — leaving it out
 is the point — so what is asked of you is to expect the prompt rather than to read it as a defect.
+
+**The fourth is an invocation that has stopped working, and it is the one thing here that used to
+work and now aborts.** `--accept-at` against `ecc-review-pr` — including the spelling this README
+carried as an example, `--accept-at HIGH` — now ends in `reason=no-severity-ladder`. That preset
+shipped `severityLevels` and a `severityMap` this release removes, because **five rounds of driving
+it established that it emits neither**: the four-rung ladder was read out of one of the six agents
+the command dispatches, the only one with a written output format, and none of that format reaches
+the aggregate. What is asked of you is to add `--grade-severity` beside the floor, which is what the
+other local preset has always needed:
+
+```console
+/revloop:local-loop --reviewer ecc-review-pr --accept-at high --grade-severity
+```
+
+**A ladder that was read rather than emitted is the failure `reviewers/README.md` exists to prevent**,
+and this project shipped one for a release. Removing it is the correction; the flag is the way back
+to a floor.
+
+**Also new, and it is not something you configure: `ecc-review-pr` does not work in a checkout that
+has not been given permissions.** Without the block in [`README.md`](README.md) at
+`.claude/settings.local.json`, the command exits **0** in under a minute and returns a paragraph
+asking for a permission grant — no findings, no severity, no verdict. The loop catches it as
+`unparsed-review-output` rather than as a clean round, and the card now records the permission block
+as a precondition of the preset rather than of the pull-request loop alone.
 
 Added:
 
@@ -285,6 +309,61 @@ Changed:
   shape, since expansion happens after the prefix is checked. The procedure additionally re-checks the
   **expanded** string before running it, because a static rule about a template is not a rule about
   what ran. `tests/schema.test.sh` pins every axis of both.
+
+- **Both shipped local presets have now been driven, and most of what that established is that the
+  cards were wrong.** Eight rounds against `iwmaeda/revloop#22`: five of `ecc-review-pr`, which had
+  never been run at all, and three of `code-review`, each of them a clean round — the first that
+  reviewer
+  has ever returned. Neither loop converged on `reviewers/README.md`'s bar, so **both cards stay
+  `unverified`** — the third and fourth runs in this repository to end at a cap rather than at a clean
+  round, after codex's two. What changed is the evidence under them.
+
+- **`reviewers/code-review.md` derived that a push empties this reviewer's target, and a run in
+  exactly that state disproves it.** The card read out of the installed command that `/code-review`
+  diffs against the upstream and falls back to the base branch, so a pushed branch — upstream set,
+  `HEAD` equal to it, tree clean — was expected to leave the reviewer nothing to read. Run there, it
+  reviewed `main..HEAD`, named the changed file and described its diff. Zero findings came back, which
+  is what the derivation predicted, for the opposite reason. **That card's `## Not measured` had asked
+  for this run by name.** Step 5 of [`commands/local-loop.md`](commands/local-loop.md) cited the
+  derivation as measured behaviour; **the publish placement does not move**, and what holds it is now
+  stated as caution — one sample is not enough to relocate a step whose failure mode is a run
+  finishing clean over a diff nobody read.
+
+- **The output shape of `/code-review` is not stable, and three of them have now been seen.** The five
+  rounds recorded for 0.5.0 ran with no `--model` and returned a `Findings (N):` list; under the
+  `sonnet` pin the same command at the same effort returned a fenced JSON array, and then prose
+  stating the count with no fence at all. **That is why an unrecognised shape is an abort and not a
+  loose parse**, and it is the first evidence that the pin this release ships moves more than the
+  price of a round.
+
+- **`ecc-review-pr` emits the command's confidence words as headings, and its latency is the highest
+  measured in this repository.** Five rounds returned 3, 10, 6, 7 and 7 findings — 33, all distinct,
+  no repeat in any of them — in 5m09s, 9m17s, 9m17s, 12m05s and 11m29s, above `code-review`'s
+  5m27s–8m39s and above the remote reviewer's 2:46–10:07 at the top end. Six dispatched agents are not
+  the cheap end of the local loop.
+
+- **Thirteen rounds across the two presets produced no repeat, so `repeat-findings` is still an abort
+  nothing has entered**, and the repeat fingerprint is still unexercised — 73 findings, 73 distinct,
+  counting the five `code-review` rounds recorded for 0.5.0. That is now measured rather
+  than assumed, and it is recorded on both cards.
+
+- **`tests/version.test.sh` compares the lockfile as well.** The version lived in five manifests and
+  the changelog and was checked in all six; `package-lock.json` carries it too, npm regenerates it
+  rather than taking an edit, and skipping that regeneration leaves a tracked, shipped file reporting
+  the previous release. Nothing downstream complains — `npm ci` was measured installing a
+  version-mismatched lockfile without a word, exit 0 — so this suite is where it is caught or nowhere.
+  The comparison is a function now, and eleven self-checks drive it against a synthetic mismatch, an
+  absent path, an absent file, a file that is not JSON, one that cannot be opened, an empty reference
+  and five malformed rows: every row before this ran against manifests that already agreed, so the
+  branch reporting a disagreement had never once been entered.
+
+Removed:
+
+- **`severityLevels` and `severityMap` from the `ecc-review-pr` preset**, from its card, and from
+  [`examples/revloop.local-reviewer.json`](examples/revloop.local-reviewer.json). See the fourth item
+  at the top: they described a ladder the reviewer does not emit. **`grade-over-ladder` is no longer
+  reachable through a shipped preset** as a result, and is kept for a configured reviewer that has a
+  ladder of its own.
 
 ## [0.5.0] - 2026-09-02
 
@@ -1783,6 +1862,7 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.6.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.6.0
 [0.5.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.5.0
 [0.4.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.4.0
 [0.3.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.3.0
