@@ -2,17 +2,18 @@
 
 The `review-pr` command from the ECC plugin, driven as a subprocess.
 
-| Field            | Value                                                     |
-| ---------------- | --------------------------------------------------------- |
-| `kind`           | `local-command`                                           |
-| `invoke`         | `subprocess`                                              |
-| `command`        | `claude --model {reviewModel} -p "/ecc:review-pr"`        |
-| `severityLevels` | **none** — the four-rung ladder read here was not emitted |
-| `severityMap`    | **none** — there is no measured ladder to map from        |
-| `requiresPr`     | **`true`** — it resolves a pull request first             |
-| verdict on       | the command's stdout                                      |
-| `status`         | `unverified`                                              |
-| `lastChecked`    | 2026-09                                                   |
+| Field               | Value                                                      |
+| ------------------- | ---------------------------------------------------------- |
+| `kind`              | `local-command`                                            |
+| `invoke`            | `subprocess`                                               |
+| `command`           | `claude --model {reviewModel} -p "/ecc:review-pr"`         |
+| `severityLevels`    | **none** — the four-rung ladder read here was not emitted  |
+| `severityMap`       | **none** — there is no measured ladder to map from         |
+| `requiresPr`        | **`true`** — it resolves a pull request first              |
+| `rateLimitPatterns` | `["You've hit your session limit"]` — its host's, measured |
+| verdict on          | the command's stdout                                       |
+| `status`            | `unverified`                                               |
+| `lastChecked`       | 2026-09                                                    |
 
 ```json
 {
@@ -20,6 +21,7 @@ The `review-pr` command from the ECC plugin, driven as a subprocess.
   "invoke": "subprocess",
   "command": "claude --model {reviewModel} -p \"/ecc:review-pr\"",
   "requiresPr": true,
+  "rateLimitPatterns": ["You've hit your session limit"],
   "status": "unverified"
 }
 ```
@@ -31,6 +33,12 @@ on convergence, and no round of this reviewer has yet come back clean.
 
 **It also does not run at all in a repository that has not been configured**, which nothing here
 predicted and which is the first thing to check. See `### From the first six runs`.
+
+**A seventh run found a second way for it not to run, and this one is not a configuration at all:
+its host's session limit.** The command exits 0 and returns the notice in place of a review, which is
+the same shape as the unconfigured case and the same shape as a clean round. The card now carries a
+`rateLimitPatterns` so the loop names the quota rather than the parse. See
+`### From a seventh run, in another repository`.
 
 **It shipped as `invoke: skill` and no longer does, and the reason is that a skill has no model
 boundary.** A skill runs in the loop's own session: on the loop's model, spending the loop's context.
@@ -141,6 +149,37 @@ run and not a converged one, and `status` stays `unverified` on that.
   top end above the remote reviewer's 2:46–10:07. Six dispatched agents are not free, and a round of
   this reviewer is not the cheap end of the local loop.
 
+### From a seventh run, in another repository
+
+**One round, in a different repository and on a different change, and it did not review anything.**
+It is kept apart from the six above because it shares neither their repository nor their
+configuration, and what it measures is the host rather than the command.
+
+- **Out of quota, it answers in one line and exits 0.** `claude --model sonnet -p "/ecc:review-pr"`
+  returned a single line on stdout — `You've hit your session limit · resets 8:50pm (Asia/Tokyo)`,
+  60 bytes with its newline — and exited **0**. No findings, no heading, no confidence figure, and
+  **it did not name the pull request it had reviewed**, which is the signal this card records as the
+  only one that survives the process boundary. The round ran at the ordinary publishing placement, so
+  the loop had opened a pull request for it that round and `unconfirmed-empty-review` was already
+  narrowed out (`repo B, 2026-09`). **Derived:** this is neither of the two ways this card had
+  recorded for a round to return nothing — the reviewer ran and found nothing, or the checkout lacked
+  the permission block — and the second was ruled out on the spot, because that block was installed.
+  **Derived:** it is the reviewer's own quota, so the card carries `rateLimitPatterns` and step 8 of
+  [`../commands/local-loop.md`](../commands/local-loop.md) has a row that reads it.
+- **The notice is punctuated in a way a pattern can get wrong.** Read from the captured output, the
+  apostrophe in `You've` is **ASCII `'` (0x27)** and the separator before `resets` is **U+00B7**, not
+  a hyphen and not an em dash (`repo B, 2026-09`). **Derived, and it is why the shipped pattern stops
+  at `limit`:** a pattern typed with a typographic apostrophe matches nothing, and a pattern that
+  matches nothing is indistinguishable from a card with no pattern at all — the failure is silent in
+  the same way an unemitted ladder was.
+- **It names a reset time, where the remote loop's rate-limit reply does not.**
+  [`codex.md`](codex.md) records `You have reached your Codex usage limits for code reviews` with no
+  time in it; this one carries a wall-clock reset (`repo B, 2026-09`). **Derived:** the local abort
+  can print something actionable, which is why step 8's row asks for the output in full rather than
+  for the fact of a match. **Derived:** the reset had already passed by the time the run classified
+  the round, so the interval between the notice and the operator reading it is not negligible and a
+  reported time can be stale in the useful direction.
+
 ### From the installed command
 
 **Every bullet here is read out of the command as installed, and the subsection above is what happened
@@ -221,3 +260,16 @@ beside it.
   aggregated report rather than six sections, several times naming which agents had converged on one
   finding (`iwmaeda/revloop#22`, five rounds) — so the merge is observed on diffs of one, four and eleven
   files, and on nothing wider.
+- **Whether the session-limit wording is stable.** One occurrence, one host version, one account
+  state. The pattern this card ships is the fixed head of that one sentence, and nothing establishes
+  that a different plan, a different limit — a weekly cap rather than a session one — or a later
+  release words it the same way. **The fall-through is the behaviour that existed before the pattern
+  did**: a wording this misses reaches `unparsed-review-output`, which still aborts and still refuses
+  to read the round as clean, so what a stale pattern costs is the diagnosis and never the guard.
+- **Whether a quota state can arrive _after_ a partial review.** Only the instead-of shape has been
+  seen: the notice in place of a review, with nothing else in the output. A run that returned findings
+  and then hit the limit would carry both, and step 8's first-match ordering answers it — the round
+  aborts on the pattern and the findings are printed but not acted on, which is the ruling step 9 of
+  [`../commands/remote-loop.md`](../commands/remote-loop.md) already made for the same collision on a
+  review. **Nothing here has observed that shape**, so what is untested is whether the reviewer can
+  produce it at all.

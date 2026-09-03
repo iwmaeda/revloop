@@ -116,6 +116,7 @@ above does not apply; this one does.
 | **Where does it take a model, if it does?**                       | `{reviewModel}` at that spot in `command`. Nowhere, if it does not                 |
 | **How does it resolve its review target?**                        | the card's prose. **A push can change the answer** — see the trap below            |
 | Does it need an open pull request?                                | `requiresPr`                                                                       |
+| What does it say when it is out of quota?                         | `rateLimitPatterns` — and see the trap below                                       |
 | What severity vocabulary reaches its **output**?                  | `severityLevels`, ordered most severe first                                        |
 | What does each of those rungs mean?                               | `severityMap`, onto revloop's four canonical rungs                                 |
 | What shape is that output — a JSON block, tagged lines, headings? | the card's prose. **This is the one that decides whether it can be driven at all** |
@@ -150,6 +151,17 @@ publishes **after** convergence for a `requiresPr: false` reviewer for exactly t
 skips both. **So write
 down how the command picks its target, not only what it emits**: it is what decides whether the loop
 can publish before reviewing, and getting it wrong produces a clean-looking run over no review at all.
+
+**Trap: the out-of-quota reply exits 0 and looks exactly like a clean review.** A review command
+that cannot start does not necessarily fail: the host answers for it, in one line, with a status of
+zero — which is the same shape as a permission-blocked reply and the same shape as a reviewer that
+found nothing. `rateLimitPatterns` is what separates them, and without it the round aborts naming the
+parse instead of the quota, sending you to a card and a permission block that are both innocent.
+**Record the string exactly, punctuation included, and match only its fixed head.**
+[`../reviewers/ecc-review-pr.md`](../reviewers/ecc-review-pr.md) records the one measured example
+down to its exact bytes — read it there rather than here, and expect a reset time that differs every
+round; a pattern that copied the time would match nothing, and a pattern that matches nothing is
+indistinguishable from a card that never declared one.
 
 **Trap: `invoke: skill` has no model boundary.** A skill runs in the loop's own session, on the loop's
 model. Use `subprocess` with `{reviewModel}` in `command` unless the host forbids it.

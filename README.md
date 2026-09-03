@@ -81,6 +81,11 @@ resolves its own pull request is published to at 5, before every round; every ot
 10, after the loop converges — because a push would otherwise empty the range the shipped default
 reviewer diffs. `--no-publish` skips both.
 
+**If the review command is out of quota rather than failing, the loop aborts and does not retry**,
+the same way the remote loop does when its reviewer is rate-limited. Both shipped local presets carry
+the wording their host uses, so the abort names the quota and prints the reset time instead of
+pointing at a parser; a reviewer whose card carries no such wording still aborts, just less usefully.
+
 ## Install
 
 The details are in [`docs/install.md`](docs/install.md).

@@ -7,6 +7,55 @@ All notable changes to this project are documented here.
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
+## [Unreleased]
+
+**No fence changed, so there is no re-approval to give.** The three shell fences in
+[`commands/remote-loop.md`](commands/remote-loop.md) are byte-identical and still match the hashes in
+`tests/fence-hashes.txt`.
+
+**Nothing is asked of you.** No flag, no permission rule and no `.revloop.json` key has to change:
+the key this release makes available is optional, and both shipped local presets already carry it.
+
+**A local reviewer that has run out of quota is now diagnosed as that, instead of as an unreadable
+review.** `/revloop:local-loop` aborted with `reason=unparsed-review-output` when its review command
+answered with its host's session-limit notice — exit 0, one line, no findings. **The abort was
+right and the diagnosis was not**: that reason's documented causes are a working reviewer and a
+checkout missing the permission block from [`README.md`](README.md), and it sent the operator to look
+at a parser and a permission grant that were both already correct while the reviewer had simply run
+out of quota. The round now aborts with `reason=reviewer-rate-limited`, prints the output in full
+including the reset time the message names, and says outright that no review was performed.
+
+**The pull-request loop has had this row since it had a reviewer with a quota** — step 9 of
+[`commands/remote-loop.md`](commands/remote-loop.md), _"Do not retry. The quota recovers with time;
+retrying only burns rounds"_ — and the local loop is now the same ruling in its own table. It does
+not retry and it does not wait: the recovery is a fresh invocation once the quota is back, which
+step 6's runaway invariant permits because that invariant is a within-run rule.
+
+Added:
+
+- **`rateLimitPatterns` is readable on a `local-command` reviewer.** The schema forbade it, correctly,
+  for as long as nothing in that loop read one — a key with no consumer is the defect the kind split
+  exists to prevent. Step 8 now reads it, so the key follows the consumer rather than the other way
+  round. It is matched against the review's output — its stdout under `invoke: subprocess`, what it
+  reports under `invoke: skill` — where the pull-request loop matches it against a comment body;
+  `cleanPatterns` did **not** cross with it, because the local loop's clean
+  signal is that no finding was parsed and there is no phrase to match.
+- **Both shipped local presets declare one**, so an ordinary run gets the named abort with no
+  configuration. `ecc-review-pr` carries it as a measurement; `code-review` carries it as a reading
+  carried from the sibling preset — the same host binary — and its card says under `## Not measured`
+  that the state has never been observed on that command.
+- **The step-1 table prints a `rate-limit pattern` row**, reading `declared` or
+  `none — a quota reply will read as unparsed-review-output`. A reviewer with no pattern still aborts
+  when its quota runs out; the row says in advance which of the two diagnoses you will get, before the
+  wait rather than after it.
+
+Fixed:
+
+- **Step 8's clean row said "the three abort rows"** and there are now four. The paragraph above the
+  table that enumerates what an outcome-rows-on-top ordering would have swallowed now names the
+  fourth: a reviewer that answered with its quota notice parses as zero findings exactly as an
+  unreadable output does.
+
 ## [0.6.0] - 2026-09-03
 
 **No fence changed, so there is no re-approval to give.** The three shell fences in

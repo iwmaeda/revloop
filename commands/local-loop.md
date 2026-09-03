@@ -202,12 +202,19 @@ guess and is recorded as one; see `## Unexercised paths`.
    then treats this branch as already published to a pull request that is closed.
 
    Print a resolved-configuration table with a `source` column of `flag` / `config` / `detected` /
-   `builtin`, covering at least: reviewer, review command, review model, expected latency, base
-   branch, verify commands, branch prefixes, commit style, max rounds, acceptAt, severity source,
-   publish point.
+   `builtin`, covering at least: reviewer, review command, review model, expected latency, rate-limit
+   pattern, base branch, verify commands, branch prefixes, commit style, max rounds, acceptAt,
+   severity source, publish point.
    **The expected-latency row reads `unknown` when the preset sets none**, which is most of them; it
    is printed anyway, because a round that takes twenty minutes against a card saying five is worth
    noticing at the time.
+
+   **The rate-limit row reads `declared` or
+   `none — a quota reply will read as unparsed-review-output`**, and it is printed for the same
+   reason: it says, before the wait rather than after it, whether step 8's first row can fire at all.
+   A reviewer whose card carries no `rateLimitPatterns` still aborts when its quota runs out — it
+   just aborts naming the parse instead of the quota, which is the misdiagnosis that row was added to
+   end, and knowing that in advance is what stops it being read as a fact about the change.
 
    **The `publish point` row answers "will this run publish, and when" on its own, and there are no
    `push` and `pr` rows beside it.** Two earlier rows restated the flags that this one already
@@ -572,8 +579,9 @@ guess and is recorded as one; see `## Unexercised paths`.
      here or nowhere.
 
    **An abort never reaches the after-convergence placement.** `max-rounds`, `repeat-findings`,
-   `review-command-failed` and `unparsed-review-output` all end the run before step 10, so the branch
-   stays unpushed and the report says so. **That is the
+   `reviewer-rate-limited`, `review-command-failed`, `unparsed-review-output` and
+   `unconfirmed-empty-review` all end the run before step 10, so the branch stays unpushed and the
+   report says so. **That is the
    right way round**: publishing is the act of saying the change is ready for someone else, and an
    aborted run has not established that. A before-review placement that has already pushed is left as
    it is — the pushes happened, they were correct when they happened, and unpushing is not a thing
@@ -781,9 +789,10 @@ guess and is recorded as one; see `## Unexercised paths`.
    the verdict and this table. **The guards come first for that reason, and their order is the
    mechanism rather than presentation.**
    Written with the outcome rows on top, `No findings at all` matched every zero-finding result and
-   the three aborts beneath it could not be reached: an unreadable output parses as zero findings,
+   the four aborts beneath it could not be reached: an unreadable output parses as zero findings,
    and so does a command that never ran, and so does a `requiresPr` reviewer with no pull request to
-   look at. **Each of those is a run finishing clean over a review that did not happen**, which is
+   look at, and so does a reviewer that answered with its quota notice instead of with a review.
+   **Each of those is a run finishing clean over a review that did not happen**, which is
    the one failure this whole family of procedures exists to prevent — and the
    `unconfirmed-empty-review` row said in its own prose that it takes precedence over the clean row
    while sitting below it, where first-match reading never reached it.
@@ -811,15 +820,57 @@ guess and is recorded as one; see `## Unexercised paths`.
    position in this table is the right one; the step where the round begins is, because that is where
    nothing has been spent yet.
 
-   | Signal                                                                                    | Verdict                                | Next action                                                                               |
-   | ----------------------------------------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------- |
-   | The command failed, or returned nothing at all                                            | **abort** (`review-command-failed`)    | Print the exit status and the output. Suspect the command string in the step-1 table      |
-   | The output does not match the shape the card records                                      | **abort** (`unparsed-review-output`)   | **Never read this as clean.** Print what came back                                        |
-   | Zero findings, from a `requiresPr` reviewer whose pull request this round did not confirm | **abort** (`unconfirmed-empty-review`) | Not a clean round. Confirm the pull request still exists, then re-run                     |
-   | No findings at all                                                                        | **finish (clean)**                     | Go to 10. Reached only once the three abort rows have not matched                         |
-   | Findings, but none above the acceptance floor                                             | continue                               | **Go to 9 to bucket them as `accepted`**, which falls through to 10. Never straight to 10 |
-   | At least one **new** finding above the floor                                              | continue                               | Go to 9                                                                                   |
-   | Every finding above the floor is a repeat                                                 | continue (once)                        | **Re-check each repeat against the tree**, then go to 9. If that fixes nothing, 9 aborts  |
+   | Signal                                                                                    | Verdict                                | Next action                                                                                                  |
+   | ----------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+   | The output matches the reviewer's `rateLimitPatterns`                                     | **abort** (`reviewer-rate-limited`)    | **The review did not happen.** Print the output in full, including any reset time it names. **Do not retry** |
+   | The command failed, or returned nothing at all                                            | **abort** (`review-command-failed`)    | Print the exit status and the output. Suspect the command string in the step-1 table                         |
+   | The output does not match the shape the card records                                      | **abort** (`unparsed-review-output`)   | **Never read this as clean.** Print what came back                                                           |
+   | Zero findings, from a `requiresPr` reviewer whose pull request this round did not confirm | **abort** (`unconfirmed-empty-review`) | Not a clean round. Confirm the pull request still exists, then re-run                                        |
+   | No findings at all                                                                        | **finish (clean)**                     | Go to 10. Reached only once the four abort rows have not matched                                             |
+   | Findings, but none above the acceptance floor                                             | continue                               | **Go to 9 to bucket them as `accepted`**, which falls through to 10. Never straight to 10                    |
+   | At least one **new** finding above the floor                                              | continue                               | Go to 9                                                                                                      |
+   | Every finding above the floor is a repeat                                                 | continue (once)                        | **Re-check each repeat against the tree**, then go to 9. If that fixes nothing, 9 aborts                     |
+
+   **`reviewer-rate-limited` is first because the two rows beneath it would each take this output and
+   send you somewhere innocent.** A quota reply can arrive at any exit status: at a non-zero one
+   `review-command-failed` takes it and says to suspect the command string in the step-1 table, and at
+   zero `unparsed-review-output` takes it and says to suspect the shape the card records — which on
+   the one occurrence measured meant a permission block that was already installed
+   (`reviewers/ecc-review-pr.md`). **The command string and the card were both correct and the
+   reviewer had simply run out of quota.** The row exists to name the one thing neither neighbour can:
+   **no review was performed, so nothing about this change is known** — not that it is clean, and not
+   that it is unreadable.
+
+   **"The output" here is whichever surface step 6 read, and the row does not say so twice because it
+   only has to say so once.** Step 6 reads the review's stdout under `invoke: subprocess` and what it
+   reports under `invoke: skill`; this row and the two beneath it all match against that same
+   already-read text, so a `rateLimitPatterns` entry on a `skill`-invoked reviewer is checked exactly
+   as one on a `subprocess`-invoked reviewer is — there is no second, narrower "output" this table
+   means only sometimes.
+
+   **Matching it wrongly is safe, which is what lets it sit above a row that reads a shape.** It is
+   above three aborts and far above the clean row, so a pattern that matched a real review could only
+   change **which abort reason is printed** — never whether a run finishes clean over a review that
+   did not happen, which is the one error class this table is ordered to prevent. The opposite miss is
+   bounded the same way: **a reviewer that declares no `rateLimitPatterns` cannot match this row at
+   all**, and its quota reply falls to `unparsed-review-output` exactly where it fell before this key
+   was readable here. Step 1 prints which of the two you have, before the first round rather than
+   after the wait.
+
+   **A rate limit beats findings, and that is step 9 of [`remote-loop.md`](remote-loop.md)'s ruling
+   rather than a new one.** There, a review carrying findings **and** the reviewer's rate-limit
+   pattern aborts on the pattern whatever the findings said: they are real, the quota is gone, and
+   continuing spends rounds against a reviewer that cannot answer. First-match ordering is how that
+   ruling is spelled here. **Print the output in full** so that any findings which did arrive are in
+   the report — they are real, and they are not this round's verdict.
+
+   **Do not retry, and do not wait.** The remote row gives the reason — the quota recovers with time
+   and retrying only burns rounds — and this loop has less room than that one: it has no waiting phase
+   at all, and its round cap is the only brake it has, so a round spent on a reviewer that cannot
+   answer is taken from one that can. **The recovery is a fresh invocation after the reset, and it is
+   available the moment the quota is back**: step 6's runaway invariant is a within-run rule, so a new
+   session may review the same unchanged `HEAD`. **Print the reset time the message names**, if it
+   names one, because the operator's next decision is _when_ rather than _whether_.
 
    **`unparsed-review-output` is a row of its own because the alternative is the failure this whole
    family of loops is built to avoid.** An unreadable result and "the reviewer found nothing" are
@@ -1112,6 +1163,8 @@ These are load-bearing. Each one exists because the obvious alternative fails.
 **This file has now been driven, and it has not been driven to a convergence.** Eight rounds against
 `iwmaeda/revloop#22` — five of `ecc-review-pr` ending at `--max-rounds`, and three of `code-review`
 that each returned nothing — plus one `ecc-review-pr` invocation that aborted before a round began,
+**and one round in a second repository that aborted because the reviewer had no quota left to answer
+with** (`repo B, 2026-09`),
 exercised steps 1 through 9 and neither reached the bar
 [`../reviewers/README.md`](../reviewers/README.md) sets. Every path below is unobserved except where
 this section now says otherwise, and the whole procedure still sits at the same standing as a reviewer
@@ -1153,6 +1206,18 @@ takes one should say so in the report and append a line to `.revloop/field-notes
   graded rung has crossed the floor rests on that same unmeasured property** — whether a grader ranks
   the same unchanged finding the same way twice — and it is the one place a grader's instability
   changes what the loop **reads** rather than only what it reports. Nothing has fired it.
+- **`reviewer-rate-limited`, which has never fired because it did not exist when its one occurrence
+  arrived.** The state it classifies is measured: a round of `ecc-review-pr` returned its host's
+  session-limit notice on stdout, exit 0, in place of a review (`repo B, 2026-09`), and the loop
+  classified it as `unparsed-review-output` — correctly refusing to read it as clean, and sending the
+  operator to a card shape and a permission block that were both already right. **So the row is
+  written from one observation of the state and none of the row**, and what is unobserved is
+  everything about the match: whether the pattern the two shipped cards now carry is the only wording
+  the host emits, whether a quota state can arrive **after** a partial review rather than instead of
+  one — the shape the first-match ordering resolves by aborting over real findings — and whether any
+  reviewer ever emits a phrase this pattern would take from a working review. **The last of those is
+  the only one that could cost anything, and it is bounded**: the row is above three other aborts, so
+  a false match changes which reason prints and cannot produce a clean round.
 - **The canonical pass of `--accept-at`, and every shipped `severityMap`.** No run has resolved a
   floor canonically. The maps are judgements about vocabulary, recorded as such on each card, and
   **a wrong one fails open**: it does not abort, it quietly moves the floor by a rung. Step 1 printing
