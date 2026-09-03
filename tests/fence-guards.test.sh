@@ -24,6 +24,16 @@ if [ ! -f "${PROCS[0]}" ]; then
   FAIL=$((FAIL + 1)); printf '  FAIL commands/*.md matched no file\n'
 fi
 
+# extract-fences.sh --list fails when $SRC does not exist, but this script has no
+# `set -e`, so that failure is swallowed and IDS silently becomes empty. The for
+# loop below would then run zero times -- parsing, placeholder, repo-slug, jq-pipe,
+# globbing and hash-pinning checks all skipped with no FAIL and no note that
+# anything was skipped. This is the same failure class PROCS[0] above was fixed
+# for; IDS needs the same guard.
+if [ -z "$IDS" ]; then
+  FAIL=$((FAIL + 1)); printf '  FAIL extract-fences.sh --list produced no fence ids (missing %s?)\n' "$SRC"
+fi
+
 for id in $IDS; do
   "$ROOT/tests/extract-fences.sh" "$id" > "$TMP/$id.sh"
 
