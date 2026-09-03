@@ -140,22 +140,29 @@ Three emitted vocabularies coexist among the shipped presets, so a floor written
 words aborts against the others; `--accept-at high` means one thing everywhere. **Native is tried
 first so that no invocation written before the canonical ladder existed changes meaning.**
 
-| Situation                                                       | Behaviour                                                                                                                  |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Flag absent                                                     | Nothing is acceptable. Identical to the behaviour before the flag existed                                                  |
-| `<level>` is a rung of `severityLevels`                         | Resolved natively. The table printed in step 1 says `native`                                                               |
-| `<level>` is a canonical rung, reviewer mapped                  | Resolved through `severityMap`. The step-1 table says `canonical`                                                          |
-| `<level>` is a canonical rung, reviewer has a ladder and no map | **Abort** (`no-severity-map`). The loop never derives a map from rung position                                             |
-| `severityMap` is partial, out of order, or collapsed            | **Abort** (`bad-severity-map`), naming the rung that is unmapped or inverted, or printing a map that leaves no distinction |
-| `<level>` matches neither pass                                  | **Abort** (`unknown-accept-level`), listing **both** ladders                                                               |
-| Reviewer has no `severityLevels`                                | **Abort** (`no-severity-ladder`), unless `--grade-severity` — see below                                                    |
-| With `--merge` and `--auto` together                            | **Abort** (`unreviewed-accept-merge`)                                                                                      |
-| With `--merge` alone, having accepted anything                  | Stop for confirmation, listing every accepted finding, before the CI wait                                                  |
+| Situation                                                                                | Behaviour                                                                                                                                                                                                                    |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Flag absent                                                                              | Nothing is acceptable. Identical to the behaviour before the flag existed                                                                                                                                                    |
+| `<level>` is a rung of `severityLevels`                                                  | Resolved natively. The table printed in step 1 says `native`                                                                                                                                                                 |
+| `<level>` is a canonical rung, reviewer mapped                                           | Resolved through `severityMap`. The step-1 table says `canonical`                                                                                                                                                            |
+| `<level>` is a canonical rung, reviewer has a ladder and no map                          | **Abort** (`no-severity-map`). The loop never derives a map from rung position                                                                                                                                               |
+| A canonical `<level>`, and `severityMap` is partial, foreign, out of order, or collapsed | **Abort** (`bad-severity-map`), naming the rung that is unmapped, foreign or inverted, or printing a map that leaves no distinction. **Checked only on a canonical resolution** — a map nothing consults cannot move a floor |
+| `<level>` matches neither pass                                                           | **Abort** (`unknown-accept-level`), listing **both** ladders                                                                                                                                                                 |
+| Reviewer has no `severityLevels`                                                         | **Abort** (`no-severity-ladder`), unless `--grade-severity` — see below                                                                                                                                                      |
+| With `--merge` and `--auto` together                                                     | **Abort** (`unreviewed-accept-merge`)                                                                                                                                                                                        |
+| With `--merge` alone, having accepted anything                                           | Stop for confirmation, listing every accepted finding, before the CI wait                                                                                                                                                    |
+
+**A canonical floor is compared rung by rung, not matched.** Each of the reviewer's rungs is carried
+through the map and its canonical value compared against the floor: at or below it is acceptable,
+above it blocks. **The floor does not have to be a rung any of them maps to.** Both shipped
+`P1`/`P2`/`P3` maps skip `medium`, so `--accept-at medium` against either leaves `P1` and `P2`
+blocking and `P3` acceptable — the same floor `--accept-at low` produces, which is what a
+four-rung ladder receiving three rungs means rather than a defect in either.
 
 **Step 1 prints the resolved floor before the first round**, as the two sets of the reviewer's own
 rungs that block and that are acceptable — or, under `--grade-severity`, as the canonical rungs,
-because that flag reaches only a reviewer with no rungs of its own. That is the operational check on
-a map, and it is the
+because that flag reaches only a reviewer with no rungs of its own. That is where the paragraph above
+becomes checkable rather than inferred, it is the operational check on a map, and it is the
 reason `severityMap` may come from this file at all: `severityLevels`' own **order** already carries
 the same power to move a floor, so the map is no new class of it, and the answer to both is to show
 the operator what the floor actually became.

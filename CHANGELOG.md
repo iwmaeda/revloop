@@ -50,11 +50,20 @@ Added:
   with `reason=no-severity-map`, because reading `critical` off "rung 1 of 3" is the loop authoring
   a ladder one key over from where that was already forbidden. **That abort is scoped to a reviewer
   that has a ladder**, so a reviewer carrying neither key — the one `--grade-severity` exists for —
-  reaches a round rather than this row. A partial, inverted, or **wholly collapsed** map aborts with
-  `reason=bad-severity-map` — collapsed because a map sending every rung to one canonical rung is
-  total and inverts nothing while making the lowest floor the flag can express accept the reviewer's
-  worst finding. Merging rungs stays legal, and is unavoidable: three rungs cannot cover four
-  canonical ones and five cannot avoid sharing.
+  reaches a round rather than this row. A partial, **foreign**, inverted, or **wholly collapsed** map
+  aborts with `reason=bad-severity-map` — collapsed because a map sending every rung to one canonical
+  rung is total and inverts nothing while making the lowest floor the flag can express accept the
+  reviewer's worst finding, and foreign because a ladder shortened without its map satisfies totality
+  while leaving an entry pointing at a rung that no longer exists. Merging rungs stays legal, and is
+  unavoidable: three rungs cannot cover four canonical ones and five cannot avoid sharing. **That
+  abort is checked only when `--accept-at` resolved on the canonical pass**, for the reason the map is
+  allowed a config key at all: a map nothing consults cannot move a floor, so checking it on every run
+  broke a reviewer for ordinary use over a key that run never read.
+
+  **A canonical floor is compared rung by rung and does not have to be a rung any of them maps to.**
+  Both shipped `P1`/`P2`/`P3` maps skip `medium`, so `--accept-at medium` against either leaves `P1`
+  and `P2` blocking and `P3` acceptable — the same floor `--accept-at low` gives, which is what four
+  canonical rungs receiving three means rather than a defect in either.
 
   **`severityMap` is settable from `.revloop.json` and `--accept-at` still is not**, which is a line
   worth being explicit about: `severityLevels`' own **order** has always carried the same power to

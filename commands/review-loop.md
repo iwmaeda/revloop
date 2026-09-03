@@ -239,27 +239,40 @@ that instruction coexist.
      has no `severityMap`" this row matched **every** graded run, and since `--grade-severity`
      without `--accept-at` is already `grade-without-floor`, the flag had no invocation that did not
      abort.
-   - **If the `severityMap` is not total over `severityLevels`, is not order-preserving, or leaves
-     no distinction at all, abort with `reason=bad-severity-map`** and name the rung that is unmapped
-     or inverted — or print the whole map, in the third case, which has no single offending rung.
-     Total means every rung of the ladder has an entry; order-preserving means a more severe rung
-     never maps below a less severe one; **leaving a distinction means that, on a ladder of two rungs
-     or more, the top rung maps strictly above the bottom one.** **The third does not follow from the
-     first two.** `{"P1":"low","P2":"low","P3":"low"}` is total and inverts nothing, and under it
-     `--accept-at low` — the lowest floor this flag can express — accepts the reviewer's worst
-     finding, against a ladder that says the reviewer has three rungs. **Merging rungs is not that
-     defect and stays legal**: four canonical rungs cannot receive a three-rung ladder without one
-     being skipped, which is why both shipped `P1`/`P2`/`P3` maps skip `medium`, and cannot receive a
-     five-rung one without two rungs sharing. What is refused is a map with **no** distinction left
-     in it, where every `--accept-at` against that reviewer means the same thing and the floor has
-     nothing to stand on. **None of the three is checkable by the schema** — it cannot read the other
-     key's contents — so a partial map would otherwise leave findings at the unmapped rungs with no
-     canonical rung at all, which is a floor that silently does not apply to them, and a collapsed
-     one would leave a floor that applies to everything identically. **Reached only by
-     a reviewer carrying both keys**: the schema's `dependentRequired` makes a map without a ladder
-     impossible, and the row above takes a ladder without a map — so a reviewer with neither, which
-     is the graded one, has nothing here to check rather than an absent map that is vacuously not
-     total.
+   - **If `--accept-at` resolved on the canonical pass and the `severityMap` is not total over
+     `severityLevels`, names a rung that ladder does not hold, is not order-preserving, or leaves no
+     distinction at all, abort with `reason=bad-severity-map`** and name the rung that is unmapped,
+     foreign or inverted — or print the whole map, in the last case, which has no single offending
+     rung. Total means every rung of the ladder has an entry; **naming no rung the ladder does not
+     hold is the same edit seen from the other side** — a ladder shortened without its map, where
+     totality is satisfied and an entry is left pointing at a rung that no longer exists;
+     order-preserving means a more severe rung never maps below a less severe one; **leaving a
+     distinction means that, on a ladder of two rungs or more, the top rung maps strictly above the
+     bottom one.** **The last does not follow from the others.**
+     `{"P1":"low","P2":"low","P3":"low"}` is total, holds no foreign rung, and inverts nothing, and
+     under it `--accept-at low` — the lowest floor this flag can express — accepts the reviewer's
+     worst finding, against a ladder that says the reviewer has three rungs. **Merging rungs is not
+     that defect and stays legal**: four canonical rungs cannot receive a three-rung ladder without
+     one being skipped, which is why both shipped `P1`/`P2`/`P3` maps skip `medium`, and cannot
+     receive a five-rung one without two rungs sharing. What is refused is a map with **no**
+     distinction left in it, where every `--accept-at` against that reviewer means the same thing and
+     the floor has nothing to stand on. **None of the four is checkable by the schema** — it cannot
+     read the other key's contents — so a partial map would otherwise leave findings at the unmapped
+     rungs with no canonical rung at all, which is a floor that silently does not apply to them, and
+     a collapsed one would leave a floor that applies to everything identically.
+
+     **Two conditions gate this row and they are not the same condition.** The flag half is the one
+     stated first, and it is why the check runs at all: a map nothing consults cannot move a floor,
+     so a run that never names a canonical level never reaches this row. That is the same reasoning
+     that leaves `severityLevels`' own **order** inert without the flag, which is the comparison
+     `SECURITY.md` rests the map's config key on. The shape half is that **only a reviewer carrying
+     both keys has anything to check**: the schema's `dependentRequired` makes a map without a ladder
+     impossible, and the `no-severity-map` row takes a ladder without a map — so a reviewer with
+     neither, which is the graded one, has nothing here rather than an absent map that is vacuously
+     not total. **Written with the shape half alone, this row aborted runs that had typed no
+     `--accept-at` at all**, breaking a reviewer for ordinary use over a key that run never read —
+     and, sitting above them, reported a map defect where the answer was `grade-over-ladder`.
+
    - **If `--grade-severity` was passed without `--accept-at`, abort with
      `reason=grade-without-floor`.** Grading with no floor produces rungs nothing consumes, and a
      key with no consumer is the defect this project removes rather than ships.
