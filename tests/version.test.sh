@@ -27,23 +27,46 @@ echo "version:"
 # Reads a dotted path out of a JSON file. Array indices are plain integers:
 # JS object access on an array accepts them.
 #
-# The exit status separates the three ways a read comes back empty, because each
-# sends the reader somewhere different and one message was printed for all of
-# them: 0 means a value was read — possibly the empty string, for a path this
-# file does not carry — 2 means the file is there and is not valid JSON, and 3
-# means there is no such file. `tests/validate-schema.mjs` splits its own exits
-# the same way and for the same reason. The 2-versus-3 split is the narrower
-# case and was worth making: a renamed manifest reported as a syntax error sends
-# somebody to look for a stray comma in a file that is not there.
+# The exit status separates the ways a read comes back empty, because each sends
+# the reader somewhere different and one message was printed for all of them: 0
+# is a value — possibly the empty string, for a path this file does not carry —
+# 3 is no such file, 2 is a file that is not valid JSON, and 4 is every other way
+# the read can fail. A renamed manifest reported as a syntax error sends somebody
+# to look for a stray comma in a file that is not there, and a file that could
+# not be opened does the same.
+#
+# `tests/validate-schema.mjs` makes a coarser split for a related reason and is
+# not a precedent for the shape of this one: its 1-versus-2 separates "it said
+# no" from "it never ran", and it merges an absent file with an unparseable one
+# into the second. This is the same principle — a non-answer is not an answer —
+# applied one level finer.
+#
+# stderr is discarded, so 4 carries no detail. The words it prints say that
+# rather than naming a cause it does not have.
 read_json() {
   node -e '
     let o;
     try { o = require(process.argv[1]); }
-    catch (e) { process.exit(e && e.code === "MODULE_NOT_FOUND" ? 3 : 2); }
+    catch (e) {
+      if (e && e.code === "MODULE_NOT_FOUND") process.exit(3);
+      process.exit(e instanceof SyntaxError ? 2 : 4);
+    }
     let v = o;
     for (const k of process.argv[2].split(".")) v = v == null ? v : v[k];
     console.log(v == null ? "" : v);
   ' "$1" "$2" 2>/dev/null
+}
+
+# Maps that status onto the words a reader acts on. It is shared because the
+# reference read below and check_version printed different words for the same
+# status, and the coarser pair was on the reference read — the one every other
+# row depends on.
+read_status_words() { # read_status_words <rc>
+  case $1 in
+    3) printf '<absent> — there is no such file' ;;
+    2) printf '<unreadable> — it is not valid JSON' ;;
+    *) printf '<unreadable> — reading it failed some other way; stderr is discarded' ;;
+  esac
 }
 
 # Each row is file | dotted path | what to do when it disagrees. The remedy is
@@ -51,6 +74,11 @@ read_json() {
 # say so: five of these are edited by hand and the sixth must never be, and a
 # line reading `FAIL package-lock.json version has 0.5.0` invites exactly the
 # hand edit that leaves the rest of the lockfile behind.
+#
+# A remedy may not contain a literal `|`. The rows are pipe-delimited, so one
+# that did would split into a fourth field and be rejected as malformed — which
+# is the safe direction, and the message says so rather than reporting a typo
+# the writer did not make.
 MANIFESTS=(
   "package.json|version|edit this file"
   ".claude-plugin/plugin.json|version|edit this file"
@@ -59,6 +87,15 @@ MANIFESTS=(
   ".agents/plugins/marketplace.json|plugins.0.version|edit this file"
   "package-lock.json|version|run npm install --package-lock-only; do not edit it"
 )
+
+# Splits one row and says whether it is well formed. A function because the loop
+# below and the checks at the end must agree about what a malformed row is, and
+# because a guard nothing drives is the branch this file exists to object to.
+parse_row() { # parse_row <entry> ; sets ROW_FILE ROW_PATH ROW_REMEDY
+  local extra
+  IFS='|' read -r ROW_FILE ROW_PATH ROW_REMEDY extra <<< "$1"
+  [ -n "$ROW_FILE" ] && [ -n "$ROW_PATH" ] && [ -n "$ROW_REMEDY" ] && [ -z "$extra" ]
+}
 
 # Compares one dotted path against a reference, prints one result line, and
 # RETURNS the verdict. The reference is an argument rather than the global it
@@ -75,11 +112,10 @@ MANIFESTS=(
 check_version() { # check_version <label> <abs-path> <dotted-path> <remedy> <reference>
   local label="$1" file="$2" path="$3" remedy="$4" REF="$5" got rc
   got=$(read_json "$file" "$path"); rc=$?
-  case $rc in
-    0) ;;
-    3) printf 'FAIL %s %s <absent> — there is no such file\n' "$label" "$path"; return 1 ;;
-    *) printf 'FAIL %s %s <unreadable> — the file is not valid JSON\n' "$label" "$path"; return 1 ;;
-  esac
+  if [ "$rc" -ne 0 ]; then
+    printf 'FAIL %s %s %s\n' "$label" "$path" "$(read_status_words "$rc")"
+    return 1
+  fi
   # Without this, a package.json that does not parse leaves REF empty, and every
   # other file that also fails to yield a value compares equal to it and is
   # reported as agreeing. The suite still fails on the semver row above, so the
@@ -108,7 +144,7 @@ SEMVER_RE="^${SEMVER_CORE}${SEMVER_PRERELEASE}${SEMVER_BUILD}\$"
 REF=$(read_json "$ROOT/package.json" version); REF_RC=$?
 if [ "$REF_RC" -ne 0 ]; then
   FAIL=$((FAIL + 1)); REF=''
-  printf '  FAIL package.json could not be parsed as JSON; nothing below has a reference\n'
+  printf '  FAIL package.json %s; nothing below has a reference\n' "$(read_status_words "$REF_RC")"
 elif [[ "$REF" =~ $SEMVER_RE ]]; then
   PASS=$((PASS + 1)); printf '  ok   package.json carries a semver version (%s)\n' "$REF"
 else
@@ -116,14 +152,12 @@ else
 fi
 
 for entry in "${MANIFESTS[@]}"; do
-  IFS='|' read -r file path remedy extra <<< "$entry"
-  # A row with a field missing splits into an empty remedy and reads as an
-  # ordinary row with a blank remedy printed at the end of its FAIL line. Say so
-  # instead: the rows are hand-written and the failure is a typo, not a version.
-  if [ -z "$file" ] || [ -z "$path" ] || [ -z "$remedy" ] || [ -n "$extra" ]; then
-    FAIL=$((FAIL + 1)); printf '  FAIL malformed MANIFESTS row: %s\n' "$entry"
+  if ! parse_row "$entry"; then
+    FAIL=$((FAIL + 1))
+    printf '  FAIL malformed MANIFESTS row — three fields, and no "|" inside one: %s\n' "$entry"
     continue
   fi
+  file=$ROW_FILE path=$ROW_PATH remedy=$ROW_REMEDY
   if line=$(check_version "$file" "$ROOT/$file" "$path" "$remedy" "$REF"); then
     PASS=$((PASS + 1))
   else
@@ -194,6 +228,47 @@ expect "and names the reference as what is missing" "$SELF_LINE" 'package.json y
 # pass by never returning zero.
 classify "an agreeing version is classified as agreement" ok \
   'this package.json' "$ROOT/package.json" version 'edit this file' "$REF"
+
+# The lockfile's remedy is the one string in MANIFESTS that exists to stop an
+# action rather than to describe one, so it is asserted as literal text. That is
+# a deliberate second copy: a test that read the row's own value would pass over
+# any typo in it, and a typo in this string is a line nobody would look at twice.
+LOCK_REMEDY='run npm install --package-lock-only; do not edit it'
+expect "the lockfile row still carries the remedy that forbids a hand edit" \
+  "${MANIFESTS[*]}" "$LOCK_REMEDY"
+classify "and a disagreeing lockfile is classified as a failure" fail \
+  'synthetic lockfile' "$STALE_DIR/package-lock.json" version "$LOCK_REMEDY" "$REF"
+expect "and its line carries that remedy through to the reader" "$SELF_LINE" "$LOCK_REMEDY"
+
+# Exit 4 is read_json's catch-all and the reachable instance of it is a file that
+# is there and cannot be opened. As root there is no such file, so this says it
+# did not run rather than passing over a case it never built.
+if [ "$(id -u)" -ne 0 ]; then
+  printf '{"version":"0.0.0-stale"}\n' > "$STALE_DIR/locked.json"
+  chmod 000 "$STALE_DIR/locked.json"
+  classify "a file that cannot be opened is classified as a failure" fail \
+    'synthetic lockfile' "$STALE_DIR/locked.json" version "$LOCK_REMEDY" "$REF"
+  refute "and is not reported as a syntax error it was never read for" "$SELF_LINE" 'not valid JSON'
+  chmod 644 "$STALE_DIR/locked.json"
+else
+  printf '  note running as root; a file that cannot be opened cannot be constructed\n'
+fi
+
+# The row guard, which nothing above drives: every real row is well formed, so
+# its rejecting branch had the same no-coverage problem the comparison had.
+for bad in 'a.json|version' 'a.json' '|version|edit this file' 'a.json||edit this file' \
+  'a.json|version|do not use | inside a remedy'; do
+  if parse_row "$bad"; then
+    FAIL=$((FAIL + 1)); printf '  FAIL a malformed row was accepted: %s\n' "$bad"
+  else
+    PASS=$((PASS + 1)); printf '  ok   a malformed row is rejected: %s\n' "$bad"
+  fi
+done
+if parse_row 'a.json|version|edit this file'; then
+  PASS=$((PASS + 1)); printf '  ok   a well-formed row is accepted\n'
+else
+  FAIL=$((FAIL + 1)); printf '  FAIL a well-formed row was rejected\n'
+fi
 
 # The changelog's newest RELEASED heading, ignoring [Unreleased]. Before the
 # first release there is none, and that is not a failure — it is the state the
