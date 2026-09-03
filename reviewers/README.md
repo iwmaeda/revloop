@@ -47,8 +47,10 @@ establishes that one reviewer's `P1` and another's `CRITICAL` describe the same 
 a separate key rather than an ordering folded into the ladder, and **a card states under
 `## Not measured` that its map is a judgement** — leaving it beside the ladder without saying so is
 the "looks measured" failure this page exists to prevent. A card omits the map when it has no ladder
-to map from; `--accept-at` then aborts on a canonical level rather than deriving a map from position,
-which would be the loop authoring a ladder one key over from where that is already forbidden.
+to map from, and **the abort a canonical level then reaches is `no-severity-ladder`** — about the
+missing ladder rather than the missing map, and the one `--grade-severity` is the way past. The map's
+own abort is for a card that has a ladder and no map, where deriving one from position would be the
+loop authoring a ladder one key over from where that is already forbidden.
 
 **Neither key is what `--grade-severity` reads.** That flag is for a reviewer with no ladder at all,
 and the rungs it produces come from a grader outside this loop rather than from a card. **It is not a

@@ -33,7 +33,9 @@ not apply.
   before acting. **`--accept-at` and `--grade-severity` may only ever read `flag` or `builtin`** —
   neither has a configuration key, so a `config` in either cell means one was invented — and on a run
   that passed `--accept-at`, echo the floor **expanded**, as the sets of the reviewer's own rungs that
-  block and that are acceptable.
+  block and that are acceptable — **or, under `--grade-severity`, as the canonical rungs**, because
+  that flag is refused against a reviewer that has a ladder, so a graded reviewer has none of its own
+  to echo.
 - Ignore the procedure's `allowed-tools` line. Use Codex filesystem, shell, and network tools with
   equivalent scope. **Request scoped approval before network access** — a workspace-write sandbox
   commonly has `network_access = false`, and every `gh` call in the procedure needs the network.

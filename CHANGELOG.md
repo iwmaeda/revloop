@@ -38,9 +38,11 @@ Added:
   Nothing establishes that one reviewer's `P1` and another's `CRITICAL` describe the same thing, so
   each card ships its map in the config block and says under `## Not measured` that it is a judgement
   — including which canonical rung a three-rung ladder had to skip. The loop **never derives a map
-  from rung position**: a canonical level against an unmapped reviewer aborts with
-  `reason=no-severity-map`, because reading `critical` off "rung 1 of 3" is the loop authoring a
-  ladder one key over from where that was already forbidden. A partial or inverted map aborts with
+  from rung position**: a canonical level against a reviewer that has a ladder and no map aborts
+  with `reason=no-severity-map`, because reading `critical` off "rung 1 of 3" is the loop authoring
+  a ladder one key over from where that was already forbidden. **That abort is scoped to a reviewer
+  that has a ladder**, so a reviewer carrying neither key — the one `--grade-severity` exists for —
+  reaches a round rather than this row. A partial or inverted map aborts with
   `reason=bad-severity-map`.
 
   **`severityMap` is settable from `.revloop.json` and `--accept-at` still is not**, which is a line

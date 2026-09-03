@@ -139,6 +139,18 @@ that instruction coexist.
    accept-at high (canonical) → blocking: P1   acceptable: P2, P3
    ```
 
+   **Under `--grade-severity` those sets are the canonical rungs instead, because the reviewer has
+   none of its own** — the flag is refused against a reviewer that has a ladder, so there are never
+   two vocabularies to choose between here:
+
+   ```text
+   accept-at high (canonical, graded by sonnet) → blocking: critical   acceptable: high, medium, low
+   ```
+
+   Written as "the reviewer's own rungs" alone, this line had nothing to print on the one run where
+   the rungs are the loop's own rather than the reviewer's — which is the run that most needs the
+   operator to see them before the first round.
+
    **This is the operational guard on `severityMap`, and it is the reason that key is allowed to come
    from `.revloop.json` at all.** A map is repository-supplied, so a repository could in principle
    carry one that makes its own worst rung acceptable — but `severityLevels`' own **order** already
@@ -203,24 +215,40 @@ that instruction coexist.
      sentence; it changes who "you" is** — see the grading rows below and `## Notes`.
    - **If `--accept-at` matches neither pass, abort with `reason=unknown-accept-level`** and print
      **both** ladders — the reviewer's and the canonical one — because with two passes a level can
-     miss for two different reasons and printing one of them names the wrong remedy. Resolve it
+     miss for two different reasons and printing one of them names the wrong remedy. **On a reviewer
+     with no ladder — which is every graded run — print the canonical ladder and say the reviewer has
+     none.** That is the whole diagnosis: with nothing to match natively, the only levels that
+     resolve at all are revloop's four, so a value that missed them missed everything. Printing an
+     empty set under the heading "the reviewer's ladder" reads as a configuration that lost a key,
+     which sends the operator to `.revloop.json` instead of to the four rungs. Resolve it
      native first: match a rung of `severityLevels` **as a whole string, case-sensitively**, and only
      then match the canonical ladder **case-insensitively**. The native ladder is ordered, so a name
      matched loosely to the neighbouring rung moves the floor by one without anything saying so, and
      one rung is the difference between blocking on a P1 and accepting it. The canonical ladder is
      folded because its four rungs are revloop's own words rather than a reviewer's, and `HIGH` and
      `high` cannot be two different rungs of a ladder this file defines.
-   - **If `--accept-at` resolved on the canonical pass and the reviewer has no `severityMap`, abort
-     with `reason=no-severity-map`** and print the native ladder, naming both ways out: type a native
-     rung, or add the map. **Do not derive one from position.** A three-rung ladder does not say
-     which of four canonical rungs its middle means, and reading it off the index is the same act the
-     row above forbids, performed one key over.
+   - **If `--accept-at` resolved on the canonical pass and the reviewer **has** `severityLevels` but
+     no `severityMap`, abort with `reason=no-severity-map`** and print the native ladder, naming both
+     ways out: type a native rung, or add the map. **Do not derive one from position.** A three-rung
+     ladder does not say which of four canonical rungs its middle means, and reading it off the index
+     is the same act the row above forbids, performed one key over. **The condition is the reviewer's
+     shape and not the flags**, which is what makes `--grade-severity` reach a round at all: the row
+     two below refuses that flag against a reviewer that has a ladder, so a graded reviewer has none
+     — and with no ladder there is no map it could be missing and no correspondence for the loop to
+     invent, because the grader answered in canonical words to begin with. Written as "the reviewer
+     has no `severityMap`" this row matched **every** graded run, and since `--grade-severity`
+     without `--accept-at` is already `grade-without-floor`, the flag had no invocation that did not
+     abort.
    - **If the `severityMap` is not total over `severityLevels`, or not order-preserving, abort with
      `reason=bad-severity-map`** and name the rung that is unmapped or inverted. Total means every
      rung of the ladder has an entry; order-preserving means a more severe rung never maps below a
      less severe one. **Neither is checkable by the schema** — it cannot read the other key's
      contents — so a partial map would otherwise leave findings at the unmapped rungs with no
-     canonical rung at all, which is a floor that silently does not apply to them.
+     canonical rung at all, which is a floor that silently does not apply to them. **Reached only by
+     a reviewer carrying both keys**: the schema's `dependentRequired` makes a map without a ladder
+     impossible, and the row above takes a ladder without a map — so a reviewer with neither, which
+     is the graded one, has nothing here to check rather than an absent map that is vacuously not
+     total.
    - **If `--grade-severity` was passed without `--accept-at`, abort with
      `reason=grade-without-floor`.** Grading with no floor produces rungs nothing consumes, and a
      key with no consumer is the defect this project removes rather than ships.

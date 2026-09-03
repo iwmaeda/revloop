@@ -229,10 +229,11 @@ guess and is recorded as one; see `## Unexercised paths`.
    on a `grader` run **print the grader's command line in full and expanded, beside the review
    command**, for the reason the review command is printed — it is a shell command this run will
    start, and the operator should see it before the first round rather than at the first prompt.
-   **Then print the floor expanded**, exactly as [`review-loop.md`](review-loop.md) step 1 does, as
-   the two sets of the reviewer's own rungs that block and that are acceptable. Under
-   `--grade-severity` those sets are the canonical rungs instead, because the reviewer has none of
-   its own — which is itself worth seeing before a round runs. The round cap reads `builtin` as `5`
+   **Then print the floor expanded, exactly as [`review-loop.md`](review-loop.md) step 1 does**,
+   including what it prints on a graded run. That case is cited rather than restated now that it is
+   stated there at all — **and here it is the ordinary run rather than the unusual one**, because the
+   preset this command ships as its default emits no severity, so the canonical rungs are the only
+   rungs most runs of this command will ever print. The round cap reads `builtin` as `5`
    here, and its config key is `defaults.localMaxRounds` — **not `defaults.maxRounds`, which belongs
    to [`review-loop.md`](review-loop.md) alone**. One shared key let a remote-oriented value silently
    raise this loop's cap, and this loop's cap is the only brake it has.
@@ -410,7 +411,8 @@ guess and is recorded as one; see `## Unexercised paths`.
    - **The other four `--accept-at` and `--grade-severity` judgements are step 1 of
      [`review-loop.md`](review-loop.md)'s, unchanged**: `unknown-accept-level` printing both ladders
      after a native-then-canonical match, `no-severity-map` on a canonical level against a reviewer
-     with no map, `bad-severity-map` on a map that is not total or not order-preserving, and
+     that **has a ladder** and no map, `bad-severity-map` on a map that is not total or not
+     order-preserving, and
      `grade-without-floor` on `--grade-severity` with no floor to consume its rungs. **The fifth,
      `grade-over-ladder`, is reached more often here than there** — `ecc-review-pr` is a shipped
      local preset **with** a ladder, so `--grade-severity` against it is a plausible typing rather
