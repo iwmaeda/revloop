@@ -33,6 +33,55 @@ for f in "$ROOT"/examples/*.json; do
   fi
 done
 
+# --- the reviewer cards' own config blocks ---------------------------------
+#
+# The examples above are validated because they are shipped configuration. So
+# are the cards' config blocks, and nothing read them: `tests/` referenced
+# `reviewers/` from one place, `provenance.test.sh`, and that is checking a
+# citation grammar rather than a document. A card could ship a `severityMap`
+# without a `severityLevels`, a rung outside the canonical four, or a key the
+# schema does not know, and the suite stayed green while the block is the thing
+# a user pastes into `.revloop.json`.
+#
+# THE BLOCK IS A REVIEWER, NOT A CONFIG FILE, so it is wrapped in the two levels
+# the schema expects before validating. Wrapping is what makes the reviewer-level
+# rules -- `additionalProperties: false`, the kind discriminator, and the
+# `dependentRequired` that makes a map without a ladder impossible -- apply at
+# all; the block on its own would validate against nothing.
+#
+# A CARD WITH NO BLOCK IS SKIPPED, AND THE COUNT IS ASSERTED. `README.md` is not
+# a card and `copilot.md` is `unsupported` and carries no configuration, so an
+# empty extraction is legal per file and fatal in aggregate: a broken awk yields
+# nothing, every card is skipped, and the loop goes green having validated
+# nothing at all. The floor is the same guard the `allowed-tools` block in
+# `permissions.test.sh` states for the same reason.
+CARDS=0
+for card in "$ROOT"/reviewers/*.md; do
+  base=$(basename "$card")
+  block=$(awk '/^```json$/ { f = 1; next } /^```$/ { f = 0 } f' "$card")
+  [ -n "$block" ] || continue
+  CARDS=$((CARDS + 1))
+  printf '%s' "$block" > "$TMP/card.json"
+  if node -e '
+      const fs = require("fs")
+      const reviewer = JSON.parse(fs.readFileSync(process.argv[1], "utf8"))
+      fs.writeFileSync(process.argv[2], JSON.stringify({ version: 1, reviewers: { x: reviewer } }))
+    ' "$TMP/card.json" "$TMP/card.doc.json" 2>/dev/null; then
+    if v "$TMP/card.doc.json"; then
+      PASS=$((PASS + 1)); printf '  ok   %s config block validates\n' "$base"
+    else
+      FAIL=$((FAIL + 1)); printf '  FAIL %s config block does not validate\n' "$base"
+    fi
+  else
+    FAIL=$((FAIL + 1)); printf '  FAIL %s config block is not parseable JSON\n' "$base"
+  fi
+done
+if [ "$CARDS" -ge 4 ]; then
+  PASS=$((PASS + 1)); printf '  ok   %d card config blocks were found\n' "$CARDS"
+else
+  FAIL=$((FAIL + 1)); printf '  FAIL only %d card config blocks found; extraction is broken\n' "$CARDS"
+fi
+
 reject() { # reject <label> <json>
   printf '%s' "$2" > "$TMP/bad.json"
   if v "$TMP/bad.json"; then
