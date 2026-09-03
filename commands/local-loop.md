@@ -579,8 +579,9 @@ guess and is recorded as one; see `## Unexercised paths`.
      here or nowhere.
 
    **An abort never reaches the after-convergence placement.** `max-rounds`, `repeat-findings`,
-   `reviewer-rate-limited`, `review-command-failed` and `unparsed-review-output` all end the run
-   before step 10, so the branch stays unpushed and the report says so. **That is the
+   `reviewer-rate-limited`, `review-command-failed`, `unparsed-review-output` and
+   `unconfirmed-empty-review` all end the run before step 10, so the branch stays unpushed and the
+   report says so. **That is the
    right way round**: publishing is the act of saying the change is ready for someone else, and an
    aborted run has not established that. A before-review placement that has already pushed is left as
    it is — the pushes happened, they were correct when they happened, and unpushing is not a thing
@@ -839,6 +840,13 @@ guess and is recorded as one; see `## Unexercised paths`.
    reviewer had simply run out of quota.** The row exists to name the one thing neither neighbour can:
    **no review was performed, so nothing about this change is known** — not that it is clean, and not
    that it is unreadable.
+
+   **"The output" here is whichever surface step 6 read, and the row does not say so twice because it
+   only has to say so once.** Step 6 reads the review's stdout under `invoke: subprocess` and what it
+   reports under `invoke: skill`; this row and the two beneath it all match against that same
+   already-read text, so a `rateLimitPatterns` entry on a `skill`-invoked reviewer is checked exactly
+   as one on a `subprocess`-invoked reviewer is — there is no second, narrower "output" this table
+   means only sometimes.
 
    **Matching it wrongly is safe, which is what lets it sit above a row that reads a shape.** It is
    above three aborts and far above the clean row, so a pattern that matched a real review could only

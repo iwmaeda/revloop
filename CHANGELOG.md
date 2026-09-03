@@ -36,8 +36,9 @@ Added:
 - **`rateLimitPatterns` is readable on a `local-command` reviewer.** The schema forbade it, correctly,
   for as long as nothing in that loop read one — a key with no consumer is the defect the kind split
   exists to prevent. Step 8 now reads it, so the key follows the consumer rather than the other way
-  round. It is matched against the review subprocess's **stdout**, where the pull-request loop matches
-  it against a comment body; `cleanPatterns` did **not** cross with it, because the local loop's clean
+  round. It is matched against the review's output — its stdout under `invoke: subprocess`, what it
+  reports under `invoke: skill` — where the pull-request loop matches it against a comment body;
+  `cleanPatterns` did **not** cross with it, because the local loop's clean
   signal is that no finding was parsed and there is no phrase to match.
 - **Both shipped local presets declare one**, so an ordinary run gets the named abort with no
   configuration. `ecc-review-pr` carries it as a measurement; `code-review` carries it as a reading

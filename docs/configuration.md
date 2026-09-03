@@ -229,10 +229,11 @@ reads is a setting that appears to work and does nothing.
 | `invoke`            | `subprocess` runs `command` as a shell command line and reads its stdout; `skill` invokes it in this session                 |
 | `command`           | The skill name, or the command line. Shown in the step-1 table before it runs and never pre-approved, exactly as `verify` is |
 | `requiresPr`        | True when the command resolves an open pull request itself. It also decides where the local loop publishes — see below       |
-| `rateLimitPatterns` | What the reviewer says when it is out of quota. Matched against the subprocess's stdout; a match aborts the round            |
+| `rateLimitPatterns` | What the reviewer says when it is out of quota. Matched against the review's output; a match aborts the round                |
 
 **`rateLimitPatterns` belongs to both kinds and is read from a different surface in each** — a bot
-comment's body on the pull-request loop, the review subprocess's **stdout** on the local one — and
+comment's body on the pull-request loop, **the review's output** on the local one, whichever way that
+loop reads it: its stdout under `invoke: subprocess`, what it reports under `invoke: skill` — and
 both abort on a match **without retrying**: the quota recovers with time, and another round spends the
 loop against a reviewer that cannot answer. Match the fixed part of the message and never a reset time
 or a count, which differ every round. A pattern that is too loose **fails closed** — it can only turn

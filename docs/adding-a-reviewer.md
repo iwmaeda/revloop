@@ -157,11 +157,11 @@ that cannot start does not necessarily fail: the host answers for it, in one lin
 zero — which is the same shape as a permission-blocked reply and the same shape as a reviewer that
 found nothing. `rateLimitPatterns` is what separates them, and without it the round aborts naming the
 parse instead of the quota, sending you to a card and a permission block that are both innocent.
-**Record the string exactly, punctuation included, and match only its fixed head.** The one measured
-example — on [`../reviewers/ecc-review-pr.md`](../reviewers/ecc-review-pr.md) — carries an ASCII
-apostrophe and a `·` separator, and a reset time that differs every round; a pattern that copied the
-time would match nothing, and a pattern that matches nothing is indistinguishable from a card that
-never declared one.
+**Record the string exactly, punctuation included, and match only its fixed head.**
+[`../reviewers/ecc-review-pr.md`](../reviewers/ecc-review-pr.md) records the one measured example
+down to its exact bytes — read it there rather than here, and expect a reset time that differs every
+round; a pattern that copied the time would match nothing, and a pattern that matches nothing is
+indistinguishable from a card that never declared one.
 
 **Trap: `invoke: skill` has no model boundary.** A skill runs in the loop's own session, on the loop's
 model. Use `subprocess` with `{reviewModel}` in `command` unless the host forbids it.

@@ -336,7 +336,7 @@ accept "a local reviewer with a map"      '{"version":1,"reviewers":{"a":{"kind"
 # kind branch that used to reject it -- and the rejection above pins that its
 # sibling did not cross with it. Without both, "the kinds are separate" and "the
 # kinds share everything" look identical from the test suite.
-accept "a local reviewer with a rate limit" '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p x","rateLimitPatterns":["You'"'"'ve hit your session limit"]}}}'
+accept "a local reviewer with a rate limit" '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p x","rateLimitPatterns":["out of quota"]}}}'
 accept "a github reviewer with one too"     '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","rateLimitPatterns":["quota exceeded"]}}}'
 
 # A five-rung ladder cannot reach four canonical rungs without two rungs sharing
