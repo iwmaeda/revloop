@@ -718,7 +718,8 @@ guess and is recorded as one; see `## Unexercised paths`.
      silently off on the default reviewer** — the failure mode of a mechanism, not of a
      configuration.
    - **A graded rung is never in the fingerprint**, so `--grade-severity` leaves it at the path and
-     the claim exactly as the row above does. The bullet two up says a rung that moves between rounds
+     the claim exactly as the no-ladder bullet above does. The bullet that puts a reviewer's rung in
+     the key says a rung that moves between rounds
      is a fresh judgement worth re-reading, and that is true of a **reviewer's** rung, which moved
      because the reviewer changed its mind about the code. A grader's rung can move because it was
      asked twice, and putting it in the key would make the same unchanged finding look new every
@@ -745,8 +746,9 @@ guess and is recorded as one; see `## Unexercised paths`.
      waste this whole step exists to prevent.
    - **That rule is written for a graded rung and is deliberately not scoped to one.** On a
      reviewer's own ladder a moved rung already changes the fingerprint, so such a finding arrives as
-     new and is read again without it — which is how the bullet three up can say a reviewer's rung is
-     part of the identity while the one above says a grader's is not. It therefore fires in practice
+     new and is read again without it — which is how the bullet that puts a reviewer's rung in the key
+     can say it is part of the identity while the bullet that keeps a graded rung out says a grader's
+     is not. It therefore fires in practice
      only under `--grade-severity`, and writing it as a graded-only exception would make it read as a
      property of the flag rather than of the floor.
 
@@ -764,8 +766,9 @@ guess and is recorded as one; see `## Unexercised paths`.
    for the reason step 1 aborts on `--accept-at` without a ladder and without the flag.
 
    **Ordering by a graded rung is a convenience and never a filter**, and the difference is the
-   invariant three paragraphs down: every finding is carried into step 9 whatever its rung, so the
-   only thing the order changes is which gets read first. That is worth saying because it is the one
+   invariant the batching rule below carries: every finding reaches a bucket whatever its rung — "not
+   every finding above the floor" — so the only thing the order changes is which gets read first.
+   That is worth saying because it is the one
    place a graded rung touches reading at all, and a rank that decided what was read would be the
    grader deciding the work after all.
 
@@ -833,7 +836,7 @@ guess and is recorded as one; see `## Unexercised paths`.
    | The command failed, or returned nothing at all                                            | **abort** (`review-command-failed`)    | Print the exit status and the output. Suspect the command string in the step-1 table      |
    | The output does not match the shape the card records                                      | **abort** (`unparsed-review-output`)   | **Never read this as clean.** Print what came back                                        |
    | Zero findings, from a `requiresPr` reviewer whose pull request this round did not confirm | **abort** (`unconfirmed-empty-review`) | Not a clean round. Confirm the pull request still exists, then re-run                     |
-   | No findings at all                                                                        | **finish (clean)**                     | Go to 10. Reached only once the three rows above have not matched                         |
+   | No findings at all                                                                        | **finish (clean)**                     | Go to 10. Reached only once the three abort rows have not matched                         |
    | Findings, but none above the acceptance floor                                             | continue                               | **Go to 9 to bucket them as `accepted`**, which falls through to 10. Never straight to 10 |
    | At least one **new** finding above the floor                                              | continue                               | Go to 9                                                                                   |
    | Every finding above the floor is a repeat                                                 | continue (once)                        | **Re-check each repeat against the tree**, then go to 9. If that fixes nothing, 9 aborts  |

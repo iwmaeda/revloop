@@ -231,9 +231,10 @@ that instruction coexist.
      no `severityMap`, abort with `reason=no-severity-map`** and print the native ladder, naming both
      ways out: type a native rung, or add the map. **Do not derive one from position.** A three-rung
      ladder does not say which of four canonical rungs its middle means, and reading it off the index
-     is the same act the row above forbids, performed one key over. **The condition is the reviewer's
-     shape and not the flags**, which is what makes `--grade-severity` reach a round at all: the row
-     two below refuses that flag against a reviewer that has a ladder, so a graded reviewer has none
+     is the same act the `no-severity-ladder` row forbids, performed one key over. **The condition is
+     the reviewer's shape and not the flags**, which is what makes `--grade-severity` reach a round at
+     all: the `grade-over-ladder` row refuses that flag against a reviewer that has a ladder, so a
+     graded reviewer has none
      — and with no ladder there is no map it could be missing and no correspondence for the loop to
      invent, because the grader answered in canonical words to begin with. Written as "the reviewer
      has no `severityMap`" this row matched **every** graded run, and since `--grade-severity`
