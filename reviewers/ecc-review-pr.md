@@ -61,6 +61,22 @@ run is the supported way to use this preset** — it supplies the check the conf
 for. Under the flag, run it on a branch whose pull request the remote loop opened, or that you opened
 by hand.
 
+**That check is narrower than "the reviewer had a target", and the difference is a hole this card
+opened by measuring one thing and claiming another.** Publishing establishes that a pull request
+exists; it establishes nothing about whether the reviewer could reach it. A checkout without
+`README.md`'s permission block produces the second kind of no-target, and on an ordinary run
+`unconfirmed-empty-review` cannot fire — the loop confirmed the pull request itself, that round — so a
+zero-finding result would reach step 8's clean row and the run would converge over a review that never
+happened.
+
+**What stopped it is that the blocked command answers in prose, and that is an observation rather than
+a guarantee.** Across four rounds the working ones opened by naming the pull request they had
+reviewed — its number, its title and its changed files — and the blocked one said instead that it
+could not confirm one existed. **So the shape this card records for the loop to match includes naming
+the target**, which is the only signal that survives the process boundary: nothing outside the
+subprocess can see whether `gh` answered. A result that does not name what it reviewed is
+`unparsed-review-output` and never a clean round.
+
 ## Measured
 
 ### From the first two runs
@@ -99,6 +115,23 @@ configuration.
   (`iwmaeda/revloop#22`). Its verification was file reads and cross-checks between agents.
   **Derived:** this is the same limitation `code-review.md` records for all five of its rounds, so it
   is a property of a `-p` subprocess in this environment rather than of either reviewer.
+- **Every working round opened by naming the pull request it had reviewed** — number, title and
+  changed files — and the blocked round said instead that it could not confirm one existed
+  (`iwmaeda/revloop#22`, four rounds). **Derived, and it is why this is in the recorded shape rather
+  than a note:** it is the only evidence the loop can have that the reviewer reached its target, since
+  nothing outside the subprocess can see whether `gh` answered, and on a publishing run
+  `unconfirmed-empty-review` has already been satisfied by the loop's own pull-request read.
+- **All three of the command's confidence words are emitted, as headings.** Rounds 2 and 3 returned
+  `## Important` and `## Advisory`; round 4 returned `## Critical` above them
+  (`iwmaeda/revloop#22`). **Derived:** they behave as section titles for a round's findings, and
+  three headings observed across four rounds is still not a ladder — nothing here establishes that
+  they are ordered rungs a floor could sit between, which is why `severityLevels` stays off this
+  card.
+- **Findings per round, and no repeat in any of them: 3, 10, 6 across rounds 2, 3 and 4, 19 findings,
+  19 distinct** (`iwmaeda/revloop#22`). Each round's findings were answered before the next ran.
+  **Derived:** this matches what `code-review.md` records for its own five rounds — 40 findings, 40
+  distinct — so across two reviewers and eight rounds the local loop's repeat suppression has never
+  had a repeat to suppress, and `repeat-findings` remains an abort nothing has entered.
 
 ### From the installed command
 

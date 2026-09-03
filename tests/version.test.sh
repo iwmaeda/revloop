@@ -27,16 +27,19 @@ echo "version:"
 # Reads a dotted path out of a JSON file. Array indices are plain integers:
 # JS object access on an array accepts them.
 #
-# The exit status separates the two ways a read comes back empty, because they
-# have different remedies and one message was printed for both: 0 means a value
-# was read — possibly the empty string, for a path this file does not carry —
-# and 2 means the file could not be loaded at all. `tests/validate-schema.mjs`
-# splits its own exits the same way and for the same reason: a file nobody could
-# open, reported as a file that disagreed, sends the reader to the wrong repair.
+# The exit status separates the three ways a read comes back empty, because each
+# sends the reader somewhere different and one message was printed for all of
+# them: 0 means a value was read — possibly the empty string, for a path this
+# file does not carry — 2 means the file is there and is not valid JSON, and 3
+# means there is no such file. `tests/validate-schema.mjs` splits its own exits
+# the same way and for the same reason. The 2-versus-3 split is the narrower
+# case and was worth making: a renamed manifest reported as a syntax error sends
+# somebody to look for a stray comma in a file that is not there.
 read_json() {
   node -e '
     let o;
-    try { o = require(process.argv[1]); } catch { process.exit(2); }
+    try { o = require(process.argv[1]); }
+    catch (e) { process.exit(e && e.code === "MODULE_NOT_FOUND" ? 3 : 2); }
     let v = o;
     for (const k of process.argv[2].split(".")) v = v == null ? v : v[k];
     console.log(v == null ? "" : v);
@@ -57,20 +60,26 @@ MANIFESTS=(
   "package-lock.json|version|run npm install --package-lock-only; do not edit it"
 )
 
-# Compares one dotted path against REF, prints one result line, and RETURNS the
-# verdict. It is a function rather than the body of the loop below so that the
+# Compares one dotted path against a reference, prints one result line, and
+# RETURNS the verdict. The reference is an argument rather than the global it
+# used to read, so the empty-reference guard below can be driven with one — a
+# subshell assignment could do it and shellcheck is right that a value set that
+# way is lost, which is the same class of mistake as the guard itself.
+#
+# It is a function rather than the body of the loop below so that the
 # checks at the end drive the same code the release check does: a second copy
 # could go on agreeing with the manifests after this one had stopped comparing
 # anything. It returns rather than only printing because the loop classified on
 # an `ok` prefix of a human-readable sentence, so rewording a message would have
 # moved the PASS/FAIL counts with nothing to catch it.
-check_version() { # check_version <label> <abs-path> <dotted-path> <remedy>
-  local label="$1" file="$2" path="$3" remedy="$4" got rc
+check_version() { # check_version <label> <abs-path> <dotted-path> <remedy> <reference>
+  local label="$1" file="$2" path="$3" remedy="$4" REF="$5" got rc
   got=$(read_json "$file" "$path"); rc=$?
-  if [ "$rc" -ne 0 ]; then
-    printf 'FAIL %s %s <unreadable> — the file could not be parsed as JSON\n' "$label" "$path"
-    return 1
-  fi
+  case $rc in
+    0) ;;
+    3) printf 'FAIL %s %s <absent> — there is no such file\n' "$label" "$path"; return 1 ;;
+    *) printf 'FAIL %s %s <unreadable> — the file is not valid JSON\n' "$label" "$path"; return 1 ;;
+  esac
   # Without this, a package.json that does not parse leaves REF empty, and every
   # other file that also fails to yield a value compares equal to it and is
   # reported as agreeing. The suite still fails on the semver row above, so the
@@ -107,8 +116,15 @@ else
 fi
 
 for entry in "${MANIFESTS[@]}"; do
-  IFS='|' read -r file path remedy <<< "$entry"
-  if line=$(check_version "$file" "$ROOT/$file" "$path" "$remedy"); then
+  IFS='|' read -r file path remedy extra <<< "$entry"
+  # A row with a field missing splits into an empty remedy and reads as an
+  # ordinary row with a blank remedy printed at the end of its FAIL line. Say so
+  # instead: the rows are hand-written and the failure is a typo, not a version.
+  if [ -z "$file" ] || [ -z "$path" ] || [ -z "$remedy" ] || [ -n "$extra" ]; then
+    FAIL=$((FAIL + 1)); printf '  FAIL malformed MANIFESTS row: %s\n' "$entry"
+    continue
+  fi
+  if line=$(check_version "$file" "$ROOT/$file" "$path" "$remedy" "$REF"); then
     PASS=$((PASS + 1))
   else
     FAIL=$((FAIL + 1))
@@ -142,7 +158,8 @@ classify() { # classify <label> <expected verdict: ok|fail> <check_version args.
   shift 2
   line=$(check_version "$@"); rc=$?
   SELF_LINE="$line"
-  if { [ "$want" = ok ] && [ "$rc" -eq 0 ]; } || { [ "$want" = fail ] && [ "$rc" -ne 0 ]; }; then
+  local verdict=ok; [ "$rc" -eq 0 ] || verdict=fail
+  if [ "$verdict" = "$want" ]; then
     PASS=$((PASS + 1)); printf '  ok   %s\n' "$name"
   else
     FAIL=$((FAIL + 1)); printf '  FAIL %s\n       got: %s\n' "$name" "$line"
@@ -150,26 +167,33 @@ classify() { # classify <label> <expected verdict: ok|fail> <check_version args.
 }
 
 classify "a disagreeing version is classified as a failure" fail \
-  'synthetic lockfile' "$STALE_DIR/package-lock.json" version 'regenerate it'
+  'synthetic lockfile' "$STALE_DIR/package-lock.json" version 'regenerate it' "$REF"
 expect "and the line names the version it found" "$SELF_LINE" '0.0.0-stale'
 expect "and the line names the remedy for that file" "$SELF_LINE" 'regenerate it'
 
 classify "an absent path is classified as a failure" fail \
-  'synthetic lockfile' "$STALE_DIR/package-lock.json" nosuchkey 'regenerate it'
+  'synthetic lockfile' "$STALE_DIR/package-lock.json" nosuchkey 'regenerate it' "$REF"
 expect "and reads as missing rather than as a version" "$SELF_LINE" '<missing>'
 
 classify "a file that is not JSON is classified as a failure" fail \
-  'synthetic lockfile' "$STALE_DIR/broken.json" version 'regenerate it'
+  'synthetic lockfile' "$STALE_DIR/broken.json" version 'regenerate it' "$REF"
 expect "and reads as unreadable rather than as missing" "$SELF_LINE" '<unreadable>'
 
 classify "an absent file is classified as a failure" fail \
-  'synthetic lockfile' "$STALE_DIR/gone.json" version 'regenerate it'
-expect "and reads as unreadable rather than as a mismatch" "$SELF_LINE" '<unreadable>'
+  'synthetic lockfile' "$STALE_DIR/gone.json" version 'regenerate it' "$REF"
+expect "and reads as absent rather than as unparseable" "$SELF_LINE" '<absent>'
+
+# The guard that refuses an empty reference, driven with the reference empty and
+# the read also empty — which is the only state where its absence would matter,
+# because "" = "" is the comparison that reports a broken file as agreeing.
+classify "an empty reference is classified as a failure, not as agreement" fail \
+  'synthetic lockfile' "$STALE_DIR/package-lock.json" nosuchkey 'regenerate it' ''
+expect "and names the reference as what is missing" "$SELF_LINE" 'package.json yielded no version'
 
 # An agreeing value must still classify as agreement, or every row above would
 # pass by never returning zero.
 classify "an agreeing version is classified as agreement" ok \
-  'this package.json' "$ROOT/package.json" version 'edit this file'
+  'this package.json' "$ROOT/package.json" version 'edit this file' "$REF"
 
 # The changelog's newest RELEASED heading, ignoring [Unreleased]. Before the
 # first release there is none, and that is not a failure — it is the state the
