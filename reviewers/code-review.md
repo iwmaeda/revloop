@@ -93,6 +93,31 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
   something will get those findings reasoned about statically. That is a property to record on the
   card rather than a fault: the reviewer said which parts it had verified and which it had not.
 
+### From the 0.6.0 runs
+
+**One run, on one commit, and it is here rather than in the section above because it was observed.**
+
+- **A push does not empty this reviewer's target.** On a branch pushed with `git push -u origin HEAD`,
+  with the upstream set to `origin/<topic>`, `HEAD` equal to it and the tree clean — the exact state
+  the derivation above predicts returns nothing — the command exited 0 after 1m56s and reviewed
+  `main..HEAD`: it named `tests/version.test.sh` as "the diff's only changed file", described the
+  comment rewrite and the two entries added to `MANIFESTS`, and traced `read_json`'s dot-split path
+  resolution against the committed lockfile (`iwmaeda/revloop#22`). **An empty target cannot produce
+  that description.** Zero findings did come back, which is what the derivation predicted, and they
+  came back for the opposite reason: nothing was wrong rather than nothing was read. **Derived:** the
+  local loop's after-convergence placement is now held by caution rather than by this reasoning — one
+  sample is not enough to move a placement whose failure mode is a run finishing clean over a diff
+  nobody read, and moving it would need the sample this card has always asked for and one more.
+- **The output shape follows the model pin.** This run returned prose and then a fenced JSON array,
+  `[]`, which is one of the two shapes the section below reads out of the binary; the five rounds above
+  returned the other one, and ran with no `--model` at all (`iwmaeda/revloop#22`). Same command, same
+  effort level, same repository, different model. **Derived:** the shape is not stable across
+  configurations, which is what `unparsed-review-output` is an abort rather than a loose parse for.
+- **1m56s, against the five rounds' 5m27s to 8m39s** (`iwmaeda/revloop#22`). **Derived:** this widens
+  no range, because the two samples are not comparable — those five reviewed 27 files and this reviewed
+  one — and what it establishes is that the wall clock is a property of the diff and not of the
+  command.
+
 ### From the installed command
 
 - **The structured reporting surface carries no severity field.** Its entries are a file, a line, a
@@ -135,15 +160,17 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
   replaces that (claude-code 2.1.233, 2026-09). **Derived:** on the unpushed topic branch this loop
   works on, the default resolves to the whole branch against the base, which is the scope the loop
   wants and the reason `command` carries no target argument.
-- **Derived from the same rule, and it is the reason the local loop publishes after convergence
-  rather than before each round: a push changes what this reviewer reviews, to nothing.**
-  `git push -u origin HEAD` gives the branch an upstream, so the first clause applies instead of the
-  second; `HEAD` then equals the upstream, so the range is empty; and the loop's commit step has just
-  left the tree clean, so the working-tree fallback finds nothing either. **A round run after a push
-  returns zero findings, and zero findings is what a clean review looks like** — the failure the
-  `unparsed-review-output` abort exists to prevent, arriving instead through a feature that looks
-  unrelated to reviewing. This is a property of the reviewer and is recorded here rather than in the
-  procedure, which reads it off `requiresPr`.
+- **Derived from the same rule, and it is why the local loop publishes after convergence rather than
+  before each round: a push was expected to change what this reviewer reviews, to nothing.**
+  `git push -u origin HEAD` gives the branch an upstream, so the first clause was expected to apply
+  instead of the second; `HEAD` then equals the upstream, so the range is empty; and the loop's commit
+  step has just left the tree clean, so the working-tree fallback was expected to find nothing either.
+  **The conclusion drawn was that a round run after a push returns zero findings, and zero findings is
+  what a clean review looks like** — the failure the `unparsed-review-output` abort exists to prevent,
+  arriving instead through a feature that looks unrelated to reviewing. **A run has since contradicted
+  it**; see `### From the 0.6.0 runs`. The derivation is kept rather than deleted because the placement
+  it produced is still the one shipped, and a reader owed the reason a placement exists is owed the
+  reason it no longer rests on what it was built from.
 - **It takes `--model`, and the shipped preset now uses it** (claude-code 2.1.233, 2026-09).
   **Derived:** this is the only lever the local loop has on what a round costs, since the command's
   own effort level moves the number of findings rather than the price of producing them. It is also
@@ -188,11 +215,11 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
   exists for is a partial fix, and this sample has none. **Nor has the case that re-opens one** — an
   acceptance whose graded rung rises above the floor — which needs a graded run, of which there have
   been none against this preset or any other.
-- **Whether the observed output shape is stable.** Five runs, same machine, same version, same
-  change.
-  A different effort level, a different model, or a different repository may return one of the two
-  declared shapes instead — which is exactly why the procedure aborts on a shape it does not
-  recognise rather than parsing loosely.
+- **How many shapes there are, now that the shape is known to move.** A different model returned the
+  other declared shape (`### From the 0.6.0 runs`), so "stable" is settled in the negative and the open
+  question is narrower and worse: whether the two declared shapes are all of them. A third shape would
+  reach `unparsed-review-output`, which is the safe direction, and nothing here says how often.
+  A different effort level and a different repository remain untried.
 - **Whether the ten-finding batch size ever binds.** The five observed rounds returned 9, 7, 6, 8 and
   10 — **the last exactly at the batch size**, so no second batch has been taken and the next round
   would probably have needed one.
@@ -202,7 +229,3 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
 - **The token cost of a round at any model.** This is the figure the whole local loop is shaped
   around and the one nothing here measures, before or after the pin. Until it exists, "sonnet is
   cheaper" is an inference from pricing and not a measurement of this reviewer.
-- **Whether a push really empties this reviewer's target.** The bullet above is derived from the
-  command's own target-resolution rule, read out of the installed command; **nobody has pushed a
-  branch and re-run it.** The procedure's publish placement rests on that derivation, so a run that
-  falsifies it is worth a pull request.

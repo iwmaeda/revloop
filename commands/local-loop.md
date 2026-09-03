@@ -488,15 +488,22 @@ guess and is recorded as one; see `## Unexercised paths`.
    | `requiresPr: true`    | **Here, before every round's review**        | The reviewer resolves the pull request itself, so it must exist and must track `HEAD` or the review reads a stale diff |
    | `requiresPr: false`   | **Once, after the loop converges** — step 10 | Pushing sets an upstream, and a reviewer that resolves its own target may resolve a different one once there is one    |
 
-   **The second row is not caution, it is the shipped default reviewer's measured behaviour.**
-   [`../reviewers/code-review.md`](../reviewers/code-review.md) records that `/code-review` takes a
-   range diff **against the upstream**, falling back to the base branch only when there is no
-   upstream, and additionally reads the working tree when the range is empty. After
-   `git push -u origin HEAD` the branch has an upstream, `HEAD` equals it, the range is empty, and
-   step 4 has just left the tree clean — so **publishing before the review turns the default reviewer
-   into a zero-finding round**, which this procedure would then read as a clean convergence. That is
-   the one failure this whole family of loops exists to prevent, reachable by adding a feature that
-   looks unrelated to it.
+   **The second row was written as the shipped default reviewer's measured behaviour, and it was not
+   measured — it was derived, and a run has since contradicted the derivation.**
+   [`../reviewers/code-review.md`](../reviewers/code-review.md) reads out of the installed command
+   that `/code-review` takes a range diff **against the upstream**, falling back to the base branch
+   only when there is no upstream, and additionally reads the working tree when the range is empty.
+   After `git push -u origin HEAD` the branch has an upstream, `HEAD` equals it, the range is empty,
+   and step 4 has just left the tree clean — so **publishing before the review was expected to turn
+   the default reviewer into a zero-finding round**, which this procedure would then read as a clean
+   convergence. **One run in exactly that state reviewed the branch against its base instead**, naming
+   the changed file and describing its diff; that card's `### From the 0.6.0 runs` records it.
+
+   **The placement does not move, and what holds it is now caution rather than that reasoning.** One
+   sample is not enough to relocate a step whose failure mode is a run finishing clean over a diff
+   nobody read — the failure this whole family of loops exists to prevent, reachable by adding a
+   feature that looks unrelated to it. **A placement resting on a stated derivation that a run has
+   contradicted is worse than one resting on stated caution**, so this says which it is.
 
    **The placement is read off `requiresPr` rather than given a flag of its own for the same reason
    the base branch is not guessed**: there is a fact that decides it, so nothing should be settable
@@ -1142,25 +1149,26 @@ A run that takes one should say so in the report and append a line to `.revloop/
 - **`repeat-findings`.** No sample. Five consecutive rounds have been observed against the
   `code-review` preset and **not one repeat occurred in any of them**, so the path this abort guards
   has never been entered — see [`../reviewers/code-review.md`](../reviewers/code-review.md).
-- **Publishing, at either placement.** No run has published. The after-convergence placement has
-  never opened a pull request, and the before-review placement has never pushed a round — which also
-  means **the narrowed `unconfirmed-empty-review` row has never been the reason a zero-finding round
-  was read as clean.** That row is the one place publishing makes an abort _stop_ firing, so it is
-  the one place this default could turn a caught failure into a missed one. **It is now the default
-  rather than a flag**, so that path is taken on every ordinary run rather than on the runs of
-  whoever opted in — the exposure went up and the evidence did not.
+- **Publishing, at the after-convergence placement.** The before-review placement has now pushed
+  rounds and opened a pull request (`iwmaeda/revloop#22`); step 10 has never run. **The narrowed
+  `unconfirmed-empty-review` row has still never been the reason a zero-finding round was read as
+  clean**, because no zero-finding round has arrived from a `requiresPr` reviewer. That row is the one
+  place publishing makes an abort _stop_ firing, so it is the one place this default could turn a
+  caught failure into a missed one, and it remains unobserved.
 - **`--no-publish`.** Never typed. It is the only route to using this command in a fork, on a remote
   that is not GitHub, or in a repository with no `origin`, and none of those has been driven either.
 - **`publish-unavailable`.** No sample. Four causes reach it — no `origin`, a non-GitHub remote, `gh`
   absent, `gh` unauthenticated — and **only that they all make `gh repo view` fail has been reasoned,
   not observed.** A cause that fails some other way would reach this run's publish step instead —
   step 5 or step 10 — where the failure is louder but later.
-- **`--review-model`, and the `sonnet` default.** The five measured rounds on
-  [`../reviewers/code-review.md`](../reviewers/code-review.md) ran on **whatever model that CLI
-  defaulted to**, with no `--model` in the command at all. So the finding counts, the wall clock and
-  the output shape recorded there describe a configuration this command no longer ships. **Nothing
-  measured stands behind the default**, and the direction of the error is not known either: a lighter
-  reviewer may return fewer findings because there are fewer to find, or because it found fewer.
+- **`--review-model` itself. The `sonnet` default has now been run** against both shipped presets
+  (`iwmaeda/revloop#22`), and the first thing it produced was a shape change: `/code-review` returned
+  a fenced JSON array under the pin where the five unpinned rounds on
+  [`../reviewers/code-review.md`](../reviewers/code-review.md) returned a `Findings (N):` list. So the
+  finding counts, the wall clock and the output shape recorded there still describe a configuration
+  this command no longer ships, and **the direction of the error is still not known**: a lighter
+  reviewer may return fewer findings because there are fewer to find, or because it found fewer. The
+  flag itself — any model other than the builtin — has never been typed.
 - **`no-model-boundary` and `unsafe-model-name`.** Neither abort has fired. The first is reachable
   today only by configuring a `skill` reviewer, or a `subprocess` one without the placeholder, and
   then typing the flag.
