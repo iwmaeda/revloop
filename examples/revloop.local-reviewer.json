@@ -21,6 +21,7 @@
       "kind": "local-command",
       "invoke": "subprocess",
       "command": "claude --model {reviewModel} -p \"/code-review medium\"",
+      "rateLimitPatterns": ["You've hit your session limit"],
       "expectedLatency": "5-9m",
       "status": "unverified"
     },
@@ -30,6 +31,7 @@
       "invoke": "subprocess",
       "command": "claude --model {reviewModel} -p \"/ecc:review-pr\"",
       "requiresPr": true,
+      "rateLimitPatterns": ["You've hit your session limit"],
       "expectedLatency": "5-12m",
       "status": "unverified"
     }

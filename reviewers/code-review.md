@@ -2,23 +2,25 @@
 
 The review command built into Claude Code, driven as a subprocess.
 
-| Field            | Value                                                   |
-| ---------------- | ------------------------------------------------------- |
-| `kind`           | `local-command`                                         |
-| `invoke`         | `subprocess` — the host forbids model invocation        |
-| `command`        | `claude --model {reviewModel} -p "/code-review medium"` |
-| `severityLevels` | **none** — the reporting surface carries no severity    |
-| `severityMap`    | **none** — there is no native ladder to map from        |
-| `requiresPr`     | `false`                                                 |
-| verdict on       | the command's stdout                                    |
-| `status`         | `unverified`                                            |
-| `lastChecked`    | 2026-09                                                 |
+| Field               | Value                                                              |
+| ------------------- | ------------------------------------------------------------------ |
+| `kind`              | `local-command`                                                    |
+| `invoke`            | `subprocess` — the host forbids model invocation                   |
+| `command`           | `claude --model {reviewModel} -p "/code-review medium"`            |
+| `severityLevels`    | **none** — the reporting surface carries no severity               |
+| `severityMap`       | **none** — there is no native ladder to map from                   |
+| `requiresPr`        | `false`                                                            |
+| `rateLimitPatterns` | `["You've hit your session limit"]` — carried, never observed here |
+| verdict on          | the command's stdout                                               |
+| `status`            | `unverified`                                                       |
+| `lastChecked`       | 2026-09                                                            |
 
 ```json
 {
   "kind": "local-command",
   "invoke": "subprocess",
   "command": "claude --model {reviewModel} -p \"/code-review medium\"",
+  "rateLimitPatterns": ["You've hit your session limit"],
   "status": "unverified"
 }
 ```
@@ -255,3 +257,12 @@ files.** They are here rather than in the section above because they were observ
 - **The token cost of a round at any model.** This is the figure the whole local loop is shaped
   around and the one nothing here measures, before or after the pin. Until it exists, "sonnet is
   cheaper" is an inference from pricing and not a measurement of this reviewer.
+- **The `rateLimitPatterns` this card ships was never observed on this command.** It was carried from
+  [`ecc-review-pr.md`](ecc-review-pr.md), where the notice was measured, on the reading that **both
+  presets drive the same binary** — `claude-code 2.1.233, 2026-09` — and that a session limit is the
+  host refusing to start work rather than anything either review command emits. **That reading is why
+  the key ships here and this bullet is under this heading rather than under `## Measured`**: a card
+  records what its reviewer was seen to do, and this reviewer has not been seen out of quota. What the
+  key buys if the reading holds is a named abort instead of `unparsed-review-output`; what it costs if
+  the reading is wrong is nothing, because a pattern that never matches leaves the behaviour that
+  existed before it.

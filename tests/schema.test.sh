@@ -138,6 +138,15 @@ reject "local-command without invoke"     '{"version":1,"reviewers":{"a":{"kind"
 reject "local-command without command"    '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"skill"}}}'
 reject "local-command with botLogin"      '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"skill","command":"x","botLogin":"a[bot]"}}}'
 reject "local-command with trigger"       '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"skill","command":"x","trigger":"@a review"}}}'
+# `cleanPatterns` STAYS OUT WHILE `rateLimitPatterns` CROSSED, and the pair is the
+# evidence that the split is still a rule rather than a habit. The local loop now
+# reads a rate-limit pattern -- step 8's first row matches one against the review
+# subprocess's stdout -- so the key has a consumer there and is accepted below. A
+# clean phrase has none: that loop's clean signal is that NO FINDING WAS PARSED,
+# so there is nothing for a phrase to match, and a key nothing reads is the defect
+# the kind split exists to prevent. It is also the one pattern in this file that
+# could turn a failure into a convergence, where a rate-limit pattern can only
+# ever abort.
 reject "local-command with cleanPatterns" '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"skill","command":"x","cleanPatterns":["^ok"]}}}'
 reject "local-command with markerTolerated" '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"skill","command":"x","markerTolerated":"verified"}}}'
 reject "unknown invoke"                   '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"exec","command":"x"}}}'
@@ -322,6 +331,13 @@ accept "a subprocess command, unpinned"   '{"version":1,"reviewers":{"a":{"kind"
 # --accept-at reaches the canonical pass only when a map exists.
 accept "a github reviewer with a map"     '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["P1","P2","P3"],"severityMap":{"P1":"critical","P2":"high","P3":"low"}}}}'
 accept "a local reviewer with a map"      '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p x","severityLevels":["CRITICAL","HIGH","MEDIUM","LOW"],"severityMap":{"CRITICAL":"critical","HIGH":"high","MEDIUM":"medium","LOW":"low"}}}}'
+
+# The key that crossed. Both shipped local presets now carry one, so this pins the
+# kind branch that used to reject it -- and the rejection above pins that its
+# sibling did not cross with it. Without both, "the kinds are separate" and "the
+# kinds share everything" look identical from the test suite.
+accept "a local reviewer with a rate limit" '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p x","rateLimitPatterns":["You'"'"'ve hit your session limit"]}}}'
+accept "a github reviewer with one too"     '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","rateLimitPatterns":["quota exceeded"]}}}'
 
 # A five-rung ladder cannot reach four canonical rungs without two rungs sharing
 # one, so MERGING is not the defect step 1 rejects -- collapsing every rung onto

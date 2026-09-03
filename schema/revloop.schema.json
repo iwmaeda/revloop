@@ -110,8 +110,7 @@
                   { "required": ["botLogin"] },
                   { "required": ["trigger"] },
                   { "required": ["markerTolerated"] },
-                  { "required": ["cleanPatterns"] },
-                  { "required": ["rateLimitPatterns"] }
+                  { "required": ["cleanPatterns"] }
                 ]
               }
             },
@@ -197,9 +196,13 @@
           "cleanPatterns": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Anchor these at the start. A reviewer's clean phrase often has a varying tail, so equality tests break."
+            "description": "github-comment only. Anchor these at the start. A reviewer's clean phrase often has a varying tail, so equality tests break. IT DID NOT CROSS TO local-command WHEN ITS SIBLING rateLimitPatterns DID, and the difference is which loop reads what. The local loop's clean signal is that NO FINDING WAS PARSED -- there is no phrase to match, so a clean pattern there would be a key with no consumer, which is the rule the sibling's crossing honours rather than bends: that key crossed because a step-8 row now reads it. A clean phrase would also be the one pattern in this file able to turn a failure into a convergence, where a rate-limit pattern can only ever abort."
           },
-          "rateLimitPatterns": { "type": "array", "items": { "type": "string" } },
+          "rateLimitPatterns": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "BOTH KINDS, READ FROM A DIFFERENT SURFACE IN EACH. The pull-request loop matches these against a bot comment's body; the local loop matches them against the review subprocess's STDOUT, which is the same surface it reads findings from. Both abort on a match and NEITHER RETRIES: the quota recovers with time, and another round spends the loop against a reviewer that cannot answer. Match the fixed part of the message and never a time or a count -- a reset time differs every round, so a pattern carrying one matches nothing. A PATTERN TOO LOOSE FAILS CLOSED. It can only turn one abort into another, because the row sits above the other three abort rows and far above the clean one, so nothing here can make a run finish clean over a review that did not happen; too tight and the reply falls to unparsed-review-output, which is where it fell before this key was readable locally at all. Used model-side only, like every other pattern in this file: it never reaches a shell or a jq program."
+          },
           "severityLevels": {
             "type": "array",
             "items": { "type": "string" },

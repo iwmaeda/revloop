@@ -215,20 +215,31 @@ list and how to fill it in from measurements.
 **A reviewer is one of two kinds.** `kind` is absent from every file written before the second kind
 existed, and absent means `github-comment`, so nothing that worked before changes meaning.
 
-| `kind`           | Required            | Also takes                                                         | May not carry                                                                  |
-| ---------------- | ------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| `github-comment` | `botLogin`          | `trigger`, `markerTolerated`, `cleanPatterns`, `rateLimitPatterns` | `invoke`, `command`, `requiresPr`                                              |
-| `local-command`  | `invoke`, `command` | `requiresPr`                                                       | `botLogin`, `trigger`, `markerTolerated`, `cleanPatterns`, `rateLimitPatterns` |
+| `kind`           | Required            | Also takes                                                         | May not carry                                             |
+| ---------------- | ------------------- | ------------------------------------------------------------------ | --------------------------------------------------------- |
+| `github-comment` | `botLogin`          | `trigger`, `markerTolerated`, `cleanPatterns`, `rateLimitPatterns` | `invoke`, `command`, `requiresPr`                         |
+| `local-command`  | `invoke`, `command` | `requiresPr`, `rateLimitPatterns`                                  | `botLogin`, `trigger`, `markerTolerated`, `cleanPatterns` |
 
 `displayName`, `severityLevels`, `severityMap`, `expectedLatency` and `status` belong to both. The separation is
 enforced by the schema rather than left to the reader, because a field the other kind's loop never
 reads is a setting that appears to work and does nothing.
 
-| Key          | Meaning                                                                                                                      |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `invoke`     | `subprocess` runs `command` as a shell command line and reads its stdout; `skill` invokes it in this session                 |
-| `command`    | The skill name, or the command line. Shown in the step-1 table before it runs and never pre-approved, exactly as `verify` is |
-| `requiresPr` | True when the command resolves an open pull request itself. It also decides where the local loop publishes — see below       |
+| Key                 | Meaning                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `invoke`            | `subprocess` runs `command` as a shell command line and reads its stdout; `skill` invokes it in this session                 |
+| `command`           | The skill name, or the command line. Shown in the step-1 table before it runs and never pre-approved, exactly as `verify` is |
+| `requiresPr`        | True when the command resolves an open pull request itself. It also decides where the local loop publishes — see below       |
+| `rateLimitPatterns` | What the reviewer says when it is out of quota. Matched against the subprocess's stdout; a match aborts the round            |
+
+**`rateLimitPatterns` belongs to both kinds and is read from a different surface in each** — a bot
+comment's body on the pull-request loop, the review subprocess's **stdout** on the local one — and
+both abort on a match **without retrying**: the quota recovers with time, and another round spends the
+loop against a reviewer that cannot answer. Match the fixed part of the message and never a reset time
+or a count, which differ every round. A pattern that is too loose **fails closed** — it can only turn
+one abort into another, because the row that reads it sits above the other aborts and far above the
+clean row — and one that is too tight leaves the reply falling to `unparsed-review-output`, which is
+where it fell before the key was read here at all. **`cleanPatterns` did not cross with it**: the
+local loop's clean signal is that no finding was parsed, so there is no phrase for it to match.
 
 **Prefer `subprocess`.** The reviewer's file reads land in its own context rather than the loop's, and
 it does not read the reasoning that produced the code under review. Some commands accept nothing else,
