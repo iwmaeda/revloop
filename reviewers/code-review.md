@@ -123,7 +123,7 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
   effort the report is instead one line per finding, a path and line followed by a summary, emitted
   after a tool call (claude-code 2.1.233, 2026-09). **Both observed runs returned a third shape that
   is neither**, which is recorded above. **Derived, and the reason step 8 of
-  [`../commands/review-loop-local.md`](../commands/review-loop-local.md) gives an unreadable result
+  [`../commands/local-loop.md`](../commands/local-loop.md) gives an unreadable result
   its own abort row:** a parser written against whichever shape its author saw returns **zero
   findings** against the others, and zero findings is what a clean review looks like.
 - **The command declines model invocation** — it is marked as startable by a person and not by the

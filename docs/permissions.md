@@ -8,15 +8,15 @@ This page is what to grant. Why the rules are shaped this way is in
 [`design-notes.md`](design-notes.md#permission-rules-and-fence-bytes).
 
 **Which rules you need depends on which command you run, and on how you run it.**
-`/revloop:review-loop` talks to GitHub and needs the whole list below. `/revloop:review-loop-local`
+`/revloop:remote-loop` talks to GitHub and needs the whole list below. `/revloop:local-loop`
 needs a strict subset — including four `gh` rules, since it pushes and opens a pull request by
 default.
 
-| Run                              | What it needs                                                                                                                             |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `review-loop-local`              | `Bash(git:*)`, plus `Bash(gh pr list:*)`, `Bash(gh pr create:*)`, `Bash(gh repo view:*)`, `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` |
-| `review-loop-local --no-publish` | `Bash(git:*)`. **No step calls `gh`** — it ends at a commit                                                                               |
-| `review-loop`                    | The whole list                                                                                                                            |
+| Run                       | What it needs                                                                                                                             |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `local-loop`              | `Bash(git:*)`, plus `Bash(gh pr list:*)`, `Bash(gh pr create:*)`, `Bash(gh repo view:*)`, `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` |
+| `local-loop --no-publish` | `Bash(git:*)`. **No step calls `gh`** — it ends at a commit                                                                               |
+| `remote-loop`             | The whole list                                                                                                                            |
 
 **A reviewer you point either command at may reach GitHub on its own account**: the shipped
 `ecc-review-pr` preset resolves a pull request, and a `skill`-invoked reviewer does that inside this
@@ -47,7 +47,7 @@ Put these in `.claude/settings.local.json` (per-developer, git-ignored) or `.cla
 }
 ```
 
-**`gh pr create` and `gh pr list` are listed separately because `review-loop-local` holds those two
+**`gh pr create` and `gh pr list` are listed separately because `local-loop` holds those two
 rather than the broad `Bash(gh pr:*)`**, which would pre-approve `gh pr merge` for a command that
 never merges.
 
@@ -72,7 +72,7 @@ permission system enforces. The blast radius is your working tree and the branch
 write. Two things bound it: neither procedure ever constructs a `--force` push, and step 1 aborts on
 a fork, so the branches are your own.
 
-**`review-loop-local` holds this rule too, and pushes with it unless `--no-publish`.** The same shape
+**`local-loop` holds this rule too, and pushes with it unless `--no-publish`.** The same shape
 applies to its four `gh` rules: the grants are present on every run, and it is the procedure rather
 than the permission system that keeps them within their purpose. That is why they are the narrow
 ones.

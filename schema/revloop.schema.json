@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/revloop.schema.json",
   "title": ".revloop.json",
-  "description": "Project configuration for revloop. Every field is optional; anything absent is auto-detected and shown in the resolved-configuration table with source=detected. Every key here has a consumer in commands/review-loop.md — a key with no consumer is a promise the procedure does not keep, so it is removed rather than left in place.",
+  "description": "Project configuration for revloop. Every field is optional; anything absent is auto-detected and shown in the resolved-configuration table with source=detected. Every key here has a consumer in commands/remote-loop.md — a key with no consumer is a promise the procedure does not keep, so it is removed rather than left in place.",
   "type": "object",
   "additionalProperties": false,
   "properties": {

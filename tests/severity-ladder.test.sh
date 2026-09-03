@@ -9,7 +9,7 @@
 # `permissions.test.sh` exists is that one already had, twice -- and nothing
 # compared these to each other.
 #
-# ONE OF THE NINE IS NOT PROSE. Step 10 of `commands/review-loop.md` carries the
+# ONE OF THE NINE IS NOT PROSE. Step 10 of `commands/remote-loop.md` carries the
 # ladder inside the grader's prompt, so a drift there does not merely misdescribe
 # the loop: it tells a subprocess to rank findings on a ladder the schema will
 # not accept back, and every rung it returns then trips the rung check as a
@@ -74,7 +74,7 @@ refute "every chain spells the schema's ladder" "$STRAY" "STRAY "
 
 # The executable copy, asserted by name. `-p` is what makes it the prompt rather
 # than one more sentence about the prompt.
-GRADER=$(grep -F 'Rank each finding' "$ROOT/commands/review-loop.md" || true)
+GRADER=$(grep -F 'Rank each finding' "$ROOT/commands/remote-loop.md" || true)
 expect "the grader's prompt exists"      "$GRADER" 'claude --model'
 expect "and it ranks on that ladder"     "$GRADER" "$LADDER"
 expect "and it is the prompt, not prose" "$GRADER" ' -p "'

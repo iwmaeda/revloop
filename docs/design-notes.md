@@ -11,7 +11,7 @@ its own — each had fixed bugs the others still had: a clean phrase matched for
 a prefix, a findings reader that trusted a field which is usually null, a failure token containing
 the success token as a substring, a wait loop that exited on a non-terminal signal, and a wait built
 on an endpoint that returns 404 while another serves the same data. Each of those is now a rule in
-[`../commands/review-loop.md`](../commands/review-loop.md)'s `## Notes`, stated with the failure it
+[`../commands/remote-loop.md`](../commands/remote-loop.md)'s `## Notes`, stated with the failure it
 answers.
 
 The differences that were _not_ bugs became the configuration surface. `.revloop.json`'s field list is
@@ -103,8 +103,8 @@ granted.
 
 ## The local loop is a second procedure, not a flag
 
-`review-loop-local.md` exists as its own file, and the alternative — a `--local` branch inside
-`review-loop.md` — was rejected using the argument that file already makes about `gh` feature
+`local-loop.md` exists as its own file, and the alternative — a `--local` branch inside
+`remote-loop.md` — was rejected using the argument that file already makes about `gh` feature
 detection: **two code paths halve the empirical coverage behind every claim, because any given run
 exercises only one.** That argument was about two ways of reaching the same outcome. Here the two are
 not the same outcome at all, which makes the split easier rather than harder to justify:
@@ -118,7 +118,7 @@ not the same outcome at all, which makes the split easier rather than harder to 
 | Permissions         | `gh` and `git`                                                                                         | `git`, plus four narrow `gh` rules                                 |
 | Where it ends       | A merged pull request, with `--merge`                                                                  | A commit; a pushed branch; an open pull request. **Never a merge** |
 
-**Roughly half of `review-loop.md` is machinery for a problem the local loop does not have.** The
+**Roughly half of `remote-loop.md` is machinery for a problem the local loop does not have.** The
 baseline timestamp, the trigger marker, the re-post budget, the two-trigger sweep, and the whole wait
 fence exist because a verdict arrives later, from elsewhere, possibly for someone else's trigger.
 Carrying that across would mean every one of those rules had to be re-read as "does this still apply?"
@@ -345,5 +345,5 @@ on. The floor itself is in [`install.md`](install.md#requirements).
 
 - [Permissions](permissions.md) — the rules this reasoning produces
 - [Configuration](configuration.md#what-is-deliberately-not-configurable) — what is fixed, and why
-- [`../commands/review-loop.md`](../commands/review-loop.md) — the procedure, and its per-step `## Notes`
-- [`../commands/review-loop-local.md`](../commands/review-loop-local.md) — the local procedure
+- [`../commands/remote-loop.md`](../commands/remote-loop.md) — the procedure, and its per-step `## Notes`
+- [`../commands/local-loop.md`](../commands/local-loop.md) — the local procedure

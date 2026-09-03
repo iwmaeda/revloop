@@ -9,8 +9,8 @@ AI によるレビューと修正のループを収束するまで繰り返す�
 
 コマンドは以下の2種が利用可能です。
 
-- `/revloop:review-loop`: リモート動作。レビュアー bot を GitHub 上で呼び出し、マージまで行える。
-- `/revloop:review-loop-local`: ローカル動作。個人の環境上で動作するレビューコマンドを利用する。
+- `/revloop:remote-loop`: リモート動作。レビュアー bot を GitHub 上で呼び出し、マージまで行える。
+- `/revloop:local-loop`: ローカル動作。個人の環境上で動作するレビューコマンドを利用する。
 
 **リモート動作のループは、レビュアーが既に応答することを前提にします。** 選択したレビュアー
 （codex・claude・gemini・カスタムのいずれか）の GitHub 連携がリポジトリにインストール済みで、
@@ -24,14 +24,14 @@ AI によるレビューと修正のループを収束するまで繰り返す�
 基本的な実行コマンドは以下の通りです。
 
 ```console
-/revloop:review-loop
-/revloop:review-loop --reviewer gemini --max-rounds 15
-/revloop:review-loop --merge --auto
+/revloop:remote-loop
+/revloop:remote-loop --reviewer gemini --max-rounds 15
+/revloop:remote-loop --merge --auto
 
-/revloop:review-loop-local
-/revloop:review-loop-local --no-publish
-/revloop:review-loop-local --review-model opus --max-rounds 3
-/revloop:review-loop-local --reviewer ecc-review-pr --accept-at HIGH
+/revloop:local-loop
+/revloop:local-loop --no-publish
+/revloop:local-loop --review-model opus --max-rounds 3
+/revloop:local-loop --reviewer ecc-review-pr --accept-at HIGH
 ```
 
 ## 動作の流れ
@@ -118,7 +118,7 @@ AI によるレビューと修正のループを収束するまで繰り返す�
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
 mkdir -p .agents/skills
 cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
-export REVLOOP_PROCEDURE=~/.revloop/commands/review-loop.md
+export REVLOOP_PROCEDURE=~/.revloop/commands/remote-loop.md
 ```
 
 Codex では権限は承認ポリシーとサンドボックスで制御します。詳細は [`docs/permissions.md`](docs/permissions.md) を参照してください。
@@ -161,7 +161,7 @@ maxRounds        10                                 builtin
 このフラグで**未修正のまま残してよい最上位の深刻度**を指定し、それより深刻度の高い指摘がすべて修正された時点でループは収束可能となります。
 
 ```console
-/revloop:review-loop-local --reviewer ecc-review-pr --accept-at high   # CRITICAL の解消が必須
+/revloop:local-loop --reviewer ecc-review-pr --accept-at high   # CRITICAL の解消が必須
 ```
 
 `--accept-at` に指定できる値は、`severityLevels` で指定されたモデル固有の深刻度か、 revloop で定義されている深刻度（`critical > high > medium > low`）のいずれかです。
@@ -170,7 +170,7 @@ Claude Code 組み込みの `code-review` プリセットは、severityLevels �
 そのような reviewer に対しては、 `--grade-severity` オプションを指定することで、別プロセスで起動する採点モデルに severity を推定させることができます。
 
 ```console
-/revloop:review-loop-local --accept-at high --grade-severity
+/revloop:local-loop --accept-at high --grade-severity
 ```
 
 ## 対応済みレビュアー

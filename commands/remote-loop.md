@@ -5,7 +5,7 @@ disable-model-invocation: true
 allowed-tools: Bash(gh api repos/{owner}/{repo}/:*), Bash(gh api -X POST repos/{owner}/{repo}/:*), Bash(gh api -X PUT repos/{owner}/{repo}/:*), Bash(gh api -X PATCH repos/{owner}/{repo}/:*), Bash(gh api --paginate repos/{owner}/{repo}/:*), Bash(gh api graphql:*), Bash(gh pr:*), Bash(gh repo view:*), Bash(git:*), Read, Edit, Write, Grep, Glob
 ---
 
-# revloop — the review-and-fix loop
+# revloop — the remote review-and-fix loop
 
 Carry the work tree's changes through **branch → verify → split commits → push → open a PR → trigger a
 reviewer → classify and fix its findings**, and repeat until the reviewer stops returning findings.
@@ -73,7 +73,7 @@ same thing — so a card carries it in its config block and says so under `## No
 
 **`--grade-severity` is the one way past a reviewer that emits no severity at all**, and it does not
 lift that rule so much as move the ranking off the party the rule is about. The grader is a separate
-subprocess on the builtin `sonnet` — [`review-loop-local.md`](review-loop-local.md)'s `--review-model`
+subprocess on the builtin `sonnet` — [`local-loop.md`](local-loop.md)'s `--review-model`
 moves it there, because that flag names the model that reviews and grading is part of reviewing rather
 than of fixing, and this command has no such flag because its reviewer is not a model it starts. It is
 **not told the floor**, it never sees this session, and it does not fix what it grades. Every rung it
@@ -194,7 +194,7 @@ that instruction coexist.
      verification ran" in the final report. **With `--merge`, abort instead** — do not merge code that
      nothing checked.
    - **If the resolved reviewer's `kind` is `local-command`, abort with
-     `reason=not-a-github-reviewer`** and name the command that does drive it: `review-loop-local`.
+     `reason=not-a-github-reviewer`** and name the command that does drive it: `local-loop`.
      **This check has to come before the `trigger` one below, and that ordering is the whole reason
      it exists.** The schema forbids a `local-command` reviewer from carrying a `trigger` at all, so
      such a reviewer fails the next check on every run — and read in the other order this row is
@@ -1157,7 +1157,7 @@ that instruction coexist.
     **Under `--grade-severity`, obtain the rungs before sorting.** Reached only by a reviewer that
     emits none — `reviewers/claude.md` is the shipped one — because step 1 refuses the flag against a
     reviewer that has a ladder. **The grader is specified here and nowhere else.** Step 7 of
-    [`review-loop-local.md`](review-loop-local.md) cites this paragraph rather than repeating it, and
+    [`local-loop.md`](local-loop.md) cites this paragraph rather than repeating it, and
     the only thing that differs there is the model: that command has `--review-model` and this one
     does not, so here the grader runs on the builtin `sonnet`.
 
@@ -1221,7 +1221,7 @@ that instruction coexist.
 
     - **If the grader process exited non-zero, abort with `reason=grading-command-failed`** and print
       the exit status and what came back. **This loop has no review command of its own, so the pair
-      it is modelled on is step 8 of [`review-loop-local.md`](review-loop-local.md)'s** —
+      it is modelled on is step 8 of [`local-loop.md`](local-loop.md)'s** —
       `review-command-failed` and `unparsed-review-output` — and it is a separate reason from the one
       below for the reason those are separate
       rows: a process that died and a process that answered unreadably are different repairs, and a

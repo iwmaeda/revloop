@@ -106,7 +106,7 @@ material the edit needs. Why the drop list cannot live in config is in
 ## Local command reviewers
 
 A reviewer that runs on your machine rather than on a pull request is `kind: "local-command"`, and it
-is driven by `/revloop:review-loop-local`. Nothing about it is measured on GitHub, so the checklist
+is driven by `/revloop:local-loop`. Nothing about it is measured on GitHub, so the checklist
 above does not apply; this one does.
 
 | Question                                                          | Where the answer goes                                                              |

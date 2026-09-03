@@ -1,10 +1,10 @@
 # revloop documentation
 
 Guides for installing, configuring, and extending revloop. The procedures the loops actually execute
-are [`commands/review-loop.md`](../commands/review-loop.md), which drives a reviewer on a pull
-request, and [`commands/review-loop-local.md`](../commands/review-loop-local.md), which drives a
-review command on your machine and ends at a pushed branch with a pull request open on it, or at a
-commit under `--no-publish`. These pages surround them.
+are [`commands/remote-loop.md`](../commands/remote-loop.md), which drives a reviewer on a pull
+request, and [`commands/local-loop.md`](../commands/local-loop.md), which drives a review command on
+your machine and ends at a pushed branch with a pull request open on it, or at a commit under
+`--no-publish`. These pages surround them.
 
 ## Get started
 

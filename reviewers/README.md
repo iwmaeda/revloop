@@ -9,10 +9,10 @@ silently false.
 A reviewer is one of two kinds, and the two are driven by different commands. `kind` is absent from
 every card written before the second kind existed, and absent means `github-comment`.
 
-| `kind`           | Driven by                       | How it is reached                                                   |
-| ---------------- | ------------------------------- | ------------------------------------------------------------------- |
-| `github-comment` | `commands/review-loop.md`       | A trigger comment on a pull request, answered by a bot              |
-| `local-command`  | `commands/review-loop-local.md` | A review command run on this machine, as a subprocess or as a skill |
+| `kind`           | Driven by                 | How it is reached                                                   |
+| ---------------- | ------------------------- | ------------------------------------------------------------------- |
+| `github-comment` | `commands/remote-loop.md` | A trigger comment on a pull request, answered by a bot              |
+| `local-command`  | `commands/local-loop.md`  | A review command run on this machine, as a subprocess or as a skill |
 
 The fields differ with the kind and the schema enforces the split: a `github-comment` card carries a
 `trigger`, a `botLogin` and a `markerTolerated`, and a `local-command` card carries an `invoke`, a

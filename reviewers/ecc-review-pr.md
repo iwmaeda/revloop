@@ -32,7 +32,7 @@ The `review-pr` command from the ECC plugin, driven as a subprocess.
 ```
 
 **This card records what the installed command declares, not what a run of it produced.** Nobody has
-driven `review-loop-local` with this reviewer, in either invocation.
+driven `local-loop` with this reviewer, in either invocation.
 
 **It shipped as `invoke: skill` and no longer does, and the reason is that a skill has no model
 boundary.** A skill runs in the loop's own session: on the loop's model, spending the loop's context.

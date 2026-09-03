@@ -6,7 +6,7 @@ set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-SRC="$ROOT/commands/review-loop.md"
+SRC="$ROOT/commands/remote-loop.md"
 # The slug and allowed-tools guards below apply to EVERY procedure, not only the
 # one that carries the fences. A second procedure grants its own allowed-tools
 # line, and a guard scoped to the first file would never read it.
@@ -22,6 +22,16 @@ echo "fence-guards:"
 # which made a claim in the changelog untrue about a third of its subject.
 if [ ! -f "${PROCS[0]}" ]; then
   FAIL=$((FAIL + 1)); printf '  FAIL commands/*.md matched no file\n'
+fi
+
+# extract-fences.sh --list fails when $SRC does not exist, but this script has no
+# `set -e`, so that failure is swallowed and IDS silently becomes empty. The for
+# loop below would then run zero times -- parsing, placeholder, repo-slug, jq-pipe,
+# globbing and hash-pinning checks all skipped with no FAIL and no note that
+# anything was skipped. This is the same failure class PROCS[0] above was fixed
+# for; IDS needs the same guard.
+if [ -z "$IDS" ]; then
+  FAIL=$((FAIL + 1)); printf '  FAIL extract-fences.sh --list produced no fence ids (missing %s?)\n' "$SRC"
 fi
 
 for id in $IDS; do
@@ -70,9 +80,9 @@ done
 # that reaches every repository your token can touch, once sat in the frontmatter
 # while three files explained why nobody should use it.
 #
-# EVERY procedure is read, because the grant is per file. review-loop-local.md
+# EVERY procedure is read, because the grant is per file. local-loop.md
 # grants a strictly smaller set and needs no gh rule at all; a guard that only
-# read review-loop.md would report on a file the user never installed alone.
+# read remote-loop.md would report on a file the user never installed alone.
 documented=$(grep -oE '"Bash\([^)]*\)"' "$ROOT/docs/permissions.md" | tr -d '"' | sort -u)
 for src in "${PROCS[@]}"; do
   name=$(basename "$src")
@@ -103,7 +113,7 @@ else
 fi
 
 # Every marker the procedure prints must carry the four keys the wait fence
-# reads by name. SCOPED TO $SRC ON PURPOSE: review-loop-local.md posts no
+# reads by name. SCOPED TO $SRC ON PURPOSE: local-loop.md posts no
 # comment and prints no marker, so a glob here would assert over a file that
 # has nothing to assert about and report a missing marker as a defect. `attempt=` is deliberately not in this list: it is absent on a
 # round's first trigger, which is the shape the reviewer card measured. A doc
