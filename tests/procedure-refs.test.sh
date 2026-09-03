@@ -24,8 +24,8 @@
 #   letter case        `[Ll]` let "LINE 132" and "LINES 334 and 371" pass
 #   the separator      a literal space let "line: 132", "line:132" and
 #                      "line number 132" pass
-#   the notation       matching only the word let "#L132", "review-loop.md:132"
-#                      and "review-loop.md: 132" pass
+#   the notation       matching only the word let "#L132", "remote-loop.md:132"
+#                      and "remote-loop.md: 132" pass
 #   the file cited     matching only `.md:` let "procedure-refs.test.sh:40"
 #                      pass, though the rule forbids citing any file by line
 #   the filename form  a 1-4 letter extension let "package.jsonc:12" pass, and
@@ -154,10 +154,10 @@ expect "a colon, no space"        "$(caught 'see line:132')"                    
 expect "the word number"          "$(caught 'see line number 132')"              CAUGHT
 expect "the abbreviation no."     "$(caught 'see line no. 132')"                 CAUGHT
 expect "the hyphenated word"      "$(caught 'see line-number 12')"               CAUGHT
-expect "a lowercase l anchor"     "$(caught 'blob/main/review-loop.md#l132')"    CAUGHT
-expect "a GitHub #L anchor"       "$(caught 'blob/main/review-loop.md#L132')"    CAUGHT
-expect "the path.md:N notation"   "$(caught 'commands/review-loop.md:132 has it')" CAUGHT
-expect "path.md, space after :"   "$(caught 'review-loop.md: 132 has it')"       CAUGHT
+expect "a lowercase l anchor"     "$(caught 'blob/main/remote-loop.md#l132')"    CAUGHT
+expect "a GitHub #L anchor"       "$(caught 'blob/main/remote-loop.md#L132')"    CAUGHT
+expect "the path.md:N notation"   "$(caught 'commands/remote-loop.md:132 has it')" CAUGHT
+expect "path.md, space after :"   "$(caught 'remote-loop.md: 132 has it')"       CAUGHT
 expect "a non-md path cited"      "$(caught 'tests/procedure-refs.test.sh:40')"  CAUGHT
 expect "a 5-letter extension"     "$(caught 'package.jsonc:12 says so')"         CAUGHT
 expect "an extensionless file"    "$(caught 'Dockerfile:40 sets it')"            CAUGHT
@@ -202,7 +202,7 @@ expect "an ISO timestamp"         "$(caught 'SINCE=2026-08-24T07:59:33Z')"      
 #
 # NORMALISE FIRST, MATCH SECOND. A line-based scan misses the citation that
 # motivated this: prettier wraps prose at 100 columns, and the one in step 1 of
-# review-loop.md broke as "the row" / "two below" across the wrap. Every one of
+# remote-loop.md broke as "the row" / "two below" across the wrap. Every one of
 # these can split at any space in it, so the file is unwrapped before the pattern
 # runs and the offending TEXT is reported instead of a line number -- which this
 # file may not print anyway.

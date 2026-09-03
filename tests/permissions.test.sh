@@ -44,7 +44,7 @@ echo "permissions"
 # The list is globbed rather than written out, because a procedure added without
 # being named here would be exempt from this whole file — which is the same
 # drift the file exists to catch, one level up. That is not hypothetical:
-# review-loop-local.md arrived as the second procedure and runs git.
+# local-loop.md arrived as the second procedure and runs git.
 PROCS=("$ROOT"/commands/*.md)
 DOC="$ROOT/docs/permissions.md"
 
@@ -198,7 +198,7 @@ expect "a quoted verb is rejected"      "$(canon "gh api -X 'DELETE' \"repos/x\"
 # frontmatter pre-approves every command starting with that word. That is why
 # the schema forbids a repository-supplied `command` from beginning with `git`
 # or `gh`, and why the review command and step 7's grader are kept out of
-# `allowed-tools` at all -- commands/review-loop-local.md and
+# `allowed-tools` at all -- commands/local-loop.md and
 # docs/permissions.md both call that absence the thing that makes the
 # permission system see them every round.
 #

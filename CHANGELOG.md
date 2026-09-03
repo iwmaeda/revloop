@@ -3,22 +3,29 @@
 All notable changes to this project are documented here.
 
 **Fence changes are called out explicitly.** The shell fences in
-[`commands/review-loop.md`](commands/review-loop.md) are matched by permission rules on their exact
+[`commands/remote-loop.md`](commands/remote-loop.md) are matched by permission rules on their exact
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
 ## [Unreleased]
 
 **No fence changed, so there is no re-approval to give.** The three shell fences in
-[`commands/review-loop.md`](commands/review-loop.md) are byte-identical and still match the hashes in
+[`commands/remote-loop.md`](commands/remote-loop.md) are byte-identical and still match the hashes in
 `tests/fence-hashes.txt`.
 
-**Three things ask something of you. The first two are permission rules to add, and both are about
-`/revloop:review-loop-local`.** It now
-**pushes and opens a pull request by default**, which means: add `Bash(gh pr create:*)` and
-`Bash(gh pr list:*)` to your permission rules — [`docs/permissions.md`](docs/permissions.md) has the
-full list — and **`gh` is now a requirement of that command**, where it previously needed nothing on
-GitHub at all. `--no-publish` is the run that still needs neither.
+**The two commands are renamed, and the old names are gone.** `/revloop:review-loop` is now
+`/revloop:remote-loop`, and `/revloop:review-loop-local` is now `/revloop:local-loop`. There is no
+alias and no deprecation window, because a name that still answers is a third and a fourth entry in
+the command list — which is the thing the rename exists to remove. What is asked of you is to retype
+the invocation, and **nothing else**: no flag, no default, no `.revloop.json` key and no permission
+rule moves, so a repository already configured for 0.5.0 needs no migration.
+
+**Three more things ask something of you. The first two are permission rules to add, and both are
+about `/revloop:local-loop`.** It now **pushes and opens a pull request by default**, which means:
+add `Bash(gh pr create:*)` and `Bash(gh pr list:*)` to your permission rules —
+[`docs/permissions.md`](docs/permissions.md) has the full list — and **`gh` is now a requirement of
+that command**, where it previously needed nothing on GitHub at all. `--no-publish` is the run that
+still needs neither.
 
 **Those two narrow rules are deliberately not the `Bash(gh pr:*)` the remote loop holds.** That rule
 covers `gh pr merge`. The local command has no merge step and no `--merge` flag, so it does not hold
@@ -103,7 +110,7 @@ Added:
   than through its command line** for the same reason `--body-file` carries a pull-request body:
   building an argv out of repository-derived text is a hole, and it also kept the string you approve
   from growing with the findings. The procedure specifies the grader **once**, in step 10 of
-  `commands/review-loop.md`, which the local loop now cites rather than restates.
+  `commands/remote-loop.md`, which the local loop now cites rather than restates.
 
   **A graded rung is kept out of step 7's repeat fingerprint**, because a grader's rung can move by
   being asked twice and putting it in the key would switch the repeat suppression off on precisely
@@ -132,9 +139,9 @@ Added:
   it starts. The grader's command line is this procedure's own rather than the repository's, but it
   carries a model, so it is no more a fence than the review command is.
 
-- **`/revloop:review-loop-local` carries the branch to a pull request.** The loop ended at a commit
+- **`/revloop:local-loop` carries the branch to a pull request.** The loop ended at a commit
   and left the branch for a person or for the remote loop; it now pushes it and opens a pull request,
-  reaching the place `/revloop:review-loop` starts from. **`--no-publish` ends the run at the commit**
+  reaching the place `/revloop:remote-loop` starts from. **`--no-publish` ends the run at the commit**
   and is the only flag on the feature — an earlier draft of this release had `--push` and `--pr` as
   opt-in flags instead, and inverting the default removed one flag, the "push but no pull request"
   middle state, and every rule that existed only to describe it. Neither flag ever reached a release,
@@ -213,6 +220,36 @@ Added:
 
 Changed:
 
+- **The two commands are named for where they run.**
+
+  | Was                             | Is                        |
+  | ------------------------------- | ------------------------- |
+  | `/revloop:review-loop`          | `/revloop:remote-loop`    |
+  | `/revloop:review-loop-local`    | `/revloop:local-loop`     |
+  | `commands/review-loop.md`       | `commands/remote-loop.md` |
+  | `commands/review-loop-local.md` | `commands/local-loop.md`  |
+
+  The old pair named the axis once. The remote command carried no word for where it ran, so the local
+  one read as a variant of it — and it is not one:
+  [`docs/design-notes.md`](docs/design-notes.md) argues at length that these are two procedures with
+  different reviewer classes and different scarce resources, one spending wall clock and the other
+  tokens. The names now carry that distinction instead of leaving it to the documentation.
+
+  **A command's name is its filename**, so this is a rename of the two files, of every reference to
+  them, and of each procedure's own title: the remote one read `# revloop — the review-and-fix loop`,
+  carrying the same silence about where it ran that its filename did. `.claude-plugin/plugin.json`
+  globs `./commands/`, so no manifest was edited and **the version is unchanged**.
+
+  **Nothing else moved.** The three fences are byte-identical — `tests/fence-hashes.txt` is untouched,
+  so there is no re-approval to give — and so is each procedure's `allowed-tools` line, every flag,
+  every default, and every key the schema accepts. The one thing to re-export is the Codex router's
+  entry point: it resolves `commands/remote-loop.md` now, so `REVLOOP_PROCEDURE` points at the new
+  path.
+
+  **The released sections below still say `review-loop`, and that is deliberate.** They record what
+  the files were called when each release was cut, so their prose is left as written; only the link
+  targets were moved, so a click from an August entry still lands on the file that entry is about.
+
 - **Both shipped local presets pin `{reviewModel}`, and `ecc-review-pr` moves from `invoke: skill` to
   `subprocess`.** A skill runs in the loop's own session, on the loop's model, spending the loop's
   context, and nothing inside a session can lower the model it is running on — so it was the one
@@ -252,7 +289,7 @@ Changed:
 ## [0.5.0] - 2026-09-02
 
 **No fence changed, so nothing here asks anything of you.** The three shell fences in
-[`commands/review-loop.md`](commands/review-loop.md) are byte-identical to 0.4.0 and still match the
+[`commands/review-loop.md`](commands/remote-loop.md) are byte-identical to 0.4.0 and still match the
 hashes in `tests/fence-hashes.txt`, which `tests/fence-guards.test.sh` reports on every run — so there
 is **no re-approval to give**. The granted rule list in
 [`docs/permissions.md`](docs/permissions.md) is unchanged as well, and the new command grants a
@@ -580,7 +617,7 @@ Changed:
 ## [0.4.0] - 2026-08-31
 
 **No fence changed, so nothing here asks anything of you.** The three shell fences in
-[`commands/review-loop.md`](commands/review-loop.md) are byte-identical to 0.3.0 and still match the
+[`commands/review-loop.md`](commands/remote-loop.md) are byte-identical to 0.3.0 and still match the
 hashes in `tests/fence-hashes.txt` — `tests/fence-guards.test.sh` reports all three matching, which is
 the evidence for this paragraph — so there is **no re-approval to give**. The granted rule list in
 [`docs/permissions.md`](docs/permissions.md) is unchanged too: the two new reads use

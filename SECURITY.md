@@ -26,13 +26,13 @@ thing.
   unless it matches `^[A-Za-z0-9][A-Za-z0-9._:-]*$`, so no whitespace, quote or shell metacharacter
   enters the string.
 - **One config field is executed.** A `local-command` reviewer's `command` is run by
-  `/revloop:review-loop-local`. It is constrained by schema, printed in full by step 1 before the
+  `/revloop:local-loop`. It is constrained by schema, printed in full by step 1 before the
   first round, and kept **out of `allowed-tools`** so the permission system sees it — the same three
   defences `verify` gets. **It is not a fence and must not become one**: a fence is safe because its
   bytes never change, and this string is per-project by construction.
 - **A `subprocess` command may not begin with `git`, with `gh`, or with the `{reviewModel}`
   placeholder.** A permission rule matches a command-string prefix, and
-  `/revloop:review-loop-local` grants `Bash(git:*)` for its own probe and four narrow `gh` rules for
+  `/revloop:local-loop` grants `Bash(git:*)` for its own probe and four narrow `gh` rules for
   publishing — so a repository-supplied command starting with either would run with **no prompt at all**,
   which is what "never pre-approved" exists to prevent. `git push --force` is the shape that matters.
   **"Begins with" is the whole rule**: `gitlint`, `git-review`, `git.exe`, `ghreview` and `gh.exe` are

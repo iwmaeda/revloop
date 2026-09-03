@@ -25,7 +25,7 @@ into dot-directories.
 
 ## The procedure is the product
 
-[`commands/review-loop.md`](commands/review-loop.md) is the single source of truth. It is read **in
+[`commands/remote-loop.md`](commands/remote-loop.md) is the single source of truth. It is read **in
 full** by an agent before it touches git, so:
 
 - **English only.** A second language guarantees drift, and drift in this file is a safety defect.

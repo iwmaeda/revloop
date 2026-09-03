@@ -16,9 +16,9 @@ source of truth; do not copy it into this skill and do not improvise a parallel 
 this order and stop at the first hit:
 
 1. `$REVLOOP_PROCEDURE`, if set.
-2. `../../../commands/review-loop.md` relative to this file — valid when revloop is installed as a
+2. `../../../commands/remote-loop.md` relative to this file — valid when revloop is installed as a
    plugin, because `.agents/plugins/marketplace.json` points at the repository root.
-3. The nearest `commands/review-loop.md` found by searching upward from the working directory.
+3. The nearest `commands/remote-loop.md` found by searching upward from the working directory.
 
 **If none resolve, stop and tell the user to set `$REVLOOP_PROCEDURE`.** Do not reconstruct the
 procedure from this file — it does not contain one.

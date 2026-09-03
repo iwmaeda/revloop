@@ -11,9 +11,9 @@ needs.
 
 Two commands are available:
 
-- `/revloop:review-loop` — remote. Summons a reviewer bot on GitHub, and can merge.
-- `/revloop:review-loop-local` — local. Uses a review command that runs on your machine, and opens the
-  pull request itself.
+- `/revloop:remote-loop` — remote. Summons a reviewer bot on GitHub, and can merge.
+- `/revloop:local-loop` — local. Uses a review command that runs on your machine, and opens the pull
+  request itself.
 
 **The remote loop assumes a reviewer that already answers.** Whichever reviewer you select — Codex,
 Claude, Gemini, or a custom preset — its GitHub integration must already be installed on the
@@ -27,14 +27,14 @@ light model by default** (`sonnet`, changed with `--review-model`). See
 The basic invocations are:
 
 ```console
-/revloop:review-loop
-/revloop:review-loop --reviewer gemini --max-rounds 15
-/revloop:review-loop --merge --auto
+/revloop:remote-loop
+/revloop:remote-loop --reviewer gemini --max-rounds 15
+/revloop:remote-loop --merge --auto
 
-/revloop:review-loop-local
-/revloop:review-loop-local --no-publish
-/revloop:review-loop-local --review-model opus --max-rounds 3
-/revloop:review-loop-local --reviewer ecc-review-pr --accept-at HIGH
+/revloop:local-loop
+/revloop:local-loop --no-publish
+/revloop:local-loop --review-model opus --max-rounds 3
+/revloop:local-loop --reviewer ecc-review-pr --accept-at HIGH
 ```
 
 ## How it works
@@ -123,7 +123,7 @@ Grant the permissions the work needs at the same time, by adding the following t
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
 mkdir -p .agents/skills
 cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
-export REVLOOP_PROCEDURE=~/.revloop/commands/review-loop.md
+export REVLOOP_PROCEDURE=~/.revloop/commands/remote-loop.md
 ```
 
 Codex controls permissions with an approval policy and a sandbox instead. The details are in
@@ -168,7 +168,7 @@ out, there is `--accept-at <level>`. It names **the highest severity that may be
 every finding above that level is resolved, the loop may converge.
 
 ```console
-/revloop:review-loop-local --reviewer ecc-review-pr --accept-at high   # only CRITICAL blocks
+/revloop:local-loop --reviewer ecc-review-pr --accept-at high   # only CRITICAL blocks
 ```
 
 The level you pass is either one of the reviewer's own severities, named in its `severityLevels`, or
@@ -178,7 +178,7 @@ The `code-review` preset built into Claude Code emits no `severityLevels`. For a
 `--grade-severity` has a grading model, run as a separate process, estimate the severity instead.
 
 ```console
-/revloop:review-loop-local --accept-at high --grade-severity
+/revloop:local-loop --accept-at high --grade-severity
 ```
 
 ## Built-in reviewers
