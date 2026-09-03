@@ -8,6 +8,7 @@ The `review-pr` command from the ECC plugin, driven as a subprocess.
 | `invoke`         | `subprocess`                                       |
 | `command`        | `claude --model {reviewModel} -p "/ecc:review-pr"` |
 | `severityLevels` | `["CRITICAL", "HIGH", "MEDIUM", "LOW"]`            |
+| `severityMap`    | the identity, case-folded onto the canonical rungs |
 | `requiresPr`     | **`true`** — it resolves a pull request first      |
 | verdict on       | the command's stdout                               |
 | `status`         | `unverified`                                       |
@@ -20,6 +21,12 @@ The `review-pr` command from the ECC plugin, driven as a subprocess.
   "command": "claude --model {reviewModel} -p \"/ecc:review-pr\"",
   "requiresPr": true,
   "severityLevels": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+  "severityMap": {
+    "CRITICAL": "critical",
+    "HIGH": "high",
+    "MEDIUM": "medium",
+    "LOW": "low"
+  },
   "status": "unverified"
 }
 ```
@@ -115,6 +122,15 @@ run; every bullet is read out of the command as installed.
   result. **Nothing here has been observed coming back.** If the shape turns out not to be stable,
   the honest move is `status: unsupported`, not a looser parse.
 - **Whether the confidence rule's three words ever appear in output at all.**
+- **Whether this card's `severityMap` is a real identity or only a spelling one.** It carries each
+  rung to the canonical rung of the same name, which makes it the one shipped map with nothing to
+  choose — the emitted ladder and the canonical ladder have the same four words in the same order.
+  **That is a fact about the two vocabularies and not a measurement of this reviewer**, and it is
+  worth separating from the stronger claim it resembles: that the agent's `HIGH` means what revloop's
+  `high` means is exactly as unestablished here as `P1` to `critical` is on the other cards. The map
+  is shipped anyway, because without one `--accept-at high` reaches `no-severity-map` against a
+  reviewer whose own ladder already spells the rung, which would be the flag failing at its easiest
+  case.
 - Findings per round, recurrence across rounds, rounds to converge, and tokens per round.
 - **What the six agents it dispatches run on.** The command is invoked with `--model`, and whether
   that reaches agents the command spawns for itself is not something reading the command establishes.

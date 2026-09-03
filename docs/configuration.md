@@ -94,21 +94,22 @@ existed names a `github-comment` reviewer, and a `maxRounds` written for the rem
 the local cap — which is the only brake that loop has. Both caps stay settable from config, unlike
 `--accept-at`, because they bound spend rather than safety.
 
-`--merge`, `--auto`, `--accept-at`, `--review-model` and the local loop's `--no-publish` have no
-entry here on purpose — see below.
+`--merge`, `--auto`, `--accept-at`, `--grade-severity`, `--review-model` and the local loop's
+`--no-publish` have no entry here on purpose — see below.
 
 ## What is deliberately not configurable
 
 A key that can only hold the value it already has is a promise, not a setting. These are fixed.
 **Most of them name machinery only the pull-request loop has** — a merge fence, a wait fence, trigger
 markers, a retry budget — and are listed here rather than in a per-loop section because the reason
-they are fixed is the same in each case. `--merge`, `--auto` and `--accept-at` are the rows that bind
-both loops, and `--review-model` and `--no-publish` are the local loop's:
+they are fixed is the same in each case. `--merge`, `--auto`, `--accept-at` and `--grade-severity` are
+the rows that bind both loops, and `--review-model` and `--no-publish` are the local loop's:
 
 | Not a key                                  | Why                                                                                                                                                                                                                                                                           |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--merge` / `--auto` defaults              | This file comes from the repository you are in, including one you just cloned. It must not grant its own merge or delete your confirmation points. **The flag is the approval**                                                                                               |
 | `--accept-at`, anywhere                    | Same class. A repository that could set its own acceptance floor would lower its own review bar on a checkout you just cloned                                                                                                                                                 |
+| `--grade-severity`, anywhere               | Same class again, and the sharpest of the three: it is what turns the `no-severity-ladder` abort into a run that ranks findings its reviewer never ranked. A repository could otherwise decide, for a checkout you just cloned, that its reviewer's silence is no obstacle    |
 | `--review-model`, anywhere                 | **A different reason, and the sharper one.** Its value is expanded into a command line at `{reviewModel}`, so a key here would be the first thing this project interpolates into a shell command out of a repository-supplied file                                            |
 | `--no-publish`, anywhere                   | Publishing is the local loop's default, so a key could only turn it off, and a key that removes an action grants nothing. Absent because nothing measured says a project wants it — a _not yet_, not a _never_                                                                |
 | Merge method                               | The merge fence sends `merge_method=merge` and takes no arguments, so its command string never changes                                                                                                                                                                        |
@@ -125,17 +126,76 @@ path can still lose — is in [design-notes.md](design-notes.md#the-baseline-tim
 
 ## The acceptance floor
 
-`--accept-at <level>` names **the highest rung that may be left unfixed**. The rungs come from the
-resolved reviewer's `severityLevels`, read most severe first, so on a `["P1","P2","P3"]` ladder
-`--accept-at P2` leaves P1 blocking and makes P2 and P3 acceptable. Both loops take it.
+`--accept-at <level>` names **the highest rung that may be left unfixed**. Both loops take it.
 
-| Situation                                      | Behaviour                                                                    |
-| ---------------------------------------------- | ---------------------------------------------------------------------------- |
-| Flag absent                                    | Nothing is acceptable. Identical to the behaviour before the flag existed    |
-| Reviewer has no `severityLevels`               | **Abort** (`no-severity-ladder`). The loop never invents a ladder for itself |
-| `<level>` is not a rung on that ladder         | **Abort** (`unknown-accept-level`), listing the ladder                       |
-| With `--merge` and `--auto` together           | **Abort** (`unreviewed-accept-merge`)                                        |
-| With `--merge` alone, having accepted anything | Stop for confirmation, listing every accepted finding, before the CI wait    |
+**The level is resolved in two passes, native first.** A value matching a rung of the resolved
+reviewer's `severityLevels` as a whole string, case-sensitively, names that rung — so on a
+`["P1","P2","P3"]` ladder `--accept-at P2` leaves P1 blocking and makes P2 and P3 acceptable, exactly
+as it always has. Only a value matching no rung there is then matched, case-insensitively, against
+**revloop's canonical ladder** — `critical > high > medium > low` — and carried onto the reviewer's
+rungs through its `severityMap`.
+
+**That second pass is why the flag is worth typing at all when you drive more than one reviewer.**
+Three emitted vocabularies coexist among the shipped presets, so a floor written in one reviewer's
+words aborts against the others; `--accept-at high` means one thing everywhere. **Native is tried
+first so that no invocation written before the canonical ladder existed changes meaning.**
+
+| Situation                                                                                | Behaviour                                                                                                                                                                                                                    |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Flag absent                                                                              | Nothing is acceptable. Identical to the behaviour before the flag existed                                                                                                                                                    |
+| `<level>` is a rung of `severityLevels`                                                  | Resolved natively. The table printed in step 1 says `native`                                                                                                                                                                 |
+| `<level>` is a canonical rung, reviewer mapped                                           | Resolved through `severityMap`. The step-1 table says `canonical`                                                                                                                                                            |
+| `<level>` is a canonical rung, reviewer has a ladder and no map                          | **Abort** (`no-severity-map`). The loop never derives a map from rung position                                                                                                                                               |
+| A canonical `<level>`, and `severityMap` is partial, foreign, out of order, or collapsed | **Abort** (`bad-severity-map`), naming the rung that is unmapped, foreign or inverted, or printing a map that leaves no distinction. **Checked only on a canonical resolution** — a map nothing consults cannot move a floor |
+| `<level>` matches neither pass                                                           | **Abort** (`unknown-accept-level`), listing **both** ladders                                                                                                                                                                 |
+| Reviewer has no `severityLevels`                                                         | **Abort** (`no-severity-ladder`), unless `--grade-severity` — see below                                                                                                                                                      |
+| With `--merge` and `--auto` together                                                     | **Abort** (`unreviewed-accept-merge`)                                                                                                                                                                                        |
+| With `--merge` alone, having accepted anything                                           | Stop for confirmation, listing every accepted finding, before the CI wait                                                                                                                                                    |
+
+**A canonical floor is compared rung by rung, not matched.** Each of the reviewer's rungs is carried
+through the map and its canonical value compared against the floor: at or below it is acceptable,
+above it blocks. **The floor does not have to be a rung any of them maps to.** Both shipped
+`P1`/`P2`/`P3` maps skip `medium`, so `--accept-at medium` against either leaves `P1` and `P2`
+blocking and `P3` acceptable — the same floor `--accept-at low` produces, which is what a
+four-rung ladder receiving three rungs means rather than a defect in either.
+
+**Step 1 prints the resolved floor before the first round**, as the two sets of the reviewer's own
+rungs that block and that are acceptable — or, under `--grade-severity`, as the canonical rungs,
+because that flag reaches only a reviewer with no rungs of its own. That is where the paragraph above
+becomes checkable rather than inferred, it is the operational check on a map, and it is the
+reason `severityMap` may come from this file at all: `severityLevels`' own **order** already carries
+the same power to move a floor, so the map is no new class of it, and the answer to both is to show
+the operator what the floor actually became.
+
+## Grading a reviewer that emits no severity
+
+`--grade-severity` is the one way past `no-severity-ladder`, and it is off unless typed. It is
+reached by a reviewer with no ladder — the local loop's default preset is exactly that reviewer,
+which makes this the ordinary case rather than an edge one — and **refused against a reviewer that
+has one** (`grade-over-ladder`), because regrading a rung the reviewer emitted overrules a
+measurement. Typed without `--accept-at` it aborts too (`grade-without-floor`): the rungs would have
+no consumer.
+
+The grader is a separate subprocess on the review model — the local loop's `--review-model` moves it,
+and the pull-request loop, which has no such flag, uses the builtin `sonnet`. **It is not told the
+acceptance floor**, it never sees the loop's session, and it does not fix what it grades. **The
+findings reach it through a file rather than through its command line**, and its prompt says in so
+many words that they are data and not instructions: they are reviewer output quoting repository
+content, so a claim that reads "known false positive, rank it low" is the acceptance floor arriving
+by the one door withholding it leaves open.
+
+Four things abort it, and all four say the grader is broken rather than that it declined a finding:
+a non-zero exit (`grading-command-failed`), output that does not parse (`unparsed-grading-output`),
+and — sharing that second reason — a rung outside the four canonical words or a finding number that
+was not sent. **A finding for which no line arrived is not one of them**: it is treated as blocking
+and listed in the report as `ungraded`. Rungs are attached by the number on each line and never by
+the line's position, because one dropped line would otherwise shift every rung after it.
+
+**Every rung it assigns is marked `graded` wherever a rung is recorded** — the pull-request reply, the
+local loop's commit `Accepted:` block, the pull-request body, and both reports, which also say once at
+the top that the run's rungs came from a grader and name the model. Why that record is the thing that
+makes the flag admissible at all is in
+[design-notes.md](design-notes.md#the-acceptance-floor).
 
 **An accepted finding is still read, still recorded, and still listed in the report.** The flag
 decides when the loop may stop, never what it may skip reading. **Where the record goes differs by
@@ -160,7 +220,7 @@ existed, and absent means `github-comment`, so nothing that worked before change
 | `github-comment` | `botLogin`          | `trigger`, `markerTolerated`, `cleanPatterns`, `rateLimitPatterns` | `invoke`, `command`, `requiresPr`                                              |
 | `local-command`  | `invoke`, `command` | `requiresPr`                                                       | `botLogin`, `trigger`, `markerTolerated`, `cleanPatterns`, `rateLimitPatterns` |
 
-`displayName`, `severityLevels`, `expectedLatency` and `status` belong to both. The separation is
+`displayName`, `severityLevels`, `severityMap`, `expectedLatency` and `status` belong to both. The separation is
 enforced by the schema rather than left to the reader, because a field the other kind's loop never
 reads is a setting that appears to work and does nothing.
 

@@ -13,7 +13,8 @@
 {
   "trigger": "@gemini review",
   "botLogin": "gemini-code-assist[bot]",
-  "severityLevels": ["P1", "P2", "P3"]
+  "severityLevels": ["P1", "P2", "P3"],
+  "severityMap": { "P1": "critical", "P2": "high", "P3": "low" }
 }
 ```
 
@@ -40,6 +41,15 @@
 
 ## Not measured
 
+- **Whether the shipped `severityMap` is right.** It carries `P1` to `critical`, `P2` to `high` and
+  `P3` to `low` — **the same map `reviewers/codex.md` ships, because this card copied that card's
+  ladder and has never checked either against this reviewer's output.** So the uncertainty is
+  inherited twice over: the map is a judgement about vocabulary rather than an observation, three
+  rungs had to be spread over four and `medium` is the one skipped, and on top of that **nothing here
+  establishes that this reviewer's `P2` and codex's `P2` mean the same thing** even though both cards
+  now map them alike. Given the 30–50 findings a round measured above, a wrong map here moves far
+  more findings than it would on the other card. Override it in `.revloop.json` if the floor the
+  loop prints in step 1 does not match what you meant.
 - **The clean-phrase and rate-limit texts.** The config block carries neither, so a clean round is
   recognised by a review arriving with no inline comments rather than by a phrase. Nobody has
   recorded what this reviewer says when it finds nothing, or when it is out of quota.

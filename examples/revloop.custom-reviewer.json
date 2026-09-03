@@ -22,6 +22,7 @@
       "cleanPatterns": ["^Acme Review: no issues found"],
       "rateLimitPatterns": ["quota exceeded", "rate limit"],
       "severityLevels": ["blocker", "major", "minor"],
+      "severityMap": { "blocker": "critical", "major": "high", "minor": "low" },
       "expectedLatency": "2-8m",
       "markerTolerated": "unverified",
       "status": "unverified"

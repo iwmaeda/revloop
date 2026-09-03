@@ -8,6 +8,7 @@ The review command built into Claude Code, driven as a subprocess.
 | `invoke`         | `subprocess` — the host forbids model invocation        |
 | `command`        | `claude --model {reviewModel} -p "/code-review medium"` |
 | `severityLevels` | **none** — the reporting surface carries no severity    |
+| `severityMap`    | **none** — there is no native ladder to map from        |
 | `requiresPr`     | `false`                                                 |
 | verdict on       | the command's stdout                                    |
 | `status`         | `unverified`                                            |
@@ -98,9 +99,14 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
   summary, a short summary, a failure scenario, an optional `category` slug, and an optional
   `verdict` of `CONFIRMED` or `PLAUSIBLE`; severity is expressed only as the order of the list, which
   is documented as most-severe first (claude-code 2.1.233, 2026-09). **Derived:** this card therefore
-  carries no `severityLevels`, and `--accept-at` aborts with `reason=no-severity-ladder` against it.
-  **That is the ordinary case for this reviewer and not an edge one**, which is worth saying plainly
-  because the acceptance floor is the feature people will reach for first. `verdict` is a
+  carries no `severityLevels` and no `severityMap`, and `--accept-at` aborts with
+  `reason=no-severity-ladder` against it unless `--grade-severity` is also typed. **That is the
+  ordinary case for this reviewer and not an edge one**, which is worth saying plainly because the
+  acceptance floor is the feature people will reach for first — and it is the reason
+  `--grade-severity` exists at all. **Derived, and it is the trap that flag has to avoid:** the
+  documented list order is the nearest thing to a severity signal this surface carries, and reading a
+  rank off it would be the loop supplying its own ladder from the reviewer's output shape. The grader
+  the flag starts does not read the order; it is handed the findings and ranks their claims. `verdict` is a
   **confidence** axis rather than a severity one and is deliberately not offered as a ladder: reading
   `PLAUSIBLE` as "less severe" would accept a confirmed-cheap finding and block an uncertain-serious
   one, which is the opposite of what the flag is for.
@@ -164,14 +170,24 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
   which. Re-running the five rounds under the pin is the single most useful measurement available.
 - **Convergence.** It was not reached, and this sample cannot say whether it is reachable. What is
   known is that five rounds did not reach it and that the count rose at the end. **What would settle
-  it is a run under `--accept-at`** — the floor is the mechanism for ending a loop the reviewer will
-  not end — and no such run has been made. That is the question most worth answering next, and the
-  one `status` turns on.
+  it is a run under `--accept-at --grade-severity`** — the floor is the mechanism for ending a loop
+  the reviewer will not end, and against this reviewer the floor needs the grader to have any rungs
+  to stand on — and no such run has been made. That is the question most worth answering next, and
+  the one `status` turns on. **It was not merely unmade before; it was unreachable**, because
+  `--accept-at` aborted against this preset, so the measurement this card has been asking for has
+  only now become possible to take.
+- **Everything about the grader.** Whether its rungs are ones a person would recognise, what a
+  grading pass costs on top of the round, whether it ranks the same unchanged finding the same way
+  twice, and how often it declines to rank one at all — **the local procedure treats an unranked
+  finding as blocking, and nothing here says how often that path is taken.** A graded convergence is
+  a weaker result than a reported one and the report says so; how much weaker is unmeasured.
 - **The token cost of a round** — the local loop's scarce resource. Nothing here measures it. The
   elapsed times above are wall clock, and the interesting thing about them is that they are **not**
   the difference between the two loops: they land inside the remote reviewer's measured range.
 - **Whether the repeat suppression ever fires.** Four transitions produced no repeats. The case it
-  exists for is a partial fix, and this sample has none.
+  exists for is a partial fix, and this sample has none. **Nor has the case that re-opens one** — an
+  acceptance whose graded rung rises above the floor — which needs a graded run, of which there have
+  been none against this preset or any other.
 - **Whether the observed output shape is stable.** Five runs, same machine, same version, same
   change.
   A different effort level, a different model, or a different repository may return one of the two

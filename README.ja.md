@@ -156,13 +156,22 @@ maxRounds        10                                 builtin
 
 ## 過剰なループの防止
 
-**LLM によるコードレビューでは些細な指摘が延々と出力されがちです。** そのような指摘によりループが不必要に長期化することを防ぐため、`--accept-at <level>` オプションが用意されています。
+**LLM によるコードレビューでは些細な指摘が延々と出力されがちです。**
+そのような指摘によりループが不必要に長期化することを防ぐため、`--accept-at <level>` オプションが用意されています。
+このフラグで**未修正のまま残してよい最上位の深刻度**を指定し、それより深刻度の高い指摘がすべて修正された時点でループは収束可能となります。
 
 ```console
-/revloop:review-loop-local --reviewer ecc-review-pr --accept-at HIGH   # CRITICAL だけがブロックする
+/revloop:review-loop-local --reviewer ecc-review-pr --accept-at high   # CRITICAL の解消が必須
 ```
 
-`--accept-at <level>` フラグで**未修正のまま残してよい最上位の深刻度（severityLevels）**を指定します。それより深刻度の高い指摘がすべて修正された時点でループは収束可能となります。
+`--accept-at` に指定できる値は、`severityLevels` で指定されたモデル固有の深刻度か、 revloop で定義されている深刻度（`critical > high > medium > low`）のいずれかです。
+
+Claude Code 組み込みの `code-review` プリセットは、severityLevels を出力しません。
+そのような reviewer に対しては、 `--grade-severity` オプションを指定することで、別プロセスで起動する採点モデルに severity を推定させることができます。
+
+```console
+/revloop:review-loop-local --accept-at high --grade-severity
+```
 
 ## 対応済みレビュアー
 

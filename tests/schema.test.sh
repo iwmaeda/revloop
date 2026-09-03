@@ -33,6 +33,55 @@ for f in "$ROOT"/examples/*.json; do
   fi
 done
 
+# --- the reviewer cards' own config blocks ---------------------------------
+#
+# The examples above are validated because they are shipped configuration. So
+# are the cards' config blocks, and nothing read them: `tests/` referenced
+# `reviewers/` from one place, `provenance.test.sh`, and that is checking a
+# citation grammar rather than a document. A card could ship a `severityMap`
+# without a `severityLevels`, a rung outside the canonical four, or a key the
+# schema does not know, and the suite stayed green while the block is the thing
+# a user pastes into `.revloop.json`.
+#
+# THE BLOCK IS A REVIEWER, NOT A CONFIG FILE, so it is wrapped in the two levels
+# the schema expects before validating. Wrapping is what makes the reviewer-level
+# rules -- `additionalProperties: false`, the kind discriminator, and the
+# `dependentRequired` that makes a map without a ladder impossible -- apply at
+# all; the block on its own would validate against nothing.
+#
+# A CARD WITH NO BLOCK IS SKIPPED, AND THE COUNT IS ASSERTED. `README.md` is not
+# a card and `copilot.md` is `unsupported` and carries no configuration, so an
+# empty extraction is legal per file and fatal in aggregate: a broken awk yields
+# nothing, every card is skipped, and the loop goes green having validated
+# nothing at all. The floor is the same guard the `allowed-tools` block in
+# `permissions.test.sh` states for the same reason.
+CARDS=0
+for card in "$ROOT"/reviewers/*.md; do
+  base=$(basename "$card")
+  block=$(awk '/^```json$/ { f = 1; next } /^```$/ { f = 0 } f' "$card")
+  [ -n "$block" ] || continue
+  CARDS=$((CARDS + 1))
+  printf '%s' "$block" > "$TMP/card.json"
+  if node -e '
+      const fs = require("fs")
+      const reviewer = JSON.parse(fs.readFileSync(process.argv[1], "utf8"))
+      fs.writeFileSync(process.argv[2], JSON.stringify({ version: 1, reviewers: { x: reviewer } }))
+    ' "$TMP/card.json" "$TMP/card.doc.json" 2>/dev/null; then
+    if v "$TMP/card.doc.json"; then
+      PASS=$((PASS + 1)); printf '  ok   %s config block validates\n' "$base"
+    else
+      FAIL=$((FAIL + 1)); printf '  FAIL %s config block does not validate\n' "$base"
+    fi
+  else
+    FAIL=$((FAIL + 1)); printf '  FAIL %s config block is not parseable JSON\n' "$base"
+  fi
+done
+if [ "$CARDS" -ge 4 ]; then
+  PASS=$((PASS + 1)); printf '  ok   %d card config blocks were found\n' "$CARDS"
+else
+  FAIL=$((FAIL + 1)); printf '  FAIL only %d card config blocks found; extraction is broken\n' "$CARDS"
+fi
+
 reject() { # reject <label> <json>
   printf '%s' "$2" > "$TMP/bad.json"
   if v "$TMP/bad.json"; then
@@ -71,6 +120,13 @@ reject "auto defaulted from config"  '{"version":1,"defaults":{"auto":true}}'
 reject "acceptAt defaulted from config"   '{"version":1,"defaults":{"acceptAt":"HIGH"}}'
 reject "acceptAt on a reviewer"           '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","acceptAt":"P2"}}}'
 
+# --grade-severity is the same class again, and it is the one that turns the
+# no-severity-ladder abort into a run that grades findings the reviewer did not.
+# A repository that could switch that on would decide, for a checkout you just
+# cloned, that its own reviewer's silence is no obstacle to converging.
+reject "gradeSeverity from config"        '{"version":1,"defaults":{"gradeSeverity":true}}'
+reject "gradeSeverity on a reviewer"      '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","gradeSeverity":true}}}'
+
 # --- the two reviewer kinds ------------------------------------------------
 #
 # The kinds share one object with additionalProperties:false, so every key of
@@ -91,6 +147,18 @@ reject "a skill name with a slash"        '{"version":1,"reviewers":{"a":{"kind"
 reject "a command with a newline"         '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p x\nrm -rf /"}}}'
 reject "an empty severityLevels ladder"   '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":[]}}}'
 reject "a ladder with a repeated rung"    '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["P1","P1"]}}}'
+
+# severityMap carries the native ladder onto revloop's canonical one, so a value
+# outside that ladder names a rung --accept-at can never be given, and a map with
+# no ladder to map FROM is a key with no consumer. None of the map's totality,
+# its ordering, or whether it collapses the whole ladder onto one canonical rung
+# is checkable here — the schema cannot read the other key's contents, and it
+# cannot compare values across keys it does not know the names of — so step 1
+# aborts on all three with reason=bad-severity-map, and these cases are all the
+# schema half can carry.
+reject "a map onto a rung off the ladder" '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["P1"],"severityMap":{"P1":"blocker"}}}}'
+reject "a map with no severityLevels"     '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityMap":{"P1":"critical"}}}}'
+reject "an empty severityMap"             '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["P1"],"severityMap":{}}}}'
 
 # The other direction: a github-comment reviewer may not carry the local keys.
 # Without this the two kinds would share every key and `kind` would be a label
@@ -247,5 +315,19 @@ accept "the shipped ecc-review-pr preset" '{"version":1,"reviewers":{"a":{"kind"
 # A command with no placeholder stays valid: it is simply not pinned by the
 # loop, and the step-1 table says so rather than pretending it is.
 accept "a subprocess command, unpinned"   '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review medium\""}}}'
+
+# The map belongs to both kinds, exactly as the ladder does, and the canonical
+# rungs are the only values it may name. The identity case is not a curiosity:
+# ecc-review-pr emits the canonical words already and still ships a map, because
+# --accept-at reaches the canonical pass only when a map exists.
+accept "a github reviewer with a map"     '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["P1","P2","P3"],"severityMap":{"P1":"critical","P2":"high","P3":"low"}}}}'
+accept "a local reviewer with a map"      '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p x","severityLevels":["CRITICAL","HIGH","MEDIUM","LOW"],"severityMap":{"CRITICAL":"critical","HIGH":"high","MEDIUM":"medium","LOW":"low"}}}}'
+
+# A five-rung ladder cannot reach four canonical rungs without two rungs sharing
+# one, so MERGING is not the defect step 1 rejects -- collapsing every rung onto
+# ONE is. The schema can tell neither apart, which is why the check is in step 1;
+# this case pins that the schema does not pre-empt the legal half of it either.
+# Nothing else here pins a ladder longer than the canonical one at all.
+accept "a five-rung ladder sharing a rung" '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["S0","S1","S2","S3","S4"],"severityMap":{"S0":"critical","S1":"high","S2":"high","S3":"medium","S4":"low"}}}}'
 
 summary "schema"

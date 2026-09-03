@@ -51,13 +51,21 @@ thing.
   anything.
 - **Fields are constrained by schema**: `botLogin` is pattern-matched, `trigger` rejects control
   characters and is length-capped.
-- **`--merge`, `--auto` and `--accept-at` have no configuration key.** Every other default can come
-  from `.revloop.json`; these cannot, because a repository that could set `auto` would delete both of
-  your confirmation points, one that could set `merge` would grant its own merge, and one that could
-  set `accept-at` would lower its own review bar while the run still reported a clean convergence.
-  **The flag is the approval**, so it has to come from the person typing it. `--review-model` has no
-  key either, for the separate reason above. `tests/schema.test.sh` asserts that every one of them is
-  rejected — `merge` and `auto` were a real hole, closed before the first release.
+- **`--merge`, `--auto`, `--accept-at` and `--grade-severity` have no configuration key.** Every other
+  default can come from `.revloop.json`; these cannot, because a repository that could set `auto`
+  would delete both of your confirmation points, one that could set `merge` would grant its own merge,
+  one that could set `accept-at` would lower its own review bar while the run still reported a clean
+  convergence, and one that could set `grade-severity` would decide on your behalf that its reviewer
+  emitting no severity is no obstacle to converging over unfixed findings. **The flag is the
+  approval**, so it has to come from the person typing it. `--review-model` has no key either, for the
+  separate reason above. `tests/schema.test.sh` asserts that every one of them is rejected — `merge`
+  and `auto` were a real hole, closed before the first release.
+- **`severityMap` does have a key, and the reason it is not in the list above is worth stating rather
+  than leaving to inference.** It maps a reviewer's rungs onto revloop's canonical ladder, so a
+  repository could in principle ship one that makes its own worst rung acceptable — but
+  `severityLevels`' own **order** has always carried exactly that power, so the map is no new class of
+  it. The mitigation covers both: **step 1 prints the resolved floor expanded**, as the sets of the
+  reviewer's own rungs that block and that do not, before the first round runs.
 - **The local loop's `--no-publish` has no key either, for a different reason.** Publishing is its
   default, so a key could only turn it **off**, and a key that removes an action grants nothing.
 - **Safety rules cannot be switched off from config.** `docs/configuration.md` lists everything that

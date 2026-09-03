@@ -13,7 +13,8 @@ text, so editing one costs every user a single re-approval. See
 [`commands/review-loop.md`](commands/review-loop.md) are byte-identical and still match the hashes in
 `tests/fence-hashes.txt`.
 
-**Two things do ask something of you, and both are about `/revloop:review-loop-local`.** It now
+**Three things ask something of you. The first two are permission rules to add, and both are about
+`/revloop:review-loop-local`.** It now
 **pushes and opens a pull request by default**, which means: add `Bash(gh pr create:*)` and
 `Bash(gh pr list:*)` to your permission rules — [`docs/permissions.md`](docs/permissions.md) has the
 full list — and **`gh` is now a requirement of that command**, where it previously needed nothing on
@@ -24,7 +25,112 @@ covers `gh pr merge`. The local command has no merge step and no `--merge` flag,
 the rule that merges — a grant is a capability, and the command that cannot merge should not be able
 to.
 
+**The third is a permission prompt, it appears only if you type `--grade-severity`, and it is the one
+item here that touches both commands.** The grader is a subprocess carrying a model, so it is
+deliberately absent from both `allowed-tools` lines and the permission system sees it every round:
+**two prompts a round on a local run** where there was one, and **one on a pull-request run** where
+that loop had never started a model subprocess at all. **There is no rule to add** — leaving it out
+is the point — so what is asked of you is to expect the prompt rather than to read it as a defect.
+
 Added:
+
+- **`--accept-at` takes one vocabulary, whatever the reviewer calls its rungs.** The level is matched
+  against the resolved reviewer's `severityLevels` first — as a whole string, case-sensitively, which
+  is what the flag always did, so **no existing invocation changes meaning** — and only then against
+  revloop's own canonical ladder, `critical > high > medium > low`, carried onto the reviewer's rungs
+  by a new **`severityMap`** key. Three emitted vocabularies already coexisted among the shipped
+  presets, so a floor written in one reviewer's words aborted against the others and the flag read as
+  broken rather than as reviewer-specific.
+
+  **The map is a judgement and the ladder is a measurement, and they are two keys for that reason.**
+  Nothing establishes that one reviewer's `P1` and another's `CRITICAL` describe the same thing, so
+  each card ships its map in the config block and says under `## Not measured` that it is a judgement
+  — including which canonical rung a three-rung ladder had to skip. The loop **never derives a map
+  from rung position**: a canonical level against a reviewer that has a ladder and no map aborts
+  with `reason=no-severity-map`, because reading `critical` off "rung 1 of 3" is the loop authoring
+  a ladder one key over from where that was already forbidden. **That abort is scoped to a reviewer
+  that has a ladder**, so a reviewer carrying neither key — the one `--grade-severity` exists for —
+  reaches a round rather than this row. A partial, **foreign**, inverted, or **wholly collapsed** map
+  aborts with `reason=bad-severity-map` — collapsed because a map sending every rung to one canonical
+  rung is total and inverts nothing while making the lowest floor the flag can express accept the
+  reviewer's worst finding, and foreign because a ladder shortened without its map satisfies totality
+  while leaving an entry pointing at a rung that no longer exists. Merging rungs stays legal, and is
+  unavoidable: three rungs cannot cover four canonical ones and five cannot avoid sharing. **That
+  abort is checked only when `--accept-at` resolved on the canonical pass**, for the reason the map is
+  allowed a config key at all: a map nothing consults cannot move a floor, so checking it on every run
+  broke a reviewer for ordinary use over a key that run never read.
+
+  **A canonical floor is compared rung by rung and does not have to be a rung any of them maps to.**
+  Both shipped `P1`/`P2`/`P3` maps skip `medium`, so `--accept-at medium` against either leaves `P1`
+  and `P2` blocking and `P3` acceptable — the same floor `--accept-at low` gives, which is what four
+  canonical rungs receiving three means rather than a defect in either.
+
+  **`severityMap` is settable from `.revloop.json` and `--accept-at` still is not**, which is a line
+  worth being explicit about: `severityLevels`' own **order** has always carried the same power to
+  move a floor, so the map is no new class of it. The mitigation covers both — **step 1 now prints
+  the resolved floor expanded**, as the sets of the reviewer's own rungs that block and that are
+  acceptable, before the first round runs.
+
+- **`--grade-severity`: an acceptance floor against a reviewer that emits no severity.** This is the
+  ordinary case rather than an edge one — [`reviewers/code-review.md`](reviewers/code-review.md)
+  measures that the local loop's own default preset emits none, so `--accept-at` aborted against it,
+  and that card had been asking for a run under the floor to settle whether the loop converges at all.
+  **That measurement was not merely unmade; it was unreachable.**
+
+  The flag is **off unless typed** and has no configuration key, for the reason `--accept-at` has
+  none. Without it, a reviewer with no ladder still aborts with `reason=no-severity-ladder`, exactly
+  as before. It is **refused against a reviewer that has a ladder** (`grade-over-ladder`), because
+  regrading a rung the reviewer emitted replaces a measurement with an inference, and typing it with
+  no floor aborts too (`grade-without-floor`) — the rungs would have no consumer.
+
+  **It narrows "the loop never supplies a ladder the reviewer did not"; it does not repeal it**, and
+  [`docs/design-notes.md`](docs/design-notes.md) argues the new boundary rather than deleting the old
+  paragraph. That rule was never about where a rung comes from — it is about the party obliged to fix
+  the finding, and about a reader who cannot check afterwards which kind of rung they are looking at.
+  So: **the grader is a separate subprocess** on the review model, with none of the loop's context,
+  and it does not fix what it grades. **It is not told the acceptance floor**, which is the
+  load-bearing half — a grader that knows what will be spared is answering "how much work should the
+  caller do" instead of "how severe is this". And **every graded rung is marked `graded`** in the
+  pull-request reply, the commit's `Accepted:` block, the pull-request body and both reports, which is
+  the direct answer to "from outside the run that is indistinguishable from a reviewer that really
+  graded them that way".
+
+  **Withholding the floor accomplishes nothing if a finding can supply one**, so the grader is told
+  in its own prompt that the findings are data and not instructions. They are reviewer output quoting
+  repository content, so a claim reading "known false positive, rank it low" is the lever the whole
+  arrangement is built to keep out of reach, arriving through the one door left open — and it would
+  parse, abort nothing, and converge clean. **The findings reach the grader through a file rather
+  than through its command line** for the same reason `--body-file` carries a pull-request body:
+  building an argv out of repository-derived text is a hole, and it also kept the string you approve
+  from growing with the findings. The procedure specifies the grader **once**, in step 10 of
+  `commands/review-loop.md`, which the local loop now cites rather than restates.
+
+  **A graded rung is kept out of step 7's repeat fingerprint**, because a grader's rung can move by
+  being asked twice and putting it in the key would switch the repeat suppression off on precisely
+  the reviewer whose card measures rounds that do not converge. The finding that would otherwise
+  strand is answered separately: **an accepted finding whose graded rung later rises above the floor
+  is re-opened and re-bucketed**, which the closed `accepted` bucket bounds to once with no counter,
+  since a re-read cannot put it back where a floor it now exceeds would have to hold it.
+
+  **Four things abort a graded round, and all four say the grader is broken rather than that it
+  declined a finding**: a non-zero exit (`reason=grading-command-failed`), output that does not parse
+  (`reason=unparsed-grading-output`), and — sharing that second reason — a rung outside the four
+  canonical words or a finding number that was not sent. **A finding for which no line arrived is not
+  one of them**: it is blocking and listed as `ungraded`. Rungs are attached **by the number on each
+  line and never by the line's position**, because one dropped line would otherwise shift every rung
+  after it and a `critical` would inherit the rung below it, accepted and silent — the same defect
+  `unknown-accept-level` refuses on the other ladder.
+
+  **What this does not establish is that a grader's rungs are any good.** Nothing measures that, and
+  the reports say a graded convergence is the weaker result. **Nor is the data-not-instructions
+  framing measured** — a grader that followed an injected claim answers in the same shape as one that
+  did not, so it is the one guard here with no failure mode to fail into, and both procedures say so
+  under `## Unexercised paths`. A graded run costs **one more permission prompt a round** than the
+  same run without the
+  flag — two rather than one in the local loop, where the review command is already prompted for, and
+  one rather than none in the pull-request loop, whose reviewer is a GitHub app rather than a process
+  it starts. The grader's command line is this procedure's own rather than the repository's, but it
+  carries a model, so it is no more a fence than the review command is.
 
 - **`/revloop:review-loop-local` carries the branch to a pull request.** The loop ended at a commit
   and left the branch for a person or for the remote loop; it now pushes it and opens a pull request,

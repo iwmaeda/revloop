@@ -185,4 +185,78 @@ expect "a word ending in -line"   "$(caught 'the deadline 3 days out')"         
 expect "read the last line only"  "$(caught 'do not read the last line only')"   MISSED
 expect "an ISO timestamp"         "$(caught 'SINCE=2026-08-24T07:59:33Z')"       MISSED
 
+# --- counted positional citations -----------------------------------------
+#
+# THE SAME DRIFT CLASS AS EVERYTHING ABOVE, ONE UNIT LARGER. A line number is a
+# copy of a fact that nothing pins and that every edit above it invalidates; so
+# is "the row two below". Five commits on one branch inserted rows into step 1's
+# abort ladder and bullets into step 7's fingerprint list, and four counted
+# citations written against the earlier order were left pointing at the wrong
+# thing -- silently, because the prose still reads.
+#
+# THE FIX IS TO NAME, NOT TO RECOUNT. A step has a number and CONTRIBUTING says
+# to cite it; a row and a bullet do not, so the stable address is what the target
+# says -- "the `grade-over-ladder` row", "the bullet that puts a reviewer's rung
+# in the key". Recounting produces a citation correct until the next insertion,
+# which is the state this guard exists to leave behind.
+#
+# NORMALISE FIRST, MATCH SECOND. A line-based scan misses the citation that
+# motivated this: prettier wraps prose at 100 columns, and the one in step 1 of
+# review-loop.md broke as "the row" / "two below" across the wrap. Every one of
+# these can split at any space in it, so the file is unwrapped before the pattern
+# runs and the offending TEXT is reported instead of a line number -- which this
+# file may not print anyway.
+#
+# WHAT IT DOES NOT CLOSE, stated because a guard read as total is worse than one
+# read as partial. Only the COUNTED forms are banned. "The row above" and "the
+# bullet above" are adjacent references, they appear correctly around eight times
+# across the two procedures, and two of the four defects were of exactly that
+# shape -- so this catches half of what it is named for and the other half stays
+# a matter of review. Banning them too would rewrite prose that is right far more
+# often than it is wrong; naming the target fixes both halves and only the
+# counted half can be mechanised.
+#
+# `step` IS DELIBERATELY NOT A UNIT HERE. Steps are numbered and citing one by
+# number is the rule, so "step 6 above" is correct prose and must stay writable.
+# The `\b` after the direction is what keeps "step 6 updates the body" from
+# reading as "step 6 up" -- the first shape this pattern got wrong.
+POSITIONAL='(rows?|bullets?|paragraphs?|items?|entry|entries)[[:space:]]+(one|two|three|four|five|six|seven|eight|nine|ten|[0-9]+)[[:space:]]+(above|below|up|down)\b|(one|two|three|four|five|six|seven|eight|nine|ten|[0-9]+)[[:space:]]+(rows?|bullets?|paragraphs?|items?|entry|entries)[[:space:]]+(above|below|up|down)\b'
+
+unwrap() { tr '\n' ' ' < "$1" | tr -s ' '; }
+
+placed() { # placed <text> -> CAUGHT | MISSED, over the same normalisation
+  if printf '%s' "$1" | tr '\n' ' ' | tr -s ' ' | grep -qiE "$POSITIONAL"; then
+    echo CAUGHT
+  else
+    echo MISSED
+  fi
+}
+
+for proc in "${PROCS[@]}"; do
+  HITS=$(unwrap "$proc" | grep -oiE "$POSITIONAL" | sed 's/^/POSITIONAL /') || true
+  refute "no counted positional citation in $(basename "$proc")" "$HITS" "POSITIONAL "
+done
+
+# The corpus holds none of these by construction, so every member needs a case.
+expect "unit then count, below"   "$(placed 'the row two below refuses it')"     CAUGHT
+expect "unit then count, up"      "$(placed 'the bullet three up says so')"      CAUGHT
+expect "count then unit, down"    "$(placed 'the invariant three paragraphs down')" CAUGHT
+expect "count then unit, above"   "$(placed 'once the three rows above match')"  CAUGHT
+expect "a digit rather than word" "$(placed 'the row 2 below refuses it')"       CAUGHT
+expect "singular unit"            "$(placed 'one entry above says otherwise')"   CAUGHT
+expect "wrapped across a newline" "$(placed 'at all: the row
+two below refuses that flag')"                                                   CAUGHT
+expect "capitalised"              "$(placed 'The Bullet Three Up says so')"      CAUGHT
+
+# The forms that must stay writable.
+expect "a step cited by number"   "$(placed 'see step 10 and step 11')"          MISSED
+expect "a step above"             "$(placed 'the guard step 6 above applies')"   MISSED
+expect "step N updates"           "$(placed 'so step 6 updates the body')"       MISSED
+expect "an adjacent row"          "$(placed 'the act the row above forbids')"    MISSED
+# shellcheck disable=SC2016
+expect "a named row"              "$(placed 'the `grade-over-ladder` row')"      MISSED
+expect "abort rows, no direction" "$(placed 'once the three abort rows have')"   MISSED
+expect "a count of rungs"         "$(placed 'on a ladder of two rungs or more')" MISSED
+expect "a count of findings"      "$(placed 'carry at most ten findings up to')" MISSED
+
 summary "procedure-refs"

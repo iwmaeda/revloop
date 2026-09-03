@@ -4,6 +4,15 @@
 # list are checked here — git subcommands, and the gh api verbs that each need
 # their own rule because a rule matches a prefix and the flag precedes the path.
 #
+# A THIRD AXIS SITS AT THE BOTTOM AND IS NOT A HALF OF THAT LIST. It reads the
+# procedures' own `allowed-tools` lines and holds them, and the doc's list, to
+# the binaries the schema forbids a repository-supplied review command from
+# beginning with. That is the grant side of the same prefix rule: a granted
+# binary the schema does not ban is a prefix a repository can occupy with no
+# prompt. Its own paragraph is above the block; the failure it answers is that
+# adding Bash(claude:*) to a frontmatter pre-approved the grader and both
+# shipped presets' review commands and nothing here went red.
+#
 # Copies drift, and this one has, twice. It was missing `switch` (step 2),
 # `fetch` (step 9's recovery row) and `ls-files` (step 3) when a review of this
 # repository looked; and step 6 later gained `-X PATCH`, after `gh pr edit`
@@ -182,5 +191,73 @@ expect "a doubled inner space is too"   "$(canon 'gh api -X  DELETE "repos/{owne
 expect "a doubled gh/api space is too"  "$(canon 'gh  api -X DELETE "repos/{owner}/{repo}/x"')"     UNCLASSIFIED
 expect "a tab between tokens is too"    "$(canon 'gh	api -X DELETE "repos/{owner}/{repo}/x"')"      UNCLASSIFIED
 expect "a quoted verb is rejected"      "$(canon "gh api -X 'DELETE' \"repos/x\"")"  UNCLASSIFIED
+
+# --- allowed-tools: which binaries a procedure pre-approves ----------------
+#
+# A permission rule matches a command-string PREFIX, so granting a binary in a
+# frontmatter pre-approves every command starting with that word. That is why
+# the schema forbids a repository-supplied `command` from beginning with `git`
+# or `gh`, and why the review command and step 7's grader are kept out of
+# `allowed-tools` at all -- commands/review-loop-local.md and
+# docs/permissions.md both call that absence the thing that makes the
+# permission system see them every round.
+#
+# NOTHING PINNED IT. Adding `Bash(claude:*)` to either frontmatter went green
+# while pre-approving the grader's own command line AND both shipped presets'
+# review commands, every one of which begins with `claude` -- a
+# repository-supplied string running unprompted, which is the exact hole the
+# git and gh prefix bans exist to close, reached from the grant side instead.
+#
+# So the granted set is compared against the schema's ban list rather than
+# against a name written here: a grant with no matching ban is a prefix a
+# repository can occupy unprompted. THE CHECK IS ONE-WAY ON PURPOSE. The schema
+# says its gh ban is deliberately wider than the grants that motivate it,
+# because a ban that lags its grants by one release is the hole itself -- so a
+# ban with no grant is the design, not a defect, and asserting equality would
+# fail the thing it guards.
+#
+# Read from the frontmatter alone, not the whole file: both procedures name
+# `Bash(gh pr:*)` in prose in order to say which rule they do NOT hold, and a
+# grep over the body would read that refusal as a grant -- the same scoping the
+# gh api half needed, for the same reason.
+frontmatter() { # every procedure's YAML frontmatter, and nothing else
+  for f in "${PROCS[@]}"; do
+    awk 'NR==1 { if ($0 != "---") exit; next } /^---$/ { exit } { print }' "$f"
+  done
+}
+
+bins() { # bins <text> -> the binary each Bash(...) rule grants, one per line
+  printf '%s' "$1" | grep -oE 'Bash\([^)]*\)' \
+    | sed -E 's/^Bash\(//; s/\)$//' | awk '{print $1}' | sed 's/:.*$//' | sort -u
+}
+
+GRANTED_BINS=$(bins "$(frontmatter)")
+DOC_BINS=$(bins "$(awk '/^```json$/{inj=1;next} /^```$/{inj=0} inj' "$DOC")")
+# The schema's ban list, read as data rather than restated here. {reviewModel}
+# is not a binary -- it is the placeholder ban, which exists because expansion
+# happens after a prefix is checked -- so the character class drops it here
+# instead of making it an exception in the comparisons below.
+BANNED_BINS=$(grep -oE '"\^\\\\s\*[A-Za-z][A-Za-z0-9_.-]*"' "$ROOT/schema/revloop.schema.json" \
+  | sed -E 's/^"\^\\\\s\*//; s/"$//' | sort -u)
+
+# All three must be non-empty. A broken extraction yields nothing, `comm` then
+# finds nothing ungranted, and both subset checks go green on no data -- the
+# same hole the two lists above guard against.
+expect "the frontmatter grants a binary"  "$(nz "$(printf '%s\n' "$GRANTED_BINS" | grep -c .)")" NONEMPTY
+expect "the doc grants a binary"          "$(nz "$(printf '%s\n' "$DOC_BINS"     | grep -c .)")" NONEMPTY
+expect "the schema bans a binary"         "$(nz "$(printf '%s\n' "$BANNED_BINS"  | grep -c .)")" NONEMPTY
+
+UNBANNED=$(comm -23 <(printf '%s\n' "$GRANTED_BINS") <(printf '%s\n' "$BANNED_BINS") | sed 's/^/UNBANNED /')
+refute "no procedure grants a binary the schema does not ban" "$UNBANNED" "UNBANNED "
+DOC_UNBANNED=$(comm -23 <(printf '%s\n' "$DOC_BINS") <(printf '%s\n' "$BANNED_BINS") | sed 's/^/UNBANNED /')
+refute "the doc grants no binary the schema does not ban"     "$DOC_UNBANNED" "UNBANNED "
+
+# bins() is a predicate and the corpus holds git and gh only, so it can witness
+# none of the grants that must be caught. These are the cases that pin it.
+expect "a model grant would be seen"     "$(bins 'allowed-tools: Bash(claude:*), Read')"                         claude
+expect "a verify grant would be seen"    "$(bins 'allowed-tools: Bash(npm run check:all)')"                      npm
+expect "a bare git rule reads as git"    "$(bins 'allowed-tools: Bash(git:*)')"                                  git
+expect "a scoped gh api rule reads gh"   "$(bins 'allowed-tools: Bash(gh api -X POST repos/{owner}/{repo}/:*)')" gh
+expect "a non-Bash tool is no binary"    "$(nz "$(bins 'allowed-tools: Read, Edit, Grep, Skill' | grep -c .)")"  EMPTY
 
 summary "permissions"

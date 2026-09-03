@@ -91,6 +91,13 @@ run — and an unused grant fails too, because it is a permission nobody needs. 
 compares the **whole** prefix, scoped path included; matching only the verb would let an off-scope
 call reduce to a rule that was never meant to authorize it.
 
+**It also holds both `allowed-tools` lines, and this list, to the schema's ban list**: a procedure may
+pre-approve only a binary that a repository-supplied review command is forbidden to begin with. That
+is what keeps the review command and the grader — both of which start with a model CLI — outside
+every grant, where the permission system sees them. **The check is one-way**: the schema's `gh` ban is
+deliberately wider than the grants that motivate it, so a ban with no grant is the design rather than
+a defect.
+
 ### Verify commands are not pre-approved
 
 `.revloop.json` supplies the verify commands, so they are repository-supplied strings. Listing them in
@@ -111,6 +118,39 @@ argument to it**. Step 1 therefore stops and shows the resolved command before t
 path, and **`--auto` does not suppress that stop** — a substitute for a permission prompt that a flag
 can delete is not a substitute. If you would rather have the prompt, configure the reviewer as a
 subprocess.
+
+### Nor is the grader's command, and it is procedure-owned rather than repository-supplied
+
+`--grade-severity` starts a grader subprocess per round — on **the local loop's** resolved review
+model, and on the builtin `sonnet` in the pull-request loop, which has no `--review-model` to move it
+— and it is treated like the review command in every way but one: **its command line comes from the
+procedure and never from `.revloop.json`.** A review command is what the operator chose to run and
+the step-1 table shows it before it runs; a grader the repository could choose would be a shell
+string nobody asked for, started under a flag whose whole purpose is to let findings go unfixed.
+Only the model is interpolated into it, through the same `{reviewModel}` resolution and the same
+`^[A-Za-z0-9][A-Za-z0-9._:-]*$` refusal — **in the local loop. The pull-request loop interpolates
+nothing**, because its model is the builtin, so that refusal has no input there and cannot fire.
+
+**The findings are the other thing that could reach that command line, and deliberately do not.**
+They are written to `.revloop/grading-input.txt` and redirected in, never concatenated into the `-p`
+argument. A finding's claim is reviewer output quoting repository content, so it carries whatever
+characters the repository carries — building an argv out of it is the same hole `--body-file` closes
+on the pull-request body and the pattern above closes on the model name, reached through the one
+string this page had not yet accounted for. The instruction stays fixed in the argument, the
+untrusted half arrives on standard input, and **the string you are prompted with therefore does not
+grow with the findings**, which is what keeps the prompt readable enough to be a real decision.
+
+**It is deliberately not a fence, for the reason the review command is not one**: a fence's "always
+allow" holds because its bytes never change, and this string carries a model. So it is absent from
+`allowed-tools`, the permission system sees it every round, and step 1 prints it in full and expanded
+— beside the review command in the local loop, and on its own in the pull-request loop, which has no
+review command to print it beside and where the grader is the only subprocess the run starts at all.
+**What that costs differs by loop, and the figure belongs to the loop
+rather than to the flag.** A local run with `--grade-severity` costs **two** prompts a round where it
+cost one — the review command and the grader. A pull-request run costs **one** where it cost none
+from a process it started, because its reviewer is a GitHub app; the flag is the only thing that puts
+a model subprocess in that loop at all. Both are the correct price for the string a graded run is
+most about.
 
 **A `subprocess` command may not begin with `git`, with `gh`, or with the `{reviewModel}`
 placeholder**, and the schema rejects all three. The local command grants `Bash(git:*)` for its own
@@ -191,18 +231,35 @@ disagree.
 
 ## Counting the prompts
 
-After the first approval the remote loop should reach zero prompts per round, because every fence
-takes no arguments and so has a permanently identical command string. **A local run is different by
-design**: its review command is prompted for every round, as `verify` is. **The string you are
-prompted with is the expanded one** — `{reviewModel}` already substituted — because that is the string
-that will run, and being shown a template while a different string executes is the failure the whole
-not-pre-approved rule is about.
+**Count them by string class rather than by loop, because a string class is what the permission
+system matches on.** Three exist, and only the first is covered by the rules above:
+
+| String                                             | Prompts                        | Why                                                           |
+| -------------------------------------------------- | ------------------------------ | ------------------------------------------------------------- |
+| A fence                                            | Once, at the first approval    | It takes no arguments, so its command string never varies     |
+| A verify command, or a `subprocess` review command | Every round it runs            | Repository-supplied. Pre-approving it is the hole             |
+| The grader, under `--grade-severity`               | Every round, in **both** loops | Procedure-owned, but it carries a model, so it is not a fence |
+
+**"Zero prompts per round" was never a property of the pull-request loop; it is a property of the
+fences.** A remote round runs the repository's verify commands exactly as a local round does — step
+11 returns to step 3 — and those are excluded from `allowed-tools` on purpose. This page used to say
+that loop reached zero, two sentences above saying the review command is prompted for "as `verify`
+is"; both cannot be true.
+
+**`--grade-severity` adds one prompt per round to whichever loop is running.** On a local run that is
+a second prompt beside the review command. On a pull-request run it is the first and only model
+subprocess that loop has ever started, because its reviewer is a GitHub app rather than a process.
+**The string you are prompted with is the expanded one** — `{reviewModel}` already substituted in the
+local loop, or the builtin `sonnet` in the pull-request loop, which has no such flag and interpolates
+nothing — because that is the string that will run, and being shown a template while a different
+string executes is the failure the whole not-pre-approved rule is about.
 
 Editing a fence costs every user one re-approval; the protocol is in
 [`../CONTRIBUTING.md`](../CONTRIBUTING.md#editing-a-shell-fence).
 
-If your install does not reach zero prompts on a remote run, that is a bug worth reporting — include
-the prompt text and the rule you granted.
+**A prompt for a fence is the bug worth reporting** — include the prompt text and the rule you
+granted. A prompt for a verify, review, or grader command is not one: those are the three strings
+this page keeps out of `allowed-tools` deliberately.
 
 ## Related docs
 
