@@ -185,7 +185,9 @@ outcome `.revloop/field-notes.md` records three times for the remote reviewer. `
   elapsed times above are wall clock, and the interesting thing about them is that they are **not**
   the difference between the two loops: they land inside the remote reviewer's measured range.
 - **Whether the repeat suppression ever fires.** Four transitions produced no repeats. The case it
-  exists for is a partial fix, and this sample has none.
+  exists for is a partial fix, and this sample has none. **Nor has the case that re-opens one** — an
+  acceptance whose graded rung rises above the floor — which needs a graded run, of which there have
+  been none against this preset or any other.
 - **Whether the observed output shape is stable.** Five runs, same machine, same version, same
   change.
   A different effort level, a different model, or a different repository may return one of the two

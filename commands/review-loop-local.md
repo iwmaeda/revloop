@@ -723,9 +723,35 @@ guess and is recorded as one; see `## Unexercised paths`.
      round it was re-graded — turning the repeat suppression off precisely on the reviewer whose
      card measures rounds that do not converge. **The rung is still recorded, still printed, and
      still decides the floor**; it is only kept out of the identity.
+   - **Keeping it out of the identity leaves one finding it can strand, and the record closes that.**
+     A finding accepted at a graded rung is accepted at a rung nothing else pins: the fingerprint
+     does not carry it, so the same finding re-graded above the floor in a later round has the same
+     key, counts as a repeat, and "do not reason about it again" leaves it accepted at the rung it
+     had before anybody graded it twice. **So: a repeat this run answered into the `accepted` bucket,
+     whose rung this round is above the floor, is not treated as answered.** Carry it into step 9
+     with both rungs and both round numbers recorded, and bucket it again. **The bucket is the record
+     of which side of the floor it was on** — an acceptance is available only at or below the floor —
+     so "accepted, and now above it" is the checkable spelling of "its rung has crossed the floor
+     upward since it was answered", and it needs no counter: **the re-read cannot leave it in the
+     `accepted` bucket, because that bucket is closed above the floor, so nothing can be re-opened
+     this way twice.** A grader that oscillates buys one re-read, not one per oscillation. **A rung
+     that moved downward re-opens nothing** — the finding was answered under the stricter reading
+     already, and re-reading it could only produce the answer it has. **A finding the grader declined
+     to rank is above every floor**, so it re-opens an acceptance exactly as a `critical` would.
+     **Re-reading every acceptance every round would also close this and was rejected on cost**:
+     under `--accept-at` the acceptances are most of the review, and re-reasoning them all is the
+     waste this whole step exists to prevent.
+   - **That rule is written for a graded rung and is deliberately not scoped to one.** On a
+     reviewer's own ladder a moved rung already changes the fingerprint, so such a finding arrives as
+     new and is read again without it — which is how the bullet three up can say a reviewer's rung is
+     part of the identity while the one above says a grader's is not. It therefore fires in practice
+     only under `--grade-severity`, and writing it as a graded-only exception would make it read as a
+     property of the flag rather than of the floor.
 
    **A finding whose fingerprint this run has already answered — fixed, declined, or accepted — is a
-   repeat.** Count it, list it, and **do not reason about it again**. Re-deriving a fix you already
+   repeat.** Count it, list it, and **do not reason about it again** — **with the one exception the
+   bullet above carves**: an acceptance whose rung is now above the floor was answered under a
+   reading that no longer holds, and is not a repeat for this purpose. Re-deriving a fix you already
    made, or a decline you already justified, is the second largest way this loop wastes tokens, and
    unlike the first it produces output that looks like work.
 
@@ -873,8 +899,13 @@ guess and is recorded as one; see `## Unexercised paths`.
    word apart, and the first now routes through step 9 rather than ending the run — but it still
    reaches 10 by step 9's fall-through, so a reader without this row lands there and finishes over
    unfixed blocking findings just the same. Splitting the clean row moved where that finish is
-   reached from; it did not remove the need for this one. **This row is also the one place
-   step 7's "do not reason about a repeat again" is suspended**: the repeat is being re-checked
+   reached from; it did not remove the need for this one. **This row is one of two places
+   step 7's "do not reason about a repeat again" is suspended, and the other is step 7 itself** — an
+   acceptance whose graded rung has risen above the floor is never suppressed to begin with, and it
+   reaches step 9 under this row and under the one above it alike, because step 7 carries every
+   finding through whatever its rung. **A re-opened acceptance is still a repeat for this table**:
+   the row above says a new _finding_, and it is not one — it is the same finding at a new rung,
+   which is what its unchanged fingerprint asserts. Here the repeat is being re-checked
    precisely because the reviewer disagrees that it was answered, and re-using the stored answer
    would make the re-check a formality and the abort automatic.
 
@@ -892,9 +923,13 @@ guess and is recorded as one; see `## Unexercised paths`.
    reaches. **The pull-request body carries them too**, unless `--no-publish` — and it is the artifact
    a reviewer of the change reads first. The obligation is stated here as well as there because this
    is where the bucket is assigned, and a record owed at one step and described at another is a record
-   nobody writes. Record the fingerprint of every finding you answer, in whichever bucket — **that
-   record is what makes step 7 able to recognise a repeat**, and a bucket left out of it produces a
-   finding that is re-reasoned every single round.
+   nobody writes. Record the fingerprint of every finding you answer, **the bucket it went into, and
+   the rung it carried when you answered it** — **that record is what makes step 7 able to recognise
+   a repeat**, and a finding left out of it is re-reasoned every single round. **The bucket is not
+   bookkeeping**: step 7 re-opens an acceptance whose rung has since risen above the floor, and it
+   can see that only from a record that says which bucket the finding went into. Held in the session
+   rather than in the record, "we accepted this at `low` in round 2" is exactly the kind of fact a
+   ten-round run loses.
 
    **Work through every batch step 7 hands you before deciding anything.** The decision below is
    about the round, and the round is not over while **any** finding is still unbucketed — not merely
@@ -923,7 +958,11 @@ guess and is recorded as one; see `## Unexercised paths`.
    wrong about it. A round whose repeats all re-check as already answered has nothing in `will fix`,
    so the fall-through fires — and **finishes the run clean while the reviewer is still reporting
    findings above the floor**, which is the outcome the row exists to prevent. Print both readings:
-   what the reviewer says is wrong, and what the re-check found instead. A person decides.
+   what the reviewer says is wrong, and what the re-check found instead. A person decides. **For a
+   finding re-opened by a rung that crossed the floor, print the rung it was accepted at, the rung it
+   carries now, and both round numbers.** The disagreement there is between two gradings rather than
+   between the loop and the reviewer, and the person deciding needs to know which of the two they are
+   being asked to settle.
 
 10. Publish, if step 5 deferred it. **This is step 5 and not a second copy of it** — the same push,
     the same create-if-none, the same body rules, run at the placement that step's table sends a
@@ -955,9 +994,13 @@ guess and is recorded as one; see `## Unexercised paths`.
     `<model>` and not reported by the reviewer, and that the reviewer emits no severity of its own.
     Then mark each graded rung where it appears, and **list any finding the grader did not rank as
     `ungraded`** — step 7 has already treated those as blocking, and a report that omitted them would
-    show a run converging over findings that nothing ever ranked. **A reader who has to work out
-    from the flags which sentences to trust has been told the wrong thing**, which is why this is a
-    line in the report rather than a property of the invocation.
+    show a run converging over findings that nothing ever ranked. **List any finding a crossing
+    re-opened** too, with the rung it was accepted at, the round that accepted it, the rung it
+    carries now, and where it ended up: a report showing the same finding accepted in one round and
+    fixed in another, with nothing between them, describes a loop that changed its mind for no
+    recorded reason. **A reader who has to work out from the flags which sentences to trust has been
+    told the wrong thing**, which is why this is a line in the report rather than a property of the
+    invocation.
     Say that the reviewer's `status` is not `verified` if it is not, and say which unexercised paths
     the run took.
 
@@ -1089,7 +1132,10 @@ A run that takes one should say so in the report and append a line to `.revloop/
   the code and costs a fix the floor might have spared. **The path that is not safe is the one
   nothing here can rule out** — a grader that ranks findings systematically low, which looks exactly
   like a loop converging. The report's `graded` marking is what a reader has instead of a
-  measurement, and it is not a substitute for one.
+  measurement, and it is not a substitute for one. **The rule that re-opens an accepted finding whose
+  graded rung has crossed the floor rests on that same unmeasured property** — whether a grader ranks
+  the same unchanged finding the same way twice — and it is the one place a grader's instability
+  changes what the loop **reads** rather than only what it reports. Nothing has fired it.
 - **The canonical pass of `--accept-at`, and every shipped `severityMap`.** No run has resolved a
   floor canonically. The maps are judgements about vocabulary, recorded as such on each card, and
   **a wrong one fails open**: it does not abort, it quietly moves the floor by a rung. Step 1 printing

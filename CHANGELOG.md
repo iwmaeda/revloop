@@ -78,6 +78,13 @@ Added:
   the direct answer to "from outside the run that is indistinguishable from a reviewer that really
   graded them that way".
 
+  **A graded rung is kept out of step 7's repeat fingerprint**, because a grader's rung can move by
+  being asked twice and putting it in the key would switch the repeat suppression off on precisely
+  the reviewer whose card measures rounds that do not converge. The finding that would otherwise
+  strand is answered separately: **an accepted finding whose graded rung later rises above the floor
+  is re-opened and re-bucketed**, which the closed `accepted` bucket bounds to once with no counter,
+  since a re-read cannot put it back where a floor it now exceeds would have to hold it.
+
   **What this does not establish is that a grader's rungs are any good.** Nothing measures that, the
   reports say a graded convergence is the weaker result, and an unreadable grader aborts
   (`unparsed-grading-output`) while a finding it declined to rank is treated as blocking and listed as
