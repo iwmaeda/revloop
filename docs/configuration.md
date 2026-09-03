@@ -140,17 +140,17 @@ Three emitted vocabularies coexist among the shipped presets, so a floor written
 words aborts against the others; `--accept-at high` means one thing everywhere. **Native is tried
 first so that no invocation written before the canonical ladder existed changes meaning.**
 
-| Situation                                                       | Behaviour                                                                      |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Flag absent                                                     | Nothing is acceptable. Identical to the behaviour before the flag existed      |
-| `<level>` is a rung of `severityLevels`                         | Resolved natively. The table printed in step 1 says `native`                   |
-| `<level>` is a canonical rung, reviewer mapped                  | Resolved through `severityMap`. The step-1 table says `canonical`              |
-| `<level>` is a canonical rung, reviewer has a ladder and no map | **Abort** (`no-severity-map`). The loop never derives a map from rung position |
-| `severityMap` is partial or out of order                        | **Abort** (`bad-severity-map`), naming the rung that is unmapped or inverted   |
-| `<level>` matches neither pass                                  | **Abort** (`unknown-accept-level`), listing **both** ladders                   |
-| Reviewer has no `severityLevels`                                | **Abort** (`no-severity-ladder`), unless `--grade-severity` — see below        |
-| With `--merge` and `--auto` together                            | **Abort** (`unreviewed-accept-merge`)                                          |
-| With `--merge` alone, having accepted anything                  | Stop for confirmation, listing every accepted finding, before the CI wait      |
+| Situation                                                       | Behaviour                                                                                                                  |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Flag absent                                                     | Nothing is acceptable. Identical to the behaviour before the flag existed                                                  |
+| `<level>` is a rung of `severityLevels`                         | Resolved natively. The table printed in step 1 says `native`                                                               |
+| `<level>` is a canonical rung, reviewer mapped                  | Resolved through `severityMap`. The step-1 table says `canonical`                                                          |
+| `<level>` is a canonical rung, reviewer has a ladder and no map | **Abort** (`no-severity-map`). The loop never derives a map from rung position                                             |
+| `severityMap` is partial, out of order, or collapsed            | **Abort** (`bad-severity-map`), naming the rung that is unmapped or inverted, or printing a map that leaves no distinction |
+| `<level>` matches neither pass                                  | **Abort** (`unknown-accept-level`), listing **both** ladders                                                               |
+| Reviewer has no `severityLevels`                                | **Abort** (`no-severity-ladder`), unless `--grade-severity` — see below                                                    |
+| With `--merge` and `--auto` together                            | **Abort** (`unreviewed-accept-merge`)                                                                                      |
+| With `--merge` alone, having accepted anything                  | Stop for confirmation, listing every accepted finding, before the CI wait                                                  |
 
 **Step 1 prints the resolved floor before the first round**, as the two sets of the reviewer's own
 rungs that block and that are acceptable — or, under `--grade-severity`, as the canonical rungs,

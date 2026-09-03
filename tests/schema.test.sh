@@ -101,10 +101,12 @@ reject "a ladder with a repeated rung"    '{"version":1,"reviewers":{"a":{"botLo
 
 # severityMap carries the native ladder onto revloop's canonical one, so a value
 # outside that ladder names a rung --accept-at can never be given, and a map with
-# no ladder to map FROM is a key with no consumer. Neither the map's totality nor
-# its ordering is checkable here — the schema cannot read the other key's
-# contents — so step 1 aborts on those with reason=bad-severity-map, and these
-# two cases are all the schema half can carry.
+# no ladder to map FROM is a key with no consumer. None of the map's totality,
+# its ordering, or whether it collapses the whole ladder onto one canonical rung
+# is checkable here — the schema cannot read the other key's contents, and it
+# cannot compare values across keys it does not know the names of — so step 1
+# aborts on all three with reason=bad-severity-map, and these cases are all the
+# schema half can carry.
 reject "a map onto a rung off the ladder" '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["P1"],"severityMap":{"P1":"blocker"}}}}'
 reject "a map with no severityLevels"     '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityMap":{"P1":"critical"}}}}'
 reject "an empty severityMap"             '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["P1"],"severityMap":{}}}}'
@@ -271,5 +273,12 @@ accept "a subprocess command, unpinned"   '{"version":1,"reviewers":{"a":{"kind"
 # --accept-at reaches the canonical pass only when a map exists.
 accept "a github reviewer with a map"     '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["P1","P2","P3"],"severityMap":{"P1":"critical","P2":"high","P3":"low"}}}}'
 accept "a local reviewer with a map"      '{"version":1,"reviewers":{"a":{"kind":"local-command","invoke":"subprocess","command":"claude -p x","severityLevels":["CRITICAL","HIGH","MEDIUM","LOW"],"severityMap":{"CRITICAL":"critical","HIGH":"high","MEDIUM":"medium","LOW":"low"}}}}'
+
+# A five-rung ladder cannot reach four canonical rungs without two rungs sharing
+# one, so MERGING is not the defect step 1 rejects -- collapsing every rung onto
+# ONE is. The schema can tell neither apart, which is why the check is in step 1;
+# this case pins that the schema does not pre-empt the legal half of it either.
+# Nothing else here pins a ladder longer than the canonical one at all.
+accept "a five-rung ladder sharing a rung" '{"version":1,"reviewers":{"a":{"botLogin":"a[bot]","severityLevels":["S0","S1","S2","S3","S4"],"severityMap":{"S0":"critical","S1":"high","S2":"high","S3":"medium","S4":"low"}}}}'
 
 summary "schema"

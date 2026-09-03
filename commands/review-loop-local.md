@@ -411,8 +411,8 @@ guess and is recorded as one; see `## Unexercised paths`.
    - **The other four `--accept-at` and `--grade-severity` judgements are step 1 of
      [`review-loop.md`](review-loop.md)'s, unchanged**: `unknown-accept-level` printing both ladders
      after a native-then-canonical match, `no-severity-map` on a canonical level against a reviewer
-     that **has a ladder** and no map, `bad-severity-map` on a map that is not total or not
-     order-preserving, and
+     that **has a ladder** and no map, `bad-severity-map` on a map that is not total, is not
+     order-preserving, or leaves no distinction between the ladder's ends, and
      `grade-without-floor` on `--grade-severity` with no floor to consume its rungs. **The fifth,
      `grade-over-ladder`, is reached more often here than there** — `ecc-review-pr` is a shipped
      local preset **with** a ladder, so `--grade-severity` against it is a plausible typing rather
