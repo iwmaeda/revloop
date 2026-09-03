@@ -157,8 +157,7 @@ for entry in "${MANIFESTS[@]}"; do
     printf '  FAIL malformed MANIFESTS row — three fields, and no "|" inside one: %s\n' "$entry"
     continue
   fi
-  file=$ROW_FILE path=$ROW_PATH remedy=$ROW_REMEDY
-  if line=$(check_version "$file" "$ROOT/$file" "$path" "$remedy" "$REF"); then
+  if line=$(check_version "$ROW_FILE" "$ROOT/$ROW_FILE" "$ROW_PATH" "$ROW_REMEDY" "$REF"); then
     PASS=$((PASS + 1))
   else
     FAIL=$((FAIL + 1))
@@ -180,9 +179,21 @@ done
 # that disagreed. That is the confusion the exit-status split above removes, and
 # it is why the unreadable case is one of the four below.
 STALE_DIR=$(mktemp -d)
+# Unset, every fixture path below collapses to the filesystem root and the
+# failures that follow are loud and blame the wrong thing. There is no `set -e`
+# here, so nothing else would stop.
+if [ -z "$STALE_DIR" ] || [ ! -d "$STALE_DIR" ]; then
+  FAIL=$((FAIL + 1)); printf '  FAIL could not create a temporary directory; no self-check ran\n'
+  summary "version"
+  exit
+fi
 trap 'rm -rf "$STALE_DIR"' EXIT
 printf '{"name":"revloop","version":"0.0.0-stale","lockfileVersion":3}\n' > "$STALE_DIR/package-lock.json"
 printf 'this is not JSON\n' > "$STALE_DIR/broken.json"
+
+# The two lines every check below would otherwise repeat.
+pass() { PASS=$((PASS + 1)); printf '  ok   %s\n' "$1"; }
+fail() { FAIL=$((FAIL + 1)); printf '  FAIL %s\n' "$1"; }
 
 # Runs check_version and classifies it the way the release loop does — on the
 # return status, never on the text — then leaves the line in SELF_LINE so the
@@ -190,11 +201,14 @@ printf 'this is not JSON\n' > "$STALE_DIR/broken.json"
 classify() { # classify <label> <expected verdict: ok|fail> <check_version args...>
   local name="$1" want="$2" line rc
   shift 2
+  # `rc=$?` must stay on this line. Anything inserted between the assignment and
+  # the read — a debug printf, a log line — makes every classification in this
+  # suite report that command's status instead, which turns FAILs into ok.
   line=$(check_version "$@"); rc=$?
   SELF_LINE="$line"
   local verdict=ok; [ "$rc" -eq 0 ] || verdict=fail
   if [ "$verdict" = "$want" ]; then
-    PASS=$((PASS + 1)); printf '  ok   %s\n' "$name"
+    pass "$name"
   else
     FAIL=$((FAIL + 1)); printf '  FAIL %s\n       got: %s\n' "$name" "$line"
   fi
@@ -212,6 +226,7 @@ expect "and reads as missing rather than as a version" "$SELF_LINE" '<missing>'
 classify "a file that is not JSON is classified as a failure" fail \
   'synthetic lockfile' "$STALE_DIR/broken.json" version 'regenerate it' "$REF"
 expect "and reads as unreadable rather than as missing" "$SELF_LINE" '<unreadable>'
+expect "and says which unreadable it is, not the catch-all" "$SELF_LINE" 'it is not valid JSON'
 
 classify "an absent file is classified as a failure" fail \
   'synthetic lockfile' "$STALE_DIR/gone.json" version 'regenerate it' "$REF"
@@ -251,7 +266,8 @@ if [ "$(id -u)" -ne 0 ]; then
   refute "and is not reported as a syntax error it was never read for" "$SELF_LINE" 'not valid JSON'
   chmod 644 "$STALE_DIR/locked.json"
 else
-  printf '  note running as root; a file that cannot be opened cannot be constructed\n'
+  printf '  SKIP running as root, so a file that cannot be opened cannot be built:\n'
+  printf '       2 of the checks below this line did not run\n'
 fi
 
 # The row guard, which nothing above drives: every real row is well formed, so
@@ -259,15 +275,15 @@ fi
 for bad in 'a.json|version' 'a.json' '|version|edit this file' 'a.json||edit this file' \
   'a.json|version|do not use | inside a remedy'; do
   if parse_row "$bad"; then
-    FAIL=$((FAIL + 1)); printf '  FAIL a malformed row was accepted: %s\n' "$bad"
+    fail "a malformed row was accepted: $bad"
   else
-    PASS=$((PASS + 1)); printf '  ok   a malformed row is rejected: %s\n' "$bad"
+    pass "a malformed row is rejected: $bad"
   fi
 done
 if parse_row 'a.json|version|edit this file'; then
-  PASS=$((PASS + 1)); printf '  ok   a well-formed row is accepted\n'
+  pass "a well-formed row is accepted"
 else
-  FAIL=$((FAIL + 1)); printf '  FAIL a well-formed row was rejected\n'
+  fail "a well-formed row was rejected"
 fi
 
 # The changelog's newest RELEASED heading, ignoring [Unreleased]. Before the

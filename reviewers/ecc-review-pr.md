@@ -24,13 +24,13 @@ The `review-pr` command from the ECC plugin, driven as a subprocess.
 }
 ```
 
-**Two runs exist now, and what they establish is mostly that this card was wrong.** The command runs,
+**Five runs exist now, and what they establish is mostly that this card was wrong.** The command runs,
 answers in about five minutes and returns usable findings — and it emits neither the ladder nor the
 report shape read out of it below. `status` stays `unverified`: for a local reviewer that word turns
 on convergence, and no round of this reviewer has yet come back clean.
 
 **It also does not run at all in a repository that has not been configured**, which nothing here
-predicted and which is the first thing to check. See `### From the first two runs`.
+predicted and which is the first thing to check. See `### From the first five runs`.
 
 **It shipped as `invoke: skill` and no longer does, and the reason is that a skill has no model
 boundary.** A skill runs in the loop's own session: on the loop's model, spending the loop's context.
@@ -158,7 +158,7 @@ beside it.
   a verdict line of `APPROVE`, `WARNING` or `BLOCK`; its stated criteria are approve on no `CRITICAL`
   or `HIGH`, warn on `HIGH` alone, and block on any `CRITICAL` (ecc 2.2.0, 2026-09). **This card took
   that ladder as the reviewer's and shipped it, and the run disproved it** — see
-  `### From the first two runs`. **Derived, and it is the lesson rather than the detail:** an agent's
+  `### From the first five runs`. **Derived, and it is the lesson rather than the detail:** an agent's
   specification is a claim about that agent's output and not about the aggregate that consumes it, and
   the bullet above already said only one of six specifies a format. Reading a ladder out of one
   contributor was the "looks measured" failure `reviewers/README.md` exists to prevent, committed on
