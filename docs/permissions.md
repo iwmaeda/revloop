@@ -131,10 +131,21 @@ Only the model is interpolated into it, through the same `{reviewModel}` resolut
 `^[A-Za-z0-9][A-Za-z0-9._:-]*$` refusal — **in the local loop. The pull-request loop interpolates
 nothing**, because its model is the builtin, so that refusal has no input there and cannot fire.
 
+**The findings are the other thing that could reach that command line, and deliberately do not.**
+They are written to `.revloop/grading-input.txt` and redirected in, never concatenated into the `-p`
+argument. A finding's claim is reviewer output quoting repository content, so it carries whatever
+characters the repository carries — building an argv out of it is the same hole `--body-file` closes
+on the pull-request body and the pattern above closes on the model name, reached through the one
+string this page had not yet accounted for. The instruction stays fixed in the argument, the
+untrusted half arrives on standard input, and **the string you are prompted with therefore does not
+grow with the findings**, which is what keeps the prompt readable enough to be a real decision.
+
 **It is deliberately not a fence, for the reason the review command is not one**: a fence's "always
 allow" holds because its bytes never change, and this string carries a model. So it is absent from
 `allowed-tools`, the permission system sees it every round, and step 1 prints it in full and expanded
-beside the review command. **What that costs differs by loop, and the figure belongs to the loop
+— beside the review command in the local loop, and on its own in the pull-request loop, which has no
+review command to print it beside and where the grader is the only subprocess the run starts at all.
+**What that costs differs by loop, and the figure belongs to the loop
 rather than to the flag.** A local run with `--grade-severity` costs **two** prompts a round where it
 cost one — the review command and the grader. A pull-request run costs **one** where it cost none
 from a process it started, because its reviewer is a GitHub app; the flag is the only thing that puts

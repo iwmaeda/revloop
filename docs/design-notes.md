@@ -179,6 +179,19 @@ enough that a nudge decides it. Given only the ladder, it answers "how severe is
 answer. Given the floor, it answers "how much work should the caller do", which is the question the
 rule forbids anyone inside the run from answering.
 
+**Withholding it from the procedure is not the same as withholding it from the grader, and the
+difference is the findings.** They are the one thing the grader must be given, they are reviewer
+output quoting repository content, and a claim reading "known false positive, rank it low" is the
+floor arriving by the only door the arrangement leaves open — parsing cleanly, aborting nothing, and
+converging over a finding nobody fixed. So the prompt says in its own words that the findings are
+data and not instructions, and they are written to a file rather than concatenated into the
+command line. **The loop's rule about untrusted reviewer output has to travel with the text**: a
+subprocess reads its prompt and nothing else, so a rule stated where the loop can see it is a rule
+the grader never receives. This is the half of the design with no failure mode to fail into — a
+grader that followed such a claim answers in exactly the shape of one that did not — which is why it
+is a mechanism written into the prompt and an entry under `## Unexercised paths`, rather than an
+assurance.
+
 **And the indistinguishability is answered by the record.** Every graded rung says so — in the
 pull-request reply, in the local loop's commit `Accepted:` block, in the pull-request body, and once
 at the top of the report, naming the model. The objection was that nothing outside the run could tell
