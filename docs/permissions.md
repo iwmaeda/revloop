@@ -91,6 +91,13 @@ run — and an unused grant fails too, because it is a permission nobody needs. 
 compares the **whole** prefix, scoped path included; matching only the verb would let an off-scope
 call reduce to a rule that was never meant to authorize it.
 
+**It also holds both `allowed-tools` lines, and this list, to the schema's ban list**: a procedure may
+pre-approve only a binary that a repository-supplied review command is forbidden to begin with. That
+is what keeps the review command and the grader — both of which start with a model CLI — outside
+every grant, where the permission system sees them. **The check is one-way**: the schema's `gh` ban is
+deliberately wider than the grants that motivate it, so a ban with no grant is the design rather than
+a defect.
+
 ### Verify commands are not pre-approved
 
 `.revloop.json` supplies the verify commands, so they are repository-supplied strings. Listing them in
