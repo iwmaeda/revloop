@@ -173,6 +173,15 @@ removes it, and it removes the floor with it.
   beside the three flags already held removed. **`tests/schema.test.sh` rejects a `rigor` key on both
   surfaces**, and keeps rejecting `acceptAt` — the reader most likely to reintroduce a key is the one
   migrating from the old name.
+- **`tests/rigor-levels.test.sh` pins the four level words and the eight round caps to
+  `procedures/rigor-levels.md`.** Those values are now written out in the two READMEs, in
+  `docs/configuration.md` and in all seven commands, and nothing compared any copy to any other:
+  renaming a level in the spec's own table, and separately moving the default's caps from `5 / 3` to
+  `6 / 4`, each left `npm test` fully green with every other file holding the old value. **The spec
+  is the source rather than a schema**, which is what differs from `severity-ladder.test.sh` — the
+  level has no configuration key by design, so no machine-readable copy exists to derive from.
+  **`CHANGELOG.md` is swept by neither**: this file says what was true when it was written, and a
+  guard over it would make every later cap change demand an edit to a historical record.
 
 ## [0.7.0] - 2026-09-04
 

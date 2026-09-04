@@ -145,7 +145,6 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    Written as "the reviewer's own rungs" alone, this line had nothing to print on the one run where
    the rungs are the loop's own rather than the reviewer's — which is the run that most needs the
    operator to see them before the first round.
-   operator to see them before the first round.
 
    **This is the operational guard on `severityMap`, and it is the reason that key is allowed to come
    from `.revloop.json` at all.** A map is repository-supplied, so a repository could in principle
@@ -215,12 +214,13 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
      because nothing is acceptable, so no rung is consumed and there is nothing for one to decide —
      **and the default is neither of those**, so this is the ordinary path against `claude`.
    - **If the level has an acceptable band, the reviewer has `severityLevels`, and the `severityMap`
-     is not total over that ladder, names a rung it does not hold, is not order-preserving, or leaves
-     no distinction at all, abort with `reason=bad-severity-map`** and name the rung that is unmapped,
-     foreign or inverted — or print the whole map, in the last case, which has no single offending
-     rung. Total means every rung of the ladder has an entry; **naming no rung the ladder does not
-     hold is the same edit seen from the other side** — a ladder shortened without its map, where
-     totality is satisfied and an entry is left pointing at a rung that no longer exists;
+     is absent, is not total over that ladder, names a rung it does not hold, is not order-preserving,
+     or leaves no distinction at all, abort with `reason=bad-severity-map`** and name the rung that is
+     unmapped, foreign or inverted — say the map is absent, in the first case, or print the whole map,
+     in the last, which has no single offending rung. Total means every rung of the ladder has an
+     entry; **naming no rung the ladder does not hold is the same edit seen from the other side** —
+     a ladder shortened without its map, where totality is satisfied and an entry is left pointing at
+     a rung that no longer exists;
      order-preserving means a more severe rung never maps below a less severe one; **leaving a
      distinction means that, on a ladder of two rungs or more, the top rung maps strictly above the
      bottom one.** **The last does not follow from the others.**
@@ -249,11 +249,17 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
      this row aborted runs at a level that reads no rungs at all**, breaking a reviewer for ordinary
      use over a key that run never read.
 
-     **A reviewer with a ladder and no map reaches no row here, because it reaches no procedure**:
-     `schema/reviewer.schema.json` pairs the two keys in both directions and rejects the file. That
-     was a runtime abort of its own until the pair became required. **A structural rule belongs
-     where the structure is validated**, and a runtime abort for a shape the schema can express is a
-     second implementation of the same rule that only fires on the runs that reach it.
+     **A reviewer with a ladder and no map is refused by the schema**, which pairs the two keys in
+     both directions; on a `--config` file that refusal is the `config-invalid` abort the two custom
+     commands carry. That was a runtime abort of its own until the pair became required. **A
+     structural rule belongs where the structure is validated**, and a runtime abort for a shape the
+     schema can express is a second implementation of the same rule that only fires on the runs that
+     reach it. **That is why the row above still names an absent map, and naming it is not a second
+     implementation but the branch this one leaves**: no step here runs a validator, so
+     `config-invalid` rests on the file having been checked rather than on a tool this procedure
+     started, and a row whose other four conditions all describe a malformed map _object_ would
+     leave a wholly absent one with no outcome at all. `## Unexercised paths` records that the check
+     is unwired rather than leaving it inferred from this paragraph.
 
    - **If the level has an acceptable band and `--merge` and `--auto` are both present, abort with
      `reason=unreviewed-accept-merge`.** Each is defensible alone. Together they merge code carrying
@@ -1155,10 +1161,16 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     **Then, having fixed one, sweep for its shape.** A reviewer returns few findings per round — see
     the measurements on its card in `reviewers/` — so leaving a sibling behind literally buys another
     round. **The only way to spend fewer rounds is to have fewer defects when you fire**, not to wait
-    more cleverly. **There is more than one kind of sweep; pick the one that matches the class, say
-    in the reply which one you ran, and run more than one when more than one applies** — and
-    **[`rigor-levels.md`](rigor-levels.md) says which of them the resolved level owes**, which is a
-    floor under this instruction and never a cap on it:
+    more cleverly. **There is more than one kind of sweep; pick the one that matches the class and
+    say in the reply which one you ran** — and **[`rigor-levels.md`](rigor-levels.md) says which of
+    them the resolved level owes**. **Run more than one whenever more than one is owed and applies.**
+    The level names the obligation rather than a ceiling on it: **a round may always run a sweep the
+    level does not require, and may never skip one it does** — which is the wording step 9 of
+    [`local-loop.md`](local-loop.md) already carried. Written here as an unscoped "run more than one
+    when more than one applies", this instruction owed every applicable sweep at every level, so
+    `minimal` and `standard` owed exactly what `thorough` does, the level's sweep column bought
+    nothing, and the two procedures answered "may the cheapest level skip an applicable corpus
+    sweep?" opposite ways from one rule:
 
     - **Name the class first.** Before fixing, write in one sentence what shape this finding is. If
       you cannot write it, you cannot sweep for it — you will sweep for a different shape next round
@@ -1785,6 +1797,15 @@ takes one of these should say so in the report:
   the path of a run that types nothing, so the entries above are no longer reached only by an
   operator who asked for them. **Nothing has measured that `standard` converges sooner than
   `thorough` does**, which is the argument the default rests on.
+- **No step in either procedure runs a schema validator, so `config-invalid` is unexercised as a
+  mechanism rather than only as an outcome.** `tests/validate-schema.mjs` is reached by `npm test`
+  and by nothing a run starts; neither custom command grants a tool that could run it, and the
+  abort's own wording — "print the validator's message" — names no validator. **The pairing rule the
+  schema now carries is therefore enforced against a shipped preset and asserted against a
+  `--config` file**, and the difference has not been observed either way. That is why an absent
+  `severityMap` stays a named condition of `bad-severity-map` in step 1: **retiring a runtime abort
+  into a schema is only as strong as what reads the schema**, and here that is a person or an agent
+  rather than a process.
 
 **Field notes.** When a round takes one of these paths, aborts, or sees a latency outside the range on
 the reviewer's card, append **one line** to `.revloop/field-notes.md` in the project: date, PR,

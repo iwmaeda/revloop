@@ -436,11 +436,14 @@ the level, and a repository that wants the old number writes it.
    - **The other two level judgements are step 1 of
      [`remote-loop.md`](remote-loop.md)'s, unchanged**: `unknown-rigor-level` on a value that is not
      one of the four, and `bad-severity-map` — **at a level with an acceptable band only**, since a
-     map nothing consults cannot move a floor — on a map that is not total, names a rung the
-     ladder does not hold, is not order-preserving, or leaves no distinction between the ladder's ends.
-     **The second is unreachable on a graded run by construction**: grading fires only when
-     the definition declares no ladder, so a graded reviewer has no map that could be malformed, and
-     a ladder without a map is rejected by `schema/reviewer.schema.json` before this step reads it.
+     map nothing consults cannot move a floor — on a map that is absent, is not total, names a rung
+     the ladder does not hold, is not order-preserving, or leaves no distinction between the ladder's
+     ends. **The second is unreachable on a graded run by construction**: grading fires only when
+     the definition declares no ladder, so a graded reviewer has no map that could be malformed. **A
+     ladder without a map is refused by `schema/reviewer.schema.json`, and on a `--config` file that
+     refusal is this command's `config-invalid`** — which is why an absent map stays a named
+     condition above rather than being dropped as impossible: no step here runs a validator, so that
+     abort rests on the file having been checked and not on a tool this procedure started.
    - **If the resolved reviewer's `status` is not `verified`, say so in the table and repeat it in
      the final report.** Every preset this command ships is currently `unverified`.
 
@@ -1304,6 +1307,15 @@ takes one should say so in the report and append a line to `.revloop/field-notes
   shape is about not spending tokens twice. `.revloop/field-notes.md` records four occasions on which
   a grader was configured and did not start, and none on which one ran. **Nothing has measured that
   the rounds it saves outnumber the subprocesses it spends.**
+- **No step in either procedure runs a schema validator, so `config-invalid` is unexercised as a
+  mechanism rather than only as an outcome.** `tests/validate-schema.mjs` is reached by `npm test`
+  and by nothing a run starts; neither custom command grants a tool that could run it, and the
+  abort's own wording — "print the validator's message" — names no validator. **The pairing rule the
+  schema now carries is therefore enforced against a shipped preset and asserted against a
+  `--config` file**, and the difference has not been observed either way. That is why an absent
+  `severityMap` stays a named condition of `bad-severity-map` in step 1: **retiring a runtime abort
+  into a schema is only as strong as what reads the schema**, and here that is a person or an agent
+  rather than a process.
 - **The ten-finding batch size in step 7.** Bounded by what can be held in mind at once rather than
   by a measurement. **Since it batches rather than truncates, no finding is dropped by it**, so
   unlike the first draft of that rule it fails closed. The largest round yet measured returned exactly

@@ -32,8 +32,12 @@ With no config, revloop detects everything and prints where each value came from
 
 **The reviewer is not in that table**, because it is not detected: it is whichever command you typed.
 
-The `source` column of the step-1 table is `flag`, `config`, `detected`, or `builtin`. **Read it.** It
-is how you tell a value you chose from a value revloop guessed, without reading any code.
+The `source` column of the step-1 table is `flag`, `config`, `detected`, `rigor`, or `builtin`.
+**Read it.** It is how you tell a value you chose from a value revloop guessed, without reading any
+code. **`rigor` is the fifth, and it is not `builtin` under another name**: it marks a round cap
+[the rigor level](#the-rigor-level) supplied, which moves with the level you typed, where `builtin`
+marks a number that does not. Printing the level's number as `builtin` would read as "this is the
+same whatever you typed", which is the one thing it is not.
 
 ## When config is missing or wrong
 
