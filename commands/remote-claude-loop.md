@@ -1,6 +1,6 @@
 ---
 description: Claude on a pull request — branch, split commits, push, PR, trigger @claude review, fix findings, until it converges
-argument-hint: "[--merge] [--auto] [--accept-at <level>] [--max-rounds <n>] [--timeout <dur>]"
+argument-hint: "[--merge] [--auto] [--rigor <level>] [--max-rounds <n>] [--timeout <dur>]"
 disable-model-invocation: true
 allowed-tools: Bash(gh api repos/{owner}/{repo}/:*), Bash(gh api -X POST repos/{owner}/{repo}/:*), Bash(gh api -X PUT repos/{owner}/{repo}/:*), Bash(gh api -X PATCH repos/{owner}/{repo}/:*), Bash(gh api --paginate repos/{owner}/{repo}/:*), Bash(gh api graphql:*), Bash(gh pr:*), Bash(gh repo view:*), Bash(git:*), Read, Edit, Write, Grep, Glob
 ---
@@ -26,35 +26,41 @@ carries a finished change through review.
 | Definition | `${CLAUDE_PLUGIN_ROOT}/reviewers/claude.json`                                               |
 | Card       | `${CLAUDE_PLUGIN_ROOT}/reviewers/claude.md` — what was measured, when, and where            |
 | Trigger    | `@claude review`, posted as a comment carrying the revloop marker                           |
-| Severity   | **none.** `--accept-at` is resolved by grading — see below                                  |
+| Severity   | **none.** A level with an acceptable band is resolved by grading — see below                |
 | Status     | **`unverified`** — shipped as a starting point. Nobody has watched this one work end to end |
 
 ## Flags
 
-| Flag                | Default        | Effect                                                                                 |
-| ------------------- | -------------- | -------------------------------------------------------------------------------------- |
-| `--merge`           | off, flag only | After convergence, wait for green CI and **then** merge                                |
-| `--auto`            | off, flag only | Do not stop for confirmation. **The flag itself is the approval**                      |
-| `--accept-at <lvl>` | off, flag only | Findings at `<lvl>` and below may be left unfixed. Everything above it still blocks    |
-| `--max-rounds <n>`  | `10`           | Abort if the loop has not converged within this many rounds                            |
-| `--timeout <dur>`   | `30m`          | **Cumulative** cap on waiting for **one trigger's** verdict. A round fires at most two |
+| Flag               | Default        | Effect                                                                                 |
+| ------------------ | -------------- | -------------------------------------------------------------------------------------- |
+| `--merge`          | off, flag only | After convergence, wait for green CI and **then** merge                                |
+| `--auto`           | off, flag only | Do not stop for confirmation. **The flag itself is the approval**                      |
+| `--rigor <level>`  | `standard`     | How strictly this run must finish. It decides when the loop may stop                   |
+| `--max-rounds <n>` | `5`            | Abort if the loop has not converged within this many rounds                            |
+| `--timeout <dur>`  | `30m`          | **Cumulative** cap on waiting for **one trigger's** verdict. A round fires at most two |
 
-**`--merge`, `--auto` and `--accept-at` have no configuration key, and adding one would be a defect.**
+**`--merge`, `--auto` and `--rigor` have no configuration key, and adding one would be a defect.**
 `--max-rounds` and `--timeout` may come from `.revloop.json`; these three may not. That file belongs to
 whatever repository you are working in, including one you just cloned. A repository that could set
 `auto` would delete both of your confirmation points, one that could set `merge` would grant its own
-merge, and one that could set `accept-at` would lower its own review bar while the run still reported a
+merge, and one that could set `rigor` would lower its own review bar while the run still reported a
 clean convergence. **The flag is the approval, so it has to come from the person typing it.**
+**`--max-rounds` still has one**, and the level supplies that number only where neither the flag nor
+the key answered — see `procedures/rigor-levels.md`.
 
-**`--accept-at` names one of the four canonical rungs here, and starts a grader.** This reviewer
-declares no severity vocabulary, so there is no native rung to name and nothing for the procedure to
-match against. The rungs come from a **separate subprocess on the builtin `sonnet`**, specified in
+**`--rigor minimal` and `--rigor standard` start a grader here.** This reviewer declares no severity
+vocabulary, so there is nothing to measure a floor against until something supplies the rungs. They
+come from a **separate subprocess on the builtin `sonnet`**, specified in
 `procedures/severity-grading.md`: it is not told the acceptance floor, it does not fix what it grades,
 and every rung it produces is marked `graded` in the replies, the report and the commit.
 
 **That costs one subprocess and one permission prompt per round**, and step 1 prints the grader's
 command line in full and expanded, beside the resolved floor, before the first round runs. It is the
 only command in the remote family that does this — `codex` and `gemini` emit their own rungs.
+
+**The default level starts one**, because `standard` has an acceptable band and this reviewer has no
+rungs of its own — so the cost above is the ordinary cost of this command rather than the cost of a
+flag. **`--rigor thorough` is what removes it**, and it removes the floor with it.
 
 ## What differs for this reviewer
 

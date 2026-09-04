@@ -166,16 +166,41 @@ what records whether anyone has watched it work, and a reviewer you write with `
 the same loader as the ones that ship. **The Codex router gains most from that**: it had to infer a
 preset from prose, and can now read the same file Claude Code does.
 
-## The acceptance floor
+## The rigor level
 
-`--accept-at` is the first consumer `severityLevels` has ever had. The schema says a key with no
-consumer is a promise the procedure does not keep, and this was that key: cards filled the ladder in,
-nothing read it, and the one place that reasoned about severity named a rung literally — one
-reviewer's vocabulary, hardcoded into a rule meant to apply to all of them. On a ladder that does not
-contain that rung, the rule led the report with nothing.
+**`--rigor` names how strictly a run must finish, and it is the only argument that decides when the
+loop may stop.** An acceptance floor is the first consumer `severityLevels` ever had. The schema says
+a key with no consumer is a promise the procedure does not keep, and this was that key: cards filled
+the ladder in, nothing read it, and the one place that reasoned about severity named a rung literally
+— one reviewer's vocabulary, hardcoded into a rule meant to apply to all of them. On a ladder that
+does not contain that rung, the rule led the report with nothing.
+
+**A bare floor answered one question with one comparison, and that was the smaller half of what an
+operator means by "this run does not need the full treatment".** It could not say how many rounds to
+budget, how far to sweep after a fix, or whether the change looked finished rather than merely
+above-the-line — so the only lever was to raise the floor and hope the rounds got shorter. A level
+carries all four: the floor, the round cap it supplies where nothing else did, the sweeps a round
+owes, and a **sufficiency test** at every edge into the report step. The specification is
+[`../procedures/rigor-levels.md`](../procedures/rigor-levels.md).
+
+**The sufficiency test is judged rather than compared, and it is bounded so that the loop may run it
+on itself.** It reads the latest review's rungs, the run's own record of buckets and rungs, and which
+sweeps were run, and answers in writing whether the change is sufficiently reviewed for this level.
+**It may keep a run going and can never end one early**: every stop it permits is one the floor
+already permitted, and everything else in it can only withhold permission. The party obliged to fix
+the findings can therefore give itself more work and never less — which is the same sentence the
+grading rule below rests on, applied to the standard instead of to the rungs. **The rungs still come
+from outside the loop**; what the loop applies is a standard it did not author to rungs it did not
+author, and the `Sufficiency:` block is how a reader outside the run checks the answer.
+
+**One rule lets the run's history change the decision, and it re-opens rather than blocks.** A ceiling
+that has risen inside the acceptable band since the previous round re-opens the acceptances under it.
+A gate there would deadlock: with nothing left to fix, the next round arrives at a step that refuses
+to review an unchanged tree, and the loop sits between a step that will not review and a step with no
+verdict to classify. A re-open gives the round something to fix, so the tree moves.
 
 **The floor and "do not triage by the badge" are compatible, and the boundary between them is where
-the flag is safe.** [`../reviewers/codex.md`](../reviewers/codex.md) derives that instruction from a
+a relaxed level is safe.** [`../reviewers/codex.md`](../reviewers/codex.md) derives that instruction from a
 measurement: the severity mix moves per pull request, so the badge cannot tell you what is worth
 reading. The floor never decides what to read. Every finding is fetched, classified, recorded, and
 listed whatever its rung; the floor decides only **when the loop may stop**. **"Recorded" is the
@@ -202,11 +227,14 @@ to answer both halves, and both answers are mechanisms rather than assurances.
 **It was a flag until 0.7.0, and removing the flag made the rule stricter rather than looser.**
 `--grade-severity` had two refusals attached to it — grading a reviewer that already had a ladder, and
 grading with no floor to consume the rungs — and both were conditions dressed as errors. Now grading
-fires **if and only if** `--accept-at` was typed and the definition declares no `severityLevels`, so
+fires **if and only if** the resolved level has an acceptable band and the definition declares no
+`severityLevels`, so
 neither refusal has an invocation left to refuse: a reviewer that emits its own rungs cannot be
-regraded, because nothing can ask for it. **What the change did cost is loudness.** Before, an
-`--accept-at` against a ladderless reviewer stopped the run; now it spends a subprocess and a
-permission prompt every round. The compensation is disclosure rather than a stop: step 1 prints
+regraded, because nothing can ask for it. **What the change did cost is loudness.** Before, naming a
+floor against a ladderless reviewer stopped the run; now it spends a subprocess and a
+permission prompt every round. **The default level pays both**, because `standard` has an
+acceptable band; `--rigor thorough` is what removes the grader, and it removes the floor with it.
+The compensation is disclosure rather than a stop: step 1 prints
 `severity source` as `grader (<model>)`, prints the grader's expanded command line, and every rung it
 assigns says `graded` wherever a rung is written.
 
@@ -250,14 +278,16 @@ is a weaker result than a reported one, for the same reason and in the same dire
 [a local run being a pre-flight rather than a review](#what-a-local-run-does-not-establish) — and the
 report is written to say so rather than to let the flag's presence imply it.
 
-**The flag is refused against a reviewer that already has a ladder**, which is what keeps it from
+**Grading is refused against a reviewer that already has a ladder**, which is what keeps it from
 becoming a general lever. Regrading a rung the reviewer emitted replaces a measurement with an
 inference, and once that were allowed the cheapest route past any inconvenient P1 would be to re-rank
 it — which is the original objection, arriving through the door the flag opened.
 
 **One reviewer's rungs are not another's, and the map that says so is a judgement rather than a
-measurement.** `--accept-at` resolves natively first and only then against revloop's own
-`critical > high > medium > low`, carried across by a per-reviewer `severityMap`. The two-key split is
+measurement.** A level's floor is measured on revloop's own
+`critical > high > medium > low`, and a reviewer's rungs are carried across by a per-reviewer
+`severityMap` — **required whenever `severityLevels` is present**, so a vocabulary that can never
+reach a floor is rejected by the schema rather than at run time. The two-key split is
 deliberate: `severityLevels` records what a reviewer **emits** and can be checked against its output,
 while a map asserting that one reviewer's `P1` and another's `CRITICAL` describe the same thing cannot
 be checked against anything. Folding the second into the first would let a judgement inherit a
@@ -265,8 +295,8 @@ measurement's authority, which is the failure `../reviewers/README.md` is built 
 map is a separate key, cards say under `## Not measured` that theirs is a judgement, and step 1 prints
 the floor a map produced before a round runs.
 
-Where the flag sits in the configuration surface, and the one combination it refuses, are in
-[`configuration.md`](configuration.md#the-acceptance-floor).
+Where the level sits in the configuration surface, and the one combination it refuses, are in
+[`configuration.md`](configuration.md#the-rigor-level).
 
 ## What a local run does not establish
 

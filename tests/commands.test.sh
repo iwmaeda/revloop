@@ -106,15 +106,18 @@ for f in "${CMDS[@]}"; do
       FAIL=$((FAIL + 1)); printf '  FAIL %s is neither remote-* nor local-*\n' "$name"
       ;;
   esac
-  # Every command implements the acceptance floor. A command that quietly did not
-  # would make `--accept-at` mean "supported here, ignored there".
-  expect "$name offers --accept-at" "$(hasflag "$body" '--accept-at')" YES
-  # The three that were removed, staying removed. CHANGELOG.md records them and
+  # Every command carries the rigor level. A command that quietly did not would
+  # make `--rigor` mean "supported here, ignored there" -- and since the level
+  # decides when the loop may stop, a command missing it is a command with no
+  # stopping condition it can name.
+  expect "$name offers --rigor" "$(hasflag "$body" '--rigor')" YES
+  # The four that were removed, staying removed. CHANGELOG.md records them and
   # is out of scope for the same reason procedure-refs.test.sh scopes it out:
   # a changelog has to be able to quote what it records removing.
   refute "$name names no --reviewer"       "$(hasflag "$body" '--reviewer')"       YES
   refute "$name names no --review-model"   "$(hasflag "$body" '--review-model')"   YES
   refute "$name names no --grade-severity" "$(hasflag "$body" '--grade-severity')" YES
+  refute "$name names no --accept-at"      "$(hasflag "$body" '--accept-at')"      YES
 done
 
 # --- procedure wiring ------------------------------------------------------
@@ -143,6 +146,11 @@ for f in "${CMDS[@]}"; do
   else
     FAIL=$((FAIL + 1)); printf '  FAIL %s names %d loop procedures\n' "$name" "$n"
   fi
+  # The level spec is a procedure too, and it is the one every command's flag
+  # table now defers to. A command advertising --rigor and naming nothing that
+  # defines it is the thin-command failure this file exists for, one file over
+  # from the loop procedure it already checks.
+  expect "$name names procedures/rigor-levels.md" "$refs" "procedures/rigor-levels.md"
   for p in $refs; do
     if [ -f "$ROOT/$p" ]; then
       PASS=$((PASS + 1)); printf '  ok   %s resolves\n' "$p"

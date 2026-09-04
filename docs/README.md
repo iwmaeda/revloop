@@ -5,9 +5,11 @@ command in [`commands/`](../commands/) names one reviewer and offers only the fl
 the procedure it runs is [`procedures/remote-loop.md`](../procedures/remote-loop.md), which drives a
 reviewer on a pull request, or [`procedures/local-loop.md`](../procedures/local-loop.md), which drives
 a review command on your machine and ends at a pushed branch with a pull request open on it, or at a
-commit under `--no-publish`. A third,
-[`procedures/severity-grading.md`](../procedures/severity-grading.md), is cited by both and owned by
-neither. These pages surround them.
+commit under `--no-publish`. **Two more are cited by both and owned by neither**:
+[`procedures/rigor-levels.md`](../procedures/rigor-levels.md), which holds the four `--rigor` levels
+and the sufficiency test that decides when a loop may stop, and
+[`procedures/severity-grading.md`](../procedures/severity-grading.md), which specifies the grader.
+These pages surround them.
 
 ## Get started
 

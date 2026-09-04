@@ -31,7 +31,8 @@ is checked by review alone.
 
 [`procedures/remote-loop.md`](procedures/remote-loop.md) and
 [`procedures/local-loop.md`](procedures/local-loop.md) are the single source of truth, and
-[`procedures/severity-grading.md`](procedures/severity-grading.md) is a third that both cite. A
+[`procedures/rigor-levels.md`](procedures/rigor-levels.md) and
+[`procedures/severity-grading.md`](procedures/severity-grading.md) are two more that both cite. A
 procedure is read **in full** by an agent before it touches git, so:
 
 - **English only.** A second language guarantees drift, and drift in this file is a safety defect.

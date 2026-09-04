@@ -126,8 +126,11 @@ subprocess.
 
 **A graded run starts a grader subprocess per round** — on **the local family's** resolved review
 model, and on the builtin `sonnet` in the pull-request family, which has no `--model` to move it. A
-run is graded when `--accept-at` was typed and the reviewer's definition declares no `severityLevels`,
-which is three of the five shipped reviewers: `claude`, `code-review` and `ecc-review-pr`. The grader
+run is graded when the resolved `--rigor` level has an acceptable band — `minimal` or `standard` —
+and the reviewer's definition declares no `severityLevels`, which is three of the five shipped
+reviewers: `claude`, `code-review` and `ecc-review-pr`. **The default level is `standard`, which has
+a band, so against those three the grader is part of the ordinary run** — one extra prompt per round
+on a command that typed nothing. `--rigor thorough` is what removes it. The grader
 is treated like the review command in every way but one: **its command line comes from the
 procedure and never from `.revloop.json`.** A review command is what the operator chose to run and
 the step-1 table shows it before it runs; a grader the repository could choose would be a shell
@@ -254,7 +257,7 @@ is"; both cannot be true.
 **Grading adds one prompt per round to whichever family is running.** On a local run that is a second
 prompt beside the review command. On a pull-request run it is the first and only model subprocess that
 procedure has ever started, because its reviewer is a GitHub app rather than a process. **It needs no
-flag of its own**: `--accept-at` against a reviewer with no ladder is what reaches it, so the prompt
+flag of its own**: a relaxed level against a reviewer with no ladder is what reaches it, so the prompt
 count follows the reviewer as much as the invocation — which is why step 1 prints `severity source`
 before the first round rather than at the first prompt. **The string you are prompted with is the
 expanded one** — `{reviewModel}` already substituted in the local family, or the builtin `sonnet` in

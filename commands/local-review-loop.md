@@ -1,6 +1,6 @@
 ---
 description: Claude Code's /code-review on this machine — branch, verify, commit, review, fix findings, then push and open a PR
-argument-hint: "[--model <name>] [--no-publish] [--accept-at <level>] [--auto] [--max-rounds <n>]"
+argument-hint: "[--model <name>] [--no-publish] [--rigor <level>] [--auto] [--max-rounds <n>]"
 disable-model-invocation: true
 allowed-tools: Bash(git:*), Bash(gh pr create:*), Bash(gh pr list:*), Bash(gh repo view:*), Bash(gh api -X PATCH repos/{owner}/{repo}/:*), Read, Edit, Write, Grep, Glob, Skill
 ---
@@ -28,32 +28,34 @@ carries a finished change through review.
 | Card         | `${CLAUDE_PLUGIN_ROOT}/reviewers/code-review.md` — what was measured, when, and where |
 | Command      | `claude --model {reviewModel} -p "/code-review medium"`, run as a subprocess          |
 | `requiresPr` | `false` — it reads the local range, so this run **publishes after convergence**       |
-| Severity     | **none.** `--accept-at` is resolved by grading — see below                            |
+| Severity     | **none.** A level with an acceptable band is resolved by grading — see below          |
 | Status       | `unverified`                                                                          |
 
 ## Flags
 
-| Flag                | Default        | Effect                                                                              |
-| ------------------- | -------------- | ----------------------------------------------------------------------------------- |
-| `--model <name>`    | `sonnet`       | The model **the reviewer** runs on. The fixing is unaffected                        |
-| `--no-publish`      | off, flag only | End at a commit. No push, no pull request, no `gh` call in any step                 |
-| `--accept-at <lvl>` | off, flag only | Findings at `<lvl>` and below may be left unfixed. Everything above it still blocks |
-| `--auto`            | off, flag only | Do not stop for confirmation. **The flag itself is the approval**                   |
-| `--max-rounds <n>`  | `5`            | Abort if the loop has not converged within this many rounds                         |
+| Flag               | Default        | Effect                                                               |
+| ------------------ | -------------- | -------------------------------------------------------------------- |
+| `--model <name>`   | `sonnet`       | The model **the reviewer** runs on. The fixing is unaffected         |
+| `--no-publish`     | off, flag only | End at a commit. No push, no pull request, no `gh` call in any step  |
+| `--rigor <level>`  | `standard`     | How strictly this run must finish. It decides when the loop may stop |
+| `--auto`           | off, flag only | Do not stop for confirmation. **The flag itself is the approval**    |
+| `--max-rounds <n>` | `3`            | Abort if the loop has not converged within this many rounds          |
 
-**`--auto`, `--accept-at`, `--no-publish` and `--model` have no configuration key.** Only
+**`--auto`, `--rigor`, `--no-publish` and `--model` have no configuration key.** Only
 `--max-rounds` does, as `defaults.localMaxRounds` — **not `defaults.maxRounds`, which belongs to the
 pull-request procedure alone.** One shared key let a remote-oriented value silently raise this loop's
-cap, and this loop's cap is the only brake it has.
+cap, and this loop's cap is the only brake it has. **The level supplies that number only where
+neither the flag nor the key answered** — see `procedures/rigor-levels.md`.
 
 **`--model` is absent from that file for a second and sharper reason than the others.** Its value is
 **expanded into a command line** at the `{reviewModel}` placeholder, so a key would be the first thing
 revloop interpolates into a shell command out of a repository-supplied file. It comes from the person
 typing it, or from the builtin, and from nowhere else.
 
-**`--accept-at` names one of the four canonical rungs here, and starts a grader.** No run of this
+**`--rigor minimal` and `--rigor standard` start a grader here.** No run of this
 command has ever emitted a severity, on any finding, in any form — that absence is measured across five
-rounds and recorded on the card, and it is why the definition declares no ladder. The rungs come from a
+rounds and recorded on the card, and it is why the definition declares no ladder, so there is nothing
+to measure a floor against until something supplies the rungs. They come from a
 **separate subprocess on the resolved `--model`**, specified in `procedures/severity-grading.md`: it is
 not told the acceptance floor, it does not fix what it grades, and every rung it produces is marked
 `graded` in the replies, the report and the commit.
@@ -61,6 +63,12 @@ not told the acceptance floor, it does not fix what it grades, and every rung it
 **That costs one subprocess and one permission prompt per round, on top of the review itself.** Step 1
 prints the grader's command line in full and expanded, beside the review command and the resolved
 floor, before the first round runs.
+
+**The default level pays both.** `standard` has an acceptable band and this reviewer has no rungs,
+so the ordinary run of this command is **two** subprocesses and two permission prompts per round
+where it used to be one. **`--rigor thorough` is what removes the second**, and it removes the floor
+with it. `procedures/rigor-levels.md` states the four levels, the round cap each supplies, the sweeps
+each owes, and the sufficiency test that ends a run.
 
 ## What differs for this reviewer
 

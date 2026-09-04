@@ -40,15 +40,29 @@ The basic invocations are below. Which flags are available differs from command 
 ```console
 /revloop:remote-codex-loop
 /revloop:remote-gemini-loop --max-rounds 15
-/revloop:remote-codex-loop --merge --auto
+/revloop:remote-codex-loop --rigor thorough --merge --auto
 
 /revloop:local-review-loop
 /revloop:local-review-loop --no-publish
 /revloop:local-review-loop --model opus --max-rounds 3
-/revloop:local-ecc-loop --accept-at high
+/revloop:local-ecc-loop --rigor minimal
 
 /revloop:local-custom-loop --config ./my-reviewer.json
 ```
+
+| Flag               | Commands        | Default    | What it does                                   |
+| ------------------ | --------------- | ---------- | ---------------------------------------------- |
+| `--rigor <level>`  | all             | `standard` | How strictly the run must finish (see below)   |
+| `--max-rounds <n>` | all             | 5 / 3      | Abort if the loop has not converged by then    |
+| `--auto`           | all             | off        | Run through the stop points without halting    |
+| `--merge`          | `remote-*`      | off        | After convergence, wait for green CI and merge |
+| `--timeout <dur>`  | `remote-*`      | `30m`      | Cap on waiting for one trigger's verdict       |
+| `--model <name>`   | `local-*`       | `sonnet`   | The model the review runs on                   |
+| `--no-publish`     | `local-*`       | off        | End at the commit — no push, no pull request   |
+| `--config <path>`  | `*-custom-loop` | required   | The reviewer definition this run drives        |
+
+A default written as two numbers is remote / local. `--max-rounds` takes its default from `--rigor`,
+so changing the level moves it too.
 
 ## How it works
 
@@ -93,11 +107,6 @@ The spine is the remote loop's. With no waiting phase, it finishes in eleven ste
 resolves its own pull request is published to at 5, before every round; every other reviewer once at
 10, after the loop converges — because a push would otherwise empty the range the shipped default
 reviewer diffs. `--no-publish` skips both.
-
-**If the review command is out of quota rather than failing, the loop aborts and does not retry**,
-the same way the remote loop does when its reviewer is rate-limited. Both shipped local presets carry
-the wording their host uses, so the abort names the quota and prints the reset time instead of
-pointing at a parser; a reviewer whose card carries no such wording still aborts, just less usefully.
 
 ## Install
 
@@ -155,10 +164,11 @@ conventions from the repository itself, and builds a configuration table with a 
 ```text
 key              value                              source
 reviewer         codex                              flag
+rigor            standard                           builtin
 baseBranch       main                               detected
 verify           npm run check:all, npm test        detected
 commitStyle      conventional (en)                  detected
-maxRounds        10                                 builtin
+maxRounds        5                                  rigor
 ```
 
 To change any of it, or to add your own reviewer, write `.revloop.json`. The details are in
@@ -169,36 +179,33 @@ To change any of it, or to add your own reviewer, write `.revloop.json`. The det
 {
   "version": 1,
   "project": { "verify": ["make check", "make test"] },
-  "reviewers": {
-    "acme": {
-      "trigger": "@acme review",
-      "botLogin": "acme-reviewer[bot]",
-      "cleanPatterns": ["^Acme Review: no issues found"]
-    }
-  }
+  "defaults": { "maxRounds": 15 }
 }
 ```
 
 ## Keeping the loop from running away
 
-**An LLM reviewing code tends to keep producing small findings.** To stop those from stretching a run
-out, there is `--accept-at <level>`. It names **the highest severity that may be left unfixed**; once
-every finding above that level is resolved, the loop may converge.
+**An AI reviewing code tends to keep producing small findings.** To stop those from stretching a run
+out, `--rigor <level>` says **how strictly the run must finish**. It is the argument that decides when
+the loop may stop.
+
+| Level                    | Blocking           | Acceptable       | Round cap (remote / local) | Sweeps                              |
+| ------------------------ | ------------------ | ---------------- | -------------------------- | ----------------------------------- |
+| `minimal`                | `critical`         | `high` and below | 3 / 2                      | Name the class, check already-fixed |
+| `standard` **(default)** | `critical`, `high` | `medium`, `low`  | 5 / 3                      | + corpus                            |
+| `thorough`               | every finding      | none             | 10 / 5                     | Every sweep that applies            |
+| `exhaustive`             | every finding      | none             | 15 / 8                     | + input-space closed as a set       |
 
 ```console
-/revloop:remote-codex-loop --accept-at P2   # codex's own rungs are P1 > P2 > P3
+/revloop:remote-codex-loop --rigor minimal
+/revloop:local-ecc-loop --rigor thorough
 ```
 
-The level you pass is either one of the reviewer's own severities, named in its `severityLevels`, or
-one of the severities revloop defines — `critical > high > medium > low`.
+Severity is managed through `severityMap` as the same four rungs for every reviewer —
+`critical > high > medium > low`. Against a reviewer that reports no severity, **a grading model in a
+separate process** estimates it.
 
-**Three of the five shipped reviewers emit no severity at all** — `claude`, `code-review` and
-`ecc-review-pr`. For a reviewer like those, **a grading model in a separate process estimates the
-severity**.
-
-```console
-/revloop:local-ecc-loop --accept-at high
-```
+**On convergence, the run judges whether the change is sufficiently reviewed for its level.**
 
 ## Built-in reviewers
 

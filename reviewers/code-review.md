@@ -138,10 +138,12 @@ files.** They are here rather than in the section above because they were observ
   measured shape rather than reached by loosening a parser.
 - **Grading was requested on all three rounds and the grader never started** — step 7 obtains rungs
   after the findings are parsed, and every round parsed none (`iwmaeda/revloop#22`). Those rounds were
-  driven with `--accept-at high --grade-severity`, the spelling that existed before 0.7.0 made grading
-  automatic. **Derived:** the grader's whole failure ladder is still unentered, and the reason is not
+  driven with `--accept-at high --grade-severity`, the invocation that existed before 0.7.0 made
+  grading automatic — **quoted as it was typed, because it is what the rounds ran; neither flag
+  exists now, and the equivalent is `--rigor minimal`.**
+  **Derived:** the grader's whole failure ladder is still unentered, and the reason is not
   that it was avoided. Grading a reviewer that returns nothing is the one case it cannot be exercised
-  by, and dropping the flag did not change that.
+  by, and neither dropping the second flag nor replacing the first with a level changed that.
 
 ### From the installed command
 
@@ -149,10 +151,14 @@ files.** They are here rather than in the section above because they were observ
   summary, a short summary, a failure scenario, an optional `category` slug, and an optional
   `verdict` of `CONFIRMED` or `PLAUSIBLE`; severity is expressed only as the order of the list, which
   is documented as most-severe first (claude-code 2.1.233, 2026-09). **Derived:** this reviewer's
-  definition therefore carries no `severityLevels` and no `severityMap`, so `--accept-at` against it is
-  resolved by grading. **That is the ordinary case for this reviewer and not an edge one**, which is
-  worth saying plainly because the acceptance floor is the feature people will reach for first — and it
-  is the reason grading exists at all. **Derived, and it is the trap grading has to avoid:** the
+  definition therefore carries no `severityLevels` and no `severityMap`, so a level with an acceptable
+  band is resolved against it by grading. **`standard` is the default, so that is the ordinary run of
+  this reviewer and not an edge case**, which is
+  worth saying plainly because it means the untyped invocation costs a second subprocess and a second
+  permission prompt every round — and it
+  is the reason grading exists at all. **The two strict levels consult no rung**, so a run at
+  `thorough` is what drives this reviewer alone, as every release before the level did.
+  **Derived, and it is the trap grading has to avoid:** the
   documented list order is the nearest thing to a severity signal this surface carries, and reading a
   rank off it would be the loop supplying its own ladder from the reviewer's output shape. The grader
   does not read the order; it is handed the findings and ranks their claims. `verdict` is a
@@ -222,12 +228,13 @@ files.** They are here rather than in the section above because they were observ
 - **Convergence.** It was not reached by either run, and neither sample can say whether it is
   reachable. Five rounds did not reach it and the count rose at the end; three later rounds returned
   nothing at all, which is a clean round and not a loop driven to one. **What would settle it is a
-  round that returns findings under `--accept-at`** — the floor is the mechanism for ending a loop the
+  round that returns findings at `--rigor minimal` or `--rigor standard`** — a floor is the mechanism
+  for ending a loop the
   reviewer will not end, and against this reviewer the floor needs the grader to have any rungs to
   stand on — and no such run has been made. That is the question most worth answering next, and the one
   `status` turns on. **The run is easier to reach than it was**: before 0.7.0 the floor needed a second
   flag beside it, and before the floor existed at all it aborted, so the measurement this card has been
-  asking for now needs only `--accept-at` and a round that finds something.
+  asking for now needs only one of the two relaxed levels and a round that finds something.
 - **Everything about the grader.** Whether its rungs are ones a person would recognise, what a
   grading pass costs on top of the round, whether it ranks the same unchanged finding the same way
   twice, and how often it declines to rank one at all — **the local procedure treats an unranked
