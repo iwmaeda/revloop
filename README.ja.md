@@ -5,7 +5,14 @@
 
 [English](README.md) ・ 日本語
 
-AI によるレビューと修正のループを収束するまで繰り返すワークフローを実現する Claude Code / Codex 対応プラグインです。レビューのループ回数の増加を防止するフェンス機構を整備し、処理時間やトークン消費を抑えるように設計されています。
+AI によるレビューと修正のループを収束するまで繰り返すワークフローを実現する Claude Code プラグインです。レビューのループ回数の増加を防止するフェンス機構を整備し、処理時間やトークン消費を抑えるように設計されています。
+
+**Codex はこの README に 2 つの立場で登場し、その 2 つは状態が異なります。**
+_レビュアー_ としての `@codex review` は、このリポジトリで最も検証されている部分です
+（`status: verified`、実際の PR で端から端まで駆動済み）。
+一方、revloop を動かす _ホスト_ としての Codex は **プレビュー** です。
+skill 1 枚のみ、PR ループのみで、端から端まで駆動した実績はありません。
+[対応していないこと](#対応していないこと)を参照してください。
 
 **リモート動作/ローカル動作、およびレビュアーごとに専用コマンドが用意されています。** 現状、提供している
 コマンドは以下の通りです。
@@ -140,7 +147,13 @@ AI によるレビューと修正のループを収束するまで繰り返す�
 }
 ```
 
-### Codex
+### Codex — プレビュー
+
+**Codex のプラグイン対応はプレビューです。上の手順を言い換えたものではありません。**
+`codex plugin install` はまだ存在しません。`.codex-plugin/plugin.json` と
+`.agents/plugins/marketplace.json` はそれが提供されたときのために置いてあるだけで、
+後者が指すのは公開された marketplace ではなくローカルのチェックアウトです。
+現状で確実なのは skill を手で配置する方法です。
 
 ```console
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
@@ -149,7 +162,17 @@ cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
 export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md
 ```
 
-Codex では権限は承認ポリシーとサンドボックスで制御します。詳細は [`docs/permissions.md`](docs/permissions.md) を参照してください。
+**得られるのは 7 つのコマンドではなく skill 1 枚で、対象は PR ループのみです。**
+`.agents/skills/revloop/SKILL.md` はルータであり、`procedures/remote-loop.md` を解決して読み込みます。
+`REVLOOP_PROCEDURE` は、skill をリポジトリの外へコピーした後もそれを成立させるためのものです。
+**ローカルループを Codex から駆動した人はいないため、サポート対象とは主張していません。**
+また Codex に `/revloop:` の名前空間はありません。この README に出てくる `/revloop:` の呼び出しも、
+[`docs/install.md`](docs/install.md) が導入確認用に示すものも、すべて Claude Code のものです。
+
+Codex では権限は承認ポリシーとサンドボックスで制御します。
+**[`docs/permissions.md`](docs/permissions.md) の手順は、ベンダーのドキュメントではなく
+実際にインストールした Codex から読み取ったものですが、その設定でループを端から端まで
+駆動した実績はありません。** そのことは同ドキュメントにも書いてあります。
 
 ## 設定
 
@@ -158,8 +181,9 @@ Codex では権限は承認ポリシーとサンドボックスで制御しま�
 
 ```text
 key              value                              source
-reviewer         codex                              flag
+reviewer         codex (verified)                   builtin
 rigor            standard                           builtin
+severity source  reviewer                           builtin
 baseBranch       main                               detected
 verify           npm run check:all, npm test        detected
 commitStyle      conventional (en)                  detected
@@ -230,21 +254,22 @@ maxRounds        5                                  rigor
 | **マージは merge commit のみ**           | squash と rebase は使えません。                                                                                                                                          |
 | **コメントトリガーを持たないレビュアー** | reviewer request で呼び出されるもの（GitHub Copilot が該当）はコメントを投稿しないため、ラウンドの基準点を固定する対象がなく、step 1 で abort します。                   |
 | **ローカルループはマージしない**         | 終着点は push 済みブランチと open PR、`--no-publish` の場合はコミットです。マージは別途行ってください。                                                                  |
+| **ホストとしての Codex はプレビュー**    | 7 つのコマンドではなく skill 1 枚、PR ループのみで、端から端まで駆動した実績がありません。lint 対象外かつテストコーパス外なので、レビューだけで担保されています。        |
 
 ## ドキュメント
 
-| ガイド                                                       | 内容                                             |
-| ------------------------------------------------------------ | ------------------------------------------------ |
-| [Install](docs/install.md)                                   | 前提、Claude Code、Codex、必要な作業、導入の確認 |
-| [Permissions](docs/permissions.md)                           | Claude Code の許可ルール、 Codex の承認設定      |
-| [Configuration](docs/configuration.md)                       | `.revloop.json` のリファレンス                   |
-| [Adding a reviewer](docs/adding-a-reviewer.md)               | Custom reviewer の設定方法                       |
-| [Design notes](docs/design-notes.md)                         | レビューループの設計                             |
-| [Known environment quirks](docs/known-environment-quirks.md) | 既知の制限事項やバグなど                         |
-| [Contributing](CONTRIBUTING.md)                              | チェックの実行方法、フェンス編集時の手順         |
-| [Code of conduct](CODE_OF_CONDUCT.md)                        | 開発指針                                         |
-| [Security](SECURITY.md)                                      | セキュリティ関係の留意事項                       |
-| [English README](README.md)                                  | 英語版 README                                    |
+| ガイド                                                       | 内容                                                       |
+| ------------------------------------------------------------ | ---------------------------------------------------------- |
+| [Install](docs/install.md)                                   | 前提、Claude Code、プレビューの Codex、導入の確認          |
+| [Permissions](docs/permissions.md)                           | Claude Code の許可ルール、Codex のサンドボックス（未検証） |
+| [Configuration](docs/configuration.md)                       | `.revloop.json` のリファレンス                             |
+| [Adding a reviewer](docs/adding-a-reviewer.md)               | Custom reviewer の設定方法                                 |
+| [Design notes](docs/design-notes.md)                         | レビューループの設計                                       |
+| [Known environment quirks](docs/known-environment-quirks.md) | 既知の制限事項やバグなど                                   |
+| [Contributing](CONTRIBUTING.md)                              | チェックの実行方法、フェンス編集時の手順                   |
+| [Code of conduct](CODE_OF_CONDUCT.md)                        | 開発指針                                                   |
+| [Security](SECURITY.md)                                      | セキュリティ関係の留意事項                                 |
+| [English README](README.md)                                  | 英語版 README                                              |
 
 ## ライセンス
 

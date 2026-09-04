@@ -5,9 +5,13 @@
 
 English ・ [日本語](README.ja.md)
 
-A Claude Code / Codex plugin that repeats an AI review-and-fix loop until it converges. Its fences
-keep a run from spending more rounds — and so more wall clock and more tokens — than the review
-needs.
+A Claude Code plugin that repeats an AI review-and-fix loop until it converges. Its fences keep a run
+from spending more rounds — and so more wall clock and more tokens — than the review needs.
+
+**Codex appears here twice, and the two are not in the same state.** As a _reviewer_, `@codex review`
+is the most measured thing in this repository — `status: verified`, driven end to end through real
+pull requests. As a _host_ to run revloop from, Codex is **in preview**: one skill, the pull-request
+loop only, and nobody has driven it end to end. See [Limitations](#limitations).
 
 **There is a command of its own for each reviewer, and for where it runs — remotely or on your
 machine.** These are the commands available today:
@@ -144,7 +148,12 @@ Grant the permissions the work needs at the same time, by adding the following t
 }
 ```
 
-### Codex
+### Codex — preview
+
+**Codex plugin support is in preview, and this is not the path above with different words.** There is
+no `codex plugin install` yet. `.codex-plugin/plugin.json` and `.agents/plugins/marketplace.json` are
+in place for when it ships, and the second names a local checkout rather than a published
+marketplace. The reliable path today is to place the skill by hand:
 
 ```console
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
@@ -153,8 +162,16 @@ cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
 export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md
 ```
 
-Codex controls permissions with an approval policy and a sandbox instead. The details are in
-[`docs/permissions.md`](docs/permissions.md).
+**What you get is one skill, not seven commands, and it covers the pull-request loop only.**
+`.agents/skills/revloop/SKILL.md` is a router: it resolves `procedures/remote-loop.md` and reads it.
+`REVLOOP_PROCEDURE` is what makes that work once the skill has been copied away from the repository.
+**Nobody has driven the local loop from Codex, so it is not claimed as supported**, and there is no
+`/revloop:` namespace on Codex — every `/revloop:` invocation on this page, and the one
+[`docs/install.md`](docs/install.md) gives for verifying the install, is Claude Code's.
+
+Codex controls permissions with an approval policy and a sandbox instead. **The recipe in
+[`docs/permissions.md`](docs/permissions.md) was read out of an installed Codex build rather than
+driven end to end**, and says so where it sits.
 
 ## Configure
 
@@ -163,8 +180,9 @@ conventions from the repository itself, and builds a configuration table with a 
 
 ```text
 key              value                              source
-reviewer         codex                              flag
+reviewer         codex (verified)                   builtin
 rigor            standard                           builtin
+severity source  reviewer                           builtin
 baseBranch       main                               detected
 verify           npm run check:all, npm test        detected
 commitStyle      conventional (en)                  detected
@@ -237,21 +255,22 @@ These are the rough edges that remain.
 | **Merge commits only**                | Squash and rebase are not available                                                                                                                                      |
 | **Reviewers with no comment trigger** | One summoned by reviewer request rather than by a comment — GitHub Copilot is the example — posts nothing for the loop to anchor a round's baseline to, so step 1 aborts |
 | **The local loop never merges**       | It ends at a pushed branch with an open pull request, or at a commit under `--no-publish`. Merge it separately                                                           |
+| **Codex as a host is preview**        | One skill rather than seven commands, the pull-request loop only, and never driven end to end. It is unlinted and in no test corpus, so it is checked by review alone    |
 
 ## Documentation
 
-| Guide                                                        | What it covers                                                              |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| [Install](docs/install.md)                                   | Prerequisites, Claude Code, Codex, the work required, verifying the install |
-| [Permissions](docs/permissions.md)                           | Claude Code's permission rules, and Codex's approval settings               |
-| [Configuration](docs/configuration.md)                       | `.revloop.json` reference                                                   |
-| [Adding a reviewer](docs/adding-a-reviewer.md)               | How to configure a custom reviewer                                          |
-| [Design notes](docs/design-notes.md)                         | How the review loops are designed                                           |
-| [Known environment quirks](docs/known-environment-quirks.md) | Known limitations, bugs, and similar notes                                  |
-| [Contributing](CONTRIBUTING.md)                              | Running the checks, and the protocol for editing a fence                    |
-| [Code of conduct](CODE_OF_CONDUCT.md)                        | Development guidelines                                                      |
-| [Security](SECURITY.md)                                      | Security considerations                                                     |
-| [日本語版 README](README.ja.md)                              | This README in Japanese                                                     |
+| Guide                                                        | What it covers                                                               |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| [Install](docs/install.md)                                   | Prerequisites, Claude Code, Codex in preview, verifying the install          |
+| [Permissions](docs/permissions.md)                           | Claude Code's permission rules; Codex's sandbox, as a shape and not a recipe |
+| [Configuration](docs/configuration.md)                       | `.revloop.json` reference                                                    |
+| [Adding a reviewer](docs/adding-a-reviewer.md)               | How to configure a custom reviewer                                           |
+| [Design notes](docs/design-notes.md)                         | How the review loops are designed                                            |
+| [Known environment quirks](docs/known-environment-quirks.md) | Known limitations, bugs, and similar notes                                   |
+| [Contributing](CONTRIBUTING.md)                              | Running the checks, and the protocol for editing a fence                     |
+| [Code of conduct](CODE_OF_CONDUCT.md)                        | Development guidelines                                                       |
+| [Security](SECURITY.md)                                      | Security considerations                                                      |
+| [日本語版 README](README.ja.md)                              | This README in Japanese                                                      |
 
 ## License
 

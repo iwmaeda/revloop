@@ -14,7 +14,8 @@ These pages surround them.
 ## Get started
 
 - [Install](install.md) — put the plugin in place and confirm a reviewer answers
-- [Permissions](permissions.md) — the rules to grant on Claude Code, the sandbox to open on Codex
+- [Permissions](permissions.md) — the rules to grant on Claude Code, and the sandbox to open on
+  Codex, which is the shape of the problem rather than a driven recipe
 - [Configuration](configuration.md) — `.revloop.json` reference, and what is detected without it
 
 ## Extend

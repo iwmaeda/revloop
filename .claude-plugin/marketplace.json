@@ -5,7 +5,7 @@
     "url": "https://github.com/iwmaeda"
   },
   "metadata": {
-    "description": "revloop — reviewer-agnostic review loops for Claude Code and Codex: one on a pull request, one entirely local."
+    "description": "revloop — reviewer-agnostic review loops for Claude Code: one on a pull request, one entirely local. Running revloop from Codex is a preview and covers the pull-request loop only."
   },
   "plugins": [
     {

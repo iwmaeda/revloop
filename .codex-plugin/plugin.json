@@ -13,7 +13,7 @@
   "skills": "./.agents/skills/",
   "interface": {
     "displayName": "revloop",
-    "shortDescription": "Carry a finished change to a pull request and back, until the review converges.",
+    "shortDescription": "Preview: carry a finished change to a pull request and back, until the review converges.",
     "developerName": "MAEDA, Iwao",
     "category": "Developer Tools",
     "websiteURL": "https://github.com/iwmaeda/revloop",
