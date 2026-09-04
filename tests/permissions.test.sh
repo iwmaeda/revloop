@@ -40,12 +40,19 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "permissions"
 
-# EVERY PROCEDURE IN commands/ IS CHECKED, not only the first one that existed.
-# The list is globbed rather than written out, because a procedure added without
-# being named here would be exempt from this whole file — which is the same
-# drift the file exists to catch, one level up. That is not hypothetical:
-# local-loop.md arrived as the second procedure and runs git.
-PROCS=("$ROOT"/commands/*.md)
+# THE GRANT AND THE GRANTED TEXT NOW LIVE IN DIFFERENT FILES, so this file reads
+# two globs and reads them for different things. A procedure holds the fenced
+# bash that RUNS git and gh; a command holds the `allowed-tools` line that
+# PRE-APPROVES it. Both are globbed rather than written out, because a file added
+# without being named here would be exempt from this whole file — the same drift
+# the file exists to catch, one level up.
+#
+# THE BASH HALF READS BOTH SETS, DELIBERATELY. Today every fenced block lives in
+# a procedure and `fence-guards.test.sh` refuses one in a command. If that ever
+# changes, a command running an ungranted subcommand must fail here rather than
+# slip through a glob that only looked at procedures.
+PROCS=("$ROOT"/procedures/*.md)
+CMDS=("$ROOT"/commands/*.md)
 DOC="$ROOT/docs/permissions.md"
 
 # An unexpanded glob is a single path that does not exist, and awk on it prints
@@ -53,6 +60,9 @@ DOC="$ROOT/docs/permissions.md"
 # empty-input hole this file already guards for its two lists. Fail on it here,
 # where the cause is still legible, rather than three assertions later.
 if [ ! -f "${PROCS[0]}" ]; then
+  FAIL=$((FAIL + 1)); printf '  FAIL procedures/*.md matched no file\n'
+fi
+if [ ! -f "${CMDS[0]}" ]; then
   FAIL=$((FAIL + 1)); printf '  FAIL commands/*.md matched no file\n'
 fi
 
@@ -60,7 +70,7 @@ fi
 # in blocks and prose does not, so extracting from the blocks alone needs no
 # exclusion list — the procedure says "makes git set the upstream" in prose and
 # names `git show HEAD` twice in order to forbid it.
-blocks() { awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "${PROCS[@]}"; }
+blocks() { awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "${PROCS[@]}" "${CMDS[@]}"; }
 
 # Subcommands the procedures run, taken from fenced bash blocks only.
 USED=$(blocks | grep -oE '\bgit [a-z][a-z-]*' | sed 's/^git //' | sort -u)
@@ -198,7 +208,7 @@ expect "a quoted verb is rejected"      "$(canon "gh api -X 'DELETE' \"repos/x\"
 # frontmatter pre-approves every command starting with that word. That is why
 # the schema forbids a repository-supplied `command` from beginning with `git`
 # or `gh`, and why the review command and step 7's grader are kept out of
-# `allowed-tools` at all -- commands/local-loop.md and
+# `allowed-tools` at all -- procedures/local-loop.md and
 # docs/permissions.md both call that absence the thing that makes the
 # permission system see them every round.
 #
@@ -216,12 +226,13 @@ expect "a quoted verb is rejected"      "$(canon "gh api -X 'DELETE' \"repos/x\"
 # ban with no grant is the design, not a defect, and asserting equality would
 # fail the thing it guards.
 #
-# Read from the frontmatter alone, not the whole file: both procedures name
-# `Bash(gh pr:*)` in prose in order to say which rule they do NOT hold, and a
+# Read from the frontmatter alone, not the whole file: the local family names
+# `Bash(gh pr:*)` in prose in order to say which rule it does NOT hold, and a
 # grep over the body would read that refusal as a grant -- the same scoping the
-# gh api half needed, for the same reason.
-frontmatter() { # every procedure's YAML frontmatter, and nothing else
-  for f in "${PROCS[@]}"; do
+# gh api half needed, for the same reason. SCOPED TO COMMANDS because a procedure
+# grants nothing at all, which `fence-guards.test.sh` asserts directly.
+frontmatter() { # every command's YAML frontmatter, and nothing else
+  for f in "${CMDS[@]}"; do
     awk 'NR==1 { if ($0 != "---") exit; next } /^---$/ { exit } { print }' "$f"
   done
 }
@@ -237,7 +248,7 @@ DOC_BINS=$(bins "$(awk '/^```json$/{inj=1;next} /^```$/{inj=0} inj' "$DOC")")
 # is not a binary -- it is the placeholder ban, which exists because expansion
 # happens after a prefix is checked -- so the character class drops it here
 # instead of making it an exception in the comparisons below.
-BANNED_BINS=$(grep -oE '"\^\\\\s\*[A-Za-z][A-Za-z0-9_.-]*"' "$ROOT/schema/revloop.schema.json" \
+BANNED_BINS=$(grep -oE '"\^\\\\s\*[A-Za-z][A-Za-z0-9_.-]*"' "$ROOT/schema/reviewer.schema.json" \
   | sed -E 's/^"\^\\\\s\*//; s/"$//' | sort -u)
 
 # All three must be non-empty. A broken extraction yields nothing, `comm` then

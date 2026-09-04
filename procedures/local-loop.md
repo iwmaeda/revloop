@@ -1,17 +1,18 @@
----
-description: Branch → verify → run a local review command on a light model → fix its findings → commit, push, and open a PR
-argument-hint: "[--reviewer <name>] [--review-model <name>] [--no-publish] [--accept-at <level>] [--grade-severity] [--auto] [--max-rounds <n>]"
-disable-model-invocation: true
-allowed-tools: Bash(git:*), Bash(gh pr create:*), Bash(gh pr list:*), Bash(gh repo view:*), Bash(gh api -X PATCH repos/{owner}/{repo}/:*), Read, Edit, Write, Grep, Glob, Skill
----
+# The local review-and-fix procedure
 
-# revloop — the local review-and-fix loop
+**This file is a procedure, not a command.** The host never installs it, so it carries no frontmatter
+and grants nothing; the `allowed-tools` line that pre-approves the calls below belongs to whichever
+command invoked it. Three commands do: `local-review-loop`, `local-ecc-loop` and `local-custom-loop`.
 
 Carry the work tree's changes through **branch → verify → commit → run a review command on this
 machine → classify and fix its findings**, and repeat until the review converges. Then push the
-branch and open a pull request on it, unless `--no-publish` says to stop at the commit. `$ARGUMENTS`
-decides the reviewer, the model it reviews on, the acceptance floor, whether the run publishes, and
-whether to stop for confirmation.
+branch and open a pull request on it, unless `--no-publish` says to stop at the commit.
+
+**Two things arrive from the invoking command and are never resolved here.** The **reviewer's
+definition** — a file of the shape `schema/reviewer.schema.json` describes, which the command either
+ships or was given with `--config` — and the **flags, already parsed**. `$ARGUMENTS` is interpolated at
+command expansion and reaches no other file, so this procedure never sees it and never parses a flag
+name. Where a step below says "the resolved reviewer", it means that definition.
 
 **This is not a smaller `remote-loop`. It is a different reviewer class with a different scarce
 resource.** `remote-loop` drives a GitHub App, and its round is shaped around waiting safely for a
@@ -26,7 +27,7 @@ both are visible. A local round spends your tokens, and **nothing in the room di
 is why the rules below that would otherwise look like fussiness are rules at all.
 
 **The largest lever on what a round spends is which model reviews, so this command pins one.** The
-review runs on `sonnet` by default and `--review-model` changes it; the fixing stays on whatever
+review runs on `sonnet` by default and `--model` changes it; the fixing stays on whatever
 model is running this procedure. That is a cost decision with a second effect worth more than the
 first: `## Notes` records that a local reviewer sharing the fixer's model is not an independent
 check, and **a different model is the only thing that makes it one**. The cheap configuration and the
@@ -78,29 +79,31 @@ and **a ban that lags its grants by one release is the hole itself**. One rule c
 
 **The placeholder ban exists because expansion happens after the other two are checked.** A command of
 `{reviewModel} push --force` passes both prefix bans as written and becomes `git push --force` under
-`--review-model git`. The schema removes the shape; step 6 re-checks the **expanded** string against
+`--model git`. The schema removes the shape; step 6 re-checks the **expanded** string against
 all three prefixes before running it, because a static rule about a template is not a rule about what
 ran.
 
-| Flag                    | Default        | Effect                                                                              |
-| ----------------------- | -------------- | ----------------------------------------------------------------------------------- |
-| `--reviewer <name>`     | config         | A `local-command` reviewer: a preset, or a name from `.revloop.json`                |
-| `--review-model <name>` | `sonnet`       | The model **the reviewer** runs on. The fixing is unaffected                        |
-| `--no-publish`          | off, flag only | End at a commit. No push, no pull request — what every run did before publishing    |
-| `--accept-at <lvl>`     | off, flag only | Findings at `<lvl>` and below may be left unfixed. Everything above it still blocks |
-| `--grade-severity`      | off, flag only | Let a separate grader rank the findings of a reviewer that emits no severity        |
-| `--auto`                | off, flag only | Do not stop for confirmation. **The flag itself is the approval**                   |
-| `--max-rounds <n>`      | `5`            | Abort if the loop has not converged within this many rounds                         |
+**The flags this procedure acts on, and what each does.** The invoking command decides which of them
+it offers and what they default to; this one is the authority on **behaviour**. **There is no
+`--reviewer`**: the command supplies the reviewer's definition.
 
-`--accept-at`, `--grade-severity` and `--auto` mean exactly what they mean in
+| Flag                | Effect                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `--model <name>`    | The model **the reviewer** runs on. The fixing is unaffected                        |
+| `--no-publish`      | End at a commit. No push, no pull request, no `gh` call in any step                 |
+| `--accept-at <lvl>` | Findings at `<lvl>` and below may be left unfixed. Everything above it still blocks |
+| `--auto`            | Do not stop for confirmation. **The flag itself is the approval**                   |
+| `--max-rounds <n>`  | Abort if the loop has not converged within this many rounds                         |
+
+`--accept-at` and `--auto` mean exactly what they mean in
 [`remote-loop.md`](remote-loop.md), including having no configuration key, and the reasoning is
 stated there once rather than twice here — as is the canonical ladder `--accept-at` resolves against,
-its two passes, and the `severityMap` the second one needs. **`--grade-severity` matters more here
-than there**, and that is the only thing about it worth adding: the reviewer this command ships as its
-default emits no severity at all, so on the ordinary run the flag is the difference between an
-acceptance floor that works and one that aborts. **`--review-model` moves the grader as well as the
-reviewer**, because that flag names the model that reviews and grading is part of reviewing rather
-than of fixing — the loop's own model never assigns a rung. **`--review-model` is refused a key for a sharper reason** —
+its two passes, and the `severityMap` the second one needs. **Grading matters more here than there**,
+and that is the only thing about it worth adding: **both reviewers this procedure ships a definition
+for emit no severity at all**, so on the ordinary run `--accept-at` is a graded floor rather than a
+reported one, and the grader runs every round. **`--model` moves the grader as well as the reviewer**,
+because that flag names the model that reviews and grading is part of reviewing rather than of
+fixing — the loop's own model never assigns a rung. **`--model` is refused a key for a sharper reason** —
 its value is expanded into a command line at the `{reviewModel}` placeholder, so a key would be the
 first thing this project interpolates into a shell command out of a repository-supplied file. It comes
 from the person typing it, or from the builtin, and from nowhere else.
@@ -287,12 +290,12 @@ guess and is recorded as one; see `## Unexercised paths`.
 
    **Judgements:**
 
-   - **Resolve the reviewer from `--reviewer`, then `defaults.localReviewer`, then the built-in
-     presets. Never from `defaults.reviewer`.** That key is the pull-request loop's, and every
-     configuration written before this command existed points it at a `github-comment` reviewer — so
-     reading it here aborts on the next judgement, on every run, until `--reviewer` is typed. The
-     alternative of falling back to "the only `local-command` reviewer defined" is a guess, which is
-     what an unknown `--reviewer` already refuses to make.
+   - **The reviewer is the definition the invoking command supplied, and there is nothing to resolve
+     here.** A built-in command ships one; `local-custom-loop` was given one with `--config` and has
+     already refused a path that does not exist, a file the reviewer schema rejects, and a stem that
+     could not go in a marker. **This used to be a resolution chain over a flag, two config keys and a
+     preset list**, and every step of it was a way to end up driving a reviewer you did not mean — the
+     chain is gone rather than shortened.
    - **If the resolved reviewer's `kind` is not `local-command`, abort with
      `reason=not-a-local-reviewer`** and name the command that does drive it. A `github-comment`
      reviewer has a `trigger` and a `botLogin` and no way to be run here; failing over to
@@ -356,7 +359,7 @@ guess and is recorded as one; see `## Unexercised paths`.
      stop standing in for a missing check should have had all along, and did not while publishing was
      something you opted into.
 
-   - **Resolve the review model from `--review-model`, then the builtin `sonnet`. There is no
+   - **Resolve the review model from `--model`, then the builtin `sonnet`. There is no
      configuration key.** The builtin is a light model on purpose: it is what a round costs, and it
      is also the only thing that makes the reviewer a different model from the fixer — see
      `## Notes`. Whichever it is, it goes in the `review model` row with its source.
@@ -366,7 +369,7 @@ guess and is recorded as one; see `## Unexercised paths`.
      `$` in it would not be a bad model name — it would be a second command. The character class is
      deliberately narrower than what a model name can contain rather than exactly as wide, because a
      rejected legitimate name is a message and an accepted metacharacter is an execution.
-   - **If `--review-model` was passed and the resolved reviewer cannot carry it, abort with
+   - **If `--model` was passed and the resolved reviewer cannot carry it, abort with
      `reason=no-model-boundary`** and name the fix. There are two such reviewers and one fix:
 
      | The reviewer                                   | Why it cannot carry a model                                                                        |
@@ -378,7 +381,7 @@ guess and is recorded as one; see `## Unexercised paths`.
      `{reviewModel}` where its CLI takes a model. **This is an abort rather than a warning because a
      flag that appears to work and does nothing is the defect the schema calls "a promise the
      procedure does not keep"** — and it is worse than most, because the operator typed
-     `--review-model haiku` to spend less and would be billed for the strongest model with nothing
+     `--model haiku` to spend less and would be billed for the strongest model with nothing
      saying so. It is the same rule as `--accept-at` against a reviewer with no ladder, applied to a
      different missing capability.
 
@@ -406,27 +409,24 @@ guess and is recorded as one; see `## Unexercised paths`.
      is copied rather than cited: left alone, the push goes straight to the base branch, bypassing
      the pull request and CI. **This command could not do that damage while it never pushed**; it can
      now, on every run that does not opt out.
-   - **If `--accept-at` was passed and the resolved reviewer has no `severityLevels`, and
-     `--grade-severity` was not passed, abort with `reason=no-severity-ladder`.** Do not rank the
-     findings yourself to supply one. **You are the party obliged to fix them**, so a ladder you
-     author is a ladder you can author your way out of the work with. This is the same rule step 1
-     of [`remote-loop.md`](remote-loop.md) applies, and it bites harder here: the built-in reviewer
-     this command ships a preset for emits no severity at all, so this is the ordinary case and not
-     an edge one — **which is also why `--grade-severity` exists and why it is a flag rather than a
-     default.** The rule is not that a rung must come from the reviewer; it is that it must not come
-     from the party that has to fix the finding. Step 7 keeps that distinction by construction.
-   - **The other four `--accept-at` and `--grade-severity` judgements are step 1 of
+   - **If `--accept-at` was passed and the resolved reviewer has no `severityLevels`, the rungs come
+     from the grader** — [`severity-grading.md`](severity-grading.md), in full, on the resolved
+     `--model`. **Do not rank the findings yourself to supply one. You are the party obliged to fix
+     them**, so a ladder you author is a ladder you can author your way out of the work with. This is
+     the same rule step 1 of [`remote-loop.md`](remote-loop.md) applies, and **it is the ordinary case
+     here rather than an edge one**: both definitions this procedure's built-in commands ship declare
+     no severity, so an `--accept-at` run against either is a graded run. The rule is not that a rung
+     must come from the reviewer; it is that it must not come from the party that has to fix the
+     finding. Step 7 keeps that distinction by construction.
+   - **The other three `--accept-at` judgements are step 1 of
      [`remote-loop.md`](remote-loop.md)'s, unchanged**: `unknown-accept-level` printing both ladders
      after a native-then-canonical match, `no-severity-map` on a canonical level against a reviewer
-     that **has a ladder** and no map, `bad-severity-map` — **on a canonical resolution only**, since
-     a map nothing consults cannot move a floor — on a map that is not total, names a rung the ladder
-     does not hold, is not order-preserving, or leaves no distinction between the ladder's ends, and
-     `grade-without-floor` on `--grade-severity` with no floor to consume its rungs. **The fifth,
-     `grade-over-ladder`, is now unreachable through a shipped preset and is kept for a configured
-     reviewer.** It was written when `ecc-review-pr` shipped a ladder; five rounds established that
-     the ladder was read out of one dispatched agent and never emitted, so both shipped local presets
-     now carry none and `--grade-severity` is the ordinary way to give either one a floor. The abort
-     still says to drop the flag rather than that the reviewer is unsupported.
+     that **has a ladder** and no map, and `bad-severity-map` — **on a canonical resolution only**,
+     since a map nothing consults cannot move a floor — on a map that is not total, names a rung the
+     ladder does not hold, is not order-preserving, or leaves no distinction between the ladder's ends.
+     **The last two are unreachable on a graded run and now by construction**: grading fires only when
+     the definition declares no ladder, so a graded reviewer has no map that could be missing or
+     malformed. There is nothing left to refuse.
    - **If the resolved reviewer's `status` is not `verified`, say so in the table and repeat it in
      the final report.** Every preset this command ships is currently `unverified`.
 
@@ -662,10 +662,11 @@ guess and is recorded as one; see `## Unexercised paths`.
 
    For each finding, take its path, its location, its claim, and its rung.
 
-   **Under `--grade-severity`, the rung does not come from the review — it comes from a grader, and
-   this is where it is obtained.** Run it once for the whole round, after the findings are parsed and
-   before anything below this paragraph. **The grader is step 10 of
-   [`remote-loop.md`](remote-loop.md)'s, in full**: its command line, the file the findings are
+   **On a graded run the rung does not come from the review — it comes from a grader, and this is
+   where it is obtained.** Reached whenever `--accept-at` was passed and the definition declares no
+   `severityLevels`, which is **both** shipped local reviewers. Run it once for the whole round, after
+   the findings are parsed and before anything below this paragraph. **The grader is
+   [`severity-grading.md`](severity-grading.md), in full**: its command line, the file the findings are
    written to rather than concatenated into, the prompt's data-not-instructions framing, what it is
    given, what it is never given — the acceptance floor above all — the requirement to attach each
    rung by its number and never by line position, and its failure ladder: `grading-command-failed` on
@@ -674,14 +675,15 @@ guess and is recorded as one; see `## Unexercised paths`.
    for which no line arrived. It is cited rather than restated for the reason step 1's abort ladder
    is.
 
-   **Two things differ here, and the first is the model.** That command has no `--review-model`, so its grader
-   runs on the builtin `sonnet`; **here `--review-model` moves the grader as well as the reviewer**,
+   **Two things differ from the pull-request procedure, and the first is the model.** Its commands have
+   no `--model`, so its grader runs on the builtin `sonnet`; **here `--model` moves the grader as well
+   as the reviewer**,
    because that flag names the model that reviews and grading is part of reviewing rather than of
    fixing — the loop's own model never assigns a rung. The value is expanded and re-checked exactly
    as step 6 expands and re-checks the review command, and refused by the same
    `reason=unsafe-model-name` rule.
 
-   **The second is what it costs, and that belongs to this loop rather than to the flag.**
+   **The second is what it costs, and that belongs to this loop rather than to the reviewer.**
    The grader is absent from `allowed-tools` there and here, so the permission system sees it every
    round — **which is a second prompt beside the review command's**, where the pull-request loop's is
    its first. Step 1 has already printed both.
@@ -705,7 +707,7 @@ guess and is recorded as one; see `## Unexercised paths`.
      no key at all there, every finding would look new, and **the repeat suppression would be
      silently off on the default reviewer** — the failure mode of a mechanism, not of a
      configuration.
-   - **A graded rung is never in the fingerprint**, so `--grade-severity` leaves it at the path and
+   - **A graded rung is never in the fingerprint**, so grading leaves it at the path and
      the claim exactly as the no-ladder bullet above does. The bullet that puts a reviewer's rung in
      the key says a rung that moves between rounds
      is a fresh judgement worth re-reading, and that is true of a **reviewer's** rung, which moved
@@ -737,7 +739,7 @@ guess and is recorded as one; see `## Unexercised paths`.
      new and is read again without it — which is how the bullet that puts a reviewer's rung in the key
      can say it is part of the identity while the bullet that keeps a graded rung out says a grader's
      is not. It therefore fires in practice
-     only under `--grade-severity`, and writing it as a graded-only exception would make it read as a
+     only on a graded run, and writing it as a graded-only exception would make it read as a
      property of the flag rather than of the floor.
 
    **A finding whose fingerprint this run has already answered — fixed, declined, or accepted — is a
@@ -748,7 +750,7 @@ guess and is recorded as one; see `## Unexercised paths`.
    unlike the first it produces output that looks like work.
 
    **Then bound the _pass_, not the round.** Carry at most **ten** findings into step 9 at a time,
-   highest rung first — **by the graded rung under `--grade-severity`, and otherwise by the
+   highest rung first — **by the graded rung on a graded run, and otherwise by the
    reviewer's, or, with neither, in the order the reviewer returned them**, which every reviewer
    surveyed documents as most severe first. Take the reviewer's order rather than inventing a rank,
    for the reason step 1 aborts on `--accept-at` without a ladder and without the flag.
@@ -798,7 +800,7 @@ guess and is recorded as one; see `## Unexercised paths`.
    while sitting below it, where first-match reading never reached it.
 
    **Grading is not decided here either, and `unparsed-grading-output` is not a row below.** Under
-   `--grade-severity` a second subprocess does run before this table — step 7's grader — and its
+   a graded run does start a second subprocess before this table — step 7's grader — and its
    failure is taken there rather than here, for the same reason the cap is taken where a round opens:
    **the abort belongs where the evidence is.** Step 7 holds the grader's raw output; by the time a
    row here could match, that output has been reduced to rungs or to their absence, and "no rungs"
@@ -1020,7 +1022,7 @@ guess and is recorded as one; see `## Unexercised paths`.
 11. Report. Give the round count, the commit each round produced, every finding with its rung and its
     bucket, the checks that ran, and **which model reviewed**. **Lead with every finding at the
     ladder's top rung that you did not fix**, declined and accepted alike, reading the rung from the
-    reviewer's `severityLevels` — **or, under `--grade-severity`, from the canonical ladder the
+    reviewer's `severityLevels` — **or, on a graded run, from the canonical ladder the
     grader ranked on** — **or, with neither, lead with every finding you did not fix, in the order
     the reviewer returned them.** The last fallback is not decoration: the shipped default preset has
     no ladder, so a rule written only for the laddered case has no meaning on the ordinary run and the
@@ -1050,7 +1052,7 @@ guess and is recorded as one; see `## Unexercised paths`.
     followed on that run, and both are worse than saying less.
 
     **Say what the run did not establish, and the list is longer than it was.** It was reviewed by a
-    reviewer whose independence is limited in the way `## Notes` describes, and — with `--review-model`
+    reviewer whose independence is limited in the way `## Notes` describes, and — with `--model`
     at its default — by a model junior to the one that wrote the fixes. **Nothing here read CI and
     nothing merged**: a pull request this command opened is an unreviewed pull request with a
     pre-flight attached, which is exactly what it is for and not more. **On an abort, say where the
@@ -1072,7 +1074,7 @@ These are load-bearing. Each one exists because the obvious alternative fails.
   find a defect it would have written itself. `subprocess` isolation stops it from reading _this
   session's_ reasoning, which is a real and separate problem, but it does not make the reviewer a
   second opinion. **Only a different model does that.**
-- **The `--review-model` default makes it a different model, and that is a real change to this
+- **The `--model` default makes it a different model, and that is a real change to this
   section rather than a footnote to it.** This bullet used to end by noting that exactly one surveyed
   review command runs a different model and that it was recorded in
   [`../docs/adding-a-reviewer.md`](../docs/adding-a-reviewer.md) rather than shipped, because nobody
@@ -1154,7 +1156,7 @@ These are load-bearing. Each one exists because the obvious alternative fails.
   branch already has its pull request, so that procedure's push and create steps find their work done
   and it reaches its trigger without opening anything.
 - **The resolved review model is the only value this procedure expands into a command line.** It
-  comes from `--review-model` or from the builtin, never from `.revloop.json`, and it is refused
+  comes from `--model` or from the builtin, never from `.revloop.json`, and it is refused
   unless it matches `^[A-Za-z0-9][A-Za-z0-9._:-]*$`. Everything else in that file is used model-side
   or shown and prompted for as a whole string.
 
@@ -1187,7 +1189,7 @@ takes one should say so in the report and append a line to `.revloop/field-notes
   has no wall clock**, which the five measured rounds falsified
   ([`../reviewers/code-review.md`](../reviewers/code-review.md)). Nothing measured stands behind the
   number.
-- **`--grade-severity`, and every rule under it.** No run has graded a finding, and the three rounds
+- **Grading, and every rule under it.** No run has graded a finding, and the three rounds
   that carried the flag could not: step 7 grades after the findings are parsed, and each of those
   rounds parsed none. A reviewer that returns nothing is the one case the flag cannot be exercised by,
   which is worth stating because it looks from the invocation as though it was. The grader's prompt,
@@ -1249,7 +1251,7 @@ takes one should say so in the report and append a line to `.revloop/field-notes
   absent, `gh` unauthenticated — and **only that they all make `gh repo view` fail has been reasoned,
   not observed.** A cause that fails some other way would reach this run's publish step instead —
   step 5 or step 10 — where the failure is louder but later.
-- **`--review-model` itself. The `sonnet` default has now been run** against both shipped presets
+- **`--model` itself. The `sonnet` default has now been run** against both shipped presets
   (`iwmaeda/revloop#22`), and the first thing it produced was a shape change: `/code-review` returned
   a fenced JSON array under the pin where the five unpinned rounds on
   [`../reviewers/code-review.md`](../reviewers/code-review.md) returned a `Findings (N):` list. So the

@@ -9,12 +9,11 @@
 | `status`      | `unverified`     |
 | `lastChecked` | 2026-08          |
 
-```json
-{
-  "trigger": "@claude review",
-  "botLogin": "claude[bot]"
-}
-```
+**Definition:** [`claude.json`](claude.json) — the file the loop loads. This card is the
+measurement record beside it; the definition is the configuration, and neither restates the
+other.
+
+**Driven by:** `/revloop:remote-claude-loop`.
 
 ## Measured
 

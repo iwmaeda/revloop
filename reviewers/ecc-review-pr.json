@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/reviewer.schema.json",
+  "displayName": "ECC /ecc:review-pr",
+  "kind": "local-command",
+  "invoke": "subprocess",
+  "command": "claude --model {reviewModel} -p \"/ecc:review-pr\"",
+  "requiresPr": true,
+  "rateLimitPatterns": ["You've hit your session limit"],
+  "status": "unverified"
+}

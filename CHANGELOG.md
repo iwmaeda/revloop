@@ -3,14 +3,152 @@
 All notable changes to this project are documented here.
 
 **Fence changes are called out explicitly.** The shell fences in
-[`commands/remote-loop.md`](commands/remote-loop.md) are matched by permission rules on their exact
+[`procedures/remote-loop.md`](procedures/remote-loop.md) are matched by permission rules on their exact
 text, so editing one costs every user a single re-approval. See
 [`docs/permissions.md`](docs/permissions.md).
 
+**Entries before 0.7.0 name `commands/remote-loop.md` and `commands/local-loop.md`.** Those files moved
+to [`procedures/`](procedures/) in 0.7.0 and the historical names are left unlinked rather than
+repointed, because an entry should say what was true when it was written.
+
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-04
+
+**No fence changed, so there is no re-approval to give.** This release moves every file the fences
+live in, splits two commands into seven, and deletes a flag — and the three shell fences are
+byte-identical, still matching the hashes in `tests/fence-hashes.txt`. That is the whole point of
+keeping runnable text in fences and pinning their bytes: a restructure this large costs nothing at the
+permission prompt.
+
+**This is a breaking release. Retype your invocation.** `/revloop:remote-loop` and
+`/revloop:local-loop` are gone, with no deprecation window.
+
+| Was                                            | Now                                           |
+| ---------------------------------------------- | --------------------------------------------- |
+| `/revloop:remote-loop`                         | `/revloop:remote-codex-loop`                  |
+| `/revloop:remote-loop --reviewer gemini`       | `/revloop:remote-gemini-loop`                 |
+| `/revloop:remote-loop --reviewer claude`       | `/revloop:remote-claude-loop`                 |
+| `/revloop:remote-loop --reviewer <yours>`      | `/revloop:remote-custom-loop --config <path>` |
+| `/revloop:local-loop --reviewer code-review`   | `/revloop:local-review-loop`                  |
+| `/revloop:local-loop --reviewer ecc-review-pr` | `/revloop:local-ecc-loop`                     |
+| `/revloop:local-loop --reviewer <yours>`       | `/revloop:local-custom-loop --config <path>`  |
+| `--review-model <name>`                        | `--model <name>`                              |
+| `--accept-at high --grade-severity`            | `--accept-at high`                            |
+
+### The reviewer is a command, not a flag
+
+**`--reviewer` is removed.** A flag that selects a reviewer is a flag that can select the wrong one,
+and the reviewer is not a detail of the run: it decides which bot login the wait fence filters on,
+which rungs an acceptance floor is measured against, whether a merge is available at all, and which
+aborts are reachable. There is now one command per reviewer, and choosing the command is choosing the
+reviewer.
+
+**Seven commands, two procedures.** Every `remote-*` command runs
+[`procedures/remote-loop.md`](procedures/remote-loop.md) and every `local-*` command runs
+[`procedures/local-loop.md`](procedures/local-loop.md), byte for byte. The commands hold a flag table,
+a reviewer definition and a pointer, and nothing else — `tests/commands.test.sh` refuses a bash fence,
+a trigger marker, a spelled-out ladder or a stray tool grant in any of them. **Seven front doors, not
+seven code paths**, which is the objection `docs/design-notes.md` had to answer before the split was
+worth making.
+
+**Reviewer-specific flags now appear only where they apply.** `--merge` and `--timeout` are on the
+`remote-*` commands; `--model` and `--no-publish` on the `local-*` ones. Both were advertised to
+everyone before, on commands where they did nothing.
+
+**The procedures moved to `procedures/` and carry no frontmatter.** The host installs `commands/` and
+never `procedures/`, so an `allowed-tools` line in a procedure would be a grant nobody receives —
+`tests/fence-guards.test.sh` now refuses one. `$REVLOOP_PROCEDURE` and the Codex router keep their
+names; the router resolves `procedures/remote-loop.md`.
+
+### Reviewers are files
+
+**Each shipped reviewer is now a definition plus a card**: `reviewers/<name>.json`, validated against
+the new [`schema/reviewer.schema.json`](schema/reviewer.schema.json), beside the measurement card that
+already existed. The definition object is unchanged — it is the one that used to sit in a fenced
+` ```json ` block inside the card — so this is a move rather than a rewrite. **The file name is the
+name**: there is no `name` key and nothing to drift, and the stem must be marker-safe because the
+pull-request procedure writes it into the trigger marker.
+
+**A reviewer you write is the same format, named with `--config <path>`.** One format, one loader, no
+special case for a built-in. `examples/reviewer.custom.json` and `examples/reviewer.local.json` are
+starting points.
+
+**`.revloop.json` no longer defines reviewers.** The `reviewers` map and the `defaults.reviewer` and
+`defaults.localReviewer` keys are removed: with every command naming its own definition, a map here
+would be a definition surface no command reads. **Nothing breaks at runtime** — an unknown key in that
+file is ignored — so a stale key costs an editor warning rather than a failed run. Move the reviewer
+object into a file and point `--config` at it.
+
+### Grading needs no flag
+
+**`--grade-severity` is removed, and `--accept-at` now works against every reviewer.** When the
+reviewer's definition declares no `severityLevels`, the rungs come from the grader that flag used to
+start — specified now in [`procedures/severity-grading.md`](procedures/severity-grading.md), cited by
+both procedures and owned by neither.
+
+**Three aborts are gone with it**: `no-severity-ladder`, `grade-without-floor` and `grade-over-ladder`.
+All three were conditions dressed as errors. Grading now fires **if and only if** `--accept-at` was
+typed and the definition declares no ladder, so a reviewer that emits its own rungs cannot be regraded
+because nothing can ask for it — **stronger than the refusal it replaces**, and it makes
+`no-severity-map` and `bad-severity-map` unreachable on a graded run by construction rather than by
+another refusal.
+
+**This is the one change that made revloop quieter rather than louder, and it is worth knowing.**
+Before, `--accept-at` against a ladderless reviewer stopped the run; now it spends a subprocess and a
+permission prompt every round. Three of the five shipped reviewers are ladderless — `claude`,
+`code-review` and `ecc-review-pr` — so this is the ordinary case for the local family. **The
+compensation is disclosure and not a stop**: step 1 prints `severity source` as `grader (<model>)` and
+prints the grader's expanded command line before the first round, and every rung it assigns says
+`graded` wherever a rung is written. `.revloop/field-notes.md` records that the grader has never
+actually run in nine local rounds, so what changed is which invocations reach it, not what happens
+when one does.
+
+**The rule the old abort protected is unchanged and restated where grading now lives:** the loop must
+never rank the findings it is itself obliged to fix. The grader is a separate subprocess that is not
+told the acceptance floor and does not fix what it grades.
+
+### `copilot` removed, and the fences left alone
+
+**`reviewers/copilot.md` is deleted.** The preset was `unsupported` and could not be driven: a reviewer
+summoned by reviewer request posts no comment, so there is nothing to anchor a round's baseline to.
+
+**Its three load-bearing facts were rehomed first, and one of them the repository was missing.** The
+card held the only cited provenance for the `bot=` filter — Copilot reviews on `iwmaeda/iwmaeda#1` and
+`#2` (2026-08), firing automatically rather than by request — while
+`docs/design-notes.md` asserted that failure with no citation at all. It now carries the citation. The
+no-comment-trigger constraint and the removed-keys note moved to `docs/adding-a-reviewer.md`.
+
+**The fences still name `copilot`, deliberately.** Its two interim-comment patterns are in the wait
+fence's drop list and its name is in the compatibility alternation that lets a hand-typed
+`@<reviewer> review` anchor a baseline. Neither is a reviewer registry, and a comment already sitting
+on a pull request does not disappear when a card does. Removing them would cost every user one
+re-approval to shorten a regex, which is the trade the deleted card had already recorded against
+itself. `procedures/remote-loop.md` now says so where the fence is.
+
+### Tests
+
+- **New `tests/commands.test.sh`.** The flag matrix per command, the definition-to-command wiring in
+  both directions, the procedure pointers, the thinness guards, and that the two families each grant
+  one byte-identical tool string — plus that no `local-*` command grants `Bash(gh pr:*)`, which was
+  prose in the procedure and enforced by nothing.
+- **Both READMEs are compared for the first time.** `README.ja.md` mirrors every section of the English
+  one by hand and nothing tested it; the new suite asserts that every command appears in both.
+- `tests/schema.test.sh` validates `reviewers/*.json` directly instead of extracting fenced blocks,
+  asserts the definition/card pairing in both directions, and pins the removed keys as rejects.
+- `tests/fence-guards.test.sh` and `tests/permissions.test.sh` split their globs: fenced bash and fence
+  bytes come from `procedures/`, `allowed-tools` from `commands/`.
+- `tests/procedure-refs.test.sh` now scans the commands too — a thin command's whole job is to point at
+  a step in a file it does not contain, which is where a line-number citation would appear next.
+
+### Also
+
+- `CONTRIBUTING.md` claimed `markdownlint-cli2` runs with `dot: true` and lints `.claude/**` and
+  `.agents/**`. It does not, and never did in this configuration; the claim is corrected rather than
+  the configuration changed, because nothing has asked for those files to be linted.
+
 **No fence changed, so there is no re-approval to give.** The three shell fences in
-[`commands/remote-loop.md`](commands/remote-loop.md) are byte-identical and still match the hashes in
+`commands/remote-loop.md` are byte-identical and still match the hashes in
 `tests/fence-hashes.txt`.
 
 **Nothing is asked of you.** No flag, no permission rule and no `.revloop.json` key has to change:
@@ -26,7 +164,7 @@ out of quota. The round now aborts with `reason=reviewer-rate-limited`, prints t
 including the reset time the message names, and says outright that no review was performed.
 
 **The pull-request loop has had this row since it had a reviewer with a quota** — step 9 of
-[`commands/remote-loop.md`](commands/remote-loop.md), _"Do not retry. The quota recovers with time;
+`commands/remote-loop.md`, _"Do not retry. The quota recovers with time;
 retrying only burns rounds"_ — and the local loop is now the same ruling in its own table. It does
 not retry and it does not wait: the recovery is a fresh invocation once the quota is back, which
 step 6's runaway invariant permits because that invariant is a within-run rule.
@@ -59,7 +197,7 @@ Fixed:
 ## [0.6.0] - 2026-09-03
 
 **No fence changed, so there is no re-approval to give.** The three shell fences in
-[`commands/remote-loop.md`](commands/remote-loop.md) are byte-identical and still match the hashes in
+`commands/remote-loop.md` are byte-identical and still match the hashes in
 `tests/fence-hashes.txt`.
 
 **The two commands are renamed, and the old names are gone.** `/revloop:review-loop` is now
@@ -373,7 +511,7 @@ Changed:
   `HEAD` equal to it, tree clean — was expected to leave the reviewer nothing to read. Run there, it
   reviewed `main..HEAD`, named the changed file and described its diff. Zero findings came back, which
   is what the derivation predicted, for the opposite reason. **That card's `## Not measured` had asked
-  for this run by name.** Step 5 of [`commands/local-loop.md`](commands/local-loop.md) cited the
+  for this run by name.** Step 5 of `commands/local-loop.md` cited the
   derivation as measured behaviour; **the publish placement does not move**, and what holds it is now
   stated as caution — one sample is not enough to relocate a step whose failure mode is a run
   finishing clean over a diff nobody read.
@@ -417,7 +555,7 @@ Removed:
 ## [0.5.0] - 2026-09-02
 
 **No fence changed, so nothing here asks anything of you.** The three shell fences in
-[`commands/review-loop.md`](commands/remote-loop.md) are byte-identical to 0.4.0 and still match the
+`commands/review-loop.md` are byte-identical to 0.4.0 and still match the
 hashes in `tests/fence-hashes.txt`, which `tests/fence-guards.test.sh` reports on every run — so there
 is **no re-approval to give**. The granted rule list in
 [`docs/permissions.md`](docs/permissions.md) is unchanged as well, and the new command grants a
@@ -745,7 +883,7 @@ Changed:
 ## [0.4.0] - 2026-08-31
 
 **No fence changed, so nothing here asks anything of you.** The three shell fences in
-[`commands/review-loop.md`](commands/remote-loop.md) are byte-identical to 0.3.0 and still match the
+`commands/review-loop.md` are byte-identical to 0.3.0 and still match the
 hashes in `tests/fence-hashes.txt` — `tests/fence-guards.test.sh` reports all three matching, which is
 the evidence for this paragraph — so there is **no re-approval to give**. The granted rule list in
 [`docs/permissions.md`](docs/permissions.md) is unchanged too: the two new reads use

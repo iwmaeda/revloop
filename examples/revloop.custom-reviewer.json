@@ -11,21 +11,12 @@
       "scopes": ["api", "web", "infra"],
       "verifiedLabel": "検証:"
     },
-    "pr": { "titleLanguage": "ja" }
-  },
-  "defaults": { "reviewer": "acme", "maxRounds": 15, "timeout": "45m" },
-  "reviewers": {
-    "acme": {
-      "displayName": "Acme Reviewer",
-      "trigger": "@acme review --deep",
-      "botLogin": "acme-reviewer[bot]",
-      "cleanPatterns": ["^Acme Review: no issues found"],
-      "rateLimitPatterns": ["quota exceeded", "rate limit"],
-      "severityLevels": ["blocker", "major", "minor"],
-      "severityMap": { "blocker": "critical", "major": "high", "minor": "low" },
-      "expectedLatency": "2-8m",
-      "markerTolerated": "unverified",
-      "status": "unverified"
+    "pr": {
+      "titleLanguage": "ja"
     }
+  },
+  "defaults": {
+    "maxRounds": 15,
+    "timeout": "45m"
   }
 }

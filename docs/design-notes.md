@@ -11,7 +11,7 @@ its own — each had fixed bugs the others still had: a clean phrase matched for
 a prefix, a findings reader that trusted a field which is usually null, a failure token containing
 the success token as a substring, a wait loop that exited on a non-terminal signal, and a wait built
 on an endpoint that returns 404 while another serves the same data. Each of those is now a rule in
-[`../commands/remote-loop.md`](../commands/remote-loop.md)'s `## Notes`, stated with the failure it
+[`../procedures/remote-loop.md`](../procedures/remote-loop.md)'s `## Notes`, stated with the failure it
 answers.
 
 The differences that were _not_ bugs became the configuration surface. `.revloop.json`'s field list is
@@ -68,7 +68,11 @@ arrived and presents as "the reviewer never responded". So the fence matches a s
   reports `marker_head=none` and step 9 aborts rather than adopting the verdict.
 - **`bot=` filters every other bot at fetch time.** Deploy-preview, coverage, a second reviewer — all
   discarded before classification. A bot that comments on every push satisfies the wait's exit
-  condition immediately, so the wait never waits; that was a real failure.
+  condition immediately, so the wait never waits; that was a real failure. **Measured on
+  `iwmaeda/iwmaeda#1` and `#2` (2026-08)**, where Copilot reviews arrived **fired automatically rather
+  than by request** — a second reviewer's review landing inside the waiting window and read as this
+  round's verdict. That observation lived on `reviewers/copilot.md` until the card was removed in
+  0.7.0; it is recorded here because it is a fact about the filter and never was one about Copilot.
 - **`head=` and `attempt=` put the run's bounds on GitHub rather than in the session**, where a
   restart cannot refund them. Adding `attempt=` cost no fence edit, because the fence reads marker
   keys by name and skips one it does not know — **a marker key can be added without changing any
@@ -133,6 +137,35 @@ land inside the remote reviewer's own measured range ([`../reviewers/code-review
 [`../reviewers/codex.md`](../reviewers/codex.md)). The wall clock is not the difference between the
 loops; what a round spends while it passes is, and one of the two is invisible.
 
+## Why there are seven commands and two procedures
+
+`--reviewer <name>` selected the reviewer until 0.7.0, and the string was the defect. **A flag that
+selects a reviewer is a flag that can select the wrong one**, and the reviewer is not a detail of the
+run: it decides which bot login the wait fence filters on, which rungs an acceptance floor is measured
+against, whether a merge is even available, and which aborts are reachable. Choosing it wrongly and
+choosing it silently were the same act.
+
+**The commands are where a person chooses; the procedure is where the work is written.** That split is
+the same one `## The local loop is a second procedure, not a flag` argues one level up, and it has to
+answer the same objection: **two code paths halve the empirical coverage behind every claim, because
+any given run exercises only one.** Seven commands do not create seven paths. Each is a flag table, a
+reviewer definition and a pointer; every `remote-*` command runs one procedure and every `local-*`
+command runs the other, byte for byte. What multiplied is the number of front doors, and
+`tests/commands.test.sh` is what keeps them from becoming anything more — no command may carry a bash
+fence, print a trigger marker, spell the canonical ladder, or grant tools its family does not.
+
+**The gain is that a flag surface can finally be wrong out loud.** `--merge` on a local reviewer and
+`--model` on a bot were always meaningless, and the old `argument-hint` advertised both to everyone.
+Now each command advertises only what it offers, and a test compares that against what its own table
+documents — a check that could not exist while one command served every reviewer.
+
+**The reviewer definitions became files in the same change, and for a related reason.** The presets
+were prose plus a fenced block inside a card, so `--reviewer codex` resolved against a description
+rather than a definition. Now `reviewers/<name>.json` is what the loop loads, the card beside it is
+what records whether anyone has watched it work, and a reviewer you write with `--config` is read by
+the same loader as the ones that ship. **The Codex router gains most from that**: it had to infer a
+preset from prose, and can now read the same file Claude Code does.
+
 ## The acceptance floor
 
 `--accept-at` is the first consumer `severityLevels` has ever had. The schema says a key with no
@@ -155,16 +188,27 @@ fetching the accepted rungs would be the thing the card forbids, and it would al
 is why the rule is written down instead of left to judgement.
 
 **The loop never supplies a ladder the reviewer did not.** Asked to accept findings from a reviewer
-that emits no severity, it aborts rather than ranking them itself. It is the party obliged to fix
-them, so a ladder it authors is a ladder it can author its way out of the work with, and from outside
-the run that is indistinguishable from a reviewer that really graded them that way. This is not
-hypothetical: one shipped local preset is exactly that reviewer.
+that emits no severity, it does not rank them itself. It is the party obliged to fix them, so a ladder
+it authors is a ladder it can author its way out of the work with, and from outside the run that is
+indistinguishable from a reviewer that really graded them that way. This is not hypothetical: three of
+the five shipped reviewers are exactly that reviewer.
 
-**`--grade-severity` narrows that sentence and does not repeal it, and the narrowing is worth stating
-precisely, because the loose version of it would give the whole thing away.** The rule's argument has
-never been about where a rung comes from. It is about **a party** — the one that has to do the work —
-and about **a reader** who cannot check afterwards which kind of rung they are looking at. So the flag
-has to answer both halves, and both answers are mechanisms rather than assurances.
+**Grading narrows that sentence and does not repeal it, and the narrowing is worth stating precisely,
+because the loose version of it would give the whole thing away.** The rule's argument has never been
+about where a rung comes from. It is about **a party** — the one that has to do the work — and about
+**a reader** who cannot check afterwards which kind of rung they are looking at. So the arrangement has
+to answer both halves, and both answers are mechanisms rather than assurances.
+
+**It was a flag until 0.7.0, and removing the flag made the rule stricter rather than looser.**
+`--grade-severity` had two refusals attached to it — grading a reviewer that already had a ladder, and
+grading with no floor to consume the rungs — and both were conditions dressed as errors. Now grading
+fires **if and only if** `--accept-at` was typed and the definition declares no `severityLevels`, so
+neither refusal has an invocation left to refuse: a reviewer that emits its own rungs cannot be
+regraded, because nothing can ask for it. **What the change did cost is loudness.** Before, an
+`--accept-at` against a ladderless reviewer stopped the run; now it spends a subprocess and a
+permission prompt every round. The compensation is disclosure rather than a stop: step 1 prints
+`severity source` as `grader (<model>)`, prints the grader's expanded command line, and every rung it
+assigns says `graded` wherever a rung is written.
 
 **The grader is not that party.** It is a subprocess with its own model, none of this session's
 context, and nothing to gain from the answer: it does not fix what it grades. That is the same
@@ -233,7 +277,7 @@ session's_ reasoning, which is a real and separate improvement — a reviewer th
 justify a decision does not find that decision suspicious — but it does not make the reviewer a second
 opinion. **Only a different model does that.**
 
-**The `--review-model` default supplies one, and the model is a property of how a command is invoked
+**The `--model` default supplies one, and the model is a property of how a command is invoked
 rather than of which command you pick.** Pinning `sonnet` in the shipped preset's own `command` gets
 there without a new reviewer, and it does so **while making the round cheaper rather than more
 expensive** — which is why the feature was reached for as a cost measure and is recorded here as an
@@ -345,5 +389,5 @@ on. The floor itself is in [`install.md`](install.md#requirements).
 
 - [Permissions](permissions.md) — the rules this reasoning produces
 - [Configuration](configuration.md#what-is-deliberately-not-configurable) — what is fixed, and why
-- [`../commands/remote-loop.md`](../commands/remote-loop.md) — the procedure, and its per-step `## Notes`
-- [`../commands/local-loop.md`](../commands/local-loop.md) — the local procedure
+- [`../procedures/remote-loop.md`](../procedures/remote-loop.md) — the procedure, and its per-step `## Notes`
+- [`../procedures/local-loop.md`](../procedures/local-loop.md) — the local procedure

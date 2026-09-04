@@ -7,18 +7,21 @@ so the unit is a mode plus the holes you open in it.
 This page is what to grant. Why the rules are shaped this way is in
 [`design-notes.md`](design-notes.md#permission-rules-and-fence-bytes).
 
-**Which rules you need depends on which command you run, and on how you run it.**
-`/revloop:remote-loop` talks to GitHub and needs the whole list below. `/revloop:local-loop`
-needs a strict subset — including four `gh` rules, since it pushes and opens a pull request by
-default.
+**Which rules you need depends on which family of command you run, and on how you run it.** The list
+is per family rather than per command because the grant is a property of the procedure, and every
+command in a family runs the same one — `tests/commands.test.sh` asserts that the four `remote-*`
+commands carry a byte-identical `allowed-tools` line, and that the three `local-*` ones do.
 
-| Run                       | What it needs                                                                                                                             |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `local-loop`              | `Bash(git:*)`, plus `Bash(gh pr list:*)`, `Bash(gh pr create:*)`, `Bash(gh repo view:*)`, `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` |
-| `local-loop --no-publish` | `Bash(git:*)`. **No step calls `gh`** — it ends at a commit                                                                               |
-| `remote-loop`             | The whole list                                                                                                                            |
+The `remote-*` commands talk to GitHub and need the whole list below. The `local-*` commands need a
+strict subset — including four `gh` rules, since they push and open a pull request by default.
 
-**A reviewer you point either command at may reach GitHub on its own account**: the shipped
+| Run                               | What it needs                                                                                                                             |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Any `local-*`                     | `Bash(git:*)`, plus `Bash(gh pr list:*)`, `Bash(gh pr create:*)`, `Bash(gh repo view:*)`, `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` |
+| Any `local-*` with `--no-publish` | `Bash(git:*)`. **No step calls `gh`** — it ends at a commit                                                                               |
+| Any `remote-*`                    | The whole list                                                                                                                            |
+
+**A reviewer you point either family at may reach GitHub on its own account**: the shipped
 `ecc-review-pr` preset resolves a pull request, and a `skill`-invoked reviewer does that inside this
 session under the grants this session already has.
 
@@ -47,7 +50,7 @@ Put these in `.claude/settings.local.json` (per-developer, git-ignored) or `.cla
 }
 ```
 
-**`gh pr create` and `gh pr list` are listed separately because `local-loop` holds those two
+**`gh pr create` and `gh pr list` are listed separately because the `local-*` commands hold those two
 rather than the broad `Bash(gh pr:*)`**, which would pre-approve `gh pr merge` for a command that
 never merges.
 
@@ -72,7 +75,7 @@ permission system enforces. The blast radius is your working tree and the branch
 write. Two things bound it: neither procedure ever constructs a `--force` push, and step 1 aborts on
 a fork, so the branches are your own.
 
-**`local-loop` holds this rule too, and pushes with it unless `--no-publish`.** The same shape
+**The `local-*` commands hold this rule too, and push with it unless `--no-publish`.** The same shape
 applies to its four `gh` rules: the grants are present on every run, and it is the procedure rather
 than the permission system that keeps them within their purpose. That is why they are the narrow
 ones.
@@ -121,12 +124,14 @@ subprocess.
 
 ### Nor is the grader's command, and it is procedure-owned rather than repository-supplied
 
-`--grade-severity` starts a grader subprocess per round — on **the local loop's** resolved review
-model, and on the builtin `sonnet` in the pull-request loop, which has no `--review-model` to move it
-— and it is treated like the review command in every way but one: **its command line comes from the
+**A graded run starts a grader subprocess per round** — on **the local family's** resolved review
+model, and on the builtin `sonnet` in the pull-request family, which has no `--model` to move it. A
+run is graded when `--accept-at` was typed and the reviewer's definition declares no `severityLevels`,
+which is three of the five shipped reviewers: `claude`, `code-review` and `ecc-review-pr`. The grader
+is treated like the review command in every way but one: **its command line comes from the
 procedure and never from `.revloop.json`.** A review command is what the operator chose to run and
 the step-1 table shows it before it runs; a grader the repository could choose would be a shell
-string nobody asked for, started under a flag whose whole purpose is to let findings go unfixed.
+string nobody asked for, started in the one place whose purpose is to let findings go unfixed.
 Only the model is interpolated into it, through the same `{reviewModel}` resolution and the same
 `^[A-Za-z0-9][A-Za-z0-9._:-]*$` refusal — **in the local loop. The pull-request loop interpolates
 nothing**, because its model is the builtin, so that refusal has no input there and cannot fire.
@@ -145,11 +150,11 @@ allow" holds because its bytes never change, and this string carries a model. So
 `allowed-tools`, the permission system sees it every round, and step 1 prints it in full and expanded
 — beside the review command in the local loop, and on its own in the pull-request loop, which has no
 review command to print it beside and where the grader is the only subprocess the run starts at all.
-**What that costs differs by loop, and the figure belongs to the loop
-rather than to the flag.** A local run with `--grade-severity` costs **two** prompts a round where it
-cost one — the review command and the grader. A pull-request run costs **one** where it cost none
-from a process it started, because its reviewer is a GitHub app; the flag is the only thing that puts
-a model subprocess in that loop at all. Both are the correct price for the string a graded run is
+**What that costs differs by family, and the figure belongs to the procedure
+rather than to a flag.** A graded local run costs **two** prompts a round where it costs one — the
+review command and the grader. A graded pull-request run costs **one** where it costs none from a
+process it started, because its reviewer is a GitHub app; grading is the only thing that puts a model
+subprocess in that procedure at all. Both are the correct price for the string a graded run is
 most about.
 
 **A `subprocess` command may not begin with `git`, with `gh`, or with the `{reviewModel}`
@@ -168,13 +173,13 @@ granted spellings instead would be four rules that have to track a grant list ev
 extend, and a ban that lags its grants by one release is the hole itself.
 
 **The placeholder ban exists because expansion happens after the prefix is checked.** `{reviewModel}`
-is substituted before the command runs, so `{reviewModel} push --force` under `--review-model git`
+is substituted before the command runs, so `{reviewModel} push --force` under `--model git`
 becomes a string beginning with `git` — the first two bans defeated by a value that arrived after
 them. The schema removes the shape, and the procedure re-checks the expanded string before running it.
 
 ### The review model is the one interpolated value
 
-`--review-model <name>` is **expanded into a command line** at the `{reviewModel}` placeholder — the
+`--model <name>` is **expanded into a command line** at the `{reviewModel}` placeholder — the
 only value either procedure splices into a shell command. It comes from the flag or from the builtin
 `sonnet`, never from `.revloop.json`, and is refused unless it matches
 `^[A-Za-z0-9][A-Za-z0-9._:-]*$`.
@@ -234,11 +239,11 @@ disagree.
 **Count them by string class rather than by loop, because a string class is what the permission
 system matches on.** Three exist, and only the first is covered by the rules above:
 
-| String                                             | Prompts                        | Why                                                           |
-| -------------------------------------------------- | ------------------------------ | ------------------------------------------------------------- |
-| A fence                                            | Once, at the first approval    | It takes no arguments, so its command string never varies     |
-| A verify command, or a `subprocess` review command | Every round it runs            | Repository-supplied. Pre-approving it is the hole             |
-| The grader, under `--grade-severity`               | Every round, in **both** loops | Procedure-owned, but it carries a model, so it is not a fence |
+| String                                             | Prompts                           | Why                                                           |
+| -------------------------------------------------- | --------------------------------- | ------------------------------------------------------------- |
+| A fence                                            | Once, at the first approval       | It takes no arguments, so its command string never varies     |
+| A verify command, or a `subprocess` review command | Every round it runs               | Repository-supplied. Pre-approving it is the hole             |
+| The grader, on a graded run                        | Every round, in **both** families | Procedure-owned, but it carries a model, so it is not a fence |
 
 **"Zero prompts per round" was never a property of the pull-request loop; it is a property of the
 fences.** A remote round runs the repository's verify commands exactly as a local round does — step
@@ -246,13 +251,16 @@ fences.** A remote round runs the repository's verify commands exactly as a loca
 that loop reached zero, two sentences above saying the review command is prompted for "as `verify`
 is"; both cannot be true.
 
-**`--grade-severity` adds one prompt per round to whichever loop is running.** On a local run that is
-a second prompt beside the review command. On a pull-request run it is the first and only model
-subprocess that loop has ever started, because its reviewer is a GitHub app rather than a process.
-**The string you are prompted with is the expanded one** — `{reviewModel}` already substituted in the
-local loop, or the builtin `sonnet` in the pull-request loop, which has no such flag and interpolates
-nothing — because that is the string that will run, and being shown a template while a different
-string executes is the failure the whole not-pre-approved rule is about.
+**Grading adds one prompt per round to whichever family is running.** On a local run that is a second
+prompt beside the review command. On a pull-request run it is the first and only model subprocess that
+procedure has ever started, because its reviewer is a GitHub app rather than a process. **It needs no
+flag of its own**: `--accept-at` against a reviewer with no ladder is what reaches it, so the prompt
+count follows the reviewer as much as the invocation — which is why step 1 prints `severity source`
+before the first round rather than at the first prompt. **The string you are prompted with is the
+expanded one** — `{reviewModel}` already substituted in the local family, or the builtin `sonnet` in
+the pull-request family, which has no `--model` and interpolates nothing — because that is the string
+that will run, and being shown a template while a different string executes is the failure the whole
+not-pre-approved rule is about.
 
 Editing a fence costs every user one re-approval; the protocol is in
 [`../CONTRIBUTING.md`](../CONTRIBUTING.md#editing-a-shell-fence).

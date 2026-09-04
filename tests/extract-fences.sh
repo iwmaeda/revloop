@@ -11,10 +11,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC="${2:-$ROOT/commands/remote-loop.md}"
+SRC="${2:-$ROOT/procedures/remote-loop.md}"
 
 if [ "${1:-}" = "--list" ]; then
-  SRC="${2:-$ROOT/commands/remote-loop.md}"
+  SRC="${2:-$ROOT/procedures/remote-loop.md}"
   grep -o 'revloop:fence id=[A-Za-z0-9_-]*' "$SRC" | sed 's/.*id=//'
   exit 0
 fi

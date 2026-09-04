@@ -4,7 +4,12 @@
   "project": {
     "verify": ["gofmt -l .", "go vet ./...", "go test ./..."],
     "branchPrefixes": ["feat", "fix", "docs", "chore"],
-    "commit": { "style": "conventional", "subjectLanguage": "en" }
+    "commit": {
+      "style": "conventional",
+      "subjectLanguage": "en"
+    }
   },
-  "defaults": { "reviewer": "codex", "maxRounds": 12 }
+  "defaults": {
+    "maxRounds": 12
+  }
 }

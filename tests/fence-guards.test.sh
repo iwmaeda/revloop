@@ -6,11 +6,14 @@ set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-SRC="$ROOT/commands/remote-loop.md"
-# The slug and allowed-tools guards below apply to EVERY procedure, not only the
-# one that carries the fences. A second procedure grants its own allowed-tools
-# line, and a guard scoped to the first file would never read it.
-PROCS=("$ROOT"/commands/*.md)
+SRC="$ROOT/procedures/remote-loop.md"
+# TWO SETS, BECAUSE THE SPLIT PUT THE GRANT AND THE GRANTED TEXT IN DIFFERENT
+# FILES. A procedure holds the fences and the fenced bash; a command holds the
+# `allowed-tools` line that pre-approves it. Reading one glob for both would
+# assert a missing grant on every procedure -- a file the host never installs as
+# a command, and which therefore must not carry one.
+PROCS=("$ROOT"/procedures/*.md)
+CMDS=("$ROOT"/commands/*.md)
 IDS=$("$ROOT/tests/extract-fences.sh" --list)
 
 echo "fence-guards:"
@@ -21,7 +24,19 @@ echo "fence-guards:"
 # file. The other two globbed guards fail on this explicitly; this one did not,
 # which made a claim in the changelog untrue about a third of its subject.
 if [ ! -f "${PROCS[0]}" ]; then
+  FAIL=$((FAIL + 1)); printf '  FAIL procedures/*.md matched no file\n'
+fi
+if [ ! -f "${CMDS[0]}" ]; then
   FAIL=$((FAIL + 1)); printf '  FAIL commands/*.md matched no file\n'
+fi
+# One command per reviewer, plus the two that take a definition. A glob that
+# matched three would satisfy the guard above while leaving four reviewers
+# undriven, which is the same "green over a partial corpus" hole the floors in
+# schema.test.sh and severity-ladder.test.sh exist for.
+if [ "${#CMDS[@]}" -ge 7 ]; then
+  PASS=$((PASS + 1)); printf '  ok   %d commands were found\n' "${#CMDS[@]}"
+else
+  FAIL=$((FAIL + 1)); printf '  FAIL only %d commands found; the glob is broken\n' "${#CMDS[@]}"
 fi
 
 # extract-fences.sh --list fails when $SRC does not exist, but this script has no
@@ -67,8 +82,8 @@ done
 bad=$(cat "$TMP"/*.sh | grep -oE '[A-Za-z_]+ALL_PASS|ALL_PASS[A-Za-z_]+' | sort -u || true)
 refute "no emitted token contains ALL_PASS" "$bad" "ALL_PASS"
 
-# No procedure may carry a repository-specific slug.
-for src in "${PROCS[@]}"; do
+# Neither a procedure nor a command may carry a repository-specific slug.
+for src in "${PROCS[@]}" "${CMDS[@]}"; do
   name=$(basename "$src")
   slug=$(grep -oE 'repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(issues|pulls)' "$src" | grep -v 'repos/{owner}/{repo}/' || true)
   refute "$name uses no literal repo slug" "$slug" "repos/"
@@ -80,16 +95,39 @@ done
 # that reaches every repository your token can touch, once sat in the frontmatter
 # while three files explained why nobody should use it.
 #
-# EVERY procedure is read, because the grant is per file. local-loop.md
-# grants a strictly smaller set and needs no gh rule at all; a guard that only
-# read remote-loop.md would report on a file the user never installed alone.
+# EVERY COMMAND is read, because the grant is per file: the local family grants
+# a strictly smaller set and needs no broad gh rule at all, and a guard that read
+# only one would report on a file the user never installed alone.
 documented=$(grep -oE '"Bash\([^)]*\)"' "$ROOT/docs/permissions.md" | tr -d '"' | sort -u)
-for src in "${PROCS[@]}"; do
+for src in "${CMDS[@]}"; do
   name=$(basename "$src")
   granted=$(awk 'NR>1 && /^---$/{exit} /^allowed-tools:/{print}' "$src" | grep -oE 'Bash\([^)]*\)' | sort -u)
   extra=$(comm -23 <(printf '%s\n' "$granted") <(printf '%s\n' "$documented"))
   expect "$name allowed-tools grants at least one Bash rule" "$granted" "Bash("
   refute "$name allowed-tools grants nothing docs/permissions.md does not" "$extra" "Bash("
+done
+
+# A PROCEDURE IS NOT A COMMAND AND MUST NOT GRANT ANYTHING. The host installs
+# `commands/` and never `procedures/`, so an `allowed-tools` line in a procedure
+# is a grant nobody receives -- and worse, a reader who finds one will believe it
+# applies. That is the same failure the block above exists for, seen from the
+# other side: there, a rule granted that the docs refuse; here, a rule that reads
+# as granted and is not.
+for src in "${PROCS[@]}"; do
+  name=$(basename "$src")
+  fm=$(awk 'NR==1 && /^---$/{f=1} f{print} NR>1 && /^---$/{exit}' "$src")
+  refute "$name carries no allowed-tools" "$fm" "allowed-tools:"
+  refute "$name carries no frontmatter"   "$fm" "---"
+done
+
+# THE MARKER IS THE PROCEDURE'"'"'S AND A COMMAND MUST NOT PRINT ONE. Its four keys
+# are what the wait fence parses a round'"'"'s identity out of; a second copy in a
+# thin command is a second source of truth for exactly the thing the marker guard
+# below exists to pin, and one that no test would compare against the first.
+for src in "${CMDS[@]}"; do
+  name=$(basename "$src")
+  m=$(grep -o 'revloop:trigger v=' "$src" || true)
+  refute "$name prints no trigger marker" "$m" "revloop:trigger"
 done
 
 # Fence bytes are a permission-relevant surface: a change costs every user one
@@ -113,7 +151,7 @@ else
 fi
 
 # Every marker the procedure prints must carry the four keys the wait fence
-# reads by name. SCOPED TO $SRC ON PURPOSE: local-loop.md posts no
+# reads by name. SCOPED TO $SRC ON PURPOSE: procedures/local-loop.md posts no
 # comment and prints no marker, so a glob here would assert over a file that
 # has nothing to assert about and report a missing marker as a defect. `attempt=` is deliberately not in this list: it is absent on a
 # round's first trigger, which is the shape the reviewer card measured. A doc

@@ -12,7 +12,7 @@ what it needs. The [schema](../schema/revloop.schema.json) is machine-readable a
     "verify": ["npm run check:all", "npm test"],
     "verifyNotes": "check:all does not run the tests; CI splits them into two jobs"
   },
-  "defaults": { "reviewer": "codex", "maxRounds": 12 }
+  "defaults": { "maxRounds": 12 }
 }
 ```
 
@@ -29,22 +29,24 @@ With no config, revloop detects everything and prints where each value came from
 | `verify`         | The repository's build files — `package.json`, `Makefile`, `pyproject.toml`, `Cargo.toml`, `go.mod` |
 | `branchPrefixes` | The prefixes actually used in the repository's commit subjects                                      |
 | `commit.*`       | The last 20 commit subjects and bodies: style, language, existing trailers                          |
-| `reviewers`      | The built-in presets                                                                                |
+
+**The reviewer is not in that table**, because it is not detected: it is whichever command you typed.
 
 The `source` column of the step-1 table is `flag`, `config`, `detected`, or `builtin`. **Read it.** It
 is how you tell a value you chose from a value revloop guessed, without reading any code.
 
 ## When config is missing or wrong
 
-| Situation                             | Behaviour                                                                                                                                   |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| No `.revloop.json`                    | Detect everything. Normal                                                                                                                   |
-| Malformed JSON                        | **Abort.** Never fall back to the presets — that would ignore the custom reviewer the file configures while the run still looked healthy    |
-| Unknown key                           | Not validated at runtime; ignored. `tests/schema.test.sh` rejects it in CI against fixtures, per the schema's `additionalProperties: false` |
-| Unknown `version`                     | **Abort**                                                                                                                                   |
-| `--reviewer` names nothing known      | **Abort** and list the available names. Never guess                                                                                         |
-| No verify command found or configured | Ask before continuing; record "no verification ran" in the report                                                                           |
-| ...and `--merge` was passed           | **Abort.** Do not merge code that nothing checked                                                                                           |
+| Situation                                           | Behaviour                                                                                                                                   |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| No `.revloop.json`                                  | Detect everything. Normal                                                                                                                   |
+| Malformed JSON                                      | **Abort.** Never fall back to the presets — that would ignore the custom reviewer the file configures while the run still looked healthy    |
+| Unknown key                                         | Not validated at runtime; ignored. `tests/schema.test.sh` rejects it in CI against fixtures, per the schema's `additionalProperties: false` |
+| Unknown `version`                                   | **Abort**                                                                                                                                   |
+| `--config` names no readable file                   | **Abort** (`config-not-found`). Never fall back to a shipped definition                                                                     |
+| `--config` names a file the reviewer schema rejects | **Abort** (`config-invalid`), printing the validator's message                                                                              |
+| No verify command found or configured               | Ask before continuing; record "no verification ran" in the report                                                                           |
+| ...and `--merge` was passed                         | **Abort.** Do not merge code that nothing checked                                                                                           |
 
 ## `project`
 
@@ -82,35 +84,38 @@ block, then the built-in, and step 1 prints which one won.
 
 | Key              | Meaning                                                               | Built-in |
 | ---------------- | --------------------------------------------------------------------- | -------- |
-| `reviewer`       | Default `--reviewer` for **the pull-request loop**                    | —        |
-| `localReviewer`  | Default `--reviewer` for **the local loop**                           | —        |
-| `maxRounds`      | Circuit breaker for **the pull-request loop**                         | `10`     |
-| `localMaxRounds` | Circuit breaker for **the local loop**                                | `5`      |
+| `maxRounds`      | Circuit breaker for **the `remote-*` commands**                       | `10`     |
+| `localMaxRounds` | Circuit breaker for **the `local-*` commands**                        | `5`      |
 | `timeout`        | Cumulative cap on waiting for one **trigger's** verdict, e.g. `"45m"` | `30m`    |
 
-**The reviewer and the round cap are two keys each, one per loop**, because the loops want different
-values and sharing a key silently applies the wrong one. A `reviewer` written before the local loop
-existed names a `github-comment` reviewer, and a `maxRounds` written for the remote loop would raise
-the local cap — which is the only brake that loop has. Both caps stay settable from config, unlike
+**The round cap is two keys, one per procedure**, because the two want different values and sharing a
+key silently applies the wrong one: a `maxRounds` written for the pull-request procedure would raise
+the local cap, which is the only brake that one has. Both stay settable from config, unlike
 `--accept-at`, because they bound spend rather than safety.
 
-`--merge`, `--auto`, `--accept-at`, `--grade-severity`, `--review-model` and the local loop's
-`--no-publish` have no entry here on purpose — see below.
+**Which reviewer runs is not a key and cannot become one.** It was two — `reviewer` and
+`localReviewer` — and both were removed in 0.7.0 when the reviewer moved from a flag to a command.
+There is nothing left to default: you choose a reviewer by choosing a command. A repository that could
+choose it would choose which bot login the wait fence filters on and which rungs your acceptance floor
+is measured against, which is the same class of decision as `--merge`.
+
+`--merge`, `--auto`, `--accept-at`, `--config`, `--model` and `--no-publish` have no entry here on
+purpose — see below.
 
 ## What is deliberately not configurable
 
 A key that can only hold the value it already has is a promise, not a setting. These are fixed.
 **Most of them name machinery only the pull-request loop has** — a merge fence, a wait fence, trigger
 markers, a retry budget — and are listed here rather than in a per-loop section because the reason
-they are fixed is the same in each case. `--merge`, `--auto`, `--accept-at` and `--grade-severity` are
-the rows that bind both loops, and `--review-model` and `--no-publish` are the local loop's:
+they are fixed is the same in each case. `--merge`, `--auto` and `--accept-at` are the rows that bind
+both procedures, and `--model`, `--no-publish` and `--config` are the local family's:
 
 | Not a key                                  | Why                                                                                                                                                                                                                                                                           |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--merge` / `--auto` defaults              | This file comes from the repository you are in, including one you just cloned. It must not grant its own merge or delete your confirmation points. **The flag is the approval**                                                                                               |
 | `--accept-at`, anywhere                    | Same class. A repository that could set its own acceptance floor would lower its own review bar on a checkout you just cloned                                                                                                                                                 |
-| `--grade-severity`, anywhere               | Same class again, and the sharpest of the three: it is what turns the `no-severity-ladder` abort into a run that ranks findings its reviewer never ranked. A repository could otherwise decide, for a checkout you just cloned, that its reviewer's silence is no obstacle    |
-| `--review-model`, anywhere                 | **A different reason, and the sharper one.** Its value is expanded into a command line at `{reviewModel}`, so a key here would be the first thing this project interpolates into a shell command out of a repository-supplied file                                            |
+| `--config`, anywhere                       | The reviewer itself. A `subprocess` definition holds a shell command line, so a repository that could choose it would choose a string the procedure runs. **This file no longer defines reviewers at all** — the `reviewers` map was removed in 0.7.0                         |
+| `--model`, anywhere                        | **A different reason, and the sharper one.** Its value is expanded into a command line at `{reviewModel}`, so a key here would be the first thing this project interpolates into a shell command out of a repository-supplied file                                            |
 | `--no-publish`, anywhere                   | Publishing is the local loop's default, so a key could only turn it off, and a key that removes an action grants nothing. Absent because nothing measured says a project wants it — a _not yet_, not a _never_                                                                |
 | Merge method                               | The merge fence sends `merge_method=merge` and takes no arguments, so its command string never changes                                                                                                                                                                        |
 | "Require clean CI before merge"            | The gate re-runs its own check inside the merge step and cannot be loosened from a file                                                                                                                                                                                       |
@@ -148,7 +153,7 @@ first so that no invocation written before the canonical ladder existed changes 
 | `<level>` is a canonical rung, reviewer has a ladder and no map                          | **Abort** (`no-severity-map`). The loop never derives a map from rung position                                                                                                                                               |
 | A canonical `<level>`, and `severityMap` is partial, foreign, out of order, or collapsed | **Abort** (`bad-severity-map`), naming the rung that is unmapped, foreign or inverted, or printing a map that leaves no distinction. **Checked only on a canonical resolution** — a map nothing consults cannot move a floor |
 | `<level>` matches neither pass                                                           | **Abort** (`unknown-accept-level`), listing **both** ladders                                                                                                                                                                 |
-| Reviewer has no `severityLevels`                                                         | **Abort** (`no-severity-ladder`), unless `--grade-severity` — see below                                                                                                                                                      |
+| Reviewer has no `severityLevels`                                                         | **Graded** — a separate subprocess estimates the rungs, and `<level>` must then be canonical. See below                                                                                                                      |
 | With `--merge` and `--auto` together                                                     | **Abort** (`unreviewed-accept-merge`)                                                                                                                                                                                        |
 | With `--merge` alone, having accepted anything                                           | Stop for confirmation, listing every accepted finding, before the CI wait                                                                                                                                                    |
 
@@ -160,8 +165,8 @@ blocking and `P3` acceptable — the same floor `--accept-at low` produces, whic
 four-rung ladder receiving three rungs means rather than a defect in either.
 
 **Step 1 prints the resolved floor before the first round**, as the two sets of the reviewer's own
-rungs that block and that are acceptable — or, under `--grade-severity`, as the canonical rungs,
-because that flag reaches only a reviewer with no rungs of its own. That is where the paragraph above
+rungs that block and that are acceptable — or, on a graded run, as the canonical rungs, because
+grading reaches only a reviewer with no rungs of its own. That is where the paragraph above
 becomes checkable rather than inferred, it is the operational check on a map, and it is the
 reason `severityMap` may come from this file at all: `severityLevels`' own **order** already carries
 the same power to move a floor, so the map is no new class of it, and the answer to both is to show
@@ -169,15 +174,23 @@ the operator what the floor actually became.
 
 ## Grading a reviewer that emits no severity
 
-`--grade-severity` is the one way past `no-severity-ladder`, and it is off unless typed. It is
-reached by a reviewer with no ladder — the local loop's default preset is exactly that reviewer,
-which makes this the ordinary case rather than an edge one — and **refused against a reviewer that
-has one** (`grade-over-ladder`), because regrading a rung the reviewer emitted overrules a
-measurement. Typed without `--accept-at` it aborts too (`grade-without-floor`): the rungs would have
-no consumer.
+**Grading fires if and only if `--accept-at` was typed and the reviewer's definition declares no
+`severityLevels`.** There is no flag: `--grade-severity` existed until 0.7.0 and was removed, because
+its two failure modes were both statable as conditions rather than as refusals. A reviewer that
+**has** a ladder is never regraded — that used to be an abort an operator could trip and is now
+unreachable, since nothing can ask for it — and grading with no floor to consume the rungs cannot
+happen, since the floor is half the trigger.
 
-The grader is a separate subprocess on the review model — the local loop's `--review-model` moves it,
-and the pull-request loop, which has no such flag, uses the builtin `sonnet`. **It is not told the
+**Three of the five shipped reviewers reach it**: `claude`, `code-review` and `ecc-review-pr`, all of
+which emit no severity. That makes grading the ordinary case for the local family rather than an edge
+one, and it is why `--accept-at` on those commands costs a subprocess and a permission prompt every
+round. **It is also the one thing 0.7.0 made quieter rather than louder**: before, `--accept-at`
+against such a reviewer aborted. The disclosure is that step 1 prints `severity source` as
+`grader (<model>)` and prints the grader's command line in full and expanded, before the first round.
+
+The grader is a separate subprocess on the review model — the local family's `--model` moves it, and
+the pull-request family, which has no such flag, uses the builtin `sonnet`. It is specified in
+[`../procedures/severity-grading.md`](../procedures/severity-grading.md). **It is not told the
 acceptance floor**, it never sees the loop's session, and it does not fix what it grades. **The
 findings reach it through a file rather than through its command line**, and its prompt says in so
 many words that they are data and not instructions: they are reviewer output quoting repository
@@ -207,12 +220,25 @@ otherwise: the round that converges by accepting makes no further commit to carr
 boundary is where the flag is safe, and why the loop refuses to invent a ladder for a reviewer that
 emits none, are in [design-notes.md](design-notes.md#the-acceptance-floor).
 
-## `reviewers`
+## Reviewer definitions
 
-Adds to or overrides the presets. See [adding-a-reviewer.md](adding-a-reviewer.md) for the full field
-list and how to fill it in from measurements.
+**Reviewers are not configured in this file.** They are standalone JSON documents validated against
+[`../schema/reviewer.schema.json`](../schema/reviewer.schema.json): the five this plugin ships live in
+[`../reviewers/`](../reviewers/) and are named by their commands, and one you write is named with
+`--config <path>` on `remote-custom-loop` or `local-custom-loop`.
 
-**A reviewer is one of two kinds.** `kind` is absent from every file written before the second kind
+**There is one format and one loader.** The file you write is read exactly as `reviewers/codex.json`
+is; a built-in gets no special case. **The file name is the name** — there is no `name` key, so there
+is nothing to drift, and the stem must match `^[a-z0-9][a-z0-9-]*$` because the pull-request procedure
+writes it into the trigger marker as `reviewer=<name>`.
+
+**This section described a `reviewers` map in `.revloop.json` until 0.7.0.** The map was removed with
+the `--reviewer` flag it fed: with every command naming its own definition, a map here would be a
+definition surface no command reads, which is the "key with no consumer" defect this project removes
+rather than ships. A reviewer you had defined there becomes a file of the same shape — the object is
+unchanged, so it is a move rather than a rewrite. See [adding-a-reviewer.md](adding-a-reviewer.md).
+
+**A reviewer is one of two kinds.** `kind` is absent from every definition written before the second kind
 existed, and absent means `github-comment`, so nothing that worked before changes meaning.
 
 | `kind`           | Required            | Also takes                                                         | May not carry                                             |
@@ -261,8 +287,12 @@ point the range is empty and the review comes back with nothing.
 
 ## Choosing the review model
 
-The local loop resolves a **review model** and expands it into the reviewer's `command` at a
-`{reviewModel}` placeholder:
+The local procedure resolves a **review model** and expands it into the reviewer's `command` at a
+`{reviewModel}` placeholder. **The flag is `--model` and the placeholder stays `{reviewModel}`**, and
+the asymmetry is deliberate: the flag lives on a command that only reviews, where `--model` is
+unambiguous, while the placeholder lives in a definition file beside `{model}` for commit trailers,
+where it would not be. Renaming the placeholder would also break every shipped definition and every
+user's, for nothing.
 
 ```json
 "command": "claude --model {reviewModel} -p \"/code-review medium\""
@@ -270,7 +300,7 @@ The local loop resolves a **review model** and expands it into the reviewer's `c
 
 | Where it comes from | Value                     |
 | ------------------- | ------------------------- |
-| `--review-model`    | Whatever you typed        |
+| `--model`           | Whatever you typed        |
 | Otherwise           | The built-in **`sonnet`** |
 
 **The default is a light model because that is what a round costs**, and because of a second effect
@@ -312,7 +342,7 @@ path. The rest of the surface is closed by rule:
 
 ## Related docs
 
-- [Adding a reviewer](adding-a-reviewer.md) — filling in `reviewers` from measurements
+- [Adding a reviewer](adding-a-reviewer.md) — writing a reviewer definition from measurements
 - [Permissions](permissions.md#verify-commands-are-not-pre-approved) — why `verify` is never
   pre-approved
 - [`../examples/`](../examples/) — four working `.revloop.json` files

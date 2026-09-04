@@ -15,17 +15,13 @@ The review command built into Claude Code, driven as a subprocess.
 | `status`            | `unverified`                                                       |
 | `lastChecked`       | 2026-09                                                            |
 
-```json
-{
-  "kind": "local-command",
-  "invoke": "subprocess",
-  "command": "claude --model {reviewModel} -p \"/code-review medium\"",
-  "rateLimitPatterns": ["You've hit your session limit"],
-  "status": "unverified"
-}
-```
+**Definition:** [`code-review.json`](code-review.json) — the file the loop loads. This card is the
+measurement record beside it; the definition is the configuration, and neither restates the
+other.
 
-**`{reviewModel}` is expanded by the local loop before the command runs** — to `--review-model` if it
+**Driven by:** `/revloop:local-review-loop`.
+
+**`{reviewModel}` is expanded by the local loop before the command runs** — to `--model` if it
 was typed, otherwise to the builtin `sonnet`. **Every measurement below predates that pin**, and
 `## Not measured` says what that costs.
 
@@ -140,25 +136,26 @@ files.** They are here rather than in the section above because they were observ
   is that the result names what it reviewed and states its count, which is the same signal
   [`ecc-review-pr.md`](ecc-review-pr.md) records for its own reviewer, and it is recorded as a
   measured shape rather than reached by loosening a parser.
-- **`--grade-severity` was set on all three rounds and the grader never started** — step 7 obtains
-  rungs after the findings are parsed, and every round parsed none (`iwmaeda/revloop#22`).
-  **Derived:** the flag's whole failure ladder is still unentered, and the reason is not that it was
-  avoided. Grading a reviewer that returns nothing is the one case the flag cannot be exercised by.
+- **Grading was requested on all three rounds and the grader never started** — step 7 obtains rungs
+  after the findings are parsed, and every round parsed none (`iwmaeda/revloop#22`). Those rounds were
+  driven with `--accept-at high --grade-severity`, the spelling that existed before 0.7.0 made grading
+  automatic. **Derived:** the grader's whole failure ladder is still unentered, and the reason is not
+  that it was avoided. Grading a reviewer that returns nothing is the one case it cannot be exercised
+  by, and dropping the flag did not change that.
 
 ### From the installed command
 
 - **The structured reporting surface carries no severity field.** Its entries are a file, a line, a
   summary, a short summary, a failure scenario, an optional `category` slug, and an optional
   `verdict` of `CONFIRMED` or `PLAUSIBLE`; severity is expressed only as the order of the list, which
-  is documented as most-severe first (claude-code 2.1.233, 2026-09). **Derived:** this card therefore
-  carries no `severityLevels` and no `severityMap`, and `--accept-at` aborts with
-  `reason=no-severity-ladder` against it unless `--grade-severity` is also typed. **That is the
-  ordinary case for this reviewer and not an edge one**, which is worth saying plainly because the
-  acceptance floor is the feature people will reach for first — and it is the reason
-  `--grade-severity` exists at all. **Derived, and it is the trap that flag has to avoid:** the
+  is documented as most-severe first (claude-code 2.1.233, 2026-09). **Derived:** this reviewer's
+  definition therefore carries no `severityLevels` and no `severityMap`, so `--accept-at` against it is
+  resolved by grading. **That is the ordinary case for this reviewer and not an edge one**, which is
+  worth saying plainly because the acceptance floor is the feature people will reach for first — and it
+  is the reason grading exists at all. **Derived, and it is the trap grading has to avoid:** the
   documented list order is the nearest thing to a severity signal this surface carries, and reading a
   rank off it would be the loop supplying its own ladder from the reviewer's output shape. The grader
-  the flag starts does not read the order; it is handed the findings and ranks their claims. `verdict` is a
+  does not read the order; it is handed the findings and ranks their claims. `verdict` is a
   **confidence** axis rather than a severity one and is deliberately not offered as a ladder: reading
   `PLAUSIBLE` as "less severe" would accept a confirmed-cheap finding and block an uncertain-serious
   one, which is the opposite of what the flag is for.
@@ -175,7 +172,7 @@ files.** They are here rather than in the section above because they were observ
   effort the report is instead one line per finding, a path and line followed by a summary, emitted
   after a tool call (claude-code 2.1.233, 2026-09). **Both observed runs returned a third shape that
   is neither**, which is recorded above. **Derived, and the reason step 8 of
-  [`../commands/local-loop.md`](../commands/local-loop.md) gives an unreadable result
+  [`../procedures/local-loop.md`](../procedures/local-loop.md) gives an unreadable result
   its own abort row:** a parser written against whichever shape its author saw returns **zero
   findings** against the others, and zero findings is what a clean review looks like.
 - **The command declines model invocation** — it is marked as startable by a person and not by the
@@ -215,7 +212,7 @@ files.** They are here rather than in the section above because they were observ
 - **Anything about the preset as it now ships.** All five rounds below ran
   `claude -p "/code-review medium"` with **no `--model` at all**, inheriting whatever the CLI
   defaulted to; the shipped `command` now pins `{reviewModel}`, which resolves to `sonnet` unless
-  `--review-model` says otherwise. **So the finding counts, the wall clock, the output shape and the
+  `--model` says otherwise. **So the finding counts, the wall clock, the output shape and the
   absence of repeats below describe a configuration this project no longer ships.** They are kept
   because they are the only measurements that exist and because most of what they establish is about
   the command rather than the model — but nothing here says how a lighter reviewer changes them, and
@@ -225,12 +222,12 @@ files.** They are here rather than in the section above because they were observ
 - **Convergence.** It was not reached by either run, and neither sample can say whether it is
   reachable. Five rounds did not reach it and the count rose at the end; three later rounds returned
   nothing at all, which is a clean round and not a loop driven to one. **What would settle it is a
-  round that returns findings under `--accept-at --grade-severity`** — the floor is the mechanism for ending a loop
-  the reviewer will not end, and against this reviewer the floor needs the grader to have any rungs
-  to stand on — and no such run has been made. That is the question most worth answering next, and
-  the one `status` turns on. **It was not merely unmade before; it was unreachable**, because
-  `--accept-at` aborted against this preset, so the measurement this card has been asking for has
-  only now become possible to take.
+  round that returns findings under `--accept-at`** — the floor is the mechanism for ending a loop the
+  reviewer will not end, and against this reviewer the floor needs the grader to have any rungs to
+  stand on — and no such run has been made. That is the question most worth answering next, and the one
+  `status` turns on. **The run is easier to reach than it was**: before 0.7.0 the floor needed a second
+  flag beside it, and before the floor existed at all it aborted, so the measurement this card has been
+  asking for now needs only `--accept-at` and a round that finds something.
 - **Everything about the grader.** Whether its rungs are ones a person would recognise, what a
   grading pass costs on top of the round, whether it ranks the same unchanged finding the same way
   twice, and how often it declines to rank one at all — **the local procedure treats an unranked

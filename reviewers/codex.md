@@ -9,17 +9,11 @@
 | `status`      | `verified`                                                        |
 | `lastChecked` | 2026-08                                                           |
 
-```json
-{
-  "trigger": "@codex review",
-  "botLogin": "chatgpt-codex-connector[bot]",
-  "cleanPatterns": ["^Codex Review: Didn't find any major issues\\."],
-  "rateLimitPatterns": ["You have reached your Codex usage limits"],
-  "severityLevels": ["P1", "P2", "P3"],
-  "severityMap": { "P1": "critical", "P2": "high", "P3": "low" },
-  "markerTolerated": "verified"
-}
-```
+**Definition:** [`codex.json`](codex.json) — the file the loop loads. This card is the
+measurement record beside it; the definition is the configuration, and neither restates the
+other.
+
+**Driven by:** `/revloop:remote-codex-loop`.
 
 ## Measured
 
