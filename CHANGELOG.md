@@ -183,6 +183,50 @@ removes it, and it removes the floor with it.
   **`CHANGELOG.md` is swept by neither**: this file says what was true when it was written, and a
   guard over it would make every later cap change demand an edit to a historical record.
 
+### Running revloop _from_ Codex is now called a preview, and that is a documentation change
+
+**Nothing about `@codex review` moves.** As a reviewer it stays what it has been since 0.1.0 — the
+`verified` preset with the most measured rounds behind it, driven by `/revloop:remote-codex-loop`
+like every other reviewer's command. **What is relabelled is the other Codex: the host you run
+revloop from.**
+
+That side is `.agents/skills/revloop/SKILL.md`, one router file. It covers the pull-request loop
+only, it is not linted and it is in no test corpus — `CONTRIBUTING.md` has said the second part since
+0.7.0 — and nobody has driven it end to end. `docs/install.md` and `docs/permissions.md` already said
+all of this; **the two READMEs and the marketplace description did not**, and led with "a Claude Code
+/ Codex plugin" and "one entirely local", the second of which is exactly the half Codex cannot reach.
+Both READMEs now separate the reviewer from the host in their opening paragraph, carry the three
+caveats in their install section, and hold a `Limitations` row for the host. `package.json`,
+`.claude-plugin/marketplace.json` and `.codex-plugin/plugin.json` say the same in one line each.
+
+**The router gained the one resolution rule it was missing, and it is the reason the label is
+"preview" rather than "unsupported".** `procedures/remote-loop.md` declares that the reviewer's
+definition arrives from the invoking command and is never resolved inside it — and **Codex has no
+invoking command**, so nothing on that side could name `reviewers/<name>.json` at all.
+`docs/design-notes.md` claimed since 0.7.0 that the router "can now read the same file Claude Code
+does"; it could not. `SKILL.md` now resolves the definition itself, refuses to default to any
+reviewer, and echoes the resolved path in the step-1 table — the compensation for being one skill
+where Claude Code is seven commands. It also gained the resolution rule for
+`procedures/severity-grading.md`, which it cited without saying where to read it from. **Neither
+addition has been driven end to end**, which is what the preview label is for.
+
+### Also corrected before the tag
+
+- **`CHANGELOG.md`'s link definitions stopped at `[0.6.0]`**, so the `[0.7.0]` and `[0.8.0]` headings
+  were dangling shortcut references that rendered as literal brackets. markdownlint's MD052 does not
+  check shortcut syntax by default, so `npm run lint:md` stayed green over it. Both are now defined.
+- **`v0.7.0` was never tagged.** 0.7.0 and 0.8.0 folded their version bump into a `feat!` commit
+  rather than a `chore: release` commit, and the tag step went with it. `v0.7.0` is tagged
+  retroactively at the merge of `#24`, the last commit whose `package.json` reads `0.7.0`.
+- **Both READMEs' resolved-configuration sketch showed `reviewer codex flag`.** `--reviewer` was
+  removed in 0.7.0 — the command fixes the reviewer — so the source is `builtin`, and the row now
+  carries the `(<status>)` that step 1 has asked for since 0.6.0. The sketch also gained the
+  `severity source` row that step 1 lists among the rows it must cover.
+- **Step 1 asked for `<name> (<status>, <expectedLatency>)` and no shipped preset carries
+  `expectedLatency`.** Read literally, that instructs a run to invent a range for every reviewer.
+  The latency is now printed only when the definition states one. The measurements that would fill
+  the key live on the cards; `reviewers/codex.md` is the only one that has them.
+
 ## [0.7.0] - 2026-09-04
 
 **No fence changed, so there is no re-approval to give.** This release moves every file the fences
@@ -2219,6 +2263,8 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.8.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.8.0
+[0.7.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.7.0
 [0.6.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.6.0
 [0.5.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.5.0
 [0.4.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.4.0

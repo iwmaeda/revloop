@@ -23,22 +23,50 @@ this order and stop at the first hit:
 **If none resolve, stop and tell the user to set `$REVLOOP_PROCEDURE`.** Do not reconstruct the
 procedure from this file — it does not contain one.
 
+**Two more files are resolved the same way, from the directory the procedure was found in**, and the
+procedure cites both: `rigor-levels.md`, which holds the levels, and `severity-grading.md`, which
+specifies the grader in full — its command line, its prompt, its aborts. Resolve each one only when a
+step reaches it, and abort naming the file if it cannot be found rather than improvising what it says.
+
+## Resolve the reviewer's definition
+
+**The procedure declares that the reviewer's definition arrives from the invoking command and is
+never resolved inside it. On Codex there is no invoking command, so this skill resolves it — and it
+is the only place in revloop that does.** Claude Code ships one command per reviewer precisely so
+that no flag can select the wrong one; this skill cannot borrow that, because it is one skill and not
+seven. The compensation is that the choice is made **out loud**: echo the resolved path in the
+step-1 table beside the reviewer's name, so an operator sees which definition this run will load
+before the first round.
+
+1. A path the request gave — the equivalent of `--config`. Use it verbatim.
+2. Otherwise a reviewer named in the request, as `reviewers/<name>.json` beside the resolved
+   procedure — `remote-codex-loop` on Claude Code loads `reviewers/codex.json`, and so does
+   `@codex review` named here. The stem is `^[a-z0-9][a-z0-9-]*$`; nothing else is a name.
+3. **If the request names no reviewer, stop and ask which one.** Do not default to any of them. The
+   definition decides which bot login the wait filters on, which rungs a floor is measured against
+   and which aborts are reachable, so a guess here is wrong in a way no later step can detect.
+
+**Read the file; do not infer a preset from a card or from this skill.** `reviewers/<name>.md` beside
+it is the card, and it records whether anyone has watched that reviewer work — report its `status`
+when it is not `verified`. A definition whose shape does not match `schema/reviewer.schema.json` is an
+abort, not something to repair.
+
 When the request is about the _content_ of a change rather than getting it reviewed, this skill does
 not apply.
 
 ## Adapt it to Codex
 
-- Read the reviewer, merge, unattended, round-cap, timeout and **rigor-level** flags out of the
-  current request. Echo the resolved configuration, including the `source` column,
-  before acting. **`--rigor` may only ever read `flag` or `builtin`** — it has no configuration
-  key, so a `config` there means one was invented — and at a level with an acceptable band, echo the
-  floor **expanded**, as the sets of the reviewer's own rungs that block and that are acceptable —
-  **or, on a graded run, as the canonical rungs**, because grading is reached only by a reviewer with
-  no ladder, which therefore has none of its own to echo. **`severity source` may only read `flag` or
-  `builtin` too** — it follows the level and the reviewer, and neither is settable from a file — and
-  it reads `not consulted` at `thorough` and `exhaustive`, where nothing is acceptable. **The default
-  level is `standard`, which has a band**, so an untyped run resolves a floor and grades a reviewer
-  that has no rungs of its own.
+- Read the merge, unattended, round-cap, timeout and **rigor-level** flags out of the current
+  request; the reviewer comes from the section above, not from this list. Echo the resolved
+  configuration, including the `source` column, before acting. **`--rigor` may only ever read `flag`
+  or `builtin`** — it has no configuration key, so a `config` there means one was invented — and at
+  a level with an acceptable band, echo the floor **expanded**, as the sets of the reviewer's own
+  rungs that block and that are acceptable — **or, on a graded run, as the canonical rungs**,
+  because grading is reached only by a reviewer with no ladder, which therefore has none of its own
+  to echo. **`severity source` may only read `flag` or `builtin` too** — it follows the level and
+  the reviewer, and neither is settable from a file — and it reads `not consulted` at `thorough` and
+  `exhaustive`, where nothing is acceptable. **The default level is `standard`, which has a band**,
+  so an untyped run resolves a floor and grades a reviewer that has no rungs of its own.
 - **The level is `procedures/rigor-levels.md`, resolved the same way the loop procedure is**, and it
   decides more than the floor: the round cap where nothing else supplied one, the sweeps a round owes
   after a fix, and the sufficiency test at every edge into the report step. **Echo the level's number

@@ -2,7 +2,7 @@
   "name": "revloop",
   "version": "0.8.0",
   "private": true,
-  "description": "Branch to merge review automation for Claude Code and Codex",
+  "description": "Branch to merge review automation for Claude Code, with Codex as a host in preview",
   "license": "MIT",
   "scripts": {
     "format": "prettier --write \"**/*.{json,jsonc,yml,yaml,md}\"",

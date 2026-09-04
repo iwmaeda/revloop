@@ -105,8 +105,12 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    verify commands, branch prefixes, commit style, max rounds, timeout, merge, rigor, severity source.
    **The `rigor` and `severity source` rows may only read `flag` or `builtin`** — neither has a
    config key, so a `config` in either cell means one was invented. Give the reviewer row as
-   `<name> (<status>, <expectedLatency>)` — a preset whose card says `unverified` is a fact the
-   operator wants before the round starts, not after it fails.
+   `<name> (<status>)`, and as `<name> (<status>, <expectedLatency>)` **only when the definition
+   carries that key** — a preset whose card says `unverified` is a fact the operator wants before the
+   round starts, not after it fails, and a latency is a measurement, so a definition that does not
+   state one leaves the row without it rather than having this step invent a range. **No shipped
+   preset carries `expectedLatency` today**, so the shorter form is the ordinary one; the cards hold
+   the measurements the key would be filled from.
 
    **The `max rounds` row is the only one that can read `rigor`**, and it does whenever no flag and
    no config key answered — see [`rigor-levels.md`](rigor-levels.md). A fifth `source` value was
