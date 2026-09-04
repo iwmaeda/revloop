@@ -113,7 +113,7 @@ run and not a converged one, and `status` stays `unverified` on that.
   (`iwmaeda/revloop#22`). **No bracketed severity tag, no `CRITICAL`/`HIGH`/`MEDIUM`/`LOW` summary
   table, and no `APPROVE`/`WARNING`/`BLOCK` verdict line appeared anywhere in the output.**
   **Derived, and it is why `severityLevels` and `severityMap` are gone from this card:** the ladder
-  they carried was never emitted, so `--accept-at high` would have resolved a floor against rungs that
+  they carried was never emitted, so `--rigor minimal` would have resolved a floor against rungs that
   do not appear and then found no finding it could rank. A ladder that is read rather than emitted is
   precisely what `reviewers/README.md` refuses, and this card shipped one.
 - **The subprocess could not run the test suite**, and said so in its own output rather than failing
@@ -186,8 +186,8 @@ beside it.
   as reportable at each level, and the command's only instruction about output is a prose line asking
   for findings grouped by severity. There is no heading template anywhere in it (ecc 2.2.0, 2026-09).
   **Derived, and the reason this card's `severityLevels` are not those three words:** a ladder taken
-  from the confidence rule would name rungs the output does not carry, and `--accept-at important`
-  would then match nothing and block everything.
+  from the confidence rule would name rungs the output does not carry, so every finding would be
+  measured against a rung this reviewer never emits and any floor would block everything.
 - **One agent the command dispatches specifies a format of its own, and none of it reached the
   output.** That agent specifies a bracketed severity tag at the head of each finding, a file-and-line
   line beneath it, a closing summary table whose rows are `CRITICAL`, `HIGH`, `MEDIUM` and `LOW`, and
@@ -240,7 +240,8 @@ beside it.
   observed is not ordering asserted**: nothing in five rounds establishes that these are rungs a floor
   could sit between rather than section titles a model chose, and a card that read three headings as a
   three-rung ladder would be repeating the mistake this card was just corrected for one paragraph up.
-  So its definition declares no `severityLevels`, and `--accept-at` against it is resolved by grading —
+  So its definition declares no `severityLevels`, and a level with an acceptable band is resolved
+  against it by grading —
   the same position `code-review.md` holds, reached from the opposite direction: that reviewer never
   had a ladder and this one had the wrong one.
 - **Rounds to converge, and tokens per round.** Five rounds have run, **none of them came back clean**,

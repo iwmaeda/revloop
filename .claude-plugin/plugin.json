@@ -1,6 +1,6 @@
 {
   "name": "revloop",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Run an AI review-and-fix loop until it converges: against a reviewer bot on a pull request, or against a review command on your machine.",
   "author": {
     "name": "MAEDA, Iwao",

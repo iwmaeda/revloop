@@ -87,21 +87,27 @@ ran.
 it offers and what they default to; this one is the authority on **behaviour**. **There is no
 `--reviewer`**: the command supplies the reviewer's definition.
 
-| Flag                | Effect                                                                              |
-| ------------------- | ----------------------------------------------------------------------------------- |
-| `--model <name>`    | The model **the reviewer** runs on. The fixing is unaffected                        |
-| `--no-publish`      | End at a commit. No push, no pull request, no `gh` call in any step                 |
-| `--accept-at <lvl>` | Findings at `<lvl>` and below may be left unfixed. Everything above it still blocks |
-| `--auto`            | Do not stop for confirmation. **The flag itself is the approval**                   |
-| `--max-rounds <n>`  | Abort if the loop has not converged within this many rounds                         |
+| Flag               | Effect                                                               |
+| ------------------ | -------------------------------------------------------------------- |
+| `--model <name>`   | The model **the reviewer** runs on. The fixing is unaffected         |
+| `--no-publish`     | End at a commit. No push, no pull request, no `gh` call in any step  |
+| `--rigor <level>`  | How strictly this run must finish. It decides when the loop may stop |
+| `--auto`           | Do not stop for confirmation. **The flag itself is the approval**    |
+| `--max-rounds <n>` | Abort if the loop has not converged within this many rounds          |
 
-`--accept-at` and `--auto` mean exactly what they mean in
+**`--rigor` is specified in [`rigor-levels.md`](rigor-levels.md)** — the four levels, the floor each
+one leaves, the round cap each one supplies, the sweeps each one owes, and the sufficiency test both
+of this file's convergence paths run. `--auto` means exactly what it means in
 [`remote-loop.md`](remote-loop.md), including having no configuration key, and the reasoning is
-stated there once rather than twice here — as is the canonical ladder `--accept-at` resolves against,
-its two passes, and the `severityMap` the second one needs. **Grading matters more here than there**,
-and that is the only thing about it worth adding: **both reviewers this procedure ships a definition
-for emit no severity at all**, so on the ordinary run `--accept-at` is a graded floor rather than a
-reported one, and the grader runs every round. **`--model` moves the grader as well as the reviewer**,
+stated there once rather than twice here. **Grading matters more here than in either of those
+files**, and that is the one thing worth adding: **both reviewers this procedure ships a definition
+for emit no severity at all**, so a level with an acceptable band is a graded floor rather than a
+reported one here, and the grader then runs every round. **The default level has a band, so the
+ordinary run of this command starts a grader** — a second subprocess and a second permission prompt
+per round, on the loop whose whole shape is about not spending tokens twice on the same finding.
+**`--rigor thorough` is what removes it**, and it removes the floor with it. That trade is the
+default's whole bet and nothing has measured it — see `## Unexercised paths`.
+**`--model` moves the grader as well as the reviewer**,
 because that flag names the model that reviews and grading is part of reviewing rather than of
 fixing — the loop's own model never assigns a rung. **`--model` is refused a key for a sharper reason** —
 its value is expanded into a command line at the `{reviewModel}` placeholder, so a key would be the
@@ -130,13 +136,17 @@ procedure on the branch this one leaves behind — **on an ordinary run** alread
 pull request open, and under `--no-publish` still sitting at the commit for that procedure to push
 itself.
 
-`--max-rounds 5` is lower than the remote loop's ten on purpose, and **not because a local round is
-faster** — measured, it is not. It is because a local round's cost is invisible. A remote round
+**Every one of this loop's round caps is lower than the remote loop's at the same level**, and
+**not because a local round is faster** — measured, it is not. It is because a local round's cost is
+invisible. A remote round
 announces itself: it needs a push, a comment, a wait, and a quota that runs out. A local round needs
 none of those — **publishing gives one of them back, and, for every reviewer but one, only after the
 loop has already converged** — and its bill arrives as tokens, so **the cap is the only brake there
-is**, and a loop that can run twenty rounds before anyone looks will run twenty rounds. The number is a `builtin`
-guess and is recorded as one; see `## Unexercised paths`.
+is**, and a loop that can run twenty rounds before anyone looks will run twenty rounds. The numbers
+are `builtin` guesses and are recorded as such in [`rigor-levels.md`](rigor-levels.md). **The `5`
+this file carried before a level supplied one is `thorough`'s, and the default is `standard`, whose
+number is 3** — so an untyped run is now capped lower than it was. `defaults.localMaxRounds` beats
+the level, and a repository that wants the old number writes it.
 
 ## When to run it
 
@@ -205,9 +215,9 @@ guess and is recorded as one; see `## Unexercised paths`.
    then treats this branch as already published to a pull request that is closed.
 
    Print a resolved-configuration table with a `source` column of `flag` / `config` / `detected` /
-   `builtin`, covering at least: reviewer, review command, review model, expected latency, rate-limit
-   pattern, base branch, verify commands, branch prefixes, commit style, max rounds, acceptAt,
-   severity source, publish point.
+   `rigor` / `builtin`, covering at least: reviewer, review command, review model, expected latency,
+   rate-limit pattern, base branch, verify commands, branch prefixes, commit style, max rounds,
+   rigor, severity source, publish point.
    **The expected-latency row reads `unknown` when the preset sets none**, which is most of them; it
    is printed anyway, because a round that takes twenty minutes against a card saying five is worth
    noticing at the time.
@@ -233,20 +243,24 @@ guess and is recorded as one; see `## Unexercised paths`.
    **The first two are `detected` because they are read off the reviewer rather than off a flag** —
    see step 5.
 
-   **The `acceptAt` and `severity source` rows may only read `flag` or `builtin`**; a `config` in
-   either means a key was invented for it. The `acceptAt` row says which pass resolved it, as
-   `high (canonical)` or `P2 (native)`, and `severity source` reads `reviewer` or `grader (<model>)`;
-   on a `grader` run **print the grader's command line in full and expanded, beside the review
+   **The `rigor` and `severity source` rows may only read `flag` or `builtin`**; a `config` in
+   either means a key was invented for one. `severity source` reads `reviewer`, `grader (<model>)`,
+   or `not consulted` at a level with no acceptable band; on a `grader` run **print the grader's
+   command line in full and expanded, beside the review
    command**, for the reason the review command is printed — it is a shell command this run will
    start, and the operator should see it before the first round rather than at the first prompt.
    **Then print the floor expanded, exactly as [`remote-loop.md`](remote-loop.md) step 1 does**,
-   including what it prints on a graded run. That case is cited rather than restated now that it is
-   stated there at all — **and here it is the ordinary run rather than the unusual one**, because the
-   preset this command ships as its default emits no severity, so the canonical rungs are the only
-   rungs most runs of this command will ever print. The round cap reads `builtin` as `5`
-   here, and its config key is `defaults.localMaxRounds` — **not `defaults.maxRounds`, which belongs
+   including what it prints on a graded run and what it prints at a level with no band. That case is
+   cited rather than restated now that it is
+   stated there at all — **and here a graded floor is the ordinary run rather than the unusual
+   one**, because the default level has a band and the preset this command ships as its default emits
+   no severity, so the canonical rungs are the only rungs most runs of this command will ever print.
+   **The `max rounds` row reads `rigor` whenever neither the flag nor the config key answered**, and
+   its config key is `defaults.localMaxRounds` — **not `defaults.maxRounds`, which belongs
    to [`remote-loop.md`](remote-loop.md) alone**. One shared key let a remote-oriented value silently
-   raise this loop's cap, and this loop's cap is the only brake it has.
+   raise this loop's cap, and this loop's cap is the only brake it has. The numbers each level
+   supplies are in [`rigor-levels.md`](rigor-levels.md); the default's is `3`, where this row printed
+   `5` as a `builtin` before a level supplied one.
 
    **The base branch has three sources here, where [`remote-loop.md`](remote-loop.md) documents
    one.** Take `project.baseBranch` when it is set. Otherwise read `origin/HEAD`, which is what the
@@ -382,8 +396,8 @@ guess and is recorded as one; see `## Unexercised paths`.
      flag that appears to work and does nothing is the defect the schema calls "a promise the
      procedure does not keep"** — and it is worse than most, because the operator typed
      `--model haiku` to spend less and would be billed for the strongest model with nothing
-     saying so. It is the same rule as `--accept-at` against a reviewer with no ladder, applied to a
-     different missing capability.
+     saying so. It is the same rule as a floor named against a reviewer with no rungs to measure it
+     on, applied to a different missing capability.
 
      **Without the flag there is no abort.** An unpinned reviewer runs unpinned, the table says so,
      and the report repeats it — the treatment `status: unverified` already gets. Nobody typed a
@@ -409,24 +423,24 @@ guess and is recorded as one; see `## Unexercised paths`.
      is copied rather than cited: left alone, the push goes straight to the base branch, bypassing
      the pull request and CI. **This command could not do that damage while it never pushed**; it can
      now, on every run that does not opt out.
-   - **If `--accept-at` was passed and the resolved reviewer has no `severityLevels`, the rungs come
-     from the grader** — [`severity-grading.md`](severity-grading.md), in full, on the resolved
-     `--model`. **Do not rank the findings yourself to supply one. You are the party obliged to fix
-     them**, so a ladder you author is a ladder you can author your way out of the work with. This is
-     the same rule step 1 of [`remote-loop.md`](remote-loop.md) applies, and **it is the ordinary case
-     here rather than an edge one**: both definitions this procedure's built-in commands ship declare
-     no severity, so an `--accept-at` run against either is a graded run. The rule is not that a rung
+   - **If the resolved level has an acceptable band and the reviewer has no `severityLevels`, the
+     rungs come from the grader** — [`severity-grading.md`](severity-grading.md), in full, on the
+     resolved `--model`. **Do not rank the findings yourself to supply one. You are the party obliged
+     to fix them**, so a ladder you author is a ladder you can author your way out of the work with.
+     This is the same rule step 1 of [`remote-loop.md`](remote-loop.md) applies, and **it is the
+     ordinary shape of a relaxed run here rather than an edge one**: both definitions this
+     procedure's built-in commands ship declare no severity, so `minimal` or `standard` against
+     either is a graded run. The rule is not that a rung
      must come from the reviewer; it is that it must not come from the party that has to fix the
      finding. Step 7 keeps that distinction by construction.
-   - **The other three `--accept-at` judgements are step 1 of
-     [`remote-loop.md`](remote-loop.md)'s, unchanged**: `unknown-accept-level` printing both ladders
-     after a native-then-canonical match, `no-severity-map` on a canonical level against a reviewer
-     that **has a ladder** and no map, and `bad-severity-map` — **on a canonical resolution only**,
-     since a map nothing consults cannot move a floor — on a map that is not total, names a rung the
+   - **The other two level judgements are step 1 of
+     [`remote-loop.md`](remote-loop.md)'s, unchanged**: `unknown-rigor-level` on a value that is not
+     one of the four, and `bad-severity-map` — **at a level with an acceptable band only**, since a
+     map nothing consults cannot move a floor — on a map that is not total, names a rung the
      ladder does not hold, is not order-preserving, or leaves no distinction between the ladder's ends.
-     **The last two are unreachable on a graded run and now by construction**: grading fires only when
-     the definition declares no ladder, so a graded reviewer has no map that could be missing or
-     malformed. There is nothing left to refuse.
+     **The second is unreachable on a graded run by construction**: grading fires only when
+     the definition declares no ladder, so a graded reviewer has no map that could be malformed, and
+     a ladder without a map is rejected by `schema/reviewer.schema.json` before this step reads it.
    - **If the resolved reviewer's `status` is not `verified`, say so in the table and repeat it in
      the final report.** Every preset this command ships is currently `unverified`.
 
@@ -663,8 +677,9 @@ guess and is recorded as one; see `## Unexercised paths`.
    For each finding, take its path, its location, its claim, and its rung.
 
    **On a graded run the rung does not come from the review — it comes from a grader, and this is
-   where it is obtained.** Reached whenever `--accept-at` was passed and the definition declares no
-   `severityLevels`, which is **both** shipped local reviewers. Run it once for the whole round, after
+   where it is obtained.** Reached whenever the resolved level has an acceptable band and the
+   definition declares no `severityLevels`, which is **both** shipped local reviewers. Run it once
+   for the whole round, after
    the findings are parsed and before anything below this paragraph. **The grader is
    [`severity-grading.md`](severity-grading.md), in full**: its command line, the file the findings are
    written to rather than concatenated into, the prompt's data-not-instructions framing, what it is
@@ -732,8 +747,8 @@ guess and is recorded as one; see `## Unexercised paths`.
      already, and re-reading it could only produce the answer it has. **A finding the grader declined
      to rank is above every floor**, so it re-opens an acceptance exactly as a `critical` would.
      **Re-reading every acceptance every round would also close this and was rejected on cost**:
-     under `--accept-at` the acceptances are most of the review, and re-reasoning them all is the
-     waste this whole step exists to prevent.
+     at a level with an acceptable band the acceptances are most of the review, and re-reasoning
+     them all is the waste this whole step exists to prevent.
    - **That rule is written for a graded rung and is deliberately not scoped to one.** On a
      reviewer's own ladder a moved rung already changes the fingerprint, so such a finding arrives as
      new and is read again without it — which is how the bullet that puts a reviewer's rung in the key
@@ -741,11 +756,21 @@ guess and is recorded as one; see `## Unexercised paths`.
      is not. It therefore fires in practice
      only on a graded run, and writing it as a graded-only exception would make it read as a
      property of the flag rather than of the floor.
+   - **A second re-open sits beside that one, and it is where this run's history reaches the
+     decision**: [`rigor-levels.md`](rigor-levels.md) re-opens the acceptances at a ceiling that has
+     **risen inside the band** since the previous round, even though no rung crossed the floor. The
+     two are one mechanism read at two heights — a rung crossing the floor says a single finding was
+     answered under a reading that no longer holds, and a rising ceiling says the whole change is
+     getting worse under a floor that never moved. **It re-opens rather than blocks for the reason
+     step 9's fall-through gives**: a rule that withheld the run's exit with nothing in `will fix`
+     would arrive at step 6 with `HEAD` unchanged, where the invariant forbids the review, and leave
+     the loop between a step that will not review and a step with no verdict to classify.
 
    **A finding whose fingerprint this run has already answered — fixed, declined, or accepted — is a
-   repeat.** Count it, list it, and **do not reason about it again** — **with the one exception the
-   bullet above carves**: an acceptance whose rung is now above the floor was answered under a
-   reading that no longer holds, and is not a repeat for this purpose. Re-deriving a fix you already
+   repeat.** Count it, list it, and **do not reason about it again** — **with the two exceptions the
+   bullets above carve**: an acceptance whose rung is now above the floor, and an acceptance under a
+   ceiling that has risen inside the band, were both answered under a reading that no longer holds,
+   and neither is a repeat for this purpose. Re-deriving a fix you already
    made, or a decline you already justified, is the second largest way this loop wastes tokens, and
    unlike the first it produces output that looks like work.
 
@@ -753,7 +778,7 @@ guess and is recorded as one; see `## Unexercised paths`.
    highest rung first — **by the graded rung on a graded run, and otherwise by the
    reviewer's, or, with neither, in the order the reviewer returned them**, which every reviewer
    surveyed documents as most severe first. Take the reviewer's order rather than inventing a rank,
-   for the reason step 1 aborts on `--accept-at` without a ladder and without the flag.
+   for the reason step 1 refuses to derive a ladder from a reviewer that emitted none.
 
    **Ordering by a graded rung is a convenience and never a filter**, and the difference is the
    invariant the batching rule below carries: every finding reaches a bucket whatever its rung — "not
@@ -771,8 +796,8 @@ guess and is recorded as one; see `## Unexercised paths`.
    invariant then forbids the round that would have read them, because nothing changed the tree.
 
    **Bounding this at the floor was the same hole reached from the other side, and it is the one
-   `--accept-at` was most able to hide.** The floor decides **when the loop may stop**, never **what
-   gets read** — "accepting is not skipping the read" is the boundary the whole flag rests on, and a
+   an acceptance floor was most able to hide.** The floor decides **when the loop may stop**, never
+   **what gets read** — "accepting is not skipping the read" is the boundary the whole flag rests on, and a
    finding below the floor that is never carried into step 9 is never bucketed, so step 11 lists it
    with no bucket and the reply that must name its rung and the floor is never written. The finding
    would then be **accepted in the report by nothing more than its absence from the fixed list**,
@@ -806,7 +831,7 @@ guess and is recorded as one; see `## Unexercised paths`.
    row here could match, that output has been reduced to rungs or to their absence, and "no rungs"
    and "an unreadable grader" are the same signal at this table while being different failures. **The
    rows below are safe to read under grading precisely because step 7 has already resolved it**:
-   every finding reaching them carries a rung or is blocking, so `none above the acceptance floor` and
+   every finding reaching them carries a rung or is blocking, so `none above the level's floor` and
    `at least one new finding above the floor` mean what they say whichever way the rungs were
    obtained.
 
@@ -828,10 +853,19 @@ guess and is recorded as one; see `## Unexercised paths`.
    | The command failed, or returned nothing at all                                            | **abort** (`review-command-failed`)    | Print the exit status and the output. Suspect the command string in the step-1 table                         |
    | The output does not match the shape the card records                                      | **abort** (`unparsed-review-output`)   | **Never read this as clean.** Print what came back                                                           |
    | Zero findings, from a `requiresPr` reviewer whose pull request this round did not confirm | **abort** (`unconfirmed-empty-review`) | Not a clean round. Confirm the pull request still exists, then re-run                                        |
-   | No findings at all                                                                        | **finish (clean)**                     | Go to 10. Reached only once the four abort rows have not matched                                             |
-   | Findings, but none above the acceptance floor                                             | continue                               | **Go to 9 to bucket them as `accepted`**, which falls through to 10. Never straight to 10                    |
+   | No findings at all                                                                        | **finish (clean)**                     | Run the sufficiency test, then go to 10. Reached only once the four abort rows have not matched              |
+   | Findings, but none above the level's floor                                                | continue                               | **Go to 9 to bucket them as `accepted`**, which falls through to 10. Never straight to 10                    |
    | At least one **new** finding above the floor                                              | continue                               | Go to 9                                                                                                      |
    | Every finding above the floor is a repeat                                                 | continue (once)                        | **Re-check each repeat against the tree**, then go to 9. If that fixes nothing, 9 aborts                     |
+
+   **The clean row runs the sufficiency test before it reaches 10, and so does step 9's
+   fall-through.** [`rigor-levels.md`](rigor-levels.md) specifies it once and both of this file's
+   convergence paths run it, because a test placed on one of them is a test the other convergence
+   walks past — the same defect as a step reached on one path and not the other, which is the whole
+   argument for step 9 falling through to 10 rather than to 11. **On a genuinely clean round it
+   passes and costs a paragraph**: nothing remains, so the floor is met, and the sweeps it checks
+   were owed in the rounds that fixed something. What it produces there is the `Sufficiency:` record,
+   which is the only thing a reader outside the run has to tell a convergence from a stop.
 
    **`reviewer-rate-limited` is first because the two rows beneath it would each take this output and
    send you somewhere innocent.** A quota reply can arrive at any exit status: at a non-zero one
@@ -884,7 +918,7 @@ guess and is recorded as one; see `## Unexercised paths`.
    against the shape someone saw once will silently return zero findings on the other.
 
    **The clean row is "no findings", not "none above the floor", and splitting the two is what keeps
-   `--accept-at` honest.** Written as one row it sent a review consisting entirely of acceptable
+   an acceptance floor honest.** Written as one row it sent a review consisting entirely of acceptable
    findings straight to the report, before step 9 had assigned a single `accepted` bucket — so the
    run announced a clean convergence over findings the reviewer had raised, this command had parsed,
    and nobody had classified or recorded. The release's own claim for the flag is that an accepted
@@ -953,8 +987,17 @@ guess and is recorded as one; see `## Unexercised paths`.
    exists because **a reviewer returns one member of a class per round**, so a class left half-closed
    buys another round. A cheap round is still a round, and ten of them cost what nobody budgeted.
 
+   **Which of them this round owes comes from the level** — [`rigor-levels.md`](rigor-levels.md)
+   holds the table, and it names a floor under the taxonomy rather than a cap on it: a round may
+   always run a sweep the level does not require, and may never skip one it does. **The
+   already-fixed check is owed at every level including the cheapest**, and it is the only one that
+   is, because it is the sweep that _saves_ rounds rather than spending them — without it a location
+   fixed in an earlier round is fixed again, which on this loop is a round spent entirely on work
+   already done.
+
    Sort each finding into **will fix / already fixed / declining the suggestion / accepted**, with
-   the fourth available only under `--accept-at` and only at or below the floor. **An acceptance owes
+   the fourth available only at a level with an acceptable band, and only at or below the floor.
+   **An acceptance owes
    a record naming the rung, the floor, and where the rung came from**, exactly as a decline owes a
    citation — step 4's
    `Accepted:` block is where it goes, and the report carries the last round's, which no commit
@@ -964,8 +1007,9 @@ guess and is recorded as one; see `## Unexercised paths`.
    nobody writes. Record the fingerprint of every finding you answer, **the bucket it went into, and
    the rung it carried when you answered it** — **that record is what makes step 7 able to recognise
    a repeat**, and a finding left out of it is re-reasoned every single round. **The bucket is not
-   bookkeeping**: step 7 re-opens an acceptance whose rung has since risen above the floor, and it
-   can see that only from a record that says which bucket the finding went into. Held in the session
+   bookkeeping**: step 7 re-opens an acceptance whose rung has since risen above the floor, and one
+   whose ceiling has risen inside the band, and it can see either only from a record that says which
+   bucket the finding went into and at what rung. Held in the session
    rather than in the record, "we accepted this at `low` in round 2" is exactly the kind of fact a
    ten-round run loses.
 
@@ -978,17 +1022,29 @@ guess and is recorded as one; see `## Unexercised paths`.
    **Then: if even one finding is in `will fix`, go to 3.** The next round re-verifies and re-commits
    before it reviews, which is what makes step 6's invariant satisfiable.
 
-   **If every finding was already fixed, declined, or accepted, fall through to 10 instead.** Nothing
+   **If every finding was already fixed, declined, or accepted, run the sufficiency test in
+   [`rigor-levels.md`](rigor-levels.md) and fall through to 10 instead.** Nothing
    in such a round changes the tree, so returning to 3 would arrive at step 6 with `HEAD` unchanged
    and the tree clean, where the invariant forbids the review — leaving the loop between a step that
    will not review and a step with no verdict to classify. This is the fall-through step 11 of
    [`remote-loop.md`](remote-loop.md) already has, and it was missing here.
 
+   **The test cannot refuse this fall-through with nothing to ask for, and that is why it is a test
+   rather than a gate.** Its floor was checked at step 8 and every finding is bucketed by the time
+   this sentence is reached, so the one thing it can still find is a sweep this level owed and this
+   round did not run — and it answers that by **running it**, which is work: a sweep that changes the
+   tree puts a finding in `will fix` and this step sends the round to 3 as it always would, and one
+   that changes nothing discharges the debt and the run stops. **A version that could hold the run
+   here while asking for nothing would deadlock exactly as the paragraph above
+   describes**: there is nothing in `will fix`, so the next round has nothing to change, and step 6
+   refuses an unchanged tree. **The other place the level sends a round back is step 7**,
+   where a re-opened acceptance gives it something to fix.
+
    **The fall-through is to 10 and not to 11, and the difference is a whole feature.** Step 10 is
    where a converged run publishes when step 5 did not, so a fall-through that skipped it would
    leave publishing working on every convergence except the one reached by accepting or declining
    everything — the exact runs
-   `--accept-at` exists to produce. A step reached on one convergence path and not the
+   a level with an acceptable band exists to produce. A step reached on one convergence path and not the
    other is a step that works until somebody uses the flag it was built beside.
 
    **Except on a round step 8 sent here as all-repeats: that one aborts with `repeat-findings`
@@ -1032,15 +1088,24 @@ guess and is recorded as one; see `## Unexercised paths`.
     `<model>` and not reported by the reviewer, and that the reviewer emits no severity of its own.
     Then mark each graded rung where it appears, and **list any finding the grader did not rank as
     `ungraded`** — step 7 has already treated those as blocking, and a report that omitted them would
-    show a run converging over findings that nothing ever ranked. **List any finding a crossing
-    re-opened** too, with the rung it was accepted at, the round that accepted it, the rung it
-    carries now, and where it ended up: a report showing the same finding accepted in one round and
+    show a run converging over findings that nothing ever ranked. **List any finding a crossing rung
+    or a rising ceiling re-opened** too, with the rung it was accepted at, the round that accepted
+    it, the rung it carries now, and where it ended up: a report showing the same finding accepted in one round and
     fixed in another, with nothing between them, describes a loop that changed its mind for no
     recorded reason. **A reader who has to work out from the flags which sentences to trust has been
     told the wrong thing**, which is why this is a line in the report rather than a property of the
     invocation.
     Say that the reviewer's `status` is not `verified` if it is not, and say which unexercised paths
     the run took.
+
+    **Carry the `Sufficiency:` block the test wrote**, in the shape
+    [`rigor-levels.md`](rigor-levels.md) gives: the level, why the change met it, and which sweeps
+    were run. **It goes in the report on every run and in the pull-request body on a publishing
+    one**, beside the `Accepted:` block and for the same reason — the acceptances say what was left
+    unfixed and this says why that was enough, and the two answer different questions about the same
+    stop. **A converged run whose record says only "no findings remain" is describing the reviewer's
+    last round rather than this run's standard**, and at a level with an acceptable band those are
+    not the same claim.
 
     **Say where the branch went.** With publishing: the branch name, and the pull request's number
     and URL, and **then write this same report into the pull-request body** — as the body itself when
@@ -1220,10 +1285,25 @@ takes one should say so in the report and append a line to `.revloop/field-notes
   reviewer ever emits a phrase this pattern would take from a working review. **The last of those is
   the only one that could cost anything, and it is bounded**: the row is above three other aborts, so
   a false match changes which reason prints and cannot produce a clean round.
-- **The canonical pass of `--accept-at`, and every shipped `severityMap`.** No run has resolved a
-  floor canonically. The maps are judgements about vocabulary, recorded as such on each card, and
+- **Every level with an acceptable band, and every shipped `severityMap`.** No run has resolved a
+  floor. The maps are judgements about vocabulary, recorded as such on each card, and
   **a wrong one fails open**: it does not abort, it quietly moves the floor by a rung. Step 1 printing
   the floor expanded is the only thing standing between that and a run nobody questions.
+- **Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor**, and its own
+  `## Not measured` section says which parts and why: the round caps each level supplies are
+  `builtin` guesses, of which only `thorough`'s pair carries a number this file used to state and
+  none of which is the default's; the
+  per-level sweep obligations are a judgement about relative cost rather than a measurement of what a
+  level saves; and the rising-ceiling re-open has never fired, because no run has resolved a floor at
+  all. **The sufficiency test has run on no convergence**, so its record shape is unverified —
+  though it is the one entry here that cannot fail open, since the test can only withhold permission
+  and step 9 states why it cannot even do that on the fall-through.
+- **The default level is itself unexercised, and it moves the grader onto the ordinary run.** Both
+  reviewers this procedure ships a definition for emit no severity, so `standard` grades every round
+  of every untyped run — a second subprocess and a second permission prompt on the loop whose whole
+  shape is about not spending tokens twice. `.revloop/field-notes.md` records four occasions on which
+  a grader was configured and did not start, and none on which one ran. **Nothing has measured that
+  the rounds it saves outnumber the subprocesses it spends.**
 - **The ten-finding batch size in step 7.** Bounded by what can be held in mind at once rather than
   by a measurement. **Since it batches rather than truncates, no finding is dropped by it**, so
   unlike the first draft of that rule it fails closed. The largest round yet measured returned exactly

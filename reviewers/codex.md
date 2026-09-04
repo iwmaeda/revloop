@@ -126,7 +126,8 @@ for code reviews.` followed by a dashboard link (same comment). **Derived:** a r
   and neither settles it: this ladder has three rungs and the canonical one has four, so **some rung
   had to be skipped and `medium` is the one this map skips**; and the severity mix moves per pull
   request, measured above, so a map calibrated on one PR's spread would not transfer anyway. It is
-  shipped because `--accept-at` needs one to reach the canonical pass at all, it is overridable from
+  shipped because a floor is expressed on the canonical ladder and this reviewer's rungs cannot reach
+  one without it, it is overridable from
   `.revloop.json`, and the loop prints the floor it produces — as the sets of `P1`/`P2`/`P3` that
   block and that do not — before the first round runs.
 - The documented "👍 reaction when there are no findings" path. Every measured trigger carried zero

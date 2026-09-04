@@ -1,6 +1,6 @@
 ---
 description: A reviewer you define, on a pull request — branch, split commits, push, PR, trigger it, fix findings, until it converges
-argument-hint: "--config <path> [--merge] [--auto] [--accept-at <level>] [--max-rounds <n>] [--timeout <dur>]"
+argument-hint: "--config <path> [--merge] [--auto] [--rigor <level>] [--max-rounds <n>] [--timeout <dur>]"
 disable-model-invocation: true
 allowed-tools: Bash(gh api repos/{owner}/{repo}/:*), Bash(gh api -X POST repos/{owner}/{repo}/:*), Bash(gh api -X PUT repos/{owner}/{repo}/:*), Bash(gh api -X PATCH repos/{owner}/{repo}/:*), Bash(gh api --paginate repos/{owner}/{repo}/:*), Bash(gh api graphql:*), Bash(gh pr:*), Bash(gh repo view:*), Bash(git:*), Read, Edit, Write, Grep, Glob
 ---
@@ -50,30 +50,35 @@ cause when the cause is a reviewer built for the other procedure.
 
 ## Flags
 
-| Flag                | Default        | Effect                                                                                 |
-| ------------------- | -------------- | -------------------------------------------------------------------------------------- |
-| `--config <path>`   | **required**   | The reviewer definition this run drives                                                |
-| `--merge`           | off, flag only | After convergence, wait for green CI and **then** merge                                |
-| `--auto`            | off, flag only | Do not stop for confirmation. **The flag itself is the approval**                      |
-| `--accept-at <lvl>` | off, flag only | Findings at `<lvl>` and below may be left unfixed. Everything above it still blocks    |
-| `--max-rounds <n>`  | `10`           | Abort if the loop has not converged within this many rounds                            |
-| `--timeout <dur>`   | `30m`          | **Cumulative** cap on waiting for **one trigger's** verdict. A round fires at most two |
+| Flag               | Default        | Effect                                                                                 |
+| ------------------ | -------------- | -------------------------------------------------------------------------------------- |
+| `--config <path>`  | **required**   | The reviewer definition this run drives                                                |
+| `--merge`          | off, flag only | After convergence, wait for green CI and **then** merge                                |
+| `--auto`           | off, flag only | Do not stop for confirmation. **The flag itself is the approval**                      |
+| `--rigor <level>`  | `standard`     | How strictly this run must finish. It decides when the loop may stop                   |
+| `--max-rounds <n>` | `5`            | Abort if the loop has not converged within this many rounds                            |
+| `--timeout <dur>`  | `30m`          | **Cumulative** cap on waiting for **one trigger's** verdict. A round fires at most two |
 
-**`--merge`, `--auto` and `--accept-at` have no configuration key, and adding one would be a defect.**
+**`--merge`, `--auto` and `--rigor` have no configuration key, and adding one would be a defect.**
 `--max-rounds` and `--timeout` may come from `.revloop.json`; these three may not. That file belongs to
 whatever repository you are working in, including one you just cloned. A repository that could set
 `auto` would delete both of your confirmation points, one that could set `merge` would grant its own
-merge, and one that could set `accept-at` would lower its own review bar while the run still reported a
+merge, and one that could set `rigor` would lower its own review bar while the run still reported a
 clean convergence. **The flag is the approval, so it has to come from the person typing it.**
+**`--max-rounds` still has one**, and the level supplies that number only where neither the flag nor
+the key answered — see `procedures/rigor-levels.md`.
 
 **`--config` is flag-only for the same reason and a sharper one.** `.revloop.json` no longer defines
 reviewers at all: a repository that could choose your reviewer would choose which bot login the wait
 filters on and which rungs your acceptance floor is measured against.
 
-**`--accept-at` resolves against whatever the definition declares.** With `severityLevels`, a rung of
-that ladder resolves natively and a canonical rung resolves through `severityMap`. **Without
-`severityLevels`, it is resolved by grading** — a separate subprocess on the builtin `sonnet`,
-specified in `procedures/severity-grading.md`, costing one permission prompt per round.
+**`--rigor` measures its floor against whatever the definition declares.** With `severityLevels`, the
+rungs are carried onto revloop's canonical ladder by the required `severityMap`. **Without
+`severityLevels`, they come from grading** — a separate subprocess on the builtin `sonnet`,
+specified in `procedures/severity-grading.md`, costing one permission prompt per round. **At
+`thorough` and `exhaustive` neither happens**: nothing is acceptable, so no rung is consumed — **and
+the default is neither of them**, so a definition with no ladder grades on every untyped run.
+`procedures/rigor-levels.md` states the four levels and what else each one moves.
 
 **A definition that omits `severityLevels` therefore weakens your floor rather than stopping the run**,
 and that is worth knowing before you write one: a graded convergence is a weaker result than a reviewed

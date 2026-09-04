@@ -1,6 +1,6 @@
 ---
 description: A review command you define, on this machine — branch, verify, commit, review, fix findings, then push and open a PR
-argument-hint: "--config <path> [--model <name>] [--no-publish] [--accept-at <level>] [--auto] [--max-rounds <n>]"
+argument-hint: "--config <path> [--model <name>] [--no-publish] [--rigor <level>] [--auto] [--max-rounds <n>]"
 disable-model-invocation: true
 allowed-tools: Bash(git:*), Bash(gh pr create:*), Bash(gh pr list:*), Bash(gh repo view:*), Bash(gh api -X PATCH repos/{owner}/{repo}/:*), Read, Edit, Write, Grep, Glob, Skill
 ---
@@ -52,19 +52,20 @@ over to "review it yourself" would report a self-review as a review.
 
 ## Flags
 
-| Flag                | Default        | Effect                                                                              |
-| ------------------- | -------------- | ----------------------------------------------------------------------------------- |
-| `--config <path>`   | **required**   | The reviewer definition this run drives                                             |
-| `--model <name>`    | `sonnet`       | The model **the reviewer** runs on. The fixing is unaffected                        |
-| `--no-publish`      | off, flag only | End at a commit. No push, no pull request, no `gh` call in any step                 |
-| `--accept-at <lvl>` | off, flag only | Findings at `<lvl>` and below may be left unfixed. Everything above it still blocks |
-| `--auto`            | off, flag only | Do not stop for confirmation. **The flag itself is the approval**                   |
-| `--max-rounds <n>`  | `5`            | Abort if the loop has not converged within this many rounds                         |
+| Flag               | Default        | Effect                                                               |
+| ------------------ | -------------- | -------------------------------------------------------------------- |
+| `--config <path>`  | **required**   | The reviewer definition this run drives                              |
+| `--model <name>`   | `sonnet`       | The model **the reviewer** runs on. The fixing is unaffected         |
+| `--no-publish`     | off, flag only | End at a commit. No push, no pull request, no `gh` call in any step  |
+| `--rigor <level>`  | `standard`     | How strictly this run must finish. It decides when the loop may stop |
+| `--auto`           | off, flag only | Do not stop for confirmation. **The flag itself is the approval**    |
+| `--max-rounds <n>` | `3`            | Abort if the loop has not converged within this many rounds          |
 
-**`--auto`, `--accept-at`, `--no-publish` and `--model` have no configuration key.** Only
+**`--auto`, `--rigor`, `--no-publish` and `--model` have no configuration key.** Only
 `--max-rounds` does, as `defaults.localMaxRounds` — **not `defaults.maxRounds`, which belongs to the
 pull-request procedure alone.** One shared key let a remote-oriented value silently raise this loop's
-cap, and this loop's cap is the only brake it has.
+cap, and this loop's cap is the only brake it has. **The level supplies that number only where
+neither the flag nor the key answered** — see `procedures/rigor-levels.md`.
 
 **`--model` is absent from that file for a second and sharper reason than the others.** Its value is
 **expanded into a command line** at the `{reviewModel}` placeholder, so a key would be the first thing
@@ -75,9 +76,13 @@ typing it, or from the builtin, and from nowhere else.
 at all, and a `subprocess` definition holds a **shell command line**: a repository that could choose it
 would choose a string this procedure runs.
 
-**`--accept-at` resolves against whatever the definition declares** — natively against
-`severityLevels`, canonically through `severityMap`, and **by grading when the definition declares no
-ladder**, on the resolved `--model`, per `procedures/severity-grading.md`.
+**`--rigor` measures its floor against whatever the definition declares** — the reviewer's own rungs
+carried onto revloop's canonical ladder by the required `severityMap`, or, **when the definition
+declares no ladder, by grading** on the resolved `--model`, per `procedures/severity-grading.md`.
+**At `thorough` and `exhaustive` neither is read**, because nothing is acceptable at either — **and
+the default is neither of them**, so a definition with no ladder grades on every untyped run, at a
+second subprocess and a second permission prompt per round.
+`procedures/rigor-levels.md` states the four levels and what else each one moves.
 
 **A definition that omits `severityLevels` weakens your floor rather than stopping the run.** A graded
 convergence is a weaker result than a reviewed one; step 1 prints `severity source` as `reviewer` or

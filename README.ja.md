@@ -7,7 +7,7 @@
 
 AI によるレビューと修正のループを収束するまで繰り返すワークフローを実現する Claude Code / Codex 対応プラグインです。レビューのループ回数の増加を防止するフェンス機構を整備し、処理時間やトークン消費を抑えるように設計されています。
 
-**リモート動作/ローカル動作、およびレビュワーごとに専用コマンドが用意されています。** 現状、提供している
+**リモート動作/ローカル動作、およびレビュアーごとに専用コマンドが用意されています。** 現状、提供している
 コマンドは以下の通りです。
 
 | コマンド                      | レビュアー                    | 実行場所           |
@@ -38,15 +38,29 @@ AI によるレビューと修正のループを収束するまで繰り返す�
 ```console
 /revloop:remote-codex-loop
 /revloop:remote-gemini-loop --max-rounds 15
-/revloop:remote-codex-loop --merge --auto
+/revloop:remote-codex-loop --rigor thorough --merge --auto
 
 /revloop:local-review-loop
 /revloop:local-review-loop --no-publish
 /revloop:local-review-loop --model opus --max-rounds 3
-/revloop:local-ecc-loop --accept-at high
+/revloop:local-ecc-loop --rigor minimal
 
 /revloop:local-custom-loop --config ./my-reviewer.json
 ```
+
+| フラグ             | 対象コマンド    | 既定       | 内容                                    |
+| ------------------ | --------------- | ---------- | --------------------------------------- |
+| `--rigor <level>`  | すべて          | `standard` | どこまで厳密に修正し切るか（後述）      |
+| `--max-rounds <n>` | すべて          | 5 / 3      | 収束しない場合の打ち切り                |
+| `--auto`           | すべて          | off        | 停止点で止まらずに進行するか            |
+| `--merge`          | `remote-*`      | off        | 収束後、CI の green を待ってマージする  |
+| `--timeout <dur>`  | `remote-*`      | `30m`      | トリガー 1 つあたりの待機上限           |
+| `--model <name>`   | `local-*`       | `sonnet`   | レビューを実行するモデル                |
+| `--no-publish`     | `local-*`       | off        | コミットで停止し、push も PR も行わない |
+| `--config <path>`  | `*-custom-loop` | 必須       | 実行するレビュアー定義ファイル          |
+
+既定が 2 つ並ぶ欄は remote / local の順です。`--max-rounds` の既定は `--rigor` が供給するため、
+レベルを変えると一緒に動きます。
 
 ## 動作の流れ
 
@@ -145,10 +159,11 @@ Codex では権限は承認ポリシーとサンドボックスで制御しま�
 ```text
 key              value                              source
 reviewer         codex                              flag
+rigor            standard                           builtin
 baseBranch       main                               detected
 verify           npm run check:all, npm test        detected
 commitStyle      conventional (en)                  detected
-maxRounds        10                                 builtin
+maxRounds        5                                  rigor
 ```
 
 設定を変更したり、独自のレビュアーを追加したい場合は `.revloop.json` を作成してください。
@@ -158,34 +173,32 @@ maxRounds        10                                 builtin
 {
   "version": 1,
   "project": { "verify": ["make check", "make test"] },
-  "reviewers": {
-    "acme": {
-      "trigger": "@acme review",
-      "botLogin": "acme-reviewer[bot]",
-      "cleanPatterns": ["^Acme Review: no issues found"]
-    }
-  }
+  "defaults": { "maxRounds": 15 }
 }
 ```
 
 ## 過剰なループの防止
 
-**LLM によるコードレビューでは些細な指摘が延々と出力されがちです。**
-そのような指摘によりループが不必要に長期化することを防ぐため、`--accept-at <level>` オプションが用意されています。
-このフラグで**未修正のまま残してよい最上位の深刻度**を指定し、それより深刻度の高い指摘がすべて修正された時点でループは収束可能となります。
+**AI によるコードレビューでは些細な指摘が延々と出力されがちです。**
+その影響で過剰にループが長期化することを防ぐために、**どこまで厳密に修正し切るか** を指定する
+`--rigor <level>` 引数を用意しています。ループの終了判断を担うのはこの引数です。
+
+| レベル                         | ブロックする深刻度 | 許容できる深刻度 | ラウンド上限 (remote / local) | 横展開（sweep）                   |
+| ------------------------------ | ------------------ | ---------------- | ----------------------------- | --------------------------------- |
+| `minimal`（最低限）            | `critical`         | `high` 以下      | 3 / 2                         | クラス名と既修正チェックのみ      |
+| `standard`（適度）　**既定。** | `critical`・`high` | `medium`・`low`  | 5 / 3                         | ＋ corpus                         |
+| `thorough`（しっかり）         | すべて             | なし             | 10 / 5                        | 該当するものすべて                |
+| `exhaustive`（完璧）           | すべて             | なし             | 15 / 8                        | ＋ input-space を集合として閉じる |
 
 ```console
-/revloop:remote-codex-loop --accept-at P2   # codex 自身の深刻度は P1 > P2 > P3
+/revloop:remote-codex-loop --rigor minimal
+/revloop:local-ecc-loop --rigor thorough
 ```
 
-`--accept-at` に指定できる値は、`severityLevels` で指定されたモデル固有の深刻度か、 revloop で定義されている深刻度（`critical > high > medium > low`）のいずれかです。
+深刻度は `severityMap` を通し、全てのレビュワーで `critical > high > medium > low` の4段階で管理されます。
+深刻度を出力しないレビュアーに対しては、**別プロセスの採点モデル**が深刻度を推定します。
 
-**同梱プリセット 5 つのうち 3 つ（`claude`・`code-review`・`ecc-review-pr`）は severity を出力しません**。
-そのようなレビュワーに対しては、**別プロセスの採点モデルが severity を推定します**。
-
-```console
-/revloop:local-ecc-loop --accept-at high
-```
+**収束判定時には、その変更がそのレベルにとって十分にレビューされたかが判定されます。**
 
 ## 対応済みレビュアー
 

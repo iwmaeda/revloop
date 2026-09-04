@@ -52,14 +52,17 @@ looked.
 
 `severityLevels` belongs to both and means the same thing in both: **the reviewer's severity
 vocabulary, ordered most severe first**, and it is the **emitted** vocabulary rather than the one the
-reviewer's documentation defines. It is the ladder `--accept-at` names on its native pass. A card
+reviewer's documentation defines. It is the ladder a `--rigor` level's floor is measured against,
+through the `severityMap` beside it. A card
 omits it when the reviewer emits no severity, and omitting it is a measurement like any other — it
-makes `--accept-at` abort rather than letting the loop rank findings it is itself obliged to fix.
+sends the run to the grader rather than letting the loop rank findings it is itself obliged to fix.
 
 **`severityMap` belongs to both as well, and it is a different kind of claim from the key beside
 it.** It carries each rung of `severityLevels` onto revloop's canonical ladder —
-`critical > high > medium > low` — which is what lets `--accept-at high` mean one thing against
-reviewers that do not share a vocabulary. **The ladder is measured and the map is judged.** Nothing
+`critical > high > medium > low` — which is what lets one `--rigor` level mean the same thing against
+reviewers that do not share a vocabulary. **It is required whenever `severityLevels` is present**: a
+ladder with no map can never reach a floor, so it is a vocabulary nothing consumes.
+**The ladder is measured and the map is judged.** Nothing
 establishes that one reviewer's `P1` and another's `CRITICAL` describe the same thing, so the map is
 a separate key rather than an ordering folded into the ladder, and **a card states under
 `## Not measured` that its map is a judgement** — leaving it beside the ladder without saying so is

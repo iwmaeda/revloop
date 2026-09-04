@@ -140,7 +140,8 @@ provenance form in [`../reviewers/README.md`](../reviewers/README.md).
 define one severity scheme in prose and delegate its output format to an agent that tags findings with
 another — [`../reviewers/ecc-review-pr.md`](../reviewers/ecc-review-pr.md) records a shipped example.
 `severityLevels` must be the emitted list: a ladder taken from the documented one names rungs the
-output never carries, so `--accept-at` matches nothing and blocks everything.
+output never carries, so every finding is measured against a rung the reviewer never emits and a
+floor blocks everything.
 
 **Trap: an output shape can depend on the model and the effort level, not just on the command.**
 Record the shape **per configuration you actually ran** — a parser written against one shape returns
@@ -173,8 +174,11 @@ indistinguishable from a card that never declared one.
 model. Use `subprocess` with `{reviewModel}` in `command` unless the host forbids it.
 
 **Trap: a reviewer with no severity is normal, and the card should say so rather than invent one.**
-Leave `severityLevels` out, and `severityMap` with it. `--accept-at` against that reviewer is then
-resolved by **grading** — a separate subprocess estimates the rungs — which is the intended outcome.
+Leave `severityLevels` out, and `severityMap` with it — the schema requires the two together, so
+half a pair is rejected either way. `--rigor minimal` or `--rigor standard` against that reviewer is
+then resolved by **grading** — a separate subprocess estimates the rungs — which is the intended
+outcome, and it is the ordinary one: `standard` is the default, so a reviewer with no ladder grades
+on every untyped run. `thorough` and `exhaustive` consult no rung at all and start no grader.
 **A card records what its reviewer emits, and a reviewer does not start emitting severities because a
 floor was typed** — so a definition must never gain a `severityLevels` it did not measure in order to
 make the floor "work". [`../reviewers/code-review.md`](../reviewers/code-review.md) is the shipped
@@ -182,8 +186,9 @@ example of doing this correctly: the absence is measured and stated, and grading
 happens instead.
 
 **Know what omitting it costs, because it is quieter than it used to be.** Before 0.7.0 the omission
-made `--accept-at` abort, and a second flag was needed to get past it. Now the omission silently
-selects grading, and **a graded convergence is a weaker result than a reported one** — the rungs are an
+made a typed floor abort, and a second flag was needed to get past it. Now the omission silently
+selects grading on the two relaxed levels, and **a graded convergence is a weaker result than a
+reported one** — the rungs are an
 estimate rather than the reviewer's own measurement. The run says so: step 1 prints `severity source`
 as `grader (<model>)` before the first round, and every graded rung is marked `graded`. Omit the ladder
 because the reviewer emits none, never to make a floor easier to satisfy.
@@ -196,12 +201,12 @@ judgement** — including which canonical rung a short ladder had to skip. A thr
 spread over four without a choice, and a card that ships the choice silently has made a recommendation
 look like an observation.
 
-**Trap: a canonical rung and a native rung can be spelled alike, and native wins.** `--accept-at`
-matches `severityLevels` first, as a whole string and case-sensitively, before it tries the canonical
-ladder case-insensitively. A reviewer that emits a literal `high` therefore takes `--accept-at high`
-down the native path whatever its map says. That is the safe order — it is what keeps every
-pre-existing invocation meaning what it meant — but it means the resolved floor is worth reading off
-the step-1 table rather than assumed, which is why that table prints it expanded.
+**No trap about spelling a rung, because a level never names one.** `--rigor` takes one of four
+fixed policy words, so a reviewer that emits a literal `high` cannot collide with anything: its rungs
+are read through its map and never matched against what was typed. **The resolved floor is still
+worth reading off the step-1 table rather than assumed**, which is why that table prints it expanded
+as the two sets of the reviewer's own rungs — a map is a judgement, and the table is where the
+judgement becomes checkable.
 
 **Trap: some commands write into the work tree or post to GitHub.** That is a side effect the loop did
 not ask for. Prefer a command with nothing to suppress, and record what a rejected one did.

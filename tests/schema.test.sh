@@ -184,17 +184,22 @@ reject "a configured merge method"       '{"version":1,"project":{"pr":{"mergeMe
 reject "merge defaulted from config" '{"version":1,"defaults":{"merge":true}}'
 reject "auto defaulted from config"  '{"version":1,"defaults":{"auto":true}}'
 
-# The acceptance floor is the same class as the two above and has no key at all,
-# so it is rejected wherever a reader might reach for one. A repository that
-# could set its own --accept-at would lower its own review bar on a checkout you
-# just cloned, while the run still reported a clean convergence.
+# The rigor level is the same class as the two above and has no key at all, so
+# it is rejected wherever a reader might reach for one. A repository that could
+# set its own --rigor would lower its own review bar on a checkout you just
+# cloned, while the run still reported a clean convergence. Its predecessor's
+# spelling is pinned beside it: a key removed from the schema is only removed
+# while additionalProperties keeps refusing it, and the reader most likely to
+# reintroduce one is the reader migrating from the old name.
+reject "rigor defaulted from config"      '{"version":1,"defaults":{"rigor":"minimal"}}'
+rreject "rigor on a reviewer" '{"botLogin":"a[bot]","rigor":"minimal"}'
 reject "acceptAt defaulted from config"   '{"version":1,"defaults":{"acceptAt":"HIGH"}}'
 rreject "acceptAt on a reviewer" '{"botLogin":"a[bot]","acceptAt":"P2"}'
 
 # GRADING IS NOT ADDRESSABLE AT ALL, so the key that would have switched it on is
 # rejected on both surfaces. It was a flag until 0.7.0 and is now a consequence of
-# the reviewer's shape: it fires iff --accept-at was typed and the definition
-# declares no severityLevels. A repository that could switch it on would decide,
+# the reviewer's shape: it fires iff the resolved level has an acceptable band
+# and the definition declares no severityLevels. A repository that could switch it on would decide,
 # for a checkout you just cloned, that its reviewer's silence is no obstacle to
 # converging -- and one that could switch it OFF would turn an estimated floor
 # back into an abort under a run that had asked for neither.
@@ -229,11 +234,20 @@ rreject "a skill name with a space" '{"kind":"local-command","invoke":"skill","c
 rreject "a skill name with a slash" '{"kind":"local-command","invoke":"skill","command":"../../evil"}'
 rreject "a command with a newline" '{"kind":"local-command","invoke":"subprocess","command":"claude -p x\nrm -rf /"}'
 rreject "an empty severityLevels ladder" '{"botLogin":"a[bot]","severityLevels":[]}'
-rreject "a ladder with a repeated rung" '{"botLogin":"a[bot]","severityLevels":["P1","P1"]}'
+# The map is present here so that uniqueItems is what rejects this rather than
+# the ladder-needs-a-map pairing below -- without it the case passes for a
+# reason it was not written to test, and uniqueItems goes unexercised.
+rreject "a ladder with a repeated rung" '{"botLogin":"a[bot]","severityLevels":["P1","P1"],"severityMap":{"P1":"critical"}}'
 
-# severityMap carries the native ladder onto revloop's canonical one, so a value
-# outside that ladder names a rung --accept-at can never be given, and a map with
-# no ladder to map FROM is a key with no consumer. None of the map's totality,
+# severityMap carries the reviewer's ladder onto revloop's canonical one, which
+# is the ladder every --rigor level's floor is expressed on. A value outside that
+# ladder names a rung no floor can ever be measured against; a map with no ladder
+# to map FROM is a key with no consumer; and A LADDER WITH NO MAP IS THE SAME
+# DEFECT SEEN FROM THE OTHER SIDE -- a vocabulary that can never reach a floor.
+# dependentRequired states the pair in both directions, and the second direction
+# is what replaced a runtime abort (reason=no-severity-map): a structural rule
+# belongs where the structure is validated, and a runtime check for a shape the
+# schema can express only fires on the runs that reach it. None of the map's totality,
 # its ordering, or whether it collapses the whole ladder onto one canonical rung
 # is checkable here — the schema cannot read the other key's contents, and it
 # cannot compare values across keys it does not know the names of — so step 1
@@ -241,6 +255,7 @@ rreject "a ladder with a repeated rung" '{"botLogin":"a[bot]","severityLevels":[
 # schema half can carry.
 rreject "a map onto a rung off the ladder" '{"botLogin":"a[bot]","severityLevels":["P1"],"severityMap":{"P1":"blocker"}}'
 rreject "a map with no severityLevels" '{"botLogin":"a[bot]","severityMap":{"P1":"critical"}}'
+rreject "a ladder with no severityMap" '{"botLogin":"a[bot]","severityLevels":["P1","P2"]}'
 rreject "an empty severityMap" '{"botLogin":"a[bot]","severityLevels":["P1"],"severityMap":{}}'
 
 # The other direction: a github-comment reviewer may not carry the local keys.
@@ -386,7 +401,7 @@ raccept "an explicit github-comment kind" '{"kind":"github-comment","botLogin":"
 # Only the exact literal 'revloop:trigger' is banned, not the word "trigger" on
 # its own -- this pins that the fix above is not overbroad.
 raccept "a trigger that just mentions the word trigger" '{"botLogin":"a[bot]","trigger":"@a review triggers a run"}'
-raccept "a skill-invoked local reviewer" '{"kind":"local-command","invoke":"skill","command":"ecc:review-pr","severityLevels":["CRITICAL","HIGH","MEDIUM","LOW"],"requiresPr":true}'
+raccept "a skill-invoked local reviewer" '{"kind":"local-command","invoke":"skill","command":"ecc:review-pr","severityLevels":["CRITICAL","HIGH","MEDIUM","LOW"],"severityMap":{"CRITICAL":"critical","HIGH":"high","MEDIUM":"medium","LOW":"low"},"requiresPr":true}'
 raccept "a subprocess local reviewer" '{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review medium\""}'
 raccept "a local reviewer with no ladder" '{"kind":"local-command","invoke":"subprocess","command":"claude -p x"}'
 # WHICH REVIEWER RUNS IS NOT A KEY AND CANNOT BECOME ONE. It is decided by which
@@ -413,15 +428,18 @@ raccept "a skill named after gh" '{"kind":"local-command","invoke":"skill","comm
 # both are pinned to the builtin sonnet unless --review-model says otherwise,
 # and neither begins with the placeholder.
 raccept "the shipped code-review preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} -p \"/code-review medium\""}'
-raccept "the shipped ecc-review-pr preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} -p \"/ecc:review-pr\"","requiresPr":true,"severityLevels":["CRITICAL","HIGH","MEDIUM","LOW"]}'
+# No ladder, because the shipped definition has none: five measured rounds
+# disproved the one its card used to claim. A fixture carrying a ladder the
+# shipped file does not is a fixture pinning a preset that was never shipped.
+raccept "the shipped ecc-review-pr preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} -p \"/ecc:review-pr\"","requiresPr":true,"rateLimitPatterns":["You'"'"'ve hit your session limit"]}'
 # A command with no placeholder stays valid: it is simply not pinned by the
 # loop, and the step-1 table says so rather than pretending it is.
 raccept "a subprocess command, unpinned" '{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review medium\""}'
 
 # The map belongs to both kinds, exactly as the ladder does, and the canonical
 # rungs are the only values it may name. The identity case is not a curiosity:
-# ecc-review-pr emits the canonical words already and still ships a map, because
-# --accept-at reaches the canonical pass only when a map exists.
+# a reviewer emitting the canonical words already still needs a map, because the
+# pairing is structural rather than a shortcut the schema could see through.
 raccept "a github reviewer with a map" '{"botLogin":"a[bot]","trigger":"@a review","severityLevels":["P1","P2","P3"],"severityMap":{"P1":"critical","P2":"high","P3":"low"}}'
 raccept "a local reviewer with a map" '{"kind":"local-command","invoke":"subprocess","command":"claude -p x","severityLevels":["CRITICAL","HIGH","MEDIUM","LOW"],"severityMap":{"CRITICAL":"critical","HIGH":"high","MEDIUM":"medium","LOW":"low"}}'
 

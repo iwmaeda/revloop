@@ -7,22 +7,26 @@ than repeating it, and **the only thing that differs between them is the model**
 
 ## When it runs
 
-**Exactly when `--accept-at` was passed and the reviewer's definition declares no `severityLevels`.**
-Both halves are required and neither is a flag of its own:
+**Exactly when the resolved `--rigor` level has an acceptable band and the reviewer's definition
+declares no `severityLevels`.** Both halves are required and neither is a flag of its own:
 
-| The reviewer declares | `--accept-at` absent | `--accept-at` present                             |
-| --------------------- | -------------------- | ------------------------------------------------- |
-| `severityLevels`      | no grading           | no grading — the rungs are the reviewer's         |
-| no `severityLevels`   | no grading           | **grade**, and the level must be a canonical rung |
+| The reviewer declares | `thorough` or `exhaustive` | `minimal` or `standard` **(the default)**    |
+| --------------------- | -------------------------- | -------------------------------------------- |
+| `severityLevels`      | no grading                 | no grading — the rungs are the reviewer's    |
+| no `severityLevels`   | no grading                 | **grade**, and the floor is a canonical rung |
 
 **Grading a reviewer that emitted its own rungs is forbidden**, and it is forbidden rather than merely
 unnecessary: the ladder on a definition is a measurement of what that reviewer emits, and regrading
 those findings overrules a measurement with an inference. There is no flag that reaches this page, so
 there is no invocation that can ask for it.
 
-**With no floor there is nothing to grade for.** Rungs nobody consumes are a cost with no consumer,
-which is the defect this project removes rather than ships — so the absence of `--accept-at` is not a
-default that could be changed, it is the whole reason the run has no question about severity.
+**With no acceptable band there is nothing to grade for.** Rungs nobody consumes are a cost with no
+consumer, which is the defect this project removes rather than ships — so the strict levels do not
+suppress grading as a setting, they simply ask no question about severity. **The default is not one
+of them.** A run with no level typed resolves to `standard`, which has a band, so **this page is
+reached by the ordinary run against three of the five shipped reviewers** rather than by an unusual
+one. Every failure below is therefore on the default path, and none of it has ever been entered —
+see `## Not measured`.
 
 ## Why a separate process grades, and not this session
 
@@ -124,9 +128,9 @@ In this order:
   the grader is broken rather than that it declined a finding**, which is why they abort where a plain
   absence does not. Reading by position instead would be the sharper failure: one dropped line shifts
   every rung after it by one, a `critical` inherits the rung below it and is accepted, and nothing in
-  the output looks wrong. That is the same defect the `unknown-accept-level` row refuses on the other
-  ladder, where "a name matched loosely to the neighbouring rung moves the floor by one without
-  anything saying so".
+  the output looks wrong. **A rung matched loosely to its neighbour moves the floor by one without
+  anything saying so**, and this is the only place left where that can happen: a level names no rung,
+  so nothing else in the run matches a rung name against anything.
 - **A finding missing from an otherwise-readable result is blocking, and is listed in the report as
   `ungraded`.** A gap and a broken grader are different failures and they get different answers: no rung
   for a single finding is a gap, and a gap is treated as above any floor. **Do not drop it and do not
@@ -137,17 +141,16 @@ In this order:
 
 ## The floor on a graded run
 
-**A graded run resolves `--accept-at` on the canonical pass and only there.** The grader answers in
-revloop's own four words, so there is no native ladder to match against and no `severityMap` to carry
-anything onto — which is why the `no-severity-map` and `bad-severity-map` aborts are conditioned on the
-reviewer **having** `severityLevels` and are unreachable here. A value that matches none of the four
-canonical rungs is `unknown-accept-level`, and that abort prints the canonical ladder and says the
-reviewer has none of its own, which is the whole diagnosis.
+**A graded run's floor is already in canonical words.** The grader answers in revloop's own four
+rungs, so there is no native ladder to match against and no `severityMap` to carry anything onto —
+which is why the `bad-severity-map` abort is conditioned on the reviewer **having** `severityLevels`
+and is unreachable here. A level is four fixed words, so there is nothing here for a floor to fail to
+match either.
 
-Step 1 prints the resolved floor expanded, as it does on any run:
+Step 1 prints the resolved floor expanded, as it does on any run with a band:
 
 ```text
-accept-at high (graded by sonnet) → blocking: critical   acceptable: high, medium, low
+rigor minimal (graded by sonnet) → blocking: critical   acceptable: high, medium, low
 ```
 
 **and the `severity source` row reads `grader (<model>)` rather than `reviewer`.** Both are printed
@@ -159,6 +162,7 @@ should say so before it spends the first one rather than at the first prompt.
 **No run has ever exercised this page.** `.revloop/field-notes.md` records four occasions on which a
 grader was configured and did not start — the loop grades after findings are parsed, and every one of
 those rounds parsed none — so the whole failure ladder above (`grading-command-failed`,
-`unparsed-grading-output`, the ungraded-is-blocking rule, an acceptance re-opened by a crossing rung)
-remains unentered. **Derived:** what changed when the flag became automatic is which invocations reach
-this page, not what happens when one does, so nothing here is promoted from unverified by the change.
+`unparsed-grading-output`, the ungraded-is-blocking rule, an acceptance re-opened by a crossing rung
+or by a rising ceiling) remains unentered. **Derived:** what changed when the trigger moved from a
+flag to a level is which invocations reach this page, not what happens when one does, so nothing here
+is promoted from unverified by the change.

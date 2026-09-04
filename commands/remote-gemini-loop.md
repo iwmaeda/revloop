@@ -1,6 +1,6 @@
 ---
 description: Gemini Code Assist on a pull request — branch, split commits, push, PR, trigger @gemini review, fix findings, until it converges
-argument-hint: "[--merge] [--auto] [--accept-at <level>] [--max-rounds <n>] [--timeout <dur>]"
+argument-hint: "[--merge] [--auto] [--rigor <level>] [--max-rounds <n>] [--timeout <dur>]"
 disable-model-invocation: true
 allowed-tools: Bash(gh api repos/{owner}/{repo}/:*), Bash(gh api -X POST repos/{owner}/{repo}/:*), Bash(gh api -X PUT repos/{owner}/{repo}/:*), Bash(gh api -X PATCH repos/{owner}/{repo}/:*), Bash(gh api --paginate repos/{owner}/{repo}/:*), Bash(gh api graphql:*), Bash(gh pr:*), Bash(gh repo view:*), Bash(git:*), Read, Edit, Write, Grep, Glob
 ---
@@ -21,35 +21,40 @@ carries a finished change through review.
 
 ## The reviewer
 
-|            |                                                                                            |
-| ---------- | ------------------------------------------------------------------------------------------ |
-| Definition | `${CLAUDE_PLUGIN_ROOT}/reviewers/gemini.json`                                              |
-| Card       | `${CLAUDE_PLUGIN_ROOT}/reviewers/gemini.md` — what was measured, when, and where           |
-| Trigger    | `@gemini review`, posted as a comment carrying the revloop marker                          |
-| Severity   | `P1` > `P2` > `P3`, emitted and measured — so **`--accept-at` never starts a grader here** |
-| Status     | `verified`                                                                                 |
+|            |                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------ |
+| Definition | `${CLAUDE_PLUGIN_ROOT}/reviewers/gemini.json`                                        |
+| Card       | `${CLAUDE_PLUGIN_ROOT}/reviewers/gemini.md` — what was measured, when, and where     |
+| Trigger    | `@gemini review`, posted as a comment carrying the revloop marker                    |
+| Severity   | `P1` > `P2` > `P3`, emitted and measured — so **no level ever starts a grader here** |
+| Status     | `verified`                                                                           |
 
 ## Flags
 
-| Flag                | Default        | Effect                                                                                 |
-| ------------------- | -------------- | -------------------------------------------------------------------------------------- |
-| `--merge`           | off, flag only | After convergence, wait for green CI and **then** merge                                |
-| `--auto`            | off, flag only | Do not stop for confirmation. **The flag itself is the approval**                      |
-| `--accept-at <lvl>` | off, flag only | Findings at `<lvl>` and below may be left unfixed. Everything above it still blocks    |
-| `--max-rounds <n>`  | `10`           | Abort if the loop has not converged within this many rounds                            |
-| `--timeout <dur>`   | `30m`          | **Cumulative** cap on waiting for **one trigger's** verdict. A round fires at most two |
+| Flag               | Default        | Effect                                                                                 |
+| ------------------ | -------------- | -------------------------------------------------------------------------------------- |
+| `--merge`          | off, flag only | After convergence, wait for green CI and **then** merge                                |
+| `--auto`           | off, flag only | Do not stop for confirmation. **The flag itself is the approval**                      |
+| `--rigor <level>`  | `standard`     | How strictly this run must finish. It decides when the loop may stop                   |
+| `--max-rounds <n>` | `5`            | Abort if the loop has not converged within this many rounds                            |
+| `--timeout <dur>`  | `30m`          | **Cumulative** cap on waiting for **one trigger's** verdict. A round fires at most two |
 
-**`--merge`, `--auto` and `--accept-at` have no configuration key, and adding one would be a defect.**
+**`--merge`, `--auto` and `--rigor` have no configuration key, and adding one would be a defect.**
 `--max-rounds` and `--timeout` may come from `.revloop.json`; these three may not. That file belongs to
 whatever repository you are working in, including one you just cloned. A repository that could set
 `auto` would delete both of your confirmation points, one that could set `merge` would grant its own
-merge, and one that could set `accept-at` would lower its own review bar while the run still reported a
+merge, and one that could set `rigor` would lower its own review bar while the run still reported a
 clean convergence. **The flag is the approval, so it has to come from the person typing it.**
+**`--max-rounds` still has one**, and the level supplies that number only where neither the flag nor
+the key answered — see `procedures/rigor-levels.md`.
 
-**`--accept-at` resolves natively here.** `--accept-at P2` leaves `P1` blocking and makes `P2` and
-`P3` acceptable. A canonical rung resolves through the definition's `severityMap` — and the card
-records that this map was copied from another reviewer's rather than measured, which is a judgement the
-card states under `## Not measured` rather than letting the adjacency imply it.
+**`--rigor` measures its floor against this reviewer's own rungs**, carried onto revloop's canonical
+ladder by the definition's `severityMap`. `--rigor minimal` leaves `P1` blocking and makes `P2` and
+`P3` acceptable; **the default `--rigor standard` leaves `P1` and `P2` blocking** with `P3`
+acceptable; `thorough` and `exhaustive` leave
+nothing acceptable. **The card records that this map was copied from another reviewer's rather than
+measured**, which is a judgement the card states under `## Not measured` rather than letting the
+adjacency imply it. `procedures/rigor-levels.md` states the four levels and what else each moves.
 
 ## What differs for this reviewer
 

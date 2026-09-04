@@ -51,15 +51,19 @@ thing.
   anything.
 - **Fields are constrained by schema**: `botLogin` is pattern-matched, `trigger` rejects control
   characters and is length-capped.
-- **`--merge`, `--auto`, `--accept-at` and `--config` have no configuration key.** Every other
+- **`--merge`, `--auto`, `--rigor` and `--config` have no configuration key.** Every other
   default can come from `.revloop.json`; these cannot, because a repository that could set `auto`
   would delete both of your confirmation points, one that could set `merge` would grant its own merge,
-  one that could set `accept-at` would lower its own review bar while the run still reported a clean
-  convergence, and one that could set `grade-severity` would decide on your behalf that its reviewer
-  emitting no severity is no obstacle to converging over unfixed findings. **The flag is the
+  and one that could set `rigor` would lower its own review bar while the run still reported a clean
+  convergence. **The flag is the
   approval**, so it has to come from the person typing it. `--model` has no key either, for the
   separate reason above. `tests/schema.test.sh` asserts that every one of them is rejected — `merge`
   and `auto` were a real hole, closed before the first release.
+- **A key holding only the strict levels would be no safer.** `thorough` and `exhaustive` grant
+  nothing relative to the default, so such a key could never lower a bar — and a key that can only hold the value it already
+  has is a promise rather than a setting, which is the shape `docs/configuration.md` refuses. The
+  round cap the level supplies stays settable under its own keys, and **the key wins over the level**,
+  so nothing a repository configured is raised by a word somebody typed.
 - **`severityMap` does have a key, and the reason it is not in the list above is worth stating rather
   than leaving to inference.** It maps a reviewer's rungs onto revloop's canonical ladder, so a
   repository could in principle ship one that makes its own worst rung acceptable — but

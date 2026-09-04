@@ -13,6 +13,167 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-04
+
+**No fence changed, so there is no re-approval to give.** The three shell fences in
+`procedures/remote-loop.md` are byte-identical and still match `tests/fence-hashes.txt`.
+
+**This is a breaking release, and the default behaviour changed. Retype your invocation.**
+`--accept-at` is gone, with no deprecation window; `--rigor <level>` decides when the loop may stop;
+**and the default is `standard`, not the strictest level.**
+
+| Was                  | Now                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| no acceptance flag   | **`--rigor thorough`** — the default is now `standard`, which is not the same      |
+| `--accept-at high`   | `--rigor minimal`                                                                  |
+| `--accept-at medium` | `--rigor standard`, which is also the default                                      |
+| `--accept-at P2`     | `--rigor minimal` — both shipped maps send `P2` to `high`                          |
+| `--accept-at P3`     | `--rigor standard`                                                                 |
+| `--accept-at low`    | `--rigor thorough` (stricter, recommended) or `--rigor standard` (one rung looser) |
+
+### The default now leaves `medium` and `low` unfixed, and that is the change to read first
+
+**Every release before this one fixed or declined every finding unless you typed an acceptance
+argument.** The default is now `standard`: `critical` and `high` block, and `medium` and `low` may be
+left unfixed — recorded, explained and listed in the report, but unfixed. **`--rigor thorough` is
+what gets the old bar back**, and it is the one edit an existing invocation needs.
+
+**Four things follow, and each of them lands on a run that types nothing:**
+
+- **`--merge --auto` aborts** with `reason=unreviewed-accept-merge`. That gate rests on a person
+  reading the accepted list before a merge, and `--auto` exists to delete exactly that stop; the
+  default now produces such a list. `README.md`'s unattended example is now
+  `--rigor thorough --merge --auto`. **This is the change most likely to stop a working invocation.**
+- **A grader runs every round** against a reviewer that reports no severity, at one subprocess and
+  one permission prompt per round. Three of the five shipped reviewers are that reviewer, so on
+  `local-review-loop` the ordinary run is **two** subprocesses per round where it was one.
+- **The round cap is lower** — 5 on the pull-request loop and 3 locally, where the builtins were 10
+  and 5, because the cap follows the level. `--max-rounds`, `defaults.maxRounds` and
+  `defaults.localMaxRounds` all still beat it; write the key to keep the old number.
+- **`reason=bad-severity-map` is reachable untyped.** The map is consulted on every run against a
+  reviewer that has a ladder, where it used to be consulted only when a floor was named.
+
+**Nothing has measured that `standard` converges in fewer rounds than `thorough` does.** That trade —
+a subprocess per round against rounds saved — is the argument the default rests on, and it is an
+argument rather than an observation. Both procedures' `## Unexercised paths` say so.
+
+**`--accept-at low` is the one _typed_ invocation whose meaning is not preserved, and it is named
+rather than smoothed over.** Against every shipped reviewer it is identical to `--rigor standard`,
+because both
+shipped `P1`/`P2`/`P3` maps skip `medium` and the two floors therefore produce the same sets. Against
+a custom four-rung reviewer it sits one rung stricter than `standard`, so pick `thorough` unless you
+mean to accept one rung more than you did.
+
+### `--rigor <level>` replaces the acceptance floor, and moves more than the floor
+
+**A floor answered one question with one comparison.** It said which rungs could be left unfixed and
+nothing else: not how many rounds to budget, not how far to sweep after a fix, and not whether the
+change looked finished rather than merely above the line. The only lever an operator had for "this
+run does not need the full treatment" was to raise the floor and hope the rounds got shorter.
+
+| Level                    | Blocking      | Acceptable band  | Round cap (remote / local) |
+| ------------------------ | ------------- | ---------------- | -------------------------- |
+| `minimal`                | `critical`    | `high` and below | 3 / 2                      |
+| `standard` **(default)** | + `high`      | `medium`, `low`  | 5 / 3                      |
+| `thorough`               | every finding | none             | 10 / 5                     |
+| `exhaustive`             | every finding | none             | 15 / 8                     |
+
+**The level also supplies the round cap where nothing else did**, and the precedence is
+`--max-rounds`, then `defaults.maxRounds` / `defaults.localMaxRounds`, then the level. It replaces
+what used to print as `builtin`, and step 1 prints `source=rigor` when it answered — a number that
+moves with what you typed must not print as one that does not. **A repository that configured a cap
+keeps it**, which is also the way to keep the old builtins now that the default level is not the one
+carrying them.
+
+**It also says which sweeps a round owes after a fix.** `minimal` owes the class name and the
+already-fixed check — the one sweep that _saves_ rounds rather than spending them, which is why it
+survives the cheapest level. `standard` adds the corpus sweep. `thorough` requires every sweep that
+applies, which is what both procedures required before levels existed. `exhaustive` promotes the
+definition sweep and a closed input-space enumeration from "when it applies" to "always".
+
+**`exhaustive` is deliberately not a second confirming clean round.** A round that reviews an
+unchanged tree is the one thing the local loop's runaway invariant refuses, and buying confirmation
+by making the loop violate it is not a stricter run.
+
+### The loop now judges whether the change is sufficiently reviewed, and the judgement is bounded
+
+**At every edge into the report step, a run answers in writing whether the change meets its level** —
+reading the latest review's rungs and where each came from, its own per-round record of buckets and
+rungs, and which sweeps were run. The answer goes into the report, and into the pull-request body on a
+publishing run, as a `Sufficiency:` block.
+
+**The test may keep a run going and can never end one early.** Every stop it permits is one the
+level's floor already permitted; everything else in it can only withhold permission. **That is what
+makes it safe for the loop to run on itself**: the party obliged to fix the findings can give itself
+more work and never less. The rungs still come from the reviewer or from a grader that is not told
+the floor — what the loop applies is a standard it did not author to rungs it did not author.
+
+**The run's history reaches the decision through one rule, and it re-opens rather than blocks.** A
+ceiling that has risen inside the acceptable band since the previous round re-opens the acceptances
+under it, beside the existing rule for a rung that crossed the floor. A band is a range rather than a
+point, so three `low` findings accepted in one round and three `medium` ones in the next is a change
+getting worse under a floor that never moved. **A gate there would deadlock**: with nothing left to
+fix, the next round arrives at the step that refuses to review an unchanged tree, and the loop sits
+between a step that will not review and a step with no verdict to classify. A re-open gives the round
+something to fix, so the tree moves.
+
+**No commit carries the `Sufficiency:` block**, and that is the same gap the last round's `Accepted:`
+block has rather than a second one: a commit is written before the review that would justify it, so
+the converging round makes no further commit. An empty commit written only to carry the block invents
+a commit that says nothing was true.
+
+### Three aborts are gone and one is new
+
+**`reason=unknown-accept-level` is replaced by `reason=unknown-rigor-level`**, which prints four
+words where its predecessor printed two ladders and still had to say which of them the value had been
+measured against. A level is never a rung name, so there is no vocabulary for it to be written in and
+nothing for it to fail to match.
+
+**`reason=no-severity-map` is gone, not moved.** `severityLevels` and `severityMap` are now a
+required pair in `schema/reviewer.schema.json`, in both directions, so a ladder with no map is
+rejected before either procedure loads the file. **A structural rule belongs where the structure is
+validated**, and a runtime abort for a shape the schema can express is a second implementation of the
+same rule that only fires on the runs that reach it. Every shipped and example reviewer already
+carried both keys, so no definition changed.
+
+**The native/canonical two-pass resolution is gone with it.** It existed so that one typed rung could
+mean the same thing against reviewers that do not share a vocabulary; four fixed policy words do that
+without a pass, a fallback, or an ordering rule to keep old invocations meaning what they meant.
+
+**`reason=bad-severity-map` stays**, with its condition restated: the reviewer has a ladder **and**
+the level has an acceptable band. A map nothing consults cannot move a floor, which is the reasoning
+it already carried. **`reason=unreviewed-accept-merge` stays** too, re-homed onto
+`--rigor minimal|standard` with `--merge --auto`.
+
+### Grading fires on a level, and the default level starts one
+
+**Grading now fires if and only if the resolved level has an acceptable band and the definition
+declares no `severityLevels`.** At `thorough` and `exhaustive` nothing is acceptable, so no rung is
+consumed and no subprocess starts. **The default is neither of those**, so against `claude`,
+`code-review` and `ecc-review-pr` the grader is part of the ordinary run rather than of a flag —
+which is where the extra prompt per round in the section above comes from. `--rigor thorough` is what
+removes it, and it removes the floor with it.
+
+### Also in 0.8.0
+
+- **`--rigor` has no configuration key**, for `--accept-at`'s reason: a repository you just cloned
+  must not lower its own review bar. **A key holding only the two strict levels was considered and is
+  worse, not safer** — those grant nothing, so it could never lower a bar, and a key that can only
+  hold the value it already has is a promise rather than a setting.
+- **`procedures/rigor-levels.md` is a new file**, and it is a specification cited by both procedures
+  in the way `procedures/severity-grading.md` already is. It removes the asymmetry in which the local
+  procedure had to say that an acceptance argument meant whatever the pull-request procedure said it
+  meant.
+- **`README.md`'s `.revloop.json` sketch still showed a `reviewers` map**, which was removed in 0.7.0.
+  The sketch now shows `defaults` and points at `docs/adding-a-reviewer.md`.
+- **`tests/schema.test.sh`'s "shipped ecc-review-pr preset" fixture carried a `severityLevels` ladder
+  the shipped definition does not have** — five measured rounds disproved that ladder in 0.7.0 and
+  the fixture was not updated with it. A fixture pinning a preset that was never shipped pins nothing.
+- **`tests/commands.test.sh` asserts `--rigor` on all seven commands** and refuses `--accept-at`
+  beside the three flags already held removed. **`tests/schema.test.sh` rejects a `rigor` key on both
+  surfaces**, and keeps rejecting `acceptAt` — the reader most likely to reintroduce a key is the one
+  migrating from the old name.
+
 ## [0.7.0] - 2026-09-04
 
 **No fence changed, so there is no re-approval to give.** This release moves every file the fences

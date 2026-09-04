@@ -23,25 +23,25 @@ it offers and what they default to, and advertises that in its own table; this o
 **behaviour**, which is what every step and note below cites. **There is no `--reviewer`**: the command
 supplies the reviewer's definition, so there is no name here to resolve and none to get wrong.
 
-| Flag                | Effect                                                                                 |
-| ------------------- | -------------------------------------------------------------------------------------- |
-| `--merge`           | After convergence, wait for green CI and **then** merge                                |
-| `--auto`            | Do not stop for confirmation. **The flag itself is the approval**                      |
-| `--accept-at <lvl>` | Findings at `<lvl>` and below may be left unfixed. Everything above it still blocks    |
-| `--max-rounds <n>`  | Abort if the loop has not converged within this many rounds                            |
-| `--timeout <dur>`   | **Cumulative** cap on waiting for **one trigger's** verdict. A round fires at most two |
+| Flag               | Effect                                                                                 |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| `--merge`          | After convergence, wait for green CI and **then** merge                                |
+| `--auto`           | Do not stop for confirmation. **The flag itself is the approval**                      |
+| `--rigor <level>`  | How strictly this run must finish. It decides when the loop may stop                   |
+| `--max-rounds <n>` | Abort if the loop has not converged within this many rounds                            |
+| `--timeout <dur>`  | **Cumulative** cap on waiting for **one trigger's** verdict. A round fires at most two |
 
 There are exactly two stop points — **the commit-split proposal** and **just before merging** — and
-`--auto` suppresses both. `--accept-at` adds a third, **the accepted-findings list before the CI
-wait**, on `--merge` runs that accepted anything; step 1 refuses the combination in which `--auto`
-would suppress it, so that one is never suppressed. **An abort is a stop, not a question**: in either
-mode, report and finish.
+`--auto` suppresses both. A level with an acceptable band adds a third, **the accepted-findings list
+before the CI wait**, on `--merge` runs that accepted anything; step 1 refuses the combination in
+which `--auto` would suppress it, so that one is never suppressed. **An abort is a stop, not a
+question**: in either mode, report and finish.
 
-**`--merge`, `--auto` and `--accept-at` have no configuration key, and adding one would be a defect.**
+**`--merge`, `--auto` and `--rigor` have no configuration key, and adding one would be a defect.**
 `--max-rounds` and `--timeout` may come from `.revloop.json`, but that file belongs to whatever
 repository you are working in, including one you just cloned. A repository that could set `auto` would
 delete both of your confirmation points, one that could set `merge` would grant its own merge, and one
-that could set `accept-at` would lower its own review bar while the run still reported a clean
+that could set `rigor` would lower its own review bar while the run still reported a clean
 convergence. The flag is the approval, so it has to come from the person typing it.
 
 **Which reviewer runs is not settable either, and it is not a flag now but a command.** That file could
@@ -49,67 +49,28 @@ otherwise choose which bot login the wait filters on and which rungs your accept
 against — the same class of decision as the three above, which is why `.revloop.json` no longer defines
 reviewers at all.
 
-**`--accept-at <level>` names the highest rung that may be left unfixed.** **With the flag absent — the
-default — nothing is acceptable**, and every finding is fixed or declined with a citation exactly as it
-was before the flag existed.
-
-**The level is resolved in two passes, native first.** A value matching a rung of the resolved
-reviewer's `severityLevels` as a whole string, case-sensitively, names that rung: `--accept-at P2` on a
-`["P1","P2","P3"]` ladder leaves P1 blocking and makes P2 and P3 acceptable. Only a value that matches
-no rung there is then matched, case-insensitively, against **revloop's own canonical ladder**:
-
-```text
-critical > high > medium > low
-```
-
-and carried onto the reviewer's rungs through its `severityMap`. **The canonical pass is what makes one
-argument mean the same thing against reviewers that do not share a vocabulary** — three already coexist
-among the shipped presets, so `--accept-at P2` is an `unknown-accept-level` abort against half of them
-and the flag reads as broken rather than as reviewer-specific.
-
-**Native is tried first, and the order is the whole of the backward compatibility.** Canonical-first
-would swallow `--accept-at HIGH` on a reviewer whose emitted ladder really is
-`["CRITICAL","HIGH","MEDIUM","LOW"]`, sending a run whose meaning had not changed down a path that needs
-a `severityMap` — so every such configuration would newly abort. In this order **not one existing
-invocation changes meaning**, and a map is required only when a canonical name is typed.
-
-**The loop does not derive a map it was not given.** A reviewer with a ladder and no `severityMap`
-aborts on a canonical level rather than reading "rung 1 of 3" as `critical`: a three-rung ladder does
-not carry which of four canonical rungs its middle means, and inferring it is the loop authoring a
-ladder one key over from where that is already forbidden. **The map is a judgement and not a
-measurement** — nothing has established that one reviewer's `P1` and another's `CRITICAL` describe the
-same thing — so a card carries it in its config block and says so under `## Not measured`.
-
-**A reviewer that emits no severity at all is graded, and grading needs no flag.** `--accept-at`
-against a definition carrying no `severityLevels` resolves on the canonical pass and takes its rungs
-from a separate subprocess on the builtin `sonnet`, specified in full in
-[`severity-grading.md`](severity-grading.md). That does not lift the rule above so much as move the
-ranking off the party the rule is about: the grader is **not told the floor**, it never sees this
-session, and it does not fix what it grades. Every rung it assigns is marked `graded` in the reply and
-in the report, so a reader outside the run can tell a graded rung from one the reviewer reported.
-
-**It fires if and only if the definition declares no ladder**, so a reviewer that emits its own rungs is
-never regraded — which used to be a refusal an operator could trip and is now unreachable, and the two
-map aborts above are unreachable on a graded run for the same reason: a graded reviewer has no ladder,
-so it has no map that could be missing or malformed. `## Notes` states the boundary the whole
-arrangement rests on.
-
-**This is the one thing the restructure made quieter rather than louder, and it is worth saying so.**
-Before, `--accept-at` against a ladderless reviewer aborted; now it spends a subprocess and a
-permission prompt every round. Step 1 prints `severity source` as `grader (<model>)` and prints the
-grader's command line in full and expanded before the first round, which is the whole of the
-disclosure — there is no confirmation stop.
+**`--rigor <level>` names how strictly this run must finish, and it is specified in
+[`rigor-levels.md`](rigor-levels.md) rather than here.** Read that page before step 1: it holds the
+four levels and what each leaves acceptable, the canonical ladder they are measured on, how a
+reviewer's own rungs reach it, the round cap each level supplies, the sweeps each one owes, and the
+sufficiency test every convergence path below runs. **The default is `standard`**, under which
+`critical` and `high` block and `medium` and `low` may be left unfixed — so **the ordinary run of
+this procedure resolves a floor, reads a `severityMap` or starts a grader, and refuses
+`--merge --auto`**. Type `--rigor thorough` for the behaviour every release before the level had:
+every finding fixed, or declined with a citation.
 
 **Accepting is not skipping the read.** An accepted finding is still fetched, still classified, still
-replied to, and still listed in the report with its reason. The flag changes one thing: whether an
+replied to, and still listed in the report with its reason. The level changes one thing: whether an
 unfixed finding at that rung stops the loop from finishing. A run that stopped reading at the floor
 would miss the finding whose badge is wrong, and the badge is wrong often enough to have been
 measured — `reviewers/codex.md` records one pull request returning 15 of 15 at P2 and another 15 of 15
 at P1, which is why that card says not to triage by the badge. `## Notes` states how this flag and
 that instruction coexist.
 
-`--max-rounds 10` is a **circuit breaker, not a target**. Measured PR round counts run to 30
-(`reviewers/codex.md`). Hitting the cap is not success and never merges.
+`--max-rounds` is a **circuit breaker, not a target**. Measured PR round counts run to 30
+(`reviewers/codex.md`). Hitting the cap is not success and never merges. Its builtin comes from the
+level — **5 at the default `standard`**, where this procedure carried 10 before the level supplied
+one. `defaults.maxRounds` beats it, and a repository that wants the old number writes it.
 
 ## When to run it
 
@@ -140,26 +101,31 @@ that instruction coexist.
    ```
 
    Print a resolved-configuration table with a `source` column whose value is one of
-   `flag` / `config` / `detected` / `builtin`, covering at least: reviewer, base branch, verify
-   commands, branch prefixes, commit style, max rounds, timeout, merge, acceptAt, severity source.
-   **The `acceptAt` and `severity source` rows may only read `flag` or `builtin`** — neither has a
+   `flag` / `config` / `detected` / `rigor` / `builtin`, covering at least: reviewer, base branch,
+   verify commands, branch prefixes, commit style, max rounds, timeout, merge, rigor, severity source.
+   **The `rigor` and `severity source` rows may only read `flag` or `builtin`** — neither has a
    config key, so a `config` in either cell means one was invented. Give the reviewer row as
    `<name> (<status>, <expectedLatency>)` — a preset whose card says `unverified` is a fact the
    operator wants before the round starts, not after it fails.
 
-   **The `acceptAt` row says which pass resolved it**, as `high (canonical)` or `P2 (native)`, and the
-   `severity source` row reads `reviewer` or `grader (<model>)`. Two rungs spelled alike can come from
-   different ladders, and the row is where that is visible. **On a `grader` run, print the grader's
-   command line in full and expanded**, as step 10 gives it — it is a shell command this run will
-   start every round, and the operator should see it here rather than at the first prompt. This loop
-   has no review command to print it beside, which is exactly why it is easy to forget: the grader is
-   the only subprocess this loop starts at all.
+   **The `max rounds` row is the only one that can read `rigor`**, and it does whenever no flag and
+   no config key answered — see [`rigor-levels.md`](rigor-levels.md). A fifth `source` value was
+   cheaper than letting the level's number print as `builtin`, which is what every reader would take
+   as "this number is the same whatever you typed".
 
-   **Then print the floor expanded**, on a run that passed `--accept-at`, as the two sets of the
+   **The `severity source` row reads `reviewer`, `grader (<model>)`, or `not consulted`** — the last
+   only at `thorough` and `exhaustive`, where nothing is acceptable, no rung is consumed and no
+   grader starts. **The default level is not one of them**, so an ordinary run prints one of the
+   first two. **On a `grader` run, print the grader's command line in full and expanded**, as step 10
+   gives it — it is a shell command this run will start every round, and the operator should see it
+   here rather than at the first prompt. This loop has no review command to print it beside, which is
+   exactly why it is easy to forget: the grader is the only subprocess this loop starts at all.
+
+   **Then print the floor expanded**, on a level with an acceptable band, as the two sets of the
    reviewer's own rungs:
 
    ```text
-   accept-at high (canonical) → blocking: P1   acceptable: P2, P3
+   rigor minimal → blocking: P1   acceptable: P2, P3
    ```
 
    **On a graded run those sets are the canonical rungs instead, because the reviewer has none of its
@@ -167,11 +133,18 @@ that instruction coexist.
    vocabularies to choose between here:
 
    ```text
-   accept-at high (canonical, graded by sonnet) → blocking: critical   acceptable: high, medium, low
+   rigor minimal (graded by sonnet) → blocking: critical   acceptable: high, medium, low
    ```
+
+   **At `thorough` and `exhaustive` there are no two sets, and the line says so** rather than being
+   omitted — `rigor thorough → blocking: every finding   acceptable: none`. A run whose strictest
+   level printed nothing where a relaxed one printed a floor would read as a run with no level at
+   all. **The line is printed on every run**, because the default has a band and the operator who
+   typed nothing is the one most likely not to know what it is.
 
    Written as "the reviewer's own rungs" alone, this line had nothing to print on the one run where
    the rungs are the loop's own rather than the reviewer's — which is the run that most needs the
+   operator to see them before the first round.
    operator to see them before the first round.
 
    **This is the operational guard on `severityMap`, and it is the reason that key is allowed to come
@@ -229,44 +202,21 @@ that instruction coexist.
    - **If the resolved reviewer's `status` is not `verified`, say so in the table and repeat it in
      the final report.** Continue — an unverified preset is a starting point, not a fault — but the
      reader of the report should not have to open a card to learn that nobody has watched it work.
-   - **If `--accept-at` was passed and the resolved reviewer has no `severityLevels`, the rungs come
-     from the grader** — [`severity-grading.md`](severity-grading.md), in full. **Do not rank the
-     findings yourself to supply one. You are the party obliged to fix them**, so a ladder you author
-     is a ladder you can author your way out of the work with, and nothing outside this run could tell
-     that apart from a reviewer that really graded them that way. **Grading does not weaken that
-     sentence; it changes who "you" is** — the grader is a separate process that is not told the floor
-     and does not fix what it grades. The level must then be one of the four canonical rungs, because
-     there is no native ladder for it to match; a value that matches none of them is
-     `unknown-accept-level` below.
-   - **If `--accept-at` matches neither pass, abort with `reason=unknown-accept-level`** and print
-     **both** ladders — the reviewer's and the canonical one — because with two passes a level can
-     miss for two different reasons and printing one of them names the wrong remedy. **On a reviewer
-     with no ladder — which is every graded run — print the canonical ladder and say the reviewer has
-     none.** That is the whole diagnosis: with nothing to match natively, the only levels that
-     resolve at all are revloop's four, so a value that missed them missed everything. Printing an
-     empty set under the heading "the reviewer's ladder" reads as a configuration that lost a key,
-     which sends the operator to `.revloop.json` instead of to the four rungs. Resolve it
-     native first: match a rung of `severityLevels` **as a whole string, case-sensitively**, and only
-     then match the canonical ladder **case-insensitively**. The native ladder is ordered, so a name
-     matched loosely to the neighbouring rung moves the floor by one without anything saying so, and
-     one rung is the difference between blocking on a P1 and accepting it. The canonical ladder is
-     folded because its four rungs are revloop's own words rather than a reviewer's, and `HIGH` and
-     `high` cannot be two different rungs of a ladder this file defines.
-   - **If `--accept-at` resolved on the canonical pass and the reviewer **has** `severityLevels` but
-     no `severityMap`, abort with `reason=no-severity-map`** and print the native ladder, naming both
-     ways out: type a native rung, or add the map. **Do not derive one from position.** A three-rung
-     ladder does not say which of four canonical rungs its middle means, and reading it off the index
-     is the same act the grading rule above forbids, performed one key over. **The condition is the
-     reviewer's shape and not the flags**, which is what keeps this row off a graded run: grading fires
-     only when the definition declares no ladder, so a graded reviewer has none
-     — and with no ladder there is no map it could be missing and no correspondence for the loop to
-     invent, because the grader answered in canonical words to begin with. Written as "the reviewer
-     has no `severityMap`" this row matched **every** graded run. **That unreachability used to rest on
-     a refusal and now rests on the shape**, which is strictly stronger: nothing can ask for a graded
-     run against a reviewer that has a ladder, so there is no invocation left to refuse.
-   - **If `--accept-at` resolved on the canonical pass and the `severityMap` is not total over
-     `severityLevels`, names a rung that ladder does not hold, is not order-preserving, or leaves no
-     distinction at all, abort with `reason=bad-severity-map`** and name the rung that is unmapped,
+   - **If `<level>` is not one of the four, abort with `reason=unknown-rigor-level`** and print them.
+     [`rigor-levels.md`](rigor-levels.md) holds them; there is no reviewer vocabulary to print beside
+     them, because a level never names a rung.
+   - **If the level has an acceptable band and the resolved reviewer has no `severityLevels`, the
+     rungs come from the grader** — [`severity-grading.md`](severity-grading.md), in full. **Do not
+     rank the findings yourself to supply one. You are the party obliged to fix them**, so a ladder
+     you author is a ladder you can author your way out of the work with, and nothing outside this run
+     could tell that apart from a reviewer that really graded them that way. **Grading does not weaken
+     that sentence; it changes who "you" is** — the grader is a separate process that is not told the
+     floor and does not fix what it grades. **At `thorough` and `exhaustive` no grader starts at all**,
+     because nothing is acceptable, so no rung is consumed and there is nothing for one to decide —
+     **and the default is neither of those**, so this is the ordinary path against `claude`.
+   - **If the level has an acceptable band, the reviewer has `severityLevels`, and the `severityMap`
+     is not total over that ladder, names a rung it does not hold, is not order-preserving, or leaves
+     no distinction at all, abort with `reason=bad-severity-map`** and name the rung that is unmapped,
      foreign or inverted — or print the whole map, in the last case, which has no single offending
      rung. Total means every rung of the ladder has an entry; **naming no rung the ladder does not
      hold is the same edit seen from the other side** — a ladder shortened without its map, where
@@ -275,35 +225,46 @@ that instruction coexist.
      distinction means that, on a ladder of two rungs or more, the top rung maps strictly above the
      bottom one.** **The last does not follow from the others.**
      `{"P1":"low","P2":"low","P3":"low"}` is total, holds no foreign rung, and inverts nothing, and
-     under it `--accept-at low` — the lowest floor this flag can express — accepts the reviewer's
+     under it `--rigor standard` — the lowest floor a level can express — accepts the reviewer's
      worst finding, against a ladder that says the reviewer has three rungs. **Merging rungs is not
      that defect and stays legal**: four canonical rungs cannot receive a three-rung ladder without
      one being skipped, which is why both shipped `P1`/`P2`/`P3` maps skip `medium`, and cannot
      receive a five-rung one without two rungs sharing. What is refused is a map with **no**
-     distinction left in it, where every `--accept-at` against that reviewer means the same thing and
+     distinction left in it, where every level against that reviewer means the same thing and
      the floor has nothing to stand on. **None of the four is checkable by the schema** — it cannot
      read the other key's contents — so a partial map would otherwise leave findings at the unmapped
      rungs with no canonical rung at all, which is a floor that silently does not apply to them, and
      a collapsed one would leave a floor that applies to everything identically.
 
-     **Two conditions gate this row and they are not the same condition.** The flag half is the one
+     **Two conditions gate this row and they are not the same condition.** The level half is the one
      stated first, and it is why the check runs at all: a map nothing consults cannot move a floor,
-     so a run that never names a canonical level never reaches this row. That is the same reasoning
-     that leaves `severityLevels`' own **order** inert without the flag, which is the comparison
-     `SECURITY.md` rests the map's config key on. The shape half is that **only a reviewer carrying
-     both keys has anything to check**: the schema's `dependentRequired` makes a map without a ladder
-     impossible, and the `no-severity-map` row takes a ladder without a map — so a reviewer with
-     neither, which is the graded one, has nothing here rather than an absent map that is vacuously
-     not total. **Written with the shape half alone, this row aborted runs that had typed no
-     `--accept-at` at all**, breaking a reviewer for ordinary use over a key that run never read —
-     and, sitting above them, reported a map defect where the answer was that the reviewer had no
-     ladder to map from at all.
+     so a run at `thorough` or `exhaustive` never reaches this row. **The default reaches it**, so a
+     malformed map now aborts a run that typed nothing rather than one that typed a floor. That is the same reasoning
+     that leaves `severityLevels`' own **order** inert at those levels, which is the comparison
+     `SECURITY.md` rests the map's config key on. The shape half is that **only a reviewer carrying a
+     ladder has anything to check**: the schema pairs `severityLevels` and `severityMap` in both
+     directions, so a ladder without a map and a map without a ladder are both rejected before this
+     procedure sees the file, and the reviewer with neither — which is the graded one — has nothing
+     here rather than an absent map that is vacuously not total. **Written with the shape half alone,
+     this row aborted runs at a level that reads no rungs at all**, breaking a reviewer for ordinary
+     use over a key that run never read.
 
-   - **If `--accept-at`, `--merge` and `--auto` are all present, abort with
+     **A reviewer with a ladder and no map reaches no row here, because it reaches no procedure**:
+     `schema/reviewer.schema.json` pairs the two keys in both directions and rejects the file. That
+     was a runtime abort of its own until the pair became required. **A structural rule belongs
+     where the structure is validated**, and a runtime abort for a shape the schema can express is a
+     second implementation of the same rule that only fires on the runs that reach it.
+
+   - **If the level has an acceptable band and `--merge` and `--auto` are both present, abort with
      `reason=unreviewed-accept-merge`.** Each is defensible alone. Together they merge code carrying
      findings that nobody fixed, past a report that no human is stopping to read, because `--auto`
      suppresses the very confirmation step 12 uses to show the accepted list. Two of the three are
-     always available: drop `--auto` and confirm the list, or drop `--accept-at` and fix everything.
+     always available: drop `--auto` and confirm the list, or raise the level to `thorough` and fix
+     everything. **This now fires on a run that typed no level at all**, because the default has a
+     band — so `--merge --auto` alone, which was the unattended path every earlier release offered,
+     is refused until one of the two is typed. That is the gate doing its job rather than a
+     regression in it: the default leaves findings unfixed, and merging them past a suppressed
+     confirmation is exactly the combination this row exists to stop.
 
 2. If you are on the base branch, cut a topic branch (**never commit on the base branch**). If you are
    already on a topic branch, do nothing. Name it from the prefixes in the resolved configuration:
@@ -1168,7 +1129,7 @@ that instruction coexist.
     never named it, but its commit is still HEAD.
 
     **On a graded run, obtain the rungs before sorting.** Reached by a reviewer whose definition
-    declares no `severityLevels`, when `--accept-at` was passed — `reviewers/claude.json` is the
+    declares no `severityLevels`, at a level with an acceptable band — `reviewers/claude.json` is the
     shipped one. **The grader is specified in [`severity-grading.md`](severity-grading.md) and nowhere
     else**: its command line, its prompt, the file the findings reach it through, what must never be
     given to it, and its whole failure ladder. Step 7 of [`local-loop.md`](local-loop.md) cites the
@@ -1182,9 +1143,12 @@ that instruction coexist.
     source is `graded` from here on, through the buckets below, step 11's replies and step 12's report.
 
     Sort each into **will fix / already fixed / declining the suggestion / accepted**. The fourth
-    bucket exists only when `--accept-at` was passed, and a finding may enter it only when its rung
-    is at or below the floor — **read the rung off the finding, never off how hard the fix looks**.
-    A finding above the floor has three buckets, as it always did. `reviewThreads
+    bucket exists only at a level with an acceptable band, and a finding may enter it only when its
+    rung is at or below the floor — **read the rung off the finding, never off how hard the fix
+    looks**. A finding above the floor has three buckets, as it always did. **Record the bucket and
+    the rung each finding carried when you answered it**: [`rigor-levels.md`](rigor-levels.md)
+    re-opens the acceptances under a ceiling that has risen since the previous round, and it can see
+    that only from a record that says which bucket a finding went into and at what rung. `reviewThreads
 { isOutdated }` narrows the reading quickly — **`isResolved` is useless because nobody presses
     Resolve** (measured 0 resolved, 31 of 32 outdated) — but confirm against the diff.
 
@@ -1192,7 +1156,9 @@ that instruction coexist.
     the measurements on its card in `reviewers/` — so leaving a sibling behind literally buys another
     round. **The only way to spend fewer rounds is to have fewer defects when you fire**, not to wait
     more cleverly. **There is more than one kind of sweep; pick the one that matches the class, say
-    in the reply which one you ran, and run more than one when more than one applies:**
+    in the reply which one you ran, and run more than one when more than one applies** — and
+    **[`rigor-levels.md`](rigor-levels.md) says which of them the resolved level owes**, which is a
+    floor under this instruction and never a cap on it:
 
     - **Name the class first.** Before fixing, write in one sentence what shape this finding is. If
       you cannot write it, you cannot sweep for it — you will sweep for a different shape next round
@@ -1252,10 +1218,10 @@ that instruction coexist.
     a dodge. **When declining, cite a `path:line`, a test name, or a doc**; "this is intentional" is
     not enough.
 
-    **An accepted finding gets a reply too, and it says which flag accepted it**: name the rung and
-    the floor, as `Accepted at <rung> under --accept-at <floor>.`, then one line on why it is
+    **An accepted finding gets a reply too, and it says what accepted it**: name the rung and the
+    level, as `Accepted at <rung> under --rigor <level>.`, then one line on why it is
     survivable. **On a rung the reviewer did not emit, say so in the same sentence**, as
-    `Accepted at <rung> (graded by <model>, not reported by the reviewer) under --accept-at <floor>.`
+    `Accepted at <rung> (graded by <model>, not reported by the reviewer) under --rigor <level>.`
     A reader of this pull request otherwise cannot tell a rung the reviewer stood behind from one a
     light model assigned under a flag, and `## Notes` argues that being able to tell is the whole
     reason the flag is allowed to exist. **The clause is not an apology and does not soften the
@@ -1267,14 +1233,27 @@ that instruction coexist.
     decline without a citation, which this step already forbids.
 
     If even one item needs fixing, go back to 3. **If every item is fixed, declined, or accepted,
-    fall through to 12.**
+    run the sufficiency test in [`rigor-levels.md`](rigor-levels.md) and fall through to 12 when it
+    passes.** This is the only edge into 12, so it is the only place the test has to stand — but it
+    stands there rather than inside 12, because a test that ran after the report step had begun would
+    be reporting a convergence it had not yet agreed to. **It cannot refuse with nothing to ask for**:
+    by this point every item is answered and the floor is settled, so the one thing left for it to
+    find is a sweep this level owed and this round did not run — and it answers that by running it,
+    which either produces a fix and sends you back to 3 as the line above already does, or produces
+    nothing and discharges the debt.
 
 12. If `--merge` was not passed, report and finish. **Lead the report with every finding at the
     ladder's top rung that you did not fix** — declined and accepted alike. **The rung is read from
     the resolved reviewer's `severityLevels`, not written into this step** — or, on a graded run, from
-    the canonical ladder the grader ranked on. **With neither** — no ladder and no `--accept-at`, so
-    nothing was graded — **lead with every finding you did not fix**, the shape `claude.json` already
-    ships, carrying no `severityLevels` at all.
+    the canonical ladder the grader ranked on. **With neither** — no ladder, and a level with no band,
+    so nothing was graded — **lead with every finding you did not fix**, the shape `claude.json`
+    already ships, carrying no `severityLevels` at all.
+
+    **Then carry the `Sufficiency:` block the test wrote**, in the shape
+    [`rigor-levels.md`](rigor-levels.md) gives, into the report and into the pull-request body. It
+    names the level, why the change met it, and which sweeps were run — **a stop nobody can read is
+    indistinguishable from a stop nobody justified**, and this loop's convergence is otherwise
+    recorded only as the absence of a next round.
 
     **On a graded run, open the report by saying so**: that these rungs were assigned by `<model>`
     rather than reported by the reviewer, and that any finding the grader did not rank is listed as
@@ -1290,9 +1269,9 @@ that instruction coexist.
 
     **With `--merge` and at least one accepted finding, stop for confirmation before the CI wait,
     and list every accepted finding with its rung and where that rung came from.** This is a third
-    stop point and it exists only on that combination: `--accept-at` converges a run over findings
-    that are real, unfixed, and conceded, and merging them is a decision a person makes once they
-    have seen the list. Step 1 has
+    stop point and it exists only on that combination: a level with an acceptable band converges a
+    run over findings that are real, unfixed, and conceded, and merging them is a decision a person
+    makes once they have seen the list. Step 1 has
     already refused the case where `--auto` would suppress this stop, so reaching here means the
     stop is available.
 
@@ -1424,14 +1403,14 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   minutes; rate-limit replies come back in seconds. On abort, record the round number and PR in the
   report so the loop can be resumed.
 
-### The acceptance floor
+### The rigor level
 
 - **`severityLevels` had no consumer until this flag, and step 12 had a hardcoded rung.** The schema
   says a key with no consumer is a promise the procedure does not keep, and this was that key: the
   ladder was configurable, three cards filled it in, and nothing read it — while step 12 named `P1`
   literally, which is one reviewer's vocabulary. Both halves were the same defect seen from the two
   ends, and one flag closes both.
-- **`--accept-at` and "do not triage by the badge" are not in conflict, and the distinction is where
+- **`--rigor` and "do not triage by the badge" are not in conflict, and the distinction is where
   the flag is safe.** `reviewers/codex.md` derives that instruction from a measurement — the severity
   mix moves per pull request, 15 of 15 at P2 on one and 15 of 15 at P1 on another — so **the badge
   cannot tell you what to read**. This flag never decides what to read. Every finding is fetched,
@@ -1439,27 +1418,34 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   stop**. A version of this flag that skipped fetching the accepted rungs would be the thing the card
   forbids, and it would also be cheaper, which is exactly why the rule is written down rather than
   left to judgement.
-- **The floor is off by default, and it is flag-only, for the same reason `--merge` is.** A run with
-  no flag behaves as it did before the flag existed. That is not politeness: it means the default
-  configuration of every repository that installs an update keeps its review bar, and the only way to
-  lower one is for a person to type the lower bar on the command line, where the report will then
-  say so.
+- **The default level leaves `medium` and `low` acceptable, and that is a lowered bar nobody typed.**
+  Every earlier release fixed or declined every finding unless an acceptance argument was given, and
+  the argument is now needed to get that back rather than to give it up. **The flag is still
+  flag-only, and the argument for that survives the inversion intact**: a repository must not be able
+  to move this at all, in either direction, because the file comes from the checkout you are working
+  in. What the default change costs is the second half of the old claim — the bar an installed
+  update keeps is now the project's rather than the strictest one — and the compensation is that step
+  1 prints the resolved floor expanded before the first round, on every run rather than on the
+  unusual one.
 - **Accepting is not declining, and the reply says which.** A decline asserts the finding is wrong,
   stale, or already answered, and step 11 requires it to cite something. An acceptance concedes the
   finding is right and unfixed. Wording them alike would let the cheaper act borrow the stronger
   one's evidence, and the reader of the pull request has no way to recover the difference afterwards.
-- **The one combination that is refused is `--accept-at --merge --auto`.** The gate rests on a human
+- **The one combination that is refused is a level with a band, plus `--merge --auto`.** The gate rests on a human
   reading the accepted list before the merge, and `--auto` exists to delete exactly that kind of
   stop. Refusing the triple in step 1 keeps the argument for the flag true; allowing it and hoping
   the report is read is the same bet `--merge` already declines to make from a config file.
 - **One argument, several vocabularies, and the map is where the difference is declared rather than
   guessed.** Three emitted ladders already coexist among the shipped presets, so a floor named in one
-  reviewer's words is an abort against the others, and a flag that works on half the reviewers reads
-  as broken rather than as reviewer-specific. The canonical pass fixes that without touching what a
-  card may claim: `severityLevels` stays **the emitted vocabulary**, `severityMap` carries it onto
+  reviewer's words was an abort against the others, and a flag that works on half the reviewers reads
+  as broken rather than as reviewer-specific. A level fixes that without touching what a
+  card may claim: it names none of those vocabularies, `severityLevels` stays **the emitted
+  vocabulary**, `severityMap` carries it onto
   revloop's four rungs, and the two are separate keys because they are different kinds of claim — one
   is measured, the other is a judgement, and folding the judgement into the measurement is the
-  "looks measured" failure `reviewers/README.md` exists to prevent.
+  "looks measured" failure `reviewers/README.md` exists to prevent. **The map is required beside the
+  ladder** for the same reason the pair is one claim: a vocabulary that can never reach a floor is a
+  key with no consumer.
 - **Grading narrows "the loop never supplies a ladder the reviewer did not"; it does not repeal it.**
   The rule's argument is about a party, not about a source: the objection is that the party obliged to
   fix a finding can rank its way out of the work, and that from outside the run the result is
@@ -1476,9 +1462,19 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   evidence that it does. What is claimed is narrower and is the whole claim: the rungs come from
   somewhere other than the party that benefits from them, and the run says where. **Treat a graded
   convergence as a weaker result than a reported one**, and read the accepted list.
-- **The flag is refused against a reviewer that has a ladder**, which keeps it from becoming a
+- **Grading is refused against a reviewer that has a ladder**, which keeps it from becoming a
   general lever. Regrading a rung the reviewer emitted overrules a measurement with an inference, and
   once that were allowed the cheapest way past any inconvenient P1 would be to re-rank it.
+- **The level moves more than the floor, and the sufficiency test is where the loop judges rather
+  than compares.** A bare floor answers one question with one comparison and leaves every other
+  decision in both loops untouched, so the operator's only way to say "this run does not need the
+  full treatment" is to raise the floor and hope the rounds get shorter. A level also supplies the
+  round cap and says which sweeps a round owes, and it ends by asking whether the change is
+  sufficiently reviewed rather than only whether a rung cleared a line. **That test is safe for the
+  loop to run on itself because it can only withhold permission**: every stop it allows is one the
+  floor already allowed, so the party obliged to do the work can give itself more of it and never
+  less. [`rigor-levels.md`](rigor-levels.md) states that invariant and the record that makes each
+  answer readable from outside the run.
 
 ### The wait loop
 
@@ -1758,10 +1754,8 @@ takes one of these should say so in the report:
   measured; a bot review arriving _while_ the repository is in that state is not.
 - Step 12's `CHECKS_FAILED`, `SKIPPED`, and legacy `StatusContext` handling.
 - `MERGE=failed` — observed only by construction, not from a live 409.
-- **The canonical pass of `--accept-at`, every shipped `severityMap`, and all of grading.** No run has
-  resolved a floor canonically or graded a finding — and **grading is now reached without a flag being
-  typed**, so an `--accept-at` run against a ladderless reviewer enters this path rather than aborting
-  out of it. **These are the
+- **Every level with an acceptable band, every shipped `severityMap`, and all of grading.** No run has
+  resolved a floor or graded a finding. **These are the
   entries that do not fail closed**, which is why they are called out rather than listed: a wrong map
   does not abort, it moves the floor by one rung silently, and a grader that ranks systematically low
   looks exactly like a loop converging. Step 1 printing the floor expanded, and the `graded` marking
@@ -1778,6 +1772,19 @@ takes one of these should say so in the report:
   answered — is reported but not yet recorded with a citation, and the path has not been run against
   a live reviewer. The fixtures pin what the fence does with an `attempt=` marker and which trigger
   wins the baseline; they cannot show that a reviewer answers the second one.
+- **Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor**, and its own
+  `## Not measured` section says which parts and why: the eight round caps are `builtin` guesses, of
+  which only `thorough`'s pair is a number this file carried before and none of which is the
+  default's; the per-level sweep
+  obligations are a judgement about relative cost rather than a measurement of what a level saves;
+  and the rising-ceiling re-open has never fired, because no run has resolved a floor at all.
+  **The sufficiency test itself has run on no convergence**, so its record shape is unverified —
+  though it is the one entry here that cannot fail open, since the test can only withhold permission.
+- **The default level is itself unexercised, and it is the entry that changes what the rest of this
+  list means.** A floor, a `severityMap` read or a grading pass, and the sufficiency test are now on
+  the path of a run that types nothing, so the entries above are no longer reached only by an
+  operator who asked for them. **Nothing has measured that `standard` converges sooner than
+  `thorough` does**, which is the argument the default rests on.
 
 **Field notes.** When a round takes one of these paths, aborts, or sees a latency outside the range on
 the reviewer's card, append **one line** to `.revloop/field-notes.md` in the project: date, PR,

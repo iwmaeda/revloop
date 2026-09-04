@@ -1,6 +1,6 @@
 ---
 description: ECC's /ecc:review-pr on this machine — branch, verify, commit, push, PR, review, fix findings, until it converges
-argument-hint: "[--model <name>] [--no-publish] [--accept-at <level>] [--auto] [--max-rounds <n>]"
+argument-hint: "[--model <name>] [--no-publish] [--rigor <level>] [--auto] [--max-rounds <n>]"
 disable-model-invocation: true
 allowed-tools: Bash(git:*), Bash(gh pr create:*), Bash(gh pr list:*), Bash(gh repo view:*), Bash(gh api -X PATCH repos/{owner}/{repo}/:*), Read, Edit, Write, Grep, Glob, Skill
 ---
@@ -28,30 +28,31 @@ carries a finished change through review.
 | Card         | `${CLAUDE_PLUGIN_ROOT}/reviewers/ecc-review-pr.md` — what was measured, when, and where      |
 | Command      | `claude --model {reviewModel} -p "/ecc:review-pr"`, run as a subprocess                      |
 | `requiresPr` | **`true`** — it resolves a pull request itself, so this run **publishes before each review** |
-| Severity     | **none.** `--accept-at` is resolved by grading — see below                                   |
+| Severity     | **none.** A level with an acceptable band is resolved by grading — see below                 |
 | Status       | `unverified`                                                                                 |
 
 ## Flags
 
-| Flag                | Default        | Effect                                                                              |
-| ------------------- | -------------- | ----------------------------------------------------------------------------------- |
-| `--model <name>`    | `sonnet`       | The model **the reviewer** runs on. The fixing is unaffected                        |
-| `--no-publish`      | off, flag only | End at a commit. No push, no pull request, no `gh` call in any step                 |
-| `--accept-at <lvl>` | off, flag only | Findings at `<lvl>` and below may be left unfixed. Everything above it still blocks |
-| `--auto`            | off, flag only | Do not stop for confirmation. **The flag itself is the approval**                   |
-| `--max-rounds <n>`  | `5`            | Abort if the loop has not converged within this many rounds                         |
+| Flag               | Default        | Effect                                                               |
+| ------------------ | -------------- | -------------------------------------------------------------------- |
+| `--model <name>`   | `sonnet`       | The model **the reviewer** runs on. The fixing is unaffected         |
+| `--no-publish`     | off, flag only | End at a commit. No push, no pull request, no `gh` call in any step  |
+| `--rigor <level>`  | `standard`     | How strictly this run must finish. It decides when the loop may stop |
+| `--auto`           | off, flag only | Do not stop for confirmation. **The flag itself is the approval**    |
+| `--max-rounds <n>` | `3`            | Abort if the loop has not converged within this many rounds          |
 
-**`--auto`, `--accept-at`, `--no-publish` and `--model` have no configuration key.** Only
+**`--auto`, `--rigor`, `--no-publish` and `--model` have no configuration key.** Only
 `--max-rounds` does, as `defaults.localMaxRounds` — **not `defaults.maxRounds`, which belongs to the
 pull-request procedure alone.** One shared key let a remote-oriented value silently raise this loop's
-cap, and this loop's cap is the only brake it has.
+cap, and this loop's cap is the only brake it has. **The level supplies that number only where
+neither the flag nor the key answered** — see `procedures/rigor-levels.md`.
 
 **`--model` is absent from that file for a second and sharper reason than the others.** Its value is
 **expanded into a command line** at the `{reviewModel}` placeholder, so a key would be the first thing
 revloop interpolates into a shell command out of a repository-supplied file. It comes from the person
 typing it, or from the builtin, and from nowhere else.
 
-**`--accept-at` names one of the four canonical rungs here, and starts a grader.** This card once
+**`--rigor minimal` and `--rigor standard` start a grader here.** This card once
 shipped a four-rung ladder read out of an agent the command dispatches, and five measured rounds
 disproved it: what the runs actually emitted were the command's own confidence words as headings, with
 inline confidence percentages and no severity tag anywhere. **Ordering observed is not ordering
@@ -59,6 +60,10 @@ asserted**, so the definition declares no ladder rather than promoting section t
 
 The rungs therefore come from a **separate subprocess on the resolved `--model`**, specified in
 `procedures/severity-grading.md`, at one permission prompt per round on top of the review.
+
+**The default level starts one.** `standard` has an acceptable band and this reviewer has no rungs,
+so the grader is part of the ordinary run rather than of a flag; `--rigor thorough` removes it and
+the floor together. `procedures/rigor-levels.md` states the four levels and what else each one moves.
 
 ## What differs for this reviewer
 
