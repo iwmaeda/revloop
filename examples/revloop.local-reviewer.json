@@ -14,26 +14,7 @@
       "onePerRound": true
     }
   },
-  "defaults": { "localReviewer": "code-review", "localMaxRounds": 5 },
-  "reviewers": {
-    "code-review": {
-      "displayName": "Claude Code review",
-      "kind": "local-command",
-      "invoke": "subprocess",
-      "command": "claude --model {reviewModel} -p \"/code-review medium\"",
-      "rateLimitPatterns": ["You've hit your session limit"],
-      "expectedLatency": "5-9m",
-      "status": "unverified"
-    },
-    "ecc-review-pr": {
-      "displayName": "ECC review-pr",
-      "kind": "local-command",
-      "invoke": "subprocess",
-      "command": "claude --model {reviewModel} -p \"/ecc:review-pr\"",
-      "requiresPr": true,
-      "rateLimitPatterns": ["You've hit your session limit"],
-      "expectedLatency": "5-12m",
-      "status": "unverified"
-    }
+  "defaults": {
+    "localMaxRounds": 5
   }
 }

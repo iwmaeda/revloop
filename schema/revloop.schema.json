@@ -2,11 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/revloop.schema.json",
   "title": ".revloop.json",
-  "description": "Project configuration for revloop. Every field is optional; anything absent is auto-detected and shown in the resolved-configuration table with source=detected. Every key here has a consumer in commands/remote-loop.md — a key with no consumer is a promise the procedure does not keep, so it is removed rather than left in place.",
+  "description": "Project configuration for revloop. Every field is optional; anything absent is auto-detected and shown in the resolved-configuration table with source=detected. Every key here has a consumer in procedures/remote-loop.md or procedures/local-loop.md — a key with no consumer is a promise the procedure does not keep, so it is removed rather than left in place. THAT RULE IS WHY THIS FILE NO LONGER DEFINES REVIEWERS. It once carried a reviewers map, and no procedure reads one now: a built-in command names a definition this plugin ships, and a custom command takes one the operator names with --config <path>. A map nothing loads would be exactly the promise this sentence refuses. The format did not die with the key — it is schema/reviewer.schema.json, and a reviewer you had defined here becomes a file of that shape.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "$schema": { "type": "string" },
+    "$schema": {
+      "type": "string"
+    },
     "version": {
       "type": "integer",
       "const": 1,
@@ -22,12 +24,16 @@
         },
         "branchPrefixes": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Absent: derived from the repository's own commit subjects."
         },
         "verify": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Commands run before pushing. Shown in the resolved table BEFORE they run, and deliberately excluded from allowed-tools so the permission system always sees them."
         },
         "verifyNotes": {
@@ -38,20 +44,36 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "style": { "type": "string", "enum": ["conventional", "free"] },
-            "subjectLanguage": { "type": "string" },
-            "bodyLanguage": { "type": "string" },
-            "scopes": { "type": "array", "items": { "type": "string" } },
+            "style": {
+              "type": "string",
+              "enum": ["conventional", "free"]
+            },
+            "subjectLanguage": {
+              "type": "string"
+            },
+            "bodyLanguage": {
+              "type": "string"
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "verifiedLabel": {
               "type": "string",
               "description": "Label introducing the list of commands actually run, e.g. \"Verified:\"."
             },
             "trailers": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "description": "{model} expands to the running model's name — the model that did the work, which is the one running the loop. No vendor address is stamped by default. IT IS NOT {reviewModel}, which a local reviewer's command expands to the model the REVIEW runs on. The two tokens are different words because after the local loop's review-model default they are deliberately different models, and that difference is the point of the feature; one token for both would read as a claim that the reviewer and the fixer are the same."
             },
-            "onePerRound": { "type": "boolean" }
+            "onePerRound": {
+              "type": "boolean"
+            }
           }
         },
         "pr": {
@@ -59,7 +81,9 @@
           "additionalProperties": false,
           "description": "The merge method is not configurable: the merge fence sends merge_method=merge, and it takes no arguments so that its command string never changes. Squash and rebase are not supported. CI cleanliness is likewise not configurable — the gate cannot be loosened from a file.",
           "properties": {
-            "titleLanguage": { "type": "string" }
+            "titleLanguage": {
+              "type": "string"
+            }
           }
         }
       }
@@ -67,16 +91,8 @@
     "defaults": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Defaults for the command flags. A flag always overrides its default. --merge, --auto, --accept-at and --grade-severity are deliberately absent: this file comes from whatever repository you are working in, and a repository must not be able to turn on merging or to remove the two human confirmation points. A repository that could set --accept-at would lower its own review bar on a checkout you just cloned while the run still reported a clean convergence, and one that could set --grade-severity would turn on the path that grades findings nobody's reviewer graded. Those are settable by flag only, because the flag is the approval. --review-model is absent for a second and sharper reason: its value is EXPANDED INTO A COMMAND LINE at the {reviewModel} placeholder, so a key here would be the first thing revloop interpolates into a shell command out of a repository-supplied file. It comes from the person typing it, or from the builtin, and from nowhere else. THE LOCAL LOOP'S --no-publish IS ABSENT FOR NEITHER OF THOSE REASONS, and inheriting one would be wrong: publishing is that loop's DEFAULT, so a key could only ever turn it off, and a key that removes an action grants nothing. It stays flag-only because nothing measured says a project wants it, and because the two situations that would — a fork, and a remote that is not GitHub — abort in step 1 naming the flag, which is a louder signal than a default configured once and forgotten. That makes it a NOT YET rather than a NEVER: defaults.localPublish: false would be defensible and nobody has asked for it.",
+      "description": "Defaults for the command flags. WHICH REVIEWER RUNS IS NOT AMONG THEM AND CANNOT BE: it is decided by which command you typed, so there is no key to set and nothing to default. A repository that could choose your reviewer would choose which bot login the wait fence filters on and which rungs your acceptance floor is measured against. A flag always overrides its default. --merge, --auto and --accept-at are deliberately absent: this file comes from whatever repository you are working in, and a repository must not be able to turn on merging or to remove the two human confirmation points. A repository that could set --accept-at would lower its own review bar on a checkout you just cloned while the run still reported a clean convergence. Those are settable by flag only, because the flag is the approval. --model is absent for a second and sharper reason: its value is EXPANDED INTO A COMMAND LINE at the {reviewModel} placeholder, so a key here would be the first thing revloop interpolates into a shell command out of a repository-supplied file. It comes from the person typing it, or from the builtin, and from nowhere else. THE LOCAL LOOP'S --no-publish IS ABSENT FOR NEITHER OF THOSE REASONS, and inheriting one would be wrong: publishing is that loop's DEFAULT, so a key could only ever turn it off, and a key that removes an action grants nothing. It stays flag-only because nothing measured says a project wants it, and because the two situations that would — a fork, and a remote that is not GitHub — abort in step 1 naming the flag, which is a louder signal than a default configured once and forgotten. That makes it a NOT YET rather than a NEVER: defaults.localPublish: false would be defensible and nobody has asked for it.",
       "properties": {
-        "reviewer": {
-          "type": "string",
-          "description": "Default for --reviewer on the pull-request loop only. Step 1 of that procedure aborts with reason=not-a-github-reviewer when the resolved name is a local-command reviewer, rather than falling through to the missing-trigger abort, which reports the wrong cause. A project driving both loops sets localReviewer as well."
-        },
-        "localReviewer": {
-          "type": "string",
-          "description": "Default for --reviewer on the local loop. It exists because `reviewer` is one key and the two loops need different values: every configuration written before the local loop points `reviewer` at a github-comment reviewer, and inheriting it would abort the local loop with reason=not-a-local-reviewer on every run until --reviewer was typed. Falling back to 'the only local reviewer defined' instead would be a guess, which is the thing an unknown --reviewer already refuses to make."
-        },
         "maxRounds": {
           "type": "integer",
           "minimum": 1,
@@ -87,153 +103,9 @@
           "minimum": 1,
           "description": "Circuit breaker for the local loop. Separate from maxRounds because the two bound different things: a remote round spends a quota and a stretch of wall clock a person notices, while a local round spends tokens and nothing in the room displays that, so the cap is the only brake there is. It is NOT that a local round is quick: measured rounds run 5m27s to 8m39s, inside the remote reviewer's own range, so what differs is what a round spends and not how long it takes. Sharing one key let a remote-oriented value silently raise the local cap, which defeats the only limit that loop has. Built-in 5."
         },
-        "timeout": { "type": "string", "pattern": "^[0-9]+[smh]$" }
-      }
-    },
-    "reviewers": {
-      "type": "object",
-      "description": "Adds to, or overrides, the built-in presets. Every PATTERN here is used model-side only; none of it reaches a shell or a jq program. `command` is the one field that is not a pattern — with invoke=subprocess it IS a shell command line, which is why it is shown in the step-1 table before it runs and kept out of allowed-tools, and why its own rules forbid the prefixes that would make it run unprompted. Nothing else in this file is interpolated into it: the {reviewModel} placeholder expands from the --review-model flag or the builtin, never from here. That is also the limit of what config can express: the wait fence watches reviews and comments unconditionally, and its list of non-terminal bot comments to drop lives inside the fence, so a reviewer that posts a preamble before its verdict needs a fence edit rather than a config key. A reviewer is one of two kinds and the required keys differ; see `kind`.",
-      "additionalProperties": {
-        "type": "object",
-        "additionalProperties": false,
-        "dependentRequired": { "severityMap": ["severityLevels"] },
-        "allOf": [
-          {
-            "if": {
-              "properties": { "kind": { "const": "local-command" } },
-              "required": ["kind"]
-            },
-            "then": {
-              "required": ["invoke", "command"],
-              "not": {
-                "anyOf": [
-                  { "required": ["botLogin"] },
-                  { "required": ["trigger"] },
-                  { "required": ["markerTolerated"] },
-                  { "required": ["cleanPatterns"] }
-                ]
-              }
-            },
-            "else": {
-              "required": ["botLogin"],
-              "not": {
-                "anyOf": [
-                  { "required": ["invoke"] },
-                  { "required": ["command"] },
-                  { "required": ["requiresPr"] }
-                ]
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": { "invoke": { "const": "skill" } },
-              "required": ["invoke"]
-            },
-            "then": {
-              "properties": {
-                "command": { "pattern": "^[a-z0-9][a-z0-9-]*(:[a-z0-9][a-z0-9-]*)?$" }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": { "invoke": { "const": "subprocess" } },
-              "required": ["invoke"]
-            },
-            "then": {
-              "properties": {
-                "command": {
-                  "not": {
-                    "anyOf": [
-                      { "pattern": "^\\s*git" },
-                      { "pattern": "^\\s*gh" },
-                      { "pattern": "^\\s*\\{reviewModel\\}" }
-                    ]
-                  },
-                  "description": "A subprocess command may not BEGIN WITH git, with gh, or with the {reviewModel} placeholder — as a string prefix, with no exception for a longer name. The local command's own allowed-tools grants Bash(git:*), and docs/permissions.md states the model this rests on: Claude Code matches a COMMAND-STRING PREFIX against an allowlist. So every string starting with those three characters is covered by that grant and would run with no prompt at all, which is the one thing the not-pre-approved rule exists to prevent. `git push --force` is the shape that matters. TWO NARROWER SPELLINGS WERE TRIED AND BOTH LEAKED, in the same direction, because both asked where the WORD git ends when the grant does not ask that. `^\\s*git(\\s|$)` read only whitespace and end-of-string as ending it, so `git;rm -rf /`, `git&&rm -rf /`, `git&`, `git|tee`, `git>out`, `git<in` and `git\"\" push` all passed. `^\\s*git($|[^A-Za-z0-9_.-])` closed those but still admitted gitlint, git-review and git.exe on the reasoning that they are different COMMANDS — true of the shell, and irrelevant to a matcher that compares strings. The prose in docs/permissions.md and in the procedure said 'may not begin with git' throughout; the implementation is now that sentence and nothing else. The cost is that a review command whose own name starts with git cannot be a subprocess reviewer. That is the correct side to err on: the alternative is a repository-supplied string running unprompted under a grant this command ships. THE gh BAN IS THE SAME RULE APPLIED TO A SECOND GRANT. The local command holds Bash(gh pr create:*), Bash(gh pr list:*), Bash(gh repo view:*) and Bash(gh api -X PATCH repos/{owner}/{repo}/:*) because it pushes and opens a pull request by default, so those four prefixes are pre-approved slots exactly as Bash(git:*) is. The ban is DELIBERATELY WIDER THAN THE GRANTS: banning bare gh is one rule that cannot drift, where banning the four spellings would be four rules that have to track a grant list every future step can extend, and a ban that lags its grants by one release is the hole itself. Same cost, accepted for the same reason — ghreview, gh-review and gh.exe must be configured as a skill or renamed. THE PLACEHOLDER BAN CLOSES THE SAME HOLE REACHED THROUGH EXPANSION. {reviewModel} is substituted before the command runs, so a command of '{reviewModel} push --force' under --review-model git expands to a string that BEGINS WITH git and matches the granted prefix — the ban above, defeated by a value that arrives after it was checked. Forbidding the placeholder at position 0 removes the shape statically; the procedure additionally re-checks the EXPANDED string against all three prefixes before running it, because a static rule about a template is not a rule about what ran."
-                }
-              }
-            }
-          }
-        ],
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": ["github-comment", "local-command"],
-            "default": "github-comment",
-            "description": "Absent means github-comment, so every configuration written before this key existed keeps its meaning. github-comment is driven by posting a trigger to a pull request and reading GitHub; it requires botLogin. local-command is driven by running a review command on this machine; it requires invoke and command, and it may carry none of the GitHub-only keys, because nothing in the local loop posts a comment or filters a bot."
-          },
-          "invoke": {
-            "type": "string",
-            "enum": ["subprocess", "skill"],
-            "description": "local-command only. subprocess runs `command` as a shell command line and reads its stdout; it is the only option for a review command whose host forbids model invocation, and it buys two things a same-session invocation cannot — context isolation, because the reviewer's file reads never enter the loop's own context, and A MODEL BOUNDARY, because the model is a token in the command line the subprocess is started with. skill invokes `command` as a skill in this session, and therefore HAS NO MODEL BOUNDARY: the review runs on whatever model the session runs on, spending that model's tokens and that session's context. --review-model against a skill reviewer aborts with reason=no-model-boundary rather than passing silently, and the step-1 stop the --auto flag cannot suppress prints the cost before the first round. Prefer subprocess."
-          },
-          "command": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 400,
-            "pattern": "^[^\\u0000-\\u001f]*[^\\u0000-\\u001f ][^\\u0000-\\u001f]*$",
-            "description": "local-command only. With invoke=skill this is a skill name and is narrowed further to ^[a-z0-9][a-z0-9-]*(:[a-z0-9][a-z0-9-]*)?$. With invoke=subprocess it is a command line, so it is treated exactly as project.verify is: printed in the step-1 table before it runs and deliberately absent from allowed-tools, so the permission system always sees it. Any effort or focus argument the review command takes belongs in this string; there is no separate key for it, because the string is what the operator is shown and what the permission system matches. THE MODEL IS THE SAME, WITH ONE ADDITION: write {reviewModel} where the command takes its model, and the local loop expands it to the resolved review model — --review-model <name>, else the builtin sonnet — before the string is shown, matched or run. The placeholder exists because SPLICING A FLAG INTO AN ARBITRARY COMMAND GUESSES THAT COMMAND'S CLI: one reviewer spells it --model, another -m, another an environment variable, and another takes no model at all. Whoever wrote the command is the only party that knows where the model goes, so they say. THE EXPANSION NEVER COMES FROM THIS FILE. It is the flag or the builtin, and it is refused unless it matches ^[A-Za-z0-9][A-Za-z0-9._:-]*$ — no whitespace, no quote, no shell metacharacter — because it lands in a command line. A model key here would have been the first value revloop interpolates into a shell command out of a repository-supplied file, and it would have bought nothing: a repository that wants to pin a model can already write it literally in this string, which was always a repository-supplied shell command. A command carrying no placeholder is simply not pinned, and the step-1 table says so rather than pretending."
-          },
-          "requiresPr": {
-            "type": "boolean",
-            "default": false,
-            "description": "local-command only. True when the review command resolves an open pull request itself and cannot run without one. IT NOW DECIDES TWO THINGS. First, where the local loop publishes: a reviewer that needs a pull request is published to BEFORE each review, because it would otherwise read a stale diff, while a reviewer that reads the local range is published AFTER the loop converges — pushing earlier sets an upstream and the shipped default reviewer then resolves an empty range, which returns zero findings and reads as a clean round. The placement is derived from this key rather than from a flag of its own, so there is nothing to set wrong. Second, what an empty review means: under --no-publish the loop opens no pull request and cannot check for one, so step 1 asks the operator to confirm one exists and the decision table refuses to read zero findings from such a reviewer as clean, because with no target and with a clean diff it returns the same nothing. ON AN ORDINARY RUN BOTH OF THOSE DO NOT ARISE — the loop established the pull request itself, this round, so the confirmation has nothing to ask and zero findings mean what they say. Publishing removes that stop by SUPPLYING the check it stood in for, which is why it may retire a stop --auto is not allowed to touch. An abort was the first design and made a shipped preset unreachable on the branches where it works."
-          },
-          "displayName": { "type": "string" },
-          "trigger": {
-            "type": "string",
-            "maxLength": 200,
-            "pattern": "^[^\\u0000-\\u001f]*$",
-            "description": "Posted verbatim to GitHub. Control characters are rejected; a value already containing 'revloop:trigger' is rejected. A reviewer with no comment trigger cannot be driven: the procedure has only the comment path."
-          },
-          "botLogin": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*(\\[bot\\])?$",
-            "description": "Write it with the [bot] suffix. It is stripped before comparing against GraphQL, which omits it."
-          },
-          "cleanPatterns": {
-            "type": "array",
-            "items": { "type": "string" },
-            "description": "github-comment only. Anchor these at the start. A reviewer's clean phrase often has a varying tail, so equality tests break. IT DID NOT CROSS TO local-command WHEN ITS SIBLING rateLimitPatterns DID, and the difference is which loop reads what. The local loop's clean signal is that NO FINDING WAS PARSED -- there is no phrase to match, so a clean pattern there would be a key with no consumer, which is the rule the sibling's crossing honours rather than bends: that key crossed because a step-8 row now reads it. A clean phrase would also be the one pattern in this file able to turn a failure into a convergence, where a rate-limit pattern can only ever abort."
-          },
-          "rateLimitPatterns": {
-            "type": "array",
-            "items": { "type": "string" },
-            "description": "BOTH KINDS, READ FROM A DIFFERENT SURFACE IN EACH. The pull-request loop matches these against a bot comment's body; the local loop matches them against the review's OUTPUT -- its stdout under invoke: subprocess, what it reports under invoke: skill -- which is the same surface it reads findings from either way. Both abort on a match and NEITHER RETRIES: the quota recovers with time, and another round spends the loop against a reviewer that cannot answer. Match the fixed part of the message and never a time or a count -- a reset time differs every round, so a pattern carrying one matches nothing. A PATTERN TOO LOOSE FAILS CLOSED. It can only turn one abort into another, because the row sits above the other three abort rows and far above the clean one, so nothing here can make a run finish clean over a review that did not happen; too tight and the reply falls to unparsed-review-output, which is where it fell before this key was readable locally at all. Used model-side only, like every other pattern in this file: it never reaches a shell or a jq program."
-          },
-          "severityLevels": {
-            "type": "array",
-            "items": { "type": "string" },
-            "minItems": 1,
-            "uniqueItems": true,
-            "description": "The reviewer's severity vocabulary, ORDERED MOST SEVERE FIRST, and it is the EMITTED vocabulary rather than the documented one — a ladder taken from what a command's prose defines names rungs its output never carries, so --accept-at then matches nothing and blocks everything. The ordering is a ladder --accept-at can name directly: --accept-at <level> makes that level and everything below it acceptable and leaves everything above it blocking. --accept-at IS RESOLVED IN TWO PASSES, NATIVE FIRST. A value matching a rung here as a whole string, case-sensitively, is resolved against this ladder, which is what the flag has always done and is why no existing invocation changes meaning. Only a value that matches no rung here is then matched, case-insensitively, against revloop's own canonical ladder of critical > high > medium > low, and that second pass needs severityMap. Native is tried first deliberately: canonical-first would swallow --accept-at HIGH on a reviewer whose emitted ladder really is CRITICAL/HIGH/MEDIUM/LOW and make every such configuration abort until a map was written for a run whose meaning had not changed. A reviewer that emits no severity has no key here, and --accept-at then aborts with reason=no-severity-ladder rather than letting the loop invent a ladder for itself — the loop is the party obliged to fix the finding, so letting it rank its own findings would let it rank its way out of the work. THE ONE WAY PAST THAT ABORT IS --grade-severity, which does not lift the rule but moves the ranking to a party the rule is not about: a separate subprocess — on the local loop's review model, and on the builtin sonnet in the pull-request loop, which has no such flag — that is not told the floor and does not fix what it grades, and whose rungs are marked `graded` in every record the run writes. It is a flag and never a key here, and it is refused against a reviewer that HAS this ladder, because regrading a rung the reviewer emitted overrules a measurement."
-          },
-          "severityMap": {
-            "type": "object",
-            "minProperties": 1,
-            "additionalProperties": {
-              "type": "string",
-              "enum": ["critical", "high", "medium", "low"]
-            },
-            "description": "Maps each rung of severityLevels onto revloop's canonical ladder — critical, high, medium, low, most severe first — so that --accept-at can name one vocabulary across reviewers that do not share one. Three emitted vocabularies already coexist among the shipped presets (P1/P2/P3, CRITICAL/HIGH/MEDIUM/LOW, blocker/major/minor), and without a map --accept-at P2 is an unknown-accept-level abort against half of them. THE MAP MUST BE TOTAL OVER severityLevels, CONFINED TO IT, ORDER-PRESERVING, AND NOT WHOLLY COLLAPSED: every rung named there needs an entry, no entry may name a rung the ladder does not hold, a more severe rung may not map below a less severe one, and on a ladder of two rungs or more the top rung must map strictly above the bottom one — the last because a map sending every rung to one canonical rung is total and inverts nothing while making the lowest floor --accept-at can express accept the reviewer's worst finding, and the second because a ladder shortened without its map satisfies totality while leaving an entry pointing at a rung that no longer exists. MERGING RUNGS IS LEGAL AND UNAVOIDABLE: three rungs cannot cover four canonical ones and five cannot avoid sharing, so what is refused is a map with NO distinction left in it. None of the four is expressible here — a JSON Schema cannot see the other key's contents, and cannot compare values across keys whose names it does not know — so step 1 checks all four and aborts with reason=bad-severity-map, naming the rung that is unmapped, foreign or inverted, or printing the map when it is collapsed. STEP 1 CHECKS THEM ONLY WHEN --accept-at RESOLVED ON THE CANONICAL PASS, because a map nothing consults cannot move a floor: checked unconditionally, this abort broke a reviewer for ordinary use over a key that run never read. THERE IS NO IMPLICIT MAP. A reviewer with severityLevels and no severityMap aborts with reason=no-severity-map when --accept-at names a canonical rung, rather than deriving one from position: reading 'rung 1 of 3' as critical is the loop authoring a ladder again, one key over from where that is already forbidden, and a three-rung ladder does not carry which of four canonical rungs its middle means. Type the native rung, or write the map. THE MAP IS A JUDGEMENT AND NOT A MEASUREMENT, which is why it is a separate key rather than an ordering baked into severityLevels: nothing has established that one reviewer's P1 and another's CRITICAL describe the same thing, and a card should say so under ## Not measured rather than let the adjacency imply it. It is settable from this file, unlike --accept-at, because severityLevels' own ORDER already carries the same power and this adds no new class of it; the mitigation for both is that step 1 prints the resolved floor as the explicit sets of native rungs that block and that are acceptable, before the first round runs."
-          },
-          "expectedLatency": {
-            "type": "string",
-            "description": "Printed in the step-1 table. A verdict far below this range is usually a failure, not a review."
-          },
-          "markerTolerated": {
-            "type": "string",
-            "enum": ["verified", "unverified", "no"],
-            "description": "Whether the reviewer still answers when the revloop marker is appended to the trigger. 'no' aborts in step 1: there is no fallback path.",
-            "default": "unverified"
-          },
-          "status": {
-            "type": "string",
-            "enum": ["verified", "reported", "unverified", "unsupported"],
-            "description": "Printed in the step-1 table and repeated in the final report when it is not 'verified'."
-          }
+        "timeout": {
+          "type": "string",
+          "pattern": "^[0-9]+[smh]$"
         }
       }
     }

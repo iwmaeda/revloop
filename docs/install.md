@@ -12,7 +12,9 @@ not here — they are in [`permissions.md`](permissions.md).
 /plugin install revloop@revloop
 ```
 
-The commands are then `/revloop:remote-loop` and `/revloop:local-loop`. Plugin-provided commands are
+The commands are then `/revloop:remote-codex-loop`, `/revloop:remote-gemini-loop`,
+`/revloop:remote-claude-loop`, `/revloop:remote-custom-loop`, `/revloop:local-review-loop`,
+`/revloop:local-ecc-loop` and `/revloop:local-custom-loop`. Plugin-provided commands are
 always namespaced as `/<plugin>:<command>`, so there is no bare `/revloop`.
 
 **Both are deliberately not model-invocable**, and the plugin manifest ships no `skills` key. One
@@ -28,11 +30,11 @@ Codex plugin support is in preview. The reliable path today is to place the skil
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
 mkdir -p .agents/skills
 cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
-export REVLOOP_PROCEDURE=~/.revloop/commands/remote-loop.md
+export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md
 ```
 
 `.agents/skills/revloop/SKILL.md` is a router, not a copy of the procedure: it resolves
-`commands/remote-loop.md` and reads it. `REVLOOP_PROCEDURE` is what makes that work once the skill has
+`procedures/remote-loop.md` and reads it. `REVLOOP_PROCEDURE` is what makes that work once the skill has
 been copied away from the repository. **The router covers the remote loop only** — nobody has driven
 the local one from Codex, so it is not claimed as supported.
 
@@ -72,15 +74,15 @@ the stable REST surface to a subcommand.
 ## Verify the install
 
 ```console
-/revloop:remote-loop
-/revloop:local-loop
+/revloop:remote-codex-loop
+/revloop:local-review-loop
 ```
 
 On a clean tree with no changes either should print its resolved-configuration table and stop. Read
 the local one's **review command** row before you run it for real: it is the string that will be
 executed, it comes out of `.revloop.json`, and it is deliberately not pre-approved. It is printed with
 `{reviewModel}` already expanded, and the **review model** row beside it reads `sonnet` unless you
-passed `--review-model`. If the remote
+passed `--model`. If the remote
 loop prints a permission prompt for every step, work through [`permissions.md`](permissions.md).
 
 ## Related docs

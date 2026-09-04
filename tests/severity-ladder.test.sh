@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# The canonical severity ladder is written out in nine places. This pins them
+# The canonical severity ladder is written out in many places. This pins them
 # to one.
 #
 # `critical > high > medium > low` is revloop's own vocabulary rather than any
-# reviewer's, and it is spelled in full in the schema's enum, in both procedures,
-# in the two READMEs, in `reviewers/README.md`, in `docs/configuration.md`, in
-# `docs/design-notes.md` and in `CHANGELOG.md`. Copies drift -- the reason
+# reviewer's, and it is spelled in full in the reviewer schema's enum, in the
+# grader spec, in both procedures, in the two READMEs, in `reviewers/README.md`,
+# in `docs/configuration.md`, in `docs/design-notes.md` and in `CHANGELOG.md`. Copies drift -- the reason
 # `permissions.test.sh` exists is that one already had, twice -- and nothing
 # compared these to each other.
 #
-# ONE OF THE NINE IS NOT PROSE. Step 10 of `commands/remote-loop.md` carries the
-# ladder inside the grader's prompt, so a drift there does not merely misdescribe
+# ONE OF THEM IS NOT PROSE. `procedures/severity-grading.md` carries the ladder
+# inside the grader's prompt, so a drift there does not merely misdescribe
 # the loop: it tells a subprocess to rank findings on a ladder the schema will
 # not accept back, and every rung it returns then trips the rung check as a
 # broken grader. That copy is asserted by name below rather than left to the
@@ -35,11 +35,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "severity-ladder:"
 
-SCHEMA="$ROOT/schema/revloop.schema.json"
+SCHEMA="$ROOT/schema/reviewer.schema.json"
 
 # The severityMap value enum, read as data. Anchored to the four canonical words
-# rather than to a line number or a key path: the schema holds six enums and the
-# other five are unrelated vocabularies, so the match is on content.
+# rather than to a line number or a key path: the reviewer schema holds five
+# enums and the other four are unrelated vocabularies, so the match is on
+# content.
 ENUM_LINE=$(grep -F '"enum": ["critical"' "$SCHEMA" || true)
 ENUM=$(printf '%s' "$ENUM_LINE" | grep -oE '"[a-z]+"' | tr -d '"' | tail -n +2)
 LADDER=$(printf '%s' "$ENUM" | paste -sd'|' - | sed 's/|/ > /g')
@@ -74,7 +75,7 @@ refute "every chain spells the schema's ladder" "$STRAY" "STRAY "
 
 # The executable copy, asserted by name. `-p` is what makes it the prompt rather
 # than one more sentence about the prompt.
-GRADER=$(grep -F 'Rank each finding' "$ROOT/commands/remote-loop.md" || true)
+GRADER=$(grep -F 'Rank each finding' "$ROOT/procedures/severity-grading.md" || true)
 expect "the grader's prompt exists"      "$GRADER" 'claude --model'
 expect "and it ranks on that ladder"     "$GRADER" "$LADDER"
 expect "and it is the prompt, not prose" "$GRADER" ' -p "'

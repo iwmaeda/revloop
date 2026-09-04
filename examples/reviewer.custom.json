@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/reviewer.schema.json",
+  "displayName": "Acme Reviewer",
+  "trigger": "@acme review --deep",
+  "botLogin": "acme-reviewer[bot]",
+  "cleanPatterns": ["^Acme Review: no issues found"],
+  "rateLimitPatterns": ["quota exceeded", "rate limit"],
+  "severityLevels": ["blocker", "major", "minor"],
+  "severityMap": {
+    "blocker": "critical",
+    "major": "high",
+    "minor": "low"
+  },
+  "expectedLatency": "2-8m",
+  "markerTolerated": "unverified",
+  "status": "unverified"
+}

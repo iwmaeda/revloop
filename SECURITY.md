@@ -21,24 +21,24 @@ thing.
   path from config into a fence.
 - **Exactly one value is interpolated into a command line, and it does not come from this file.** A
   reviewer's `command` may carry a `{reviewModel}` placeholder, which the local loop expands to the
-  resolved review model. That model comes from `--review-model`, typed by a person, or from the
+  resolved review model. That model comes from `--model`, typed by a person, or from the
   built-in `sonnet` — **never from `.revloop.json`, which has no key for it** — and it is refused
   unless it matches `^[A-Za-z0-9][A-Za-z0-9._:-]*$`, so no whitespace, quote or shell metacharacter
   enters the string.
 - **One config field is executed.** A `local-command` reviewer's `command` is run by
-  `/revloop:local-loop`. It is constrained by schema, printed in full by step 1 before the
+  the `local-*` commands. It is constrained by schema, printed in full by step 1 before the
   first round, and kept **out of `allowed-tools`** so the permission system sees it — the same three
   defences `verify` gets. **It is not a fence and must not become one**: a fence is safe because its
   bytes never change, and this string is per-project by construction.
 - **A `subprocess` command may not begin with `git`, with `gh`, or with the `{reviewModel}`
   placeholder.** A permission rule matches a command-string prefix, and
-  `/revloop:local-loop` grants `Bash(git:*)` for its own probe and four narrow `gh` rules for
+  Each `local-*` command grants `Bash(git:*)` for its own probe and four narrow `gh` rules for
   publishing — so a repository-supplied command starting with either would run with **no prompt at all**,
   which is what "never pre-approved" exists to prevent. `git push --force` is the shape that matters.
   **"Begins with" is the whole rule**: `gitlint`, `git-review`, `git.exe`, `ghreview` and `gh.exe` are
   different binaries to the shell and identical to the matcher. **The placeholder is banned at the
   start because expansion happens after the prefix is checked** — `{reviewModel} push --force` under
-  `--review-model git` would otherwise become exactly the banned shape. `tests/schema.test.sh` pins
+  `--model git` would otherwise become exactly the banned shape. `tests/schema.test.sh` pins
   every axis of all three, and the procedure re-checks the expanded string before running it.
 - **On the skill path there is no prompt, and a stop replaces it.** A skill name is not a command
   string, so no permission rule matches it; the grant is of the `Skill` tool as a whole, and granting
@@ -51,13 +51,13 @@ thing.
   anything.
 - **Fields are constrained by schema**: `botLogin` is pattern-matched, `trigger` rejects control
   characters and is length-capped.
-- **`--merge`, `--auto`, `--accept-at` and `--grade-severity` have no configuration key.** Every other
+- **`--merge`, `--auto`, `--accept-at` and `--config` have no configuration key.** Every other
   default can come from `.revloop.json`; these cannot, because a repository that could set `auto`
   would delete both of your confirmation points, one that could set `merge` would grant its own merge,
   one that could set `accept-at` would lower its own review bar while the run still reported a clean
   convergence, and one that could set `grade-severity` would decide on your behalf that its reviewer
   emitting no severity is no obstacle to converging over unfixed findings. **The flag is the
-  approval**, so it has to come from the person typing it. `--review-model` has no key either, for the
+  approval**, so it has to come from the person typing it. `--model` has no key either, for the
   separate reason above. `tests/schema.test.sh` asserts that every one of them is rejected — `merge`
   and `auto` were a real hole, closed before the first release.
 - **`severityMap` does have a key, and the reason it is not in the list above is worth stating rather

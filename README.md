@@ -9,32 +9,45 @@ A Claude Code / Codex plugin that repeats an AI review-and-fix loop until it con
 keep a run from spending more rounds — and so more wall clock and more tokens — than the review
 needs.
 
-Two commands are available:
+**There is a command of its own for each reviewer, and for where it runs — remotely or on your
+machine.** These are the commands available today:
 
-- `/revloop:remote-loop` — remote. Summons a reviewer bot on GitHub, and can merge.
-- `/revloop:local-loop` — local. Uses a review command that runs on your machine, and opens the pull
-  request itself.
+| Command                       | Reviewer                        | Where it runs                |
+| ----------------------------- | ------------------------------- | ---------------------------- |
+| `/revloop:remote-codex-loop`  | `@codex review`                 | A bot on your pull request   |
+| `/revloop:remote-gemini-loop` | `@gemini review`                | A bot on your pull request   |
+| `/revloop:remote-claude-loop` | `@claude review`                | A bot on your pull request   |
+| `/revloop:remote-custom-loop` | one you define, with `--config` | A bot on your pull request   |
+| `/revloop:local-review-loop`  | Claude Code's `/code-review`    | A subprocess on your machine |
+| `/revloop:local-ecc-loop`     | ECC's `/ecc:review-pr`          | A subprocess on your machine |
+| `/revloop:local-custom-loop`  | one you define, with `--config` | A subprocess on your machine |
 
-**The remote loop assumes a reviewer that already answers.** Whichever reviewer you select — Codex,
-Claude, Gemini, or a custom preset — its GitHub integration must already be installed on the
-repository and responding to comments.
+Seven commands, but **two procedures**: every `remote-*` command runs
+[`procedures/remote-loop.md`](procedures/remote-loop.md) and every `local-*` command runs
+[`procedures/local-loop.md`](procedures/local-loop.md). The commands differ only in which reviewer
+they name and which flags they offer, so there are seven front doors and not seven code paths.
 
-**The local loop never touches a GitHub comment thread, and never merges.** It pushes the converged
+**The remote commands assume a reviewer that already answers.** Its GitHub integration must already be
+installed on the repository and responding to comments.
+
+**The local commands never touch a GitHub comment thread, and never merge.** It pushes the converged
 branch and opens a pull request for it (`--no-publish` stops it at the commit). **Its review runs on a
-light model by default** (`sonnet`, changed with `--review-model`). See
+light model by default** (`sonnet`, changed with `--model`). See
 [`docs/design-notes.md`](docs/design-notes.md).
 
-The basic invocations are:
+The basic invocations are below. Which flags are available differs from command to command.
 
 ```console
-/revloop:remote-loop
-/revloop:remote-loop --reviewer gemini --max-rounds 15
-/revloop:remote-loop --merge --auto
+/revloop:remote-codex-loop
+/revloop:remote-gemini-loop --max-rounds 15
+/revloop:remote-codex-loop --merge --auto
 
-/revloop:local-loop
-/revloop:local-loop --no-publish
-/revloop:local-loop --review-model opus --max-rounds 3
-/revloop:local-loop --reviewer ecc-review-pr --accept-at high --grade-severity
+/revloop:local-review-loop
+/revloop:local-review-loop --no-publish
+/revloop:local-review-loop --model opus --max-rounds 3
+/revloop:local-ecc-loop --accept-at high
+
+/revloop:local-custom-loop --config ./my-reviewer.json
 ```
 
 ## How it works
@@ -128,7 +141,7 @@ Grant the permissions the work needs at the same time, by adding the following t
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
 mkdir -p .agents/skills
 cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
-export REVLOOP_PROCEDURE=~/.revloop/commands/remote-loop.md
+export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md
 ```
 
 Codex controls permissions with an approval policy and a sandbox instead. The details are in
@@ -173,47 +186,50 @@ out, there is `--accept-at <level>`. It names **the highest severity that may be
 every finding above that level is resolved, the loop may converge.
 
 ```console
-/revloop:remote-loop --accept-at P2   # against codex, whose own rungs are P1 > P2 > P3
+/revloop:remote-codex-loop --accept-at P2   # codex's own rungs are P1 > P2 > P3
 ```
 
 The level you pass is either one of the reviewer's own severities, named in its `severityLevels`, or
 one of the severities revloop defines — `critical > high > medium > low`.
 
-**Neither local preset emits a severity**, so `--accept-at` alone aborts against both. For a reviewer
-like that, `--grade-severity` has a grading model, run as a separate process, estimate the severity
-instead.
+**Three of the five shipped reviewers emit no severity at all** — `claude`, `code-review` and
+`ecc-review-pr`. For a reviewer like those, **a grading model in a separate process estimates the
+severity**.
 
 ```console
-/revloop:local-loop --accept-at high --grade-severity
+/revloop:local-ecc-loop --accept-at high
 ```
 
 ## Built-in reviewers
 
-| Preset          | Kind             | Trigger or command                                      | Status     |
-| --------------- | ---------------- | ------------------------------------------------------- | ---------- |
-| `codex`         | `github-comment` | `@codex review`                                         | verified   |
-| `gemini`        | `github-comment` | `@gemini review` (see the card)                         | verified   |
-| `claude`        | `github-comment` | `@claude review`                                        | unverified |
-| `code-review`   | `local-command`  | `claude --model {reviewModel} -p "/code-review medium"` | unverified |
-| `ecc-review-pr` | `local-command`  | `claude --model {reviewModel} -p "/ecc:review-pr"`      | unverified |
+Each preset is made of a **definition** (`reviewers/<name>.json`) and a **card**
+(`reviewers/<name>.md`).
 
-`{reviewModel}` is expanded by the local loop before the command runs — to `--review-model` if you
-typed it, otherwise to `sonnet`.
+| Preset          | Driven by                     | Trigger or command                                      | Severity | Status     |
+| --------------- | ----------------------------- | ------------------------------------------------------- | -------- | ---------- |
+| `codex`         | `/revloop:remote-codex-loop`  | `@codex review`                                         | P1/P2/P3 | verified   |
+| `gemini`        | `/revloop:remote-gemini-loop` | `@gemini review` (see the card)                         | P1/P2/P3 | verified   |
+| `claude`        | `/revloop:remote-claude-loop` | `@claude review`                                        | none     | unverified |
+| `code-review`   | `/revloop:local-review-loop`  | `claude --model {reviewModel} -p "/code-review medium"` | none     | unverified |
+| `ecc-review-pr` | `/revloop:local-ecc-loop`     | `claude --model {reviewModel} -p "/ecc:review-pr"`      | none     | unverified |
 
-Each [card](reviewers/) records what was measured, when, and where. copilot (which is asked for a
-review by reviewer request) is not supported at present.
+`{reviewModel}` is expanded by the local procedure before the command runs — to `--model` if you typed
+it, otherwise to `sonnet`.
+
+**A reviewer of your own is written the same way, as a definition and a card.** The details are in
+[`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md).
 
 ## Limitations
 
 These are the rough edges that remain.
 
-| Limitation                        | Why                                                                                                                                                                                                 |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Forks are unsupported**         | The pull request lives upstream, so calls would address the wrong repository. Both loops abort in step 1 — the local one only when it is publishing, so `--no-publish` is the way to work in a fork |
-| **Same-repo topic branches only** | One open PR per branch. If a loop looks one up and cannot identify it, it aborts                                                                                                                    |
-| **Merge commits only**            | Squash and rebase are not available                                                                                                                                                                 |
-| **`copilot` unsupported**         | It has no comment trigger, and the reviewer-request path is not implemented                                                                                                                         |
-| **The local loop never merges**   | It ends at a pushed branch with an open pull request, or at a commit under `--no-publish`. Merge it separately                                                                                      |
+| Limitation                            | Why                                                                                                                                                                      |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Forks are unsupported**             | The pull request lives upstream, so calls would address the wrong repository. Both loops abort in step 1; a local loop can still run in a fork with `--no-publish`       |
+| **Same-repo topic branches only**     | One open PR per branch. If a loop looks one up and cannot identify it, it aborts                                                                                         |
+| **Merge commits only**                | Squash and rebase are not available                                                                                                                                      |
+| **Reviewers with no comment trigger** | One summoned by reviewer request rather than by a comment — GitHub Copilot is the example — posts nothing for the loop to anchor a round's baseline to, so step 1 aborts |
+| **The local loop never merges**       | It ends at a pushed branch with an open pull request, or at a commit under `--no-publish`. Merge it separately                                                           |
 
 ## Documentation
 

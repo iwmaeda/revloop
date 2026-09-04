@@ -14,7 +14,12 @@
       "trailers": ["Co-Authored-By: {model}"],
       "onePerRound": true
     },
-    "pr": { "titleLanguage": "en" }
+    "pr": {
+      "titleLanguage": "en"
+    }
   },
-  "defaults": { "reviewer": "codex", "maxRounds": 10, "timeout": "30m" }
+  "defaults": {
+    "maxRounds": 10,
+    "timeout": "30m"
+  }
 }

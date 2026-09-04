@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/reviewer.schema.json",
+  "displayName": "Claude Code review",
+  "kind": "local-command",
+  "invoke": "subprocess",
+  "command": "claude --model {reviewModel} -p \"/code-review medium\"",
+  "rateLimitPatterns": ["You've hit your session limit"],
+  "expectedLatency": "5-9m",
+  "status": "unverified"
+}

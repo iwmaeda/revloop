@@ -9,14 +9,11 @@
 | `status`      | `verified`                       |
 | `lastChecked` | 2026-08                          |
 
-```json
-{
-  "trigger": "@gemini review",
-  "botLogin": "gemini-code-assist[bot]",
-  "severityLevels": ["P1", "P2", "P3"],
-  "severityMap": { "P1": "critical", "P2": "high", "P3": "low" }
-}
-```
+**Definition:** [`gemini.json`](gemini.json) — the file the loop loads. This card is the
+measurement record beside it; the definition is the configuration, and neither restates the
+other.
+
+**Driven by:** `/revloop:remote-gemini-loop`.
 
 ## Measured
 

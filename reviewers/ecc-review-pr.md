@@ -15,16 +15,11 @@ The `review-pr` command from the ECC plugin, driven as a subprocess.
 | `status`            | `unverified`                                               |
 | `lastChecked`       | 2026-09                                                    |
 
-```json
-{
-  "kind": "local-command",
-  "invoke": "subprocess",
-  "command": "claude --model {reviewModel} -p \"/ecc:review-pr\"",
-  "requiresPr": true,
-  "rateLimitPatterns": ["You've hit your session limit"],
-  "status": "unverified"
-}
-```
+**Definition:** [`ecc-review-pr.json`](ecc-review-pr.json) — the file the loop loads. This card is the
+measurement record beside it; the definition is the configuration, and neither restates the
+other.
+
+**Driven by:** `/revloop:local-ecc-loop`.
 
 **Six runs exist now, and what they establish is mostly that this card was wrong.** The command runs,
 answers in about five minutes and returns usable findings — and it emits neither the ladder nor the
@@ -42,7 +37,7 @@ the same shape as the unconfigured case and the same shape as a clean round. The
 
 **It shipped as `invoke: skill` and no longer does, and the reason is that a skill has no model
 boundary.** A skill runs in the loop's own session: on the loop's model, spending the loop's context.
-Nothing inside a session can lower the model that session is running on, so `--review-model` against
+Nothing inside a session can lower the model that session is running on, so `--model` against
 a `skill` reviewer aborts with `reason=no-model-boundary` — and this was the one shipped preset that
 tripped it. A subprocess is started with a command line, and a model is a token in one.
 
@@ -165,7 +160,7 @@ configuration, and what it measures is the host rather than the command.
   recorded for a round to return nothing — the reviewer ran and found nothing, or the checkout lacked
   the permission block — and the second was ruled out on the spot, because that block was installed.
   **Derived:** it is the reviewer's own quota, so the card carries `rateLimitPatterns` and step 8 of
-  [`../commands/local-loop.md`](../commands/local-loop.md) has a row that reads it.
+  [`../procedures/local-loop.md`](../procedures/local-loop.md) has a row that reads it.
 - **The notice is punctuated in a way a pattern can get wrong.** Read from the captured output, the
   apostrophe in `You've` is **ASCII `'` (0x27)** and the separator before `resets` is **U+00B7**, not
   a hyphen and not an em dash (`repo B, 2026-09`). **Derived, and it is why the shipped pattern stops
@@ -245,9 +240,9 @@ beside it.
   observed is not ordering asserted**: nothing in five rounds establishes that these are rungs a floor
   could sit between rather than section titles a model chose, and a card that read three headings as a
   three-rung ladder would be repeating the mistake this card was just corrected for one paragraph up.
-  So it declares no `severityLevels`, `--accept-at` aborts against it with `no-severity-ladder`, and
-  `--grade-severity` is the documented way past — the same position `code-review.md` holds, reached
-  from the opposite direction: that card never had a ladder and this one had the wrong one.
+  So its definition declares no `severityLevels`, and `--accept-at` against it is resolved by grading —
+  the same position `code-review.md` holds, reached from the opposite direction: that reviewer never
+  had a ladder and this one had the wrong one.
 - **Rounds to converge, and tokens per round.** Five rounds have run, **none of them came back clean**,
   and the count did not fall — so this card cannot say convergence is reachable, only that the loop
   reached its cap without it.
@@ -270,6 +265,6 @@ beside it.
   seen: the notice in place of a review, with nothing else in the output. A run that returned findings
   and then hit the limit would carry both, and step 8's first-match ordering answers it — the round
   aborts on the pattern and the findings are printed but not acted on, which is the ruling step 9 of
-  [`../commands/remote-loop.md`](../commands/remote-loop.md) already made for the same collision on a
+  [`../procedures/remote-loop.md`](../procedures/remote-loop.md) already made for the same collision on a
   review. **Nothing here has observed that shape**, so what is untested is whether the reviewer can
   produce it at all.

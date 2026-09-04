@@ -123,12 +123,17 @@ caught() { # caught <text> -> CAUGHT | MISSED
   if printf '%s\n' "$1" | grep -qiE "$CITATION"; then echo CAUGHT; else echo MISSED; fi
 }
 
-# EVERY procedure is scanned, not only the first one. The rule is that a
-# procedure may cite its own steps and never its own line numbers, and it
+# EVERY procedure AND EVERY COMMAND is scanned, not only the first one. The rule
+# is that a file may cite a procedure's steps and never its line numbers, and it
 # applies to whichever file is being read — a guard naming one file would leave
-# the next procedure free to acquire exactly the citations this forbids.
-PROCS=("$ROOT"/commands/*.md)
+# the next one free to acquire exactly the citations this forbids. The commands
+# are in scope because they are the files most likely to acquire them: a thin
+# command's whole job is to point at a step in a file it does not contain.
+PROCS=("$ROOT"/procedures/*.md "$ROOT"/commands/*.md)
 if [ ! -f "${PROCS[0]}" ]; then
+  FAIL=$((FAIL + 1)); printf '  FAIL procedures/*.md matched no file\n'
+fi
+if [ ! -f "$ROOT/commands/remote-codex-loop.md" ]; then
   FAIL=$((FAIL + 1)); printf '  FAIL commands/*.md matched no file\n'
 fi
 # Marked with a literal the pattern itself cannot produce, so the assertion is
@@ -156,7 +161,7 @@ expect "the abbreviation no."     "$(caught 'see line no. 132')"                
 expect "the hyphenated word"      "$(caught 'see line-number 12')"               CAUGHT
 expect "a lowercase l anchor"     "$(caught 'blob/main/remote-loop.md#l132')"    CAUGHT
 expect "a GitHub #L anchor"       "$(caught 'blob/main/remote-loop.md#L132')"    CAUGHT
-expect "the path.md:N notation"   "$(caught 'commands/remote-loop.md:132 has it')" CAUGHT
+expect "the path.md:N notation"   "$(caught 'procedures/remote-loop.md:132 has it')" CAUGHT
 expect "path.md, space after :"   "$(caught 'remote-loop.md: 132 has it')"       CAUGHT
 expect "a non-md path cited"      "$(caught 'tests/procedure-refs.test.sh:40')"  CAUGHT
 expect "a 5-letter extension"     "$(caught 'package.jsonc:12 says so')"         CAUGHT

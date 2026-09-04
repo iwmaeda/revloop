@@ -1,0 +1,7 @@
+{
+  "$schema": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/reviewer.schema.json",
+  "displayName": "Claude",
+  "trigger": "@claude review",
+  "botLogin": "claude[bot]",
+  "status": "unverified"
+}

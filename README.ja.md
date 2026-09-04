@@ -7,31 +7,45 @@
 
 AI によるレビューと修正のループを収束するまで繰り返すワークフローを実現する Claude Code / Codex 対応プラグインです。レビューのループ回数の増加を防止するフェンス機構を整備し、処理時間やトークン消費を抑えるように設計されています。
 
-コマンドは以下の2種が利用可能です。
+**リモート動作/ローカル動作、およびレビュワーごとに専用コマンドが用意されています。** 現状、提供している
+コマンドは以下の通りです。
 
-- `/revloop:remote-loop`: リモート動作。レビュアー bot を GitHub 上で呼び出し、マージまで行える。
-- `/revloop:local-loop`: ローカル動作。個人の環境上で動作するレビューコマンドを利用する。
+| コマンド                      | レビュアー                    | 実行場所           |
+| ----------------------------- | ----------------------------- | ------------------ |
+| `/revloop:remote-codex-loop`  | `@codex review`               | PR 上の bot        |
+| `/revloop:remote-gemini-loop` | `@gemini review`              | PR 上の bot        |
+| `/revloop:remote-claude-loop` | `@claude review`              | PR 上の bot        |
+| `/revloop:remote-custom-loop` | `--config` で指定した独自定義 | PR 上の bot        |
+| `/revloop:local-review-loop`  | Claude Code の `/code-review` | 手元のサブプロセス |
+| `/revloop:local-ecc-loop`     | ECC の `/ecc:review-pr`       | 手元のサブプロセス |
+| `/revloop:local-custom-loop`  | `--config` で指定した独自定義 | 手元のサブプロセス |
 
-**リモート動作のループは、レビュアーが既に応答することを前提にします。** 選択したレビュアー
-（codex・claude・gemini・カスタムのいずれか）の GitHub 連携がリポジトリにインストール済みで、
-コメントに応答する状態になっている必要があります。
+コマンドは 7 つですが、**手順書は 2 つです**。`remote-*` はすべて
+[`procedures/remote-loop.md`](procedures/remote-loop.md) を、`local-*` はすべて
+[`procedures/local-loop.md`](procedures/local-loop.md) を実行します。コマンドが違うのは、参照する
+レビュアー定義と提供するフラグだけであり、入口が 7 つあってもコードパスは 7 つになりません。
 
-**ローカル動作のループは、GitHub 上のコメント欄にはアクセスせず、マージも行いません。** 収束した
+**リモート動作のコマンドは、レビュアーが既に応答することを前提にします。** その GitHub 連携が
+リポジトリにインストール済みで、コメントに応答する状態になっている必要があります。
+
+**ローカル動作のコマンドは、GitHub 上のコメント欄にはアクセスせず、マージも行いません。** 収束した
 ブランチの push および PR 作成までを行います (`--no-publish` を付けた場合はコミットまでで終了)。**レビューは既定で軽量モデル
-（`sonnet`、`--review-model` で変更可）で実行されます。** 詳細は
+（`sonnet`、`--model` で変更可）で実行されます。** 詳細は
 [`docs/design-notes.md`](docs/design-notes.md) を参照してください。
 
-基本的な実行コマンドは以下の通りです。
+基本的な実行コマンドは以下の通りです。コマンドごとに使用できるフラグは異なります。
 
 ```console
-/revloop:remote-loop
-/revloop:remote-loop --reviewer gemini --max-rounds 15
-/revloop:remote-loop --merge --auto
+/revloop:remote-codex-loop
+/revloop:remote-gemini-loop --max-rounds 15
+/revloop:remote-codex-loop --merge --auto
 
-/revloop:local-loop
-/revloop:local-loop --no-publish
-/revloop:local-loop --review-model opus --max-rounds 3
-/revloop:local-loop --reviewer ecc-review-pr --accept-at high --grade-severity
+/revloop:local-review-loop
+/revloop:local-review-loop --no-publish
+/revloop:local-review-loop --model opus --max-rounds 3
+/revloop:local-ecc-loop --accept-at high
+
+/revloop:local-custom-loop --config ./my-reviewer.json
 ```
 
 ## 動作の流れ
@@ -118,7 +132,7 @@ AI によるレビューと修正のループを収束するまで繰り返す�
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
 mkdir -p .agents/skills
 cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
-export REVLOOP_PROCEDURE=~/.revloop/commands/remote-loop.md
+export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md
 ```
 
 Codex では権限は承認ポリシーとサンドボックスで制御します。詳細は [`docs/permissions.md`](docs/permissions.md) を参照してください。
@@ -161,45 +175,48 @@ maxRounds        10                                 builtin
 このフラグで**未修正のまま残してよい最上位の深刻度**を指定し、それより深刻度の高い指摘がすべて修正された時点でループは収束可能となります。
 
 ```console
-/revloop:remote-loop --accept-at P2   # codex 自身の深刻度は P1 > P2 > P3
+/revloop:remote-codex-loop --accept-at P2   # codex 自身の深刻度は P1 > P2 > P3
 ```
 
 `--accept-at` に指定できる値は、`severityLevels` で指定されたモデル固有の深刻度か、 revloop で定義されている深刻度（`critical > high > medium > low`）のいずれかです。
 
-**ローカル用プリセットはいずれも severity を出力しません**。したがって両者に対して `--accept-at` を単独で指定すると abort します。
-そのような reviewer に対しては、 `--grade-severity` オプションを指定することで、別プロセスで起動する採点モデルに severity を推定させることができます。
+**同梱プリセット 5 つのうち 3 つ（`claude`・`code-review`・`ecc-review-pr`）は severity を出力しません**。
+そのようなレビュワーに対しては、**別プロセスの採点モデルが severity を推定します**。
 
 ```console
-/revloop:local-loop --accept-at high --grade-severity
+/revloop:local-ecc-loop --accept-at high
 ```
 
 ## 対応済みレビュアー
 
-| プリセット      | 種別             | トリガー / コマンド                                     | ステータス |
-| --------------- | ---------------- | ------------------------------------------------------- | ---------- |
-| `codex`         | `github-comment` | `@codex review`                                         | verified   |
-| `gemini`        | `github-comment` | `@gemini review` (カード参照)                           | verified   |
-| `claude`        | `github-comment` | `@claude review`                                        | unverified |
-| `code-review`   | `local-command`  | `claude --model {reviewModel} -p "/code-review medium"` | unverified |
-| `ecc-review-pr` | `local-command`  | `claude --model {reviewModel} -p "/ecc:review-pr"`      | unverified |
+各プリセットは **定義**（`reviewers/<name>.json`）と
+**カード**（`reviewers/<name>.md`）で構成されます。
 
-`{reviewModel}` はコマンド実行前にローカルループが展開します。`--review-model` を指定していれば
-その値が利用され、指定がなければ `sonnet` が利用されます。
+| プリセット      | 実行コマンド                  | トリガー / コマンド                                     | severity | ステータス |
+| --------------- | ----------------------------- | ------------------------------------------------------- | -------- | ---------- |
+| `codex`         | `/revloop:remote-codex-loop`  | `@codex review`                                         | P1/P2/P3 | verified   |
+| `gemini`        | `/revloop:remote-gemini-loop` | `@gemini review` (カード参照)                           | P1/P2/P3 | verified   |
+| `claude`        | `/revloop:remote-claude-loop` | `@claude review`                                        | なし     | unverified |
+| `code-review`   | `/revloop:local-review-loop`  | `claude --model {reviewModel} -p "/code-review medium"` | なし     | unverified |
+| `ecc-review-pr` | `/revloop:local-ecc-loop`     | `claude --model {reviewModel} -p "/ecc:review-pr"`      | なし     | unverified |
 
-各[カード](reviewers/)には計測内容・計測日時・出典が記録されています。現時点で copilot
-(reviewer request でレビュー依頼)には対応していません。
+`{reviewModel}` はコマンド実行前にローカル手順書が展開します。`--model` を指定していればその値が、
+指定がなければ `sonnet` が利用されます。
+
+**独自のレビュアーを定義する場合も、定義とカードを作成します。**
+詳細は [`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md) を参照してください。
 
 ## 対応していないこと
 
 以下の点については課題が残っています。
 
-| 制限                                   | 理由                                                                                                                                                                                                       |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **fork では動かない**                  | PR が upstream 側にあるため、誤ったリポジトリを対象としてしまいます。両方のループが step 1 で abort します。ただしローカルループが abort するのは公開する場合のみで、fork では `--no-publish` を使います。 |
-| **同一リポジトリの topic branch のみ** | 1 ブランチにつき open PR 1 本が対象です。PR を検索するループがそれを同定できない場合は abort します。                                                                                                      |
-| **マージは merge commit のみ**         | squash と rebase は使えません。                                                                                                                                                                            |
-| **`copilot` 非対応**                   | コメントによるトリガーを持たず、reviewer-request 経路が未実装です。                                                                                                                                        |
-| **ローカルループはマージしない**       | 終着点は push 済みブランチと open PR、`--no-publish` の場合はコミットです。マージは別途行ってください。                                                                                                    |
+| 制限                                     | 理由                                                                                                                                                                     |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **fork では動かない**                    | PR が upstream 側にあるため、誤ったリポジトリを対象としてしまいます。両方のループが step 1 で abort します。ローカルループで `--no-publish` を指定すればループ可能です。 |
+| **同一リポジトリの topic branch のみ**   | 1 ブランチにつき open PR 1 本が対象です。PR を検索するループが同定できない場合は abort します。                                                                          |
+| **マージは merge commit のみ**           | squash と rebase は使えません。                                                                                                                                          |
+| **コメントトリガーを持たないレビュアー** | reviewer request で呼び出されるもの（GitHub Copilot が該当）はコメントを投稿しないため、ラウンドの基準点を固定する対象がなく、step 1 で abort します。                   |
+| **ローカルループはマージしない**         | 終着点は push 済みブランチと open PR、`--no-publish` の場合はコミットです。マージは別途行ってください。                                                                  |
 
 ## ドキュメント
 

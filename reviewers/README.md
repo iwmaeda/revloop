@@ -1,28 +1,45 @@
 # Reviewer presets
 
-One card per reviewer. A card records what was **measured**, when, and where — not what a vendor's
-documentation claims. Reviewer products change; a dated card makes staleness visible instead of
-silently false.
+**Two files per reviewer, and they answer different questions.**
+
+| File                    | What it is                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| `reviewers/<name>.json` | The **definition** — the configuration the loop loads, validated against `schema/reviewer.schema.json` |
+| `reviewers/<name>.md`   | The **card** — what was measured, when, and where                                                      |
+
+A card records what was **measured** — not what a vendor's documentation claims. Reviewer products
+change; a dated card makes staleness visible instead of silently false. **The definition is the
+configuration and the card is the record, and neither restates the other**: the definition used to sit
+inside the card as a fenced ` ```json ` block, which made the card two documents with one heading.
+
+**The file name is the name.** There is no `name` key, so there is nothing to drift from the file it
+sits in, and the stem must match `^[a-z0-9][a-z0-9-]*$` because the pull-request procedure writes it
+into the trigger marker as `reviewer=<name>`. `tests/schema.test.sh` asserts the pairing in both
+directions, so neither file ships alone.
+
+**A definition you write with `--config` is the same format**, read by the same loader. A built-in gets
+no special case; what it has in addition is a command naming it, and `tests/commands.test.sh` asserts
+that every shipped definition has exactly one.
 
 ## Kinds
 
-A reviewer is one of two kinds, and the two are driven by different commands. `kind` is absent from
-every card written before the second kind existed, and absent means `github-comment`.
+A reviewer is one of two kinds, and the two are driven by different command families. `kind` is absent
+from every definition written before the second kind existed, and absent means `github-comment`.
 
-| `kind`           | Driven by                 | How it is reached                                                   |
-| ---------------- | ------------------------- | ------------------------------------------------------------------- |
-| `github-comment` | `commands/remote-loop.md` | A trigger comment on a pull request, answered by a bot              |
-| `local-command`  | `commands/local-loop.md`  | A review command run on this machine, as a subprocess or as a skill |
+| `kind`           | Driven by                                                 | How it is reached                                                   |
+| ---------------- | --------------------------------------------------------- | ------------------------------------------------------------------- |
+| `github-comment` | the `remote-*` commands, over `procedures/remote-loop.md` | A trigger comment on a pull request, answered by a bot              |
+| `local-command`  | the `local-*` commands, over `procedures/local-loop.md`   | A review command run on this machine, as a subprocess or as a skill |
 
-The fields differ with the kind and the schema enforces the split: a `github-comment` card carries a
-`trigger`, a `botLogin` and a `markerTolerated`, and a `local-command` card carries an `invoke`, a
-`command` and a `requiresPr`. Neither may carry the other's — a `botLogin` on a local reviewer is a
-field nothing reads, which is the same defect as a config key with no consumer.
+The fields differ with the kind and the schema enforces the split: a `github-comment` definition
+carries a `trigger`, a `botLogin` and a `markerTolerated`, and a `local-command` one carries an
+`invoke`, a `command` and a `requiresPr`. Neither may carry the other's — a `botLogin` on a local
+reviewer is a field nothing reads, which is the same defect as a config key with no consumer.
 
-**A `local-command` card's `command` should carry `{reviewModel}` wherever the command takes a
-model.** The local loop expands it — to `--review-model` if it was typed, otherwise to the built-in
+**A `local-command` definition's `command` should carry `{reviewModel}` wherever the command takes a
+model.** The local procedure expands it — to `--model` if it was typed, otherwise to the built-in
 `sonnet` — so the card is where a reviewer declares that it _can_ be pinned. A card that omits it
-declares that it cannot, and `--review-model` then aborts against that reviewer rather than passing
+declares that it cannot, and `--model` then aborts against that reviewer rather than passing
 silently. **There is no `model` field**: the placeholder is in `command` for the same reason an effort
 argument is, and because the resolved value comes from the flag or the builtin and never from
 `.revloop.json`.
@@ -47,17 +64,17 @@ establishes that one reviewer's `P1` and another's `CRITICAL` describe the same 
 a separate key rather than an ordering folded into the ladder, and **a card states under
 `## Not measured` that its map is a judgement** — leaving it beside the ladder without saying so is
 the "looks measured" failure this page exists to prevent. A card omits the map when it has no ladder
-to map from, and **the abort a canonical level then reaches is `no-severity-ladder`** — about the
-missing ladder rather than the missing map, and the one `--grade-severity` is the way past. The map's
-own abort is for a card that has a ladder and no map, where deriving one from position would be the
-loop authoring a ladder one key over from where that is already forbidden.
+to map from, and **a canonical level against such a reviewer is then resolved by grading** rather than
+by an abort. The map's own abort is for a definition that has a ladder and no map, where deriving one
+from position would be the loop authoring a ladder one key over from where that is already forbidden.
 
-**Neither key is what `--grade-severity` reads.** That flag is for a reviewer with no ladder at all,
-and the rungs it produces come from a grader outside this loop rather than from a card. **It is not a
-card field and must not become one**: a card records what its reviewer emits, and a reviewer that
-emits no severity does not start emitting one because a flag was typed. What the card should say
-about it is what `code-review.md` says — that the absence is measured, and that the flag is the
-documented way past it.
+**Neither key is what the grader reads.** Grading is for a reviewer with no ladder at all, and the
+rungs it produces come from a subprocess outside this loop rather than from a definition. **It is not
+a definition field and must not become one**: a card records what its reviewer emits, and a reviewer
+that emits no severity does not start emitting one because a floor was typed. What a card should say
+about it is what `code-review.md` says — that the absence is measured, and that grading is what
+happens instead. **It was a flag until 0.7.0** (`--grade-severity`); it is now a consequence of the
+definition's shape, which is the same rule with nothing left to type.
 
 ## Status vocabulary
 

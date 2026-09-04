@@ -106,7 +106,8 @@ material the edit needs. Why the drop list cannot live in config is in
 ## Local command reviewers
 
 A reviewer that runs on your machine rather than on a pull request is `kind: "local-command"`, and it
-is driven by `/revloop:local-loop`. Nothing about it is measured on GitHub, so the checklist
+is driven by `/revloop:local-review-loop`, `/revloop:local-ecc-loop`, or `/revloop:local-custom-loop`
+with `--config`. Nothing about it is measured on GitHub, so the checklist
 above does not apply; this one does.
 
 | Question                                                          | Where the answer goes                                                              |
@@ -167,14 +168,20 @@ indistinguishable from a card that never declared one.
 model. Use `subprocess` with `{reviewModel}` in `command` unless the host forbids it.
 
 **Trap: a reviewer with no severity is normal, and the card should say so rather than invent one.**
-Leave `severityLevels` out, and `severityMap` with it. `--accept-at` then aborts against that reviewer
-with `no-severity-ladder`, which is the intended outcome; `--grade-severity` is the documented way
-past it, and it is a flag rather than a card field for a reason worth not working around. **A card
-records what its reviewer emits, and a reviewer does not start emitting severities because someone
-typed a flag** — so a card must never gain a `severityLevels` it did not measure in order to make the
-floor "work". [`../reviewers/code-review.md`](../reviewers/code-review.md) is the shipped example of
-doing this correctly: the absence is measured, stated in the header table, and the flag is named as
-the way around it.
+Leave `severityLevels` out, and `severityMap` with it. `--accept-at` against that reviewer is then
+resolved by **grading** — a separate subprocess estimates the rungs — which is the intended outcome.
+**A card records what its reviewer emits, and a reviewer does not start emitting severities because a
+floor was typed** — so a definition must never gain a `severityLevels` it did not measure in order to
+make the floor "work". [`../reviewers/code-review.md`](../reviewers/code-review.md) is the shipped
+example of doing this correctly: the absence is measured and stated, and grading is named as what
+happens instead.
+
+**Know what omitting it costs, because it is quieter than it used to be.** Before 0.7.0 the omission
+made `--accept-at` abort, and a second flag was needed to get past it. Now the omission silently
+selects grading, and **a graded convergence is a weaker result than a reported one** — the rungs are an
+estimate rather than the reviewer's own measurement. The run says so: step 1 prints `severity source`
+as `grader (<model>)` before the first round, and every graded rung is marked `graded`. Omit the ladder
+because the reviewer emits none, never to make a floor easier to satisfy.
 
 **Trap: the map is a judgement and the ladder is a measurement, and a card must not let the first
 borrow the second's authority.** `severityLevels` can be checked against the reviewer's output;
@@ -211,9 +218,17 @@ way**; it carries its own "not measured" section. See
 
 ## Reviewers with no comment trigger
 
-Not supported. Copilot is the example: it is summoned by adding it as a requested reviewer, and the
-procedure has only the comment path, so step 1 aborts with `reason=no-comment-trigger`. Its
-[card](../reviewers/copilot.md) is kept anyway.
+**Not supported, and the reason is the baseline rather than the trigger.** A reviewer summoned by
+adding it as a requested reviewer — GitHub Copilot is the example — posts no comment, so **there is
+nothing to anchor the round's baseline to**: the procedure marks its own trigger comment and reads the
+round's whole identity back out of that marker. With no comment there is no marker, and with no marker
+a verdict cannot be bound to a round. Step 1 aborts with `reason=no-comment-trigger`.
+
+**An earlier draft described a `triggerKind: reviewer-request` mode** that would post the marker as its
+own announcement comment and issue the request alongside it. That mode was never implemented, so its
+configuration keys were removed rather than left in the schema looking usable — which is why
+`verdictOn` and `ignoreCommentPatterns` are reject cases in `tests/schema.test.sh`. The design is still
+sound; it just is not written. Open an issue if you want it.
 
 ## Contributing the card
 
@@ -224,6 +239,6 @@ why a card written from documentation is worse than no card, are in
 
 ## Related docs
 
-- [Configuration](configuration.md#reviewers) — where the `reviewers` block sits in `.revloop.json`
+- [Configuration](configuration.md#reviewer-definitions) — the definition format and where it lives
 - [`../reviewers/`](../reviewers/) — the existing measurement cards, and the card format
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — the protocol for editing a fence
