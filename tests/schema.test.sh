@@ -159,6 +159,15 @@ reject "unknown project key"        '{"version":1,"project":{"verfy":["x"]}}'
 rreject "reviewer without botLogin" '{"trigger":"@a review"}'
 rreject "botLogin with a slash" '{"botLogin":"evil/../bot"}'
 rreject "trigger with a newline" '{"botLogin":"a[bot]","trigger":"@a review\nrm -rf /"}'
+# A github-comment reviewer with no trigger cannot be driven -- the procedure has
+# only the comment path -- so the schema now catches it rather than leaving it to
+# step 1's reason=no-comment-trigger abort.
+rreject "github-comment without trigger" '{"botLogin":"a[bot]"}'
+# The wait fence splits a comment's marker on the literal 'revloop:trigger ', so a
+# trigger carrying that literal collides with the fence's own marker parsing --
+# see the trap in procedures/remote-loop.md. Only the exact literal is banned, not
+# the word "trigger" on its own.
+rreject "trigger containing the literal marker key" '{"botLogin":"a[bot]","trigger":"see revloop:trigger below"}'
 reject "malformed timeout"          '{"version":1,"defaults":{"timeout":"30x"}}'
 reject "maxRounds below 1"          '{"version":1,"defaults":{"maxRounds":0}}'
 rreject "unknown markerTolerated" '{"botLogin":"a[bot]","markerTolerated":"maybe"}'
@@ -364,16 +373,19 @@ raccept() { # raccept <label> <reviewer-json>
 }
 
 accept "an empty object"                '{}'
-raccept "botLogin with the [bot] suffix" '{"botLogin":"a-reviewer[bot]"}'
-raccept "botLogin without the suffix" '{"botLogin":"a-reviewer"}'
+raccept "botLogin with the [bot] suffix" '{"botLogin":"a-reviewer[bot]","trigger":"@a review"}'
+raccept "botLogin without the suffix" '{"botLogin":"a-reviewer","trigger":"@a review"}'
 accept "a null baseBranch"              '{"version":1,"project":{"baseBranch":null}}'
 
 # kind is absent from every configuration written before it existed, and those
 # must keep meaning what they meant. The default is github-comment, so the
 # else branch is what an absent kind reaches — which is why the first case here
 # is the back-compatibility test and not a curiosity.
-raccept "a reviewer with no kind at all" '{"botLogin":"a[bot]"}'
-raccept "an explicit github-comment kind" '{"kind":"github-comment","botLogin":"a[bot]"}'
+raccept "a reviewer with no kind at all" '{"botLogin":"a[bot]","trigger":"@a review"}'
+raccept "an explicit github-comment kind" '{"kind":"github-comment","botLogin":"a[bot]","trigger":"@a review"}'
+# Only the exact literal 'revloop:trigger' is banned, not the word "trigger" on
+# its own -- this pins that the fix above is not overbroad.
+raccept "a trigger that just mentions the word trigger" '{"botLogin":"a[bot]","trigger":"@a review triggers a run"}'
 raccept "a skill-invoked local reviewer" '{"kind":"local-command","invoke":"skill","command":"ecc:review-pr","severityLevels":["CRITICAL","HIGH","MEDIUM","LOW"],"requiresPr":true}'
 raccept "a subprocess local reviewer" '{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review medium\""}'
 raccept "a local reviewer with no ladder" '{"kind":"local-command","invoke":"subprocess","command":"claude -p x"}'
@@ -410,7 +422,7 @@ raccept "a subprocess command, unpinned" '{"kind":"local-command","invoke":"subp
 # rungs are the only values it may name. The identity case is not a curiosity:
 # ecc-review-pr emits the canonical words already and still ships a map, because
 # --accept-at reaches the canonical pass only when a map exists.
-raccept "a github reviewer with a map" '{"botLogin":"a[bot]","severityLevels":["P1","P2","P3"],"severityMap":{"P1":"critical","P2":"high","P3":"low"}}'
+raccept "a github reviewer with a map" '{"botLogin":"a[bot]","trigger":"@a review","severityLevels":["P1","P2","P3"],"severityMap":{"P1":"critical","P2":"high","P3":"low"}}'
 raccept "a local reviewer with a map" '{"kind":"local-command","invoke":"subprocess","command":"claude -p x","severityLevels":["CRITICAL","HIGH","MEDIUM","LOW"],"severityMap":{"CRITICAL":"critical","HIGH":"high","MEDIUM":"medium","LOW":"low"}}'
 
 # The key that crossed. Both shipped local presets now carry one, so this pins the
@@ -418,13 +430,13 @@ raccept "a local reviewer with a map" '{"kind":"local-command","invoke":"subproc
 # sibling did not cross with it. Without both, "the kinds are separate" and "the
 # kinds share everything" look identical from the test suite.
 raccept "a local reviewer with a rate limit" '{"kind":"local-command","invoke":"subprocess","command":"claude -p x","rateLimitPatterns":["out of quota"]}'
-raccept "a github reviewer with one too" '{"botLogin":"a[bot]","rateLimitPatterns":["quota exceeded"]}'
+raccept "a github reviewer with one too" '{"botLogin":"a[bot]","trigger":"@a review","rateLimitPatterns":["quota exceeded"]}'
 
 # A five-rung ladder cannot reach four canonical rungs without two rungs sharing
 # one, so MERGING is not the defect step 1 rejects -- collapsing every rung onto
 # ONE is. The schema can tell neither apart, which is why the check is in step 1;
 # this case pins that the schema does not pre-empt the legal half of it either.
 # Nothing else here pins a ladder longer than the canonical one at all.
-raccept "a five-rung ladder sharing a rung" '{"botLogin":"a[bot]","severityLevels":["S0","S1","S2","S3","S4"],"severityMap":{"S0":"critical","S1":"high","S2":"high","S3":"medium","S4":"low"}}'
+raccept "a five-rung ladder sharing a rung" '{"botLogin":"a[bot]","trigger":"@a review","severityLevels":["S0","S1","S2","S3","S4"],"severityMap":{"S0":"critical","S1":"high","S2":"high","S3":"medium","S4":"low"}}'
 
 summary "schema"

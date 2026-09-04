@@ -12,7 +12,7 @@ what it needs. The [schema](../schema/revloop.schema.json) is machine-readable a
     "verify": ["npm run check:all", "npm test"],
     "verifyNotes": "check:all does not run the tests; CI splits them into two jobs"
   },
-  "defaults": { "reviewer": "codex", "maxRounds": 12 }
+  "defaults": { "maxRounds": 12 }
 }
 ```
 

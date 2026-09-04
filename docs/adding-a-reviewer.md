@@ -51,30 +51,35 @@ reports "unrecognized bot body" and aborts a clean round.
 **Trap:** write `botLogin` with the `[bot]` suffix. GraphQL returns `author.login` without it; REST and
 almost all documentation include it. revloop strips it before comparing.
 
-## Write the card
+## Write the definition
 
-In `.revloop.json`:
+Reviewers are standalone files, not a block inside `.revloop.json` — that map was removed in 0.7.0
+along with the `--reviewer` flag it fed. Create `reviewers/acme.json` for a reviewer you intend to
+ship, or any path for one you drive with `--config`; the format and the loader are the same either
+way, validated against [`../schema/reviewer.schema.json`](../schema/reviewer.schema.json):
 
 ```json
 {
-  "version": 1,
-  "defaults": { "reviewer": "acme" },
-  "reviewers": {
-    "acme": {
-      "displayName": "Acme Reviewer",
-      "trigger": "@acme review",
-      "botLogin": "acme-reviewer[bot]",
-      "cleanPatterns": ["^Acme Review: no issues found"],
-      "rateLimitPatterns": ["quota exceeded"],
-      "severityLevels": ["blocker", "major", "minor"],
-      "severityMap": { "blocker": "critical", "major": "high", "minor": "low" },
-      "expectedLatency": "2-8m",
-      "markerTolerated": "unverified",
-      "status": "unverified"
-    }
-  }
+  "$schema": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/reviewer.schema.json",
+  "displayName": "Acme Reviewer",
+  "trigger": "@acme review",
+  "botLogin": "acme-reviewer[bot]",
+  "cleanPatterns": ["^Acme Review: no issues found"],
+  "rateLimitPatterns": ["quota exceeded"],
+  "severityLevels": ["blocker", "major", "minor"],
+  "severityMap": { "blocker": "critical", "major": "high", "minor": "low" },
+  "expectedLatency": "2-8m",
+  "markerTolerated": "unverified",
+  "status": "unverified"
 }
 ```
+
+**The file name is the name.** There is no `name` key, so there is nothing to drift from the file it
+sits in — `tests/schema.test.sh` validates this shape and `tests/commands.test.sh` asserts every
+shipped definition under `reviewers/` is driven by exactly one command. See
+[Configuration → Reviewer definitions](configuration.md#reviewer-definitions) for the full field
+reference, and [`../examples/reviewer.custom.json`](../examples/reviewer.custom.json) for another
+instance of the same shape.
 
 ## Check the marker is tolerated
 
