@@ -79,9 +79,9 @@ a fork, so the branches are your own.
 `worktree-teardown` fence runs `git worktree remove --force`, so the sentence above — that neither
 procedure ever constructs a `--force` — is about pushes and about nothing else. What bounds the
 removal is not the permission system either: **two conditions have to hold together.** The path must
-be a line in `.revloop/worktrees.txt` at your checkout's top level, which is where step 3 records
-every worktree it creates; and its last component must begin with `revloop-wt-`, the name step 3
-requires. The ledger is what says the worktree is this run's — `git worktree list` answers for the
+be a line in `revloop/worktrees.txt` inside your checkout's own git directory, which is where step 3
+records every worktree it creates; and its last component must begin with `revloop-wt-`, the name
+step 3 requires. The ledger is what says the worktree is this run's — `git worktree list` answers for the
 whole repository, so a loop running beside yours would otherwise be inside the same match, and it
 writes its own file in its own checkout instead. The name is the second bound, held back for the
 ledger's bad day. Anything of that name the ledger does not claim is reported as `WORKTREE=other` and
@@ -298,9 +298,13 @@ per run — at a convergence, at a merge, and before every abort's report — so
 is one prompt the first time and none afterwards. It takes no arguments for exactly the reason the
 wait scripts take none: a fence handed the path it should remove would be a different command string
 every session, and "always allow" would never apply to it. **The path it needs is on disk rather than
-in its bytes** — step 3 wrote it to `.revloop/worktrees.txt`, and the fence resolves that file from
-`git rev-parse --show-toplevel`, so it scopes itself to the checkout it is running in and its text
-still never varies.
+in its bytes** — step 3 wrote it to `revloop/worktrees.txt` inside the checkout's own git directory,
+and the fence resolves that file from `git rev-parse --absolute-git-dir`, so it scopes itself to the
+checkout it is running in and its text still never varies. **That directory rather than the working
+tree**, because revloop runs against your repository and a ledger in your tree would be an untracked
+file in it — measured at `git 2.34.1`, one that both `git status --porcelain -uall` and
+`git ls-files -o --exclude-standard` return, and that `git add -A` would stage. Under the git
+directory all three return nothing.
 
 **Adding one costs every user one approval the first time the new string runs, which is not the same
 event as a re-approval** — nothing they granted has been invalidated. This release is the first time

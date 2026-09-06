@@ -99,14 +99,20 @@ prefix**, and that single fact shapes three decisions:
   removes the worktrees a run created, and the obvious way to tell it which is to hand it the path —
   which is a session-specific string, so the fence would change every session and be prompted for
   every session. **So the path is written down where the fence can find it with no argument**: step 3
-  appends it to `.revloop/worktrees.txt` at the checkout's top level, and the fence resolves that
-  location from `git rev-parse --show-toplevel`. The bytes are identical every session and resolve to
-  a different checkout's record in a different checkout, which is the same trick `wait-verdict` plays
-  on the branch and the pull request. **The identity could not be derived instead of recorded**, and
-  the attempt is worth keeping: `revloop-wt-$PPID-` in the name looked like a run id the shell hands
-  over for free, until it turned out that a harness routing every Bash call through one app-server
-  gives two concurrent runs the same parent. A recorded path has no such dependency. The permission
-  rule shaped the design, rather than the design being fitted to a rule afterwards.
+  appends it to `revloop/worktrees.txt` inside the checkout's own git directory, and the fence
+  resolves that location from `git rev-parse --absolute-git-dir`. The bytes are identical every
+  session and resolve to a different checkout's record in a different checkout, which is the same
+  trick `wait-verdict` plays on the branch and the pull request. **`--absolute-git-dir` and not
+  `--git-common-dir`**: the common dir is shared by every linked worktree of a repository, so it
+  would put two concurrently running loops back in one ledger — the failure the run id was replaced
+  to fix. **And the git directory rather than the working tree**, because revloop runs against
+  somebody else's repository, where a top-level record is an untracked file this project's
+  `.gitignore` cannot reach and the loop's own clean-tree check would return. **The identity could
+  not be derived instead of recorded**, and the attempt is worth keeping: `revloop-wt-$PPID-` in the
+  name looked like a run id the shell hands over for free, until it turned out that a harness
+  routing every Bash call through one app-server gives two concurrent runs the same parent. A
+  recorded path has no such dependency. The permission rule shaped the design, rather than the
+  design being fitted to a rule afterwards.
 
 **That is also why the fences are inline rather than shipped as scripts and called by path.** Behind a
 path the command string never changes while the file behind it does, so a plugin update could ship new
@@ -409,10 +415,20 @@ Three rules make that safe: never read them as input to a classification (they a
 upstreaming into `reviewers/*.md`); never stage them (`.revloop/` is git-ignored, and step 4's
 explicit-staging rule keeps it out of commits anyway); and cap them at 500 lines, rotated.
 
-The same directory holds `.revloop/worktrees.txt`, one line per git worktree a run creates, which is
-how the teardown fence knows which worktrees are its own. It is git-ignored on the same rule, never
-staged on the same rule, and never read as input to a classification on the same rule — the only
-thing it decides is which directory the sweep may delete.
+**The worktree ledger is not in that directory, and the difference is the audience.** A run records
+each git worktree it creates in `revloop/worktrees.txt` inside the checkout's own git directory —
+`.git/revloop/` in an ordinary checkout, `.git/worktrees/<name>/revloop/` in a linked one — which is
+how the teardown fence knows which worktrees are its own. Field notes are for a person to find and
+upstream, so they live in the tree and pay for it; the ledger is read by a fence and by nothing else,
+so it lives where **no `git status`, `git ls-files -o`, `git add -A` or `git clean -xdf` can reach
+it** and needs no ignore rule in the repository the loop is running against. The third rule still
+holds and is the only one that had to be argued: it is never read as input to a classification — the
+only thing it decides is which directory the sweep may delete.
+
+**The other two files keep the cost, deliberately.** `.revloop/field-notes.md` and
+`.revloop/grading-input.txt` are untracked files in a repository that does not ignore `.revloop/`,
+and moving them under the git directory would hide the one artifact whose whole purpose is to be
+found later by a human.
 
 A project's `.revloop/` is unrelated to `~/.revloop`, the clone path the Codex install suggests.
 

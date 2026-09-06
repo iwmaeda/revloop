@@ -364,7 +364,7 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    running its tests, at another commit. When that is what you need:
 
    ```bash
-   D=$(git rev-parse --show-toplevel)/.revloop
+   D=$(git rev-parse --absolute-git-dir)/revloop
    git worktree add --detach "<scratch>/revloop-wt-<slug>" <commit-ish> \
      && mkdir -p "$D" \
      && git -C "<scratch>/revloop-wt-<slug>" rev-parse --show-toplevel >> "$D/worktrees.txt"
@@ -377,11 +377,24 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    from the checkout you are working in. Remove it yourself when the measurement is done if you like;
    step 12 removes whatever is left, on every path there is.
 
-   **Then the path is appended to `.revloop/worktrees.txt`, and that file — not the name — is what
-   says the worktree is yours.** `git worktree list` answers for the whole repository, so a second
-   loop running against it at the same time is in the same list; the ledger sits at **this checkout's
-   own top level**, so two runs are never in each other's ledger. `## Notes` says why the record has
-   to be a file rather than something the fence re-derives.
+   **Then the path is appended to `revloop/worktrees.txt` under this checkout's own git directory,
+   and that file — not the name — is what says the worktree is yours.** `git worktree list` answers
+   for the whole repository, so a second loop running against it at the same time is in the same
+   list; the ledger sits **inside the git directory `git rev-parse --absolute-git-dir` prints here**,
+   which is `.git` in an ordinary checkout and `.git/worktrees/<name>` in a linked one, so two runs
+   are never in each other's ledger. `## Notes` says why the record has to be a file rather than
+   something the fence re-derives, and why it is that directory rather than the working tree.
+
+   **The ledger is not a file in the tree, and that is the point rather than a detail.** revloop runs
+   against **your** repository, not this one, so a record at the checkout's top level would be an
+   untracked file in it and no `.gitignore` shipped here would reach it — measured at
+   `git 2.34.1`, `.revloop/worktrees.txt` in a repository that does not ignore it comes back from
+   both `git status --porcelain -uall` and `git ls-files -o --exclude-standard`, which are the two
+   commands this very step runs. The same measurement under the git directory returns **nothing from
+   either**. So the clean-tree requirement below is unaffected by a measurement worktree, the
+   secret-scan read above never sees the ledger, and **"never stage it" stops being a rule you follow
+   and becomes a property of where it lives**: `git add -A` cannot reach inside `$GIT_DIR`, and
+   `git clean -xdf` leaves it alone.
 
    **`git` is asked for the path rather than the shell, and the reason is that step 12 matches whole
    lines.** `rev-parse --show-toplevel` run from inside the new worktree prints the same string
@@ -1310,7 +1323,8 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     L=$(git worktree list --porcelain 2>/dev/null) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
     HERE=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
     case "${HERE##*/}" in revloop-wt-?*) echo "WORKTREE=error reason=inside-worktree path=$HERE"; exit 0 ;; esac
-    M=$(cat "$HERE/.revloop/worktrees.txt" 2>/dev/null) || M=
+    G=$(git rev-parse --absolute-git-dir 2>/dev/null) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
+    M=$(cat "$G/revloop/worktrees.txt" 2>/dev/null) || M=
     R=0; S=0; O=0
     while IFS= read -r l; do
       case "$l" in "worktree "*) p=${l#worktree } ;; *) continue ;; esac
@@ -1354,14 +1368,17 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     is the defect this fence exists for.
 
     **`WORKTREE=error reason=inside-worktree` is the second failure the fence names for itself, and
-    it refuses the whole sweep rather than one entry.** The ledger is read from the top level the
-    fence is standing in, so a fence run from inside a measurement worktree reads **that** worktree's
-    top level and finds no ledger there — every one of the run's own worktrees would come back as
-    somebody else's and the terminal line would claim a clean sweep over a repository whose record
-    the fence never opened. **A false `swept` is worse than no sweep**, so the fence names the
-    condition and removes nothing. It also disarms a measured hazard on the way past: at
-    `git 2.34.1`, `remove --force` deletes the worktree the shell is standing in and takes the
-    shell's working directory with it, exiting 0. **Step 12 is run from the checkout**, and this line
+    it refuses the whole sweep rather than one entry.** The ledger is read from the git directory of
+    the checkout the fence is standing in, and **a linked worktree has its own** — measured at
+    `git 2.34.1`, `--absolute-git-dir` prints `.git/worktrees/<name>` from inside one. That is
+    exactly what makes the record per checkout, and it is exactly what goes wrong here: a fence run
+    from inside a measurement worktree reads **that** worktree's git directory and finds no ledger
+    there — every one of the run's own worktrees would come back as somebody else's and the terminal
+    line would claim a clean sweep over a repository whose record the fence never opened.
+    **A false `swept` is worse than no sweep**, so the fence names the condition and removes
+    nothing. It also disarms a measured hazard on the way past: at `git 2.34.1`, `remove --force`
+    deletes the worktree the shell is standing in and takes the shell's working directory with it,
+    exiting 0. **Step 12 is run from the checkout**, and this line
     is what says so out loud when it was not.
 
     **`WORKTREE=other` is a worktree carrying this family's name that this checkout's ledger does not
@@ -1369,10 +1386,12 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     repository, so a second loop running against it at the same time has its worktrees in this list;
     **a sweep bounded by the name alone would force-remove the measurement another run is standing
     in.** The ledger is what draws the line instead, and it draws it **per checkout**: two runs
-    working in two checkouts of one repository write two different files, whatever process started
-    them and whatever that process's children share. Measured against a real repository — a second
-    checkout's dirty measurement worktree kept its directory and its registration while the sweeping
-    run's own was force-removed, `WORKTREE=swept removed=1 other=1`.
+    working in two checkouts of one repository write two different files — `.git/revloop` for the
+    ordinary checkout and `.git/worktrees/<name>/revloop` for a linked one, which is what
+    `--absolute-git-dir` prints in each — whatever process started them and whatever that process's
+    children share. Measured against a real repository — a second checkout's dirty measurement
+    worktree kept its directory and its registration while the sweeping run's own was force-removed,
+    `WORKTREE=swept removed=1 other=1`.
 
     **What `other` no longer means is "not mine, therefore nobody's".** A leftover from a run that
     crashed before step 12 is still in **its own** checkout's ledger, so the next run there sweeps
@@ -1396,7 +1415,7 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     `remove` refuses on any of them — measured at `git 2.34.1`, one untracked file is enough for
     `contains modified or untracked files, use --force to delete it` at exit 128. **A teardown that
     refuses on the ordinary case is not one.** What bounds it is **two conditions that must both
-    hold**: the path is a line in this checkout's `.revloop/worktrees.txt`, and its last component
+    hold**: the path is a line in this checkout's `revloop/worktrees.txt`, and its last component
     begins with `revloop-wt-`. The ledger is what makes a worktree this run's; **the name is the
     second bound, and it is there for the ledger's bad day** — a truncated, hand-edited or
     half-written file still cannot point this `--force` at a worktree outside the family. `## Notes`
@@ -1894,17 +1913,35 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   a shell call, independent calls can share one app-server as their parent, so two runs handled by
   that server expand `$PPID` to the same number and each would claim the other's worktrees. **A
   harness's session id is worse, not better** — it is one variable under one entry point, absent
-  from the other. So the path is appended to **`.revloop/worktrees.txt` at the checkout's top
-  level**, and the fence derives that location from `git rev-parse --show-toplevel` with no argument
-  and no session state, which is what keeps its bytes identical and its one approval standing.
-- **The ledger is per checkout, and per checkout is the right grain.** `git worktree list` answers
-  for the whole repository and every linked worktree of it shares one common git dir, so two loops
-  running against the same repository at the same time are in each other's list — but they are
-  working in **two different checkouts**, because a loop needs its own HEAD, index and branch, and
-  two of them in one working tree is not a configuration this procedure survives for reasons that
-  have nothing to do with worktrees. So the ledger separates exactly the runs that can coexist, and
-  the residue is a case that was already broken. **The name is kept as a second bound**: the fence
-  removes a recorded path only if its last component also begins with `revloop-wt-`, so a
+  from the other. So the path is appended to **`revloop/worktrees.txt` inside this checkout's own
+  git directory**, and the fence derives that location from `git rev-parse --absolute-git-dir` with
+  no argument and no session state, which is what keeps its bytes identical and its one approval
+  standing.
+- **The record is under the git directory rather than in the tree, because this procedure runs in
+  somebody else's repository.** The first working design put it at the checkout's top level, and a
+  top-level file is an untracked file in every repository revloop is installed into — where this
+  repository's `.gitignore` has no reach. Two of the commands in step 3 would then read it:
+  measured at `git 2.34.1`, `.revloop/worktrees.txt` in a repository that does not ignore it is
+  returned by both `git status --porcelain -uall`, which step 4's clean-tree requirement depends on,
+  and `git ls-files -o --exclude-standard`, which is the secret-scan preflight. Under the git
+  directory both return nothing. **The gain is not only that the file is hidden**: `git add -A`
+  cannot reach inside `$GIT_DIR` and `git clean -xdf` does not touch it, so "never stage the
+  ledger" stops being a rule an operator can break and becomes a property of the location. The field
+  notes and the grading input **stay in the tree on purpose** and keep the cost — they are artifacts
+  for a person to find, and a record for a person is worthless where only a fence looks.
+- **The ledger is per checkout, and per checkout is the right grain — which is why it is
+  `--absolute-git-dir` and not `--git-common-dir`.** `git worktree list` answers for the whole
+  repository and every linked worktree of it shares one **common** git dir, so two loops running
+  against the same repository at the same time are in each other's list — but they are working in
+  **two different checkouts**, because a loop needs its own HEAD, index and branch, and two of them
+  in one working tree is not a configuration this procedure survives for reasons that have nothing
+  to do with worktrees. A checkout's **own** git dir is per worktree where the common one is not:
+  measured at `git 2.34.1`, `--absolute-git-dir` prints `<repo>/.git` in an ordinary checkout and
+  `<repo>/.git/worktrees/<name>` in a linked one, while `--git-common-dir` prints the same path in
+  both. **`--git-common-dir` would have merged the two runs into one ledger**, which is the failure
+  the previous round was spent removing. So the ledger separates exactly the runs that can coexist,
+  and the residue is a case that was already broken. **The name is kept as a second bound**: the
+  fence removes a recorded path only if its last component also begins with `revloop-wt-`, so a
   half-written or hand-edited ledger cannot aim an unconditional `--force` outside the family.
 - **Three parts of step 3's rule, and only one of them is mechanical.** The **name** is matched by
   the fence and `tests/fence-worktree.test.sh` holds it there. The **placement** under the scratchpad
@@ -1997,21 +2034,31 @@ takes one of these should say so in the report:
   into a schema is only as strong as what reads the schema**, and here that is a person or an agent
   rather than a process.
 - **Step 12's worktree teardown. The fence is exercised; the rule it depends on is not.**
-  `tests/fence-worktree.test.sh` drives every branch of it against throwaway repositories — a
-  removal, a refusal, a run that owns nothing, a run outside a repository, a run standing inside the
-  worktree it would otherwise delete, a run whose ledger is missing, and two checkouts of one
-  repository sweeping past each other — and each of its loadbearing behaviours has been shown to
-  fail the suite when removed. **No loop has run it**, and **no worktree has ever been created under
-  step 3's rule at all**: the five leftovers that motivated it were called `rev36`, `main-wt`, `wt`,
-  `wt-check` and `wt-check2`, and none of them was ever recorded anywhere. So what is measured is the
-  sweep; what is unmeasured is **whether step 3's ledger line gets written**, which is the half that
-  decides whether there is anything to sweep. **It fails open** — a worktree created without its
-  record is left behind exactly as it is today, under a procedure that now says it cleans up, and the
-  report cannot say so because the fence never saw it.
+  `tests/fence-worktree.test.sh` drives every branch of it against eight throwaway repositories — a
+  removal, a refusal, a run that owns nothing, a run outside a repository, a bare repository, a run
+  standing inside the worktree it would otherwise delete, a run whose ledger is missing, two
+  checkouts of one repository sweeping past each other, and one that places its worktree where step
+  3 actually says to — and each of its loadbearing behaviours has been shown to fail the suite when
+  removed: the ledger membership check turns **15** red, the `revloop-wt-` match **9**, the
+  `--force` **6**, the `swept`/`partial` split **8**, and each of the `inside-worktree` and
+  `--show-toplevel` guards **2**. **Deriving the ledger's directory from `--git-common-dir` instead
+  turns 16 red**, "the other checkout keeps its directory" among them, which is the measurement
+  behind that rejection rather than an argument for it. **No loop has run it**, and **no worktree
+  has ever been created under step 3's rule at all**: the five leftovers that motivated it were
+  called `rev36`, `main-wt`, `wt`, `wt-check` and `wt-check2`, and none of them was ever recorded
+  anywhere. So what is measured is the sweep; what is unmeasured
+  is **whether step 3's ledger line gets written**, which is the half that decides whether there is
+  anything to sweep. **It fails open** — a worktree created without its record is left behind
+  exactly as it is today, under a procedure that now says it cleans up, and the report cannot say so
+  because the fence never saw it.
+
 - **Two checkouts are measured; two live loops are not.** Against a real repository with a second
-  checkout, each holding its own ledger: the sweeping run's worktree was force-removed with its
-  untracked file, the other checkout's dirty measurement kept its directory and its registration,
-  and the terminal line read `WORKTREE=swept removed=1 other=1`. **That is a hand-run measurement of
+  checkout, each holding its own ledger — `.git/revloop/worktrees.txt` and
+  `.git/worktrees/second/revloop/worktrees.txt`, two files at two paths: the sweeping run's worktree
+  was force-removed with its untracked file, the other checkout's dirty measurement kept its
+  directory and its registration, and the terminal line read `WORKTREE=swept removed=1 other=1`.
+  **Both checkouts were clean before the sweep and after it** — `git status --porcelain -uall`
+  returned nothing in either, which is the whole reason the ledger is where it is. **That is a hand-run measurement of
   the separation, not of the race** — what nobody has watched is two loops finishing minutes apart,
   and the ledger's whole claim is that the interleaving cannot matter because neither writes the
   other's file.
@@ -2024,14 +2071,20 @@ takes one of these should say so in the report:
   case where a typed path and a recorded one come apart. **One version, one filesystem** — a git that
   recorded the unresolved path would leave the run's own worktree named as `other`, which is the safe
   direction but still a leftover.
-- **One guard in the fence is held by argument rather than by a fixture.**
-  `WORKTREE=error reason=not-a-repo` is printed from two places — a failing
-  `git worktree list` and a failing `rev-parse --show-toplevel` — and no state has been found that
-  separates them in the direction that matters. Outside a repository both fail; in a bare repository
-  only the second does, which is the case `tests/fence-worktree.test.sh` pins. **So the guard on the
-  list is the one line in this fence that can be deleted with the suite still green**, and it stays
-  on the reasoning rather than the measurement: a `list` that fails prints no rows, and the loop
-  behind it would then remove nothing and print a clean sweep over a repository it never read.
+- **Two guards in the fence are held by argument rather than by a fixture, and moving the ledger
+  added the second.** `WORKTREE=error reason=not-a-repo` is now printed from **three** places — a
+  failing `git worktree list`, a failing `rev-parse --show-toplevel`, and a failing
+  `rev-parse --absolute-git-dir` — and only one state has been found that separates any of them.
+  Outside a repository all three fail together; in a bare repository **only `--show-toplevel` does**,
+  measured at `git 2.34.1`, which is the case `tests/fence-worktree.test.sh` pins. **So the guards on
+  the list and on `--absolute-git-dir` are the two lines in this fence that can be deleted with the
+  suite still green.** The list guard stays on the reasoning it always did: a `list` that fails
+  prints no rows, and the loop behind it would then remove nothing and print a clean sweep over a
+  repository it never read. The `--absolute-git-dir` guard is weaker still — `--show-toplevel`
+  succeeded two lines above it, so **no reachable state has been found in which it fires at all** —
+  and it is there because the alternative is `cat "/revloop/worktrees.txt"`, an empty ledger, and a
+  `swept` line over a record that was never opened. **A guard that is unreachable today is cheaper
+  than a false `swept` tomorrow**, and this bullet is what stops that being a coverage claim.
 - **`WORKTREE=stuck`, from a run.** The test produces one deterministically with `git worktree lock`,
   which is a stand-in: what a run would actually hit is a permission error or a filesystem that will
   not release the directory. What is pinned is that a refusal becomes a named line and a `partial`
@@ -2042,8 +2095,10 @@ takes one of these should say so in the report:
   permission prompt — the cost [`../docs/permissions.md`](../docs/permissions.md) now counts as a
   fourth string class, and the one an `--auto` run cannot suppress — is reasoned rather than
   observed.
-- **The git floor is read from documentation and not measured.** `worktree remove` is 2.17 (2018)
-  and `worktree list --porcelain` is 2.7. The one machine this has run on carries 2.34.1, so **the
+- **The git floor is read from documentation and not measured.** `worktree remove` is 2.17 (2018),
+  `worktree list --porcelain` is 2.7, and `rev-parse --absolute-git-dir` is 2.13 (2017) — **the
+  ledger's move under the git directory did not raise the floor**, because `worktree remove` was
+  already above it. The one machine this has run on carries 2.34.1, so **the
   floor is an assumption in exactly the way the `gh 2.4.0` floor is not** — and what _was_ measured
   there is narrower than it looks: that `remove --force` deregisters a worktree whose directory is
   gone is a 2.34.1 observation, and it is the whole argument for this fence carrying no prune. A

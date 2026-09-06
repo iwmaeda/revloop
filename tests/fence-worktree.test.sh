@@ -10,11 +10,21 @@
 # is the one this file exists for.
 #
 # THE BOUND IS TWO CONDITIONS, AND BOTH ARE FIXTURED SEPARATELY. A path is swept
-# only if it is a line in `<top level>/.revloop/worktrees.txt` AND its last
-# component begins with `revloop-wt-`. The ledger is what says a worktree is this
-# run's; the name is the second bound, held back for the ledger's bad day, so the
-# ordinary repository below deliberately records a worktree of another name and
-# asserts that recording it was not enough.
+# only if it is a line in `<git dir>/revloop/worktrees.txt` AND its last component
+# begins with `revloop-wt-`. The ledger is what says a worktree is this run's; the
+# name is the second bound, held back for the ledger's bad day, so the ordinary
+# repository below deliberately records a worktree of another name and asserts
+# that recording it was not enough.
+#
+# THE LEDGER LIVES UNDER THE GIT DIRECTORY, NOT AT THE TOP LEVEL, and one fixture
+# exists solely for that. revloop runs against somebody else's repository, where
+# this project's .gitignore has no reach, so a record in the working tree is an
+# untracked file that `git status --porcelain -uall` returns -- which is the
+# clean-tree check the local procedure's step 4 depends on. `<git dir>` is also
+# still per checkout, which is the property the previous design needed: measured
+# at git 2.34.1, `rev-parse --absolute-git-dir` prints `.git` in an ordinary
+# checkout and `.git/worktrees/<name>` in a linked one. `--git-common-dir` prints
+# the same path in both and would have merged the two runs into one ledger.
 #
 # OWNERSHIP IS A FILE THE TEST WRITES, which is the whole reason this file no
 # longer contains any process-identity machinery. The rule it replaced put the
@@ -32,14 +42,17 @@
 # `git worktree remove --force` one recorded line away from a developer's own
 # tree.
 #
-# SIX REPOSITORIES, BECAUSE THE OUTCOMES CANNOT SHARE ONE. The ordinary sweep
+# EIGHT REPOSITORIES, BECAUSE THE OUTCOMES CANNOT SHARE ONE. The ordinary sweep
 # must print no `stuck` at all, so the worktree that produces one cannot stand in
 # the same repository as that assertion; the no-prune case must hold a stale
 # registration and NO worktree of the run's own, since the claim is about what
 # the fence does when it owns nothing; the guards need a repository that is not
 # one, and a cwd inside a worktree the fence would otherwise delete; the
-# two-checkout case needs a repository with two of them; and the fail-open case
-# needs a family-named worktree with no ledger anywhere.
+# two-checkout case needs a repository with two of them; the fail-open case
+# needs a family-named worktree with no ledger anywhere; and the clean-tree case
+# needs the one repository whose worktree is placed where step 3 actually says to
+# put it -- outside the checkout -- because a worktree inside the checkout is
+# itself untracked and would mask the assertion.
 #
 # lib.sh's run_fence IS DELIBERATELY NOT USED. It builds its own throwaway
 # repository, which this file has to pre-populate with worktrees, and it puts
@@ -47,14 +60,19 @@
 # exercises a no-branch guard that this fence does not have, because it resolves
 # no pull request. Neither absence is an oversight.
 #
-# ONE GUARD IN THE FENCE IS NOT INDEPENDENTLY OBSERVABLE, and this file cannot
-# fix that. `WORKTREE=error reason=not-a-repo` is printed from two places: a
-# failing `git worktree list` and a failing `rev-parse --show-toplevel`. Outside
-# a repository both fail, and in a bare repository only the second does -- so the
-# fixtures below kill the second and no fixture kills the first. It stays because
-# a `worktree list` that fails prints no rows, and an unguarded loop would then
-# remove nothing and print a clean sweep over a repository it never read.
-# `## Unexercised paths` in remote-loop.md records the gap rather than hiding it.
+# TWO GUARDS IN THE FENCE ARE NOT INDEPENDENTLY OBSERVABLE, and this file cannot
+# fix that. `WORKTREE=error reason=not-a-repo` is printed from three places: a
+# failing `git worktree list`, a failing `rev-parse --show-toplevel`, and a
+# failing `rev-parse --absolute-git-dir`. Outside a repository all three fail
+# together, and in a bare repository only `--show-toplevel` does -- so the
+# fixtures below kill that one and no fixture kills the other two. The list guard
+# stays because a `worktree list` that fails prints no rows, and an unguarded loop
+# would then remove nothing and print a clean sweep over a repository it never
+# read. The `--absolute-git-dir` guard is weaker again: `--show-toplevel` has
+# already succeeded above it, so no reachable state has been found where it fires
+# at all, and it is there because the alternative is an empty ledger and a `swept`
+# line over a record nothing opened. `## Unexercised paths` in remote-loop.md
+# records both gaps rather than hiding them.
 #
 # `git worktree lock` IS HOW `stuck` IS REACHED, and it is a stand-in rather than
 # the real case. What a run would actually hit is a permission error or a
@@ -102,10 +120,18 @@ new_repo() { # new_repo <name> -> path
 # `git worktree list --porcelain` prints, and git resolves the path it records.
 # Recording a worktree therefore has to happen while its directory still exists,
 # which is why the `-gone` fixtures are recorded before they are deleted.
+#
+# THE LEDGER'S DIRECTORY IS ASKED OF GIT TOO, and for a sharper reason: the
+# two-checkout fixture below is only a test of the real derivation if this helper
+# resolves the git dir the same way the fence does. A hardcoded `$1/.git` would
+# be right for a main checkout and wrong for a linked one -- which is exactly the
+# case that fixture exists for -- so it would plant both ledgers in one file and
+# the fixture would pass while measuring nothing.
 record() { # record <checkout> <worktree>... -- claim them in <checkout>'s ledger
-  mkdir -p "$1/.revloop"
+  d=$(git -C "$1" rev-parse --absolute-git-dir)/revloop
+  mkdir -p "$d"
   for w in "${@:2}"; do
-    git -C "$w" rev-parse --show-toplevel >> "$1/.revloop/worktrees.txt"
+    git -C "$w" rev-parse --show-toplevel >> "$d/worktrees.txt"
   done
 }
 
@@ -296,6 +322,33 @@ expect "an unrecorded worktree is only named"  "$OUT_G"  "WORKTREE=other path=$G
 expect "and the sweep removes nothing"         "$OUT_G"  "WORKTREE=swept removed=0 other=1"
 expect "and it is still on disk"               "$(test -d "$G/wt/revloop-wt-orphan" && echo PRESENT)" "PRESENT"
 
+# --- the ledger is not a file in the tree -----------------------------------
+# THE FINDING THIS LOCATION ANSWERS. revloop runs against somebody else's
+# repository, where this project's .gitignore has no reach, so a ledger at the
+# checkout's top level is an untracked file there -- and `git status --porcelain
+# -uall` is exactly what the local procedure's step 4 runs to require a clean
+# tree, and `git ls-files -o --exclude-standard` is the secret-scan preflight in
+# step 3. This is the ONE fixture that places the worktree where step 3 says to
+# put it, under a scratch directory OUTSIDE the checkout: every repository above
+# nests its worktrees inside the checkout for convenience, which is untracked in
+# its own right and would mask the assertion.
+H=$(new_repo clean-tree)
+git -C "$H" worktree add -q --detach "$TMP/h-scratch/revloop-wt-x" HEAD
+record "$H" "$TMP/h-scratch/revloop-wt-x"
+
+same "recording a worktree leaves the tree clean" "$(git -C "$H" status --porcelain -uall)" ""
+same "and leaves nothing for the secret scan"     "$(git -C "$H" ls-files -o --exclude-standard)" ""
+# NEVER STAGED IS A PROPERTY HERE, NOT A RULE: nothing under $GIT_DIR can be
+# added to the index, so an operator running `git add -A` cannot commit the
+# ledger even by accident. That is the guarantee a .gitignore was standing in for
+# in a repository that has one, held one level down in every repository.
+git -C "$H" add -A
+same "and cannot be staged at all"             "$(git -C "$H" diff --cached --name-only)" ""
+# And the fence still finds it, from the same checkout, with no argument.
+OUT_H=$( run_in "$H" )
+expect "the hidden ledger is still the fence's" "$OUT_H" "WORKTREE=removed path=$TMP/h-scratch/revloop-wt-x"
+expect "and the sweep says so"                  "$OUT_H" "WORKTREE=swept removed=1 other=0"
+
 # --- the rule is written in both procedures ---------------------------------
 #
 # A tripwire, not a proof: it asks whether each file still says a run sweeps what
@@ -314,7 +367,7 @@ FENCE_ID='revloop:fence id=worktree-teardown'
 # shellcheck disable=SC2016
 PREFIX_RULE='`revloop-wt-`'
 # shellcheck disable=SC2016
-LEDGER_RULE='`.revloop/worktrees.txt`'
+LEDGER_RULE='`revloop/worktrees.txt`'
 
 expect "remote-loop holds the fence"        "$(found "$FENCE_ID" "$REMOTE")"        "$FENCE_ID"
 expect "remote-loop states the name rule"   "$(found "$PREFIX_RULE" "$REMOTE")"     "$PREFIX_RULE"

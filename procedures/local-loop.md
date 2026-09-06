@@ -1200,7 +1200,7 @@ These are load-bearing. Each one exists because the obvious alternative fails.
   change behaviour. A findings ledger that suppressed a finding would be that file, with the
   suppression pointed at the one thing that decides whether the run passes. **Re-deriving is
   cheaper than being wrong**, and re-deriving is what a resumed run does.
-- **`.revloop/worktrees.txt` is not a counter-example, and the difference is what the rule is about.**
+- **`revloop/worktrees.txt` is not a counter-example, and the difference is what the rule is about.**
   Step 11's sweep reads it, so something written by an earlier Bash call does reach a later one — but
   what it records is a **resource this run created**, not a judgement it reached, and the only thing
   it can change is which directory gets deleted. Nothing about the review, the findings or the
@@ -1249,9 +1249,11 @@ These are load-bearing. Each one exists because the obvious alternative fails.
   location alone.
 - **A worktree this run creates is this run's to remove**, under the rules
   [`remote-loop.md`](remote-loop.md) step 3 gives and its `## Notes` argue for — including that the
-  path is appended to **`.revloop/worktrees.txt`** at this checkout's top level, so a loop running
-  beside this one in the same repository has its worktrees named in the report as `WORKTREE=other`
-  and removed by nobody but itself, and including that the recording is the half nothing enforces.
+  path is appended to **`revloop/worktrees.txt`** inside this checkout's own git directory — not
+  into the working tree, so a measurement worktree never costs this file's step 4 its clean tree —
+  so a loop running beside this one in the same repository has its worktrees named in the report as
+  `WORKTREE=other` and removed by nobody but itself, and including that the recording is the half
+  nothing enforces.
   Cited rather than restated, because a second copy of a convention is the drift this project's own
   contributing guide forbids, and this one is spelled in a fence's `case` pattern and a file name.
   **It applies harder here**: that file's step 3 is this file's step 3, so the temptation is

@@ -33,14 +33,27 @@ predate my change" and "what does the base branch score" are questions about ano
 leftovers were measured across two repositories — `rev36`, `main-wt`, `wt`, `wt-check`, `wt-check2` —
 four of them at `/tmp/<name>`, where a later session has neither the path nor a reason to look.
 
-**A run now writes down what it created, in `.revloop/worktrees.txt` at the checkout's top level.**
-Step 3 gives the command: a worktree goes **under the session scratchpad**, at a path whose last
-component begins with **`revloop-wt-`**, with **`--detach`** so a measurement never takes a branch
-hostage — and then **its path is appended to the ledger**, which is what makes it this run's. Step 12
-sweeps exactly the recorded ones; `procedures/local-loop.md` step 11 cites that step rather than
-copying the fence, since a copy would sit outside the hash pin, outside `lint:sh` and outside the
-test. The ledger is git-ignored on the same rule the field notes are, never staged, and **never read
-as input to a classification** — the only thing it decides is which directory the sweep may delete.
+**A run now writes down what it created, in `revloop/worktrees.txt` inside the checkout's own git
+directory.** Step 3 gives the command: a worktree goes **under the session scratchpad**, at a path
+whose last component begins with **`revloop-wt-`**, with **`--detach`** so a measurement never takes
+a branch hostage — and then **its path is appended to the ledger**, which is what makes it this run's.
+Step 12 sweeps exactly the recorded ones; `procedures/local-loop.md` step 11 cites that step rather
+than copying the fence, since a copy would sit outside the hash pin, outside `lint:sh` and outside
+the test. The ledger is **never read as input to a classification** — the only thing it decides is
+which directory the sweep may delete.
+
+**The ledger is not a file in your working tree, and for revloop that is the difference between
+working and not.** revloop runs against **your** repository, where this repository's `.gitignore` has
+no reach, so a record at the checkout's top level would be an untracked file in yours — and measured
+at `git 2.34.1`, `.revloop/worktrees.txt` in a repository that does not ignore it is returned by both
+`git status --porcelain -uall`, which is the clean-tree requirement the local loop's step 4 depends
+on, and `git ls-files -o --exclude-standard`, which is the secret-scan preflight. **The first
+measurement worktree of a run would have cost that run its clean tree.** Under the git directory both
+return nothing, `git add -A` cannot stage it and `git clean -xdf` does not touch it, so **"never
+stage the ledger" stopped being a rule and became a property of where it lives** — and no consumer
+repository needs an ignore rule for it. `.revloop/field-notes.md` and `.revloop/grading-input.txt`
+**stay in the tree and keep that cost on purpose**: they are artifacts for a person to find, and a
+record for a person is worthless where only a fence looks.
 
 **The record is a file because nothing a fence can re-derive is per run, and the attempt is worth
 recording.** A fence takes no arguments and shell state does not survive the call that set it, so the
@@ -51,10 +64,13 @@ call, independent calls can share one app-server as their parent — so two conc
 `$PPID` to the same number, land in the same namespace, and each teardown would force-remove the
 other's live measurement. A harness's session id is worse, not better: one variable, one entry point,
 absent from the other. A written path has no such dependency, and the fence still takes no arguments
-— it resolves the ledger from `git rev-parse --show-toplevel`.
+— it resolves the ledger from `git rev-parse --absolute-git-dir`.
 
 **Two loops running against one repository are in each other's `git worktree list`, and the ledger is
-what separates them.** It sits at the checkout's own top level, so two runs write two different
+what separates them.** It sits inside the checkout's own git directory, which is per worktree where
+the common one is not — measured at `git 2.34.1`, `--absolute-git-dir` prints `.git` in an ordinary
+checkout and `.git/worktrees/<name>` in a linked one, while `--git-common-dir` prints the same path
+in both and would have merged the two runs back into one ledger. So two runs write two different
 files; the case it does not separate is two runs in **one** checkout, which was already out of reach
 because they would share HEAD, the index and the branch. Anything family-named that this checkout's
 ledger does not claim is printed as `WORKTREE=other` and walked past. **A leftover from a run that
@@ -81,8 +97,8 @@ failure token does not contain the success token**, for the reason `CHECKS_FAILE
 about the repository. Two guards name themselves rather than passing silently:
 `WORKTREE=error reason=not-a-repo`, because a failed `git worktree list` prints no rows and would
 otherwise be read as a clean sweep, and `WORKTREE=error reason=inside-worktree`, because a fence run
-from inside a measurement worktree would read that worktree's top level, find no ledger, and print a
-clean sweep over a record it never opened. The second guard also disarms a measured hazard: at
+from inside a measurement worktree would read that worktree's own git directory, find no ledger, and
+print a clean sweep over a record it never opened. The second guard also disarms a measured hazard: at
 `git 2.34.1`, `remove --force` deletes the worktree the shell is standing in and exits 0.
 
 **The fence carries no `git worktree prune`, and that is a measurement rather than an omission.**
@@ -103,7 +119,10 @@ leftovers that motivated this was ever written down anywhere. **It fails open.**
 without its ledger line is left behind exactly as it is today, under a procedure that now says it
 cleans up, and the report cannot mention it because the fence never saw it. **Two loops have never
 run against one repository at the same time either** — the separation is measured by hand against a
-real repository with two checkouts, and by fixture, but not by the situation it exists for.
+real repository with two checkouts, and by fixture, but not by the situation it exists for. And the
+guard on `git rev-parse --absolute-git-dir` joins the guard on `git worktree list` as a line **no
+fixture can turn red**, since `--show-toplevel` has already succeeded above it; both are recorded in
+`## Unexercised paths` rather than counted as coverage.
 
 ## [0.8.0] - 2026-09-04
 
