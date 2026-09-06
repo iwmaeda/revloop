@@ -95,6 +95,13 @@ prefix**, and that single fact shapes three decisions:
   name would differ every round, "always allow" would never apply, and you would be prompted every
   round — exactly where `--auto` dies. The fences resolve the repository and PR themselves, so their
   text is permanently identical and one approval holds.
+- **The teardown fence takes none either, and that is what decided how a worktree is identified.** It
+  removes the worktrees a run created, and the obvious way to tell it which is to hand it the path —
+  which is a session-specific string, so the fence would change every session and be prompted for
+  every session. There is nowhere else to keep the path: shell state does not survive a Bash call and
+  neither procedure has a state file. **So the name is the channel.** A run may create a worktree only
+  at a path whose last component begins with `revloop-wt-`, and the fence matches that and nothing else.
+  The permission rule shaped the design, rather than the design being fitted to a rule afterwards.
 
 **That is also why the fences are inline rather than shipped as scripts and called by path.** Behind a
 path the command string never changes while the file behind it does, so a plugin update could ship new

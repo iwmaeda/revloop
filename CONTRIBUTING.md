@@ -52,7 +52,7 @@ procedure is read **in full** by an agent before it touches git, so:
   comment lists them with the axis each one closed. The rule is absolute and the guard is
   best-effort; the difference is written into the test rather than left implied.
 
-## Editing a shell fence
+## Editing or adding a shell fence
 
 The fences carry a cost no other change has: **their bytes are what users grant standing permission
 to**, so any edit forces every user to re-approve. That is intentional — the prompt is how they learn
@@ -61,7 +61,9 @@ the bytes changed — but it means an edit must be deliberate.
 1. Make the change.
 2. Re-run the affected branches **against real data**, not only against fixtures. Add a fixture for
    whatever you learned.
-3. Add a `CHANGELOG.md` entry saying the fence changed and that it costs one re-approval.
+3. Add a `CHANGELOG.md` entry saying which fence changed **or was added**, and that it costs one
+   re-approval **or one first approval** — the two are different events and only the first invalidates
+   something a user already granted.
 4. `tests/update-fence-hashes.sh`
 5. `npm test`
 

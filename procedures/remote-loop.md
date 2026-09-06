@@ -355,6 +355,30 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    shape differs per repository — run the uncovered part explicitly. The resolved table's
    `verifyNotes` records which gap this project has.
 
+   **A measurement at another commit rarely needs a worktree, and a worktree needs a name.** "Does
+   this failure predate the change?" and "what did the base branch score?" are the questions this
+   step raises, and `git show <rev>:<path>`, `git diff <rev>` and `git log <base>..HEAD` answer most
+   of them without leaving the tree you are in — they are named here in prose rather than written
+   into a block on purpose, since a block is what `tests/permissions.test.sh` reads as a command that
+   needs a grant. **A worktree is for the one thing they cannot do**: building the project, or
+   running its tests, at another commit. When that is what you need:
+
+   ```bash
+   git worktree add --detach "<scratch>/revloop-wt-<slug>" <commit-ish>
+   ```
+
+   **Three parts of that line, doing three different jobs.** It goes **under the session scratchpad**,
+   so it dies with the session and step 4 can never stage it. Its last path component begins with
+   **`revloop-wt-`**, which is how step 12's teardown finds it — `## Notes` says why a name and not a
+   remembered path has to carry that. And **`--detach`**, so a measurement never takes a branch
+   hostage from the checkout you are working in. Remove it yourself when the measurement is done if
+   you like; step 12 removes whatever is left, on every path there is.
+
+   **This command is not a fence and cannot become one.** It carries a path and a commit-ish, so it
+   is a different command string every time and is prompted every time, exactly as a verify command
+   is. That is the second reason to prefer the three reads above, and on an `--auto` run it is a
+   prompt the flag does not suppress.
+
    **Then read the change you are about to push.** A red CI costs a round; so does every finding the
    reviewer returns, and a round costs roughly one finding (`reviewers/codex.md`). Rounds are the
    scarce thing here and this pass is not, so spend it. **This is not "look it over"** — a second
@@ -1258,7 +1282,81 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     which either produces a fix and sends you back to 3 as the line above already does, or produces
     nothing and discharges the debt.
 
-12. If `--merge` was not passed, report and finish. **Lead the report with every finding at the
+12. **Sweep before you report.** Whatever brought you here — a convergence, a merge, or a `reason=`
+    abort taken in an earlier step — remove the worktrees this run created first, so that the report
+    can name the ones it could not:
+
+    <!-- revloop:fence id=worktree-teardown -->
+
+    ```bash
+    set -uo pipefail
+    set -f
+    L=$(git worktree list --porcelain 2>/dev/null) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
+    HERE=$(git rev-parse --show-toplevel 2>/dev/null) || HERE=
+    R=0; S=0
+    while IFS= read -r l; do
+      case "$l" in "worktree "*) p=${l#worktree } ;; *) continue ;; esac
+      case "${p##*/}" in revloop-wt-?*) ;; *) continue ;; esac
+      if [ "$p" = "$HERE" ]; then
+        S=$((S + 1)); echo "WORKTREE=stuck reason=cwd path=$p"; continue
+      fi
+      if git worktree remove --force "$p" </dev/null 2>/dev/null; then
+        R=$((R + 1)); echo "WORKTREE=removed path=$p"
+      else
+        S=$((S + 1)); echo "WORKTREE=stuck path=$p"
+      fi
+    done <<< "$L"
+    if [ "$S" -eq 0 ]; then echo "WORKTREE=swept removed=$R"; else echo "WORKTREE=partial removed=$R stuck=$S"; fi
+    ```
+
+    **The obligation is attached to the report rather than to this step, and that is what makes it
+    reach every exit.** Step 8 says of `foreign-baseline` that it is a stop like every other abort —
+    report and finish — so **every way this procedure ends prints a report**, and a rule attached to
+    the report is attached to all twelve steps' worth of aborts at once. Written per abort it would
+    be correct on the day it was written and missing from the next abort somebody adds.
+
+    **There are two terminal lines and only one of them is success.** `WORKTREE=swept removed=N` is
+    printed when nothing was left behind, and `WORKTREE=partial removed=N stuck=M` when something
+    was. **The failure token deliberately does not contain the success token**, for the reason the CI
+    wait below is named `CHECKS_FAILED` rather than `NOT_ALL_PASS`: a reader who greps for `swept`
+    must not get a true answer out of a sweep that failed. **No terminal line at all is a third thing
+    again** and never a clean sweep — it means the fence did not finish.
+
+    **`WORKTREE=error reason=not-a-repo` is the one failure the fence names for itself**, and it
+    exists because the alternative is the failure this whole family of loops is built to avoid: a
+    `git worktree list` that fails produces no rows, an unguarded loop then removes nothing, and the
+    success line would be printed over a repository the fence never read. Measured at `git 2.34.1`,
+    that call exits 128 outside a repository.
+
+    A `stuck` line is a worktree still on disk and still registered, and **it belongs in the report
+    by path**: a leftover this loop announces is one somebody can remove, and a leftover it swallows
+    is the defect this fence exists for. **`reason=cwd` is the one `stuck` the fence chooses rather
+    than suffers.** Measured at the same version, `git worktree remove --force` will delete the
+    worktree you are standing in and take the shell's working directory with it, exiting 0 — so a
+    fence run from inside a baseline worktree refuses that one and names it, rather than succeeding
+    at something nobody wanted.
+
+    **There is no `git worktree prune` here, and its absence is a measurement rather than an
+    oversight.** A worktree whose directory was deleted underneath it — `/tmp` cleared between
+    sessions is how that arrives — stays registered, and the obvious repair is a prune. But
+    `git worktree remove --force` already succeeds on exactly that state: measured at `git 2.34.1`,
+    it deregisters a missing worktree and exits zero. So a prune would buy nothing this fence does
+    not already do, **while widening what it
+    touches from `revloop-wt-` paths to every stale registration in the repository, including yours** —
+    a worktree of your own on a drive that happens to be unmounted is registered and missing, which
+    is the state a prune cannot tell from an abandoned one. **The prefix is the whole bound, and a
+    prune is the one line that would leave it.**
+
+    **`--force` is deliberate, and what bounds it is the name rather than the flag.** A baseline
+    worktree carries build output, a linked `node_modules`, or an edit made in order to measure
+    something, and plain `remove` refuses on any of them — measured at `git 2.34.1`, one untracked
+    file is enough for `contains modified or untracked files, use --force to delete it` at exit 128.
+    **A teardown that refuses on the ordinary case is not one.** What bounds it instead is that this
+    loop may create a worktree **only** at a path whose last component begins with `revloop-wt-`, and
+    this fence touches nothing else; `## Notes` states that rule, and why a name rather than a
+    remembered path is what carries it.
+
+    Then: if `--merge` was not passed, report and finish. **Lead the report with every finding at the
     ladder's top rung that you did not fix** — declined and accepted alike. **The rung is read from
     the resolved reviewer's `severityLevels`, not written into this step** — or, on a graded run, from
     the canonical ladder the grader ranked on. **With neither** — no ladder, and a level with no band,
@@ -1733,6 +1831,25 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
 - **Shell state does not survive between Bash calls.** A variable set in one call is empty in the
   next. Every fence is therefore self-contained, and the merge gate re-runs its own CI check rather
   than trusting a value from earlier.
+- **A worktree this run creates is this run's to remove.** Step 3 gives the command and the three
+  rules that make it findable; step 12 sweeps. **What is forbidden is creating one that nobody can
+  find afterwards** — five were measured left behind across two repositories, four of them at
+  `/tmp/<name>`, where a later session has neither the path nor a reason to look.
+- **The name is the record, because there is nowhere else to keep one.** A fence takes no arguments,
+  shell state does not survive the call that set it, and this procedure has no state file — so a
+  teardown cannot be handed the path it should remove, and the only thing that can travel from the
+  step that created a worktree to the step that removes it is **the worktree's own name**.
+  `revloop-wt-` is that channel. **A worktree whose name does not carry it is not this run's and is
+  never removed**, which is what makes an unconditional `--force` in step 12 safe: the prefix, not
+  the flag, is what bounds the blast radius.
+- **The two halves of step 3's rule are not enforced alike, and saying so is the point.** The
+  **name** is mechanical: the fence matches it, and `tests/fence-worktree.test.sh` holds it there.
+  The **placement** is not checked by anything — it is a rule the model follows, exactly as the ban
+  on `git push --force` is. So the failures are asymmetric and neither is hypothetical: a worktree
+  named correctly but left outside the scratchpad **is still swept**, which is what makes the leak
+  already in the field recoverable; a worktree inside the scratchpad named `wt-check` **is not**, and
+  survives the run under a procedure that now says it cleans up. **This fails open**, and the report
+  will not say so, because the fence cannot report what it never saw.
 - **Substitute every `<n>` before running.** A forgotten placeholder is read by the shell as a
   **redirect from a file named `n`**, which `bash -n` does not catch.
 - **Never quote the contents of `.env*` in a comment.** Answer findings that touch secrets with a
@@ -1810,6 +1927,34 @@ takes one of these should say so in the report:
   `severityMap` stays a named condition of `bad-severity-map` in step 1: **retiring a runtime abort
   into a schema is only as strong as what reads the schema**, and here that is a person or an agent
   rather than a process.
+- **Step 12's worktree teardown. The fence is exercised; the rule it depends on is not.**
+  `tests/fence-worktree.test.sh` drives every branch of it against throwaway repositories — a removal,
+  a refusal, a run that owns nothing, a run outside a repository, and a run standing inside the
+  worktree it would otherwise delete — and each of its three loadbearing behaviours has been shown to
+  fail the suite when removed. **No loop has run it**, and **no worktree has ever been created under
+  the naming rule at all**: the five leftovers that motivated it were called `rev36`, `main-wt`, `wt`,
+  `wt-check` and `wt-check2`, and this fence would have matched none of them. So what is measured is
+  the sweep; what is unmeasured is **whether step 3's name is used**, which is the half that decides
+  whether there is anything to sweep. **It fails open** — a worktree created outside the convention
+  is left behind exactly as it is today, under a procedure that now says it cleans up, and the report
+  cannot say so because the fence never saw it.
+- **`WORKTREE=stuck`, from a run.** The test produces one deterministically with `git worktree lock`,
+  which is a stand-in: what a run would actually hit is a permission error or a filesystem that will
+  not release the directory. What is pinned is that a refusal becomes a named line and a `partial`
+  verdict rather than silence — never the cause. **`reason=cwd` has the same standing**, and it
+  guards a measured hazard: at `git 2.34.1` `remove --force` deletes the worktree the shell is
+  standing in and exits 0.
+- **Step 3's creation command has never been typed by a run either**, so its per-invocation
+  permission prompt — the cost [`../docs/permissions.md`](../docs/permissions.md) now counts as a
+  fourth string class, and the one an `--auto` run cannot suppress — is reasoned rather than
+  observed.
+- **The git floor is read from documentation and not measured.** `worktree remove` is 2.17 (2018)
+  and `worktree list --porcelain` is 2.7. The one machine this has run on carries 2.34.1, so **the
+  floor is an assumption in exactly the way the `gh 2.4.0` floor is not** — and what _was_ measured
+  there is narrower than it looks: that `remove --force` deregisters a worktree whose directory is
+  gone is a 2.34.1 observation, and it is the whole argument for this fence carrying no prune. A
+  `git` old enough to refuse either would reach `WORKTREE=stuck`, which is a wrong-looking report
+  rather than a silent leftover.
 
 **Field notes.** When a round takes one of these paths, aborts, or sees a latency outside the range on
 the reviewer's card, append **one line** to `.revloop/field-notes.md` in the project: date, PR,

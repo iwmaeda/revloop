@@ -75,6 +75,18 @@ permission system enforces. The blast radius is your working tree and the branch
 write. Two things bound it: neither procedure ever constructs a `--force` push, and step 1 aborts on
 a fork, so the branches are your own.
 
+**One `--force` is constructed by a procedure, and it is not a push.** Step 12's
+`worktree-teardown` fence runs `git worktree remove --force`, so the sentence above — that neither
+procedure ever constructs a `--force` — is about pushes and about nothing else. What bounds the
+removal is not the permission system either: the fence matches only a worktree whose last path
+component begins with `revloop-wt-`, which is the name step 3 requires a run to give a worktree it
+creates, and it passes nothing else to that command — no `git worktree prune`, which takes no path
+and would reach every stale registration in the repository including yours.
+**The bound is a test rather than a grant.**
+`tests/fence-worktree.test.sh` plants a worktree of another name beside one the fence must remove and
+asserts the first survives — with its directory, not only its registration — which is the strongest
+form this can take while `Bash(git:*)` covers every subcommand equally.
+
 **The `local-*` commands hold this rule too, and push with it unless `--no-publish`.** The same shape
 applies to its four `gh` rules: the grants are present on every run, and it is the procedure rather
 than the permission system that keeps them within their purpose. That is why they are the narrow
@@ -83,7 +95,8 @@ ones.
 If that is not enough, grant subcommands individually — `Bash(git status:*)`, `Bash(git diff:*)`,
 `Bash(git log:*)`, `Bash(git add:*)`, `Bash(git commit:*)`, `Bash(git checkout:*)`,
 `Bash(git branch:*)`, `Bash(git push:*)`, `Bash(git rev-parse:*)`, `Bash(git merge-base:*)`,
-`Bash(git fetch:*)`, `Bash(git switch:*)`, `Bash(git ls-files:*)`, `Bash(git pull:*)` — and accept that the list will need
+`Bash(git fetch:*)`, `Bash(git switch:*)`, `Bash(git ls-files:*)`, `Bash(git pull:*)`,
+`Bash(git worktree:*)` — and accept that the list will need
 extending the first time a step reaches for something not on it. Nobody has measured which
 repositories need which subset.
 
@@ -242,11 +255,12 @@ disagree.
 **Count them by string class rather than by loop, because a string class is what the permission
 system matches on.** Three exist, and only the first is covered by the rules above:
 
-| String                                             | Prompts                           | Why                                                           |
-| -------------------------------------------------- | --------------------------------- | ------------------------------------------------------------- |
-| A fence                                            | Once, at the first approval       | It takes no arguments, so its command string never varies     |
-| A verify command, or a `subprocess` review command | Every round it runs               | Repository-supplied. Pre-approving it is the hole             |
-| The grader, on a graded run                        | Every round, in **both** families | Procedure-owned, but it carries a model, so it is not a fence |
+| String                                             | Prompts                           | Why                                                              |
+| -------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------- |
+| A fence                                            | Once, at the first approval       | It takes no arguments, so its command string never varies        |
+| A verify command, or a `subprocess` review command | Every round it runs               | Repository-supplied. Pre-approving it is the hole                |
+| The grader, on a graded run                        | Every round, in **both** families | Procedure-owned, but it carries a model, so it is not a fence    |
+| A worktree creation, in step 3                     | Every time one is created         | Procedure-owned, but it carries a path and a commit, so likewise |
 
 **"Zero prompts per round" was never a property of the pull-request loop; it is a property of the
 fences.** A remote round runs the repository's verify commands exactly as a local round does — step
@@ -265,8 +279,24 @@ the pull-request family, which has no `--model` and interpolates nothing — bec
 that will run, and being shown a template while a different string executes is the failure the whole
 not-pre-approved rule is about.
 
-Editing a fence costs every user one re-approval; the protocol is in
-[`../CONTRIBUTING.md`](../CONTRIBUTING.md#editing-a-shell-fence).
+**The fourth row is the reason step 3 tells you to prefer a read over a worktree.** `git show`,
+`git diff` and `git log` answer most questions about another commit, and a worktree is for what they
+cannot do — build the project, or run its tests, at another commit. The command that creates one
+carries a path and a commit-ish, so it is a different string every time and cannot be a fence.
+**On an `--auto` run that prompt is a stop the flag does not suppress**, which is a cost of the
+feature rather than a defect in it: the alternative is pre-approving `git worktree add`, and a rule
+that pre-approves a path is a rule that pre-approves any path.
+
+**There are four fences, and the fourth arrived with the worktree teardown.** Step 12 runs it once
+per run — at a convergence, at a merge, and before every abort's report — so like the other three it
+is one prompt the first time and none afterwards. It takes no arguments for exactly the reason the
+wait scripts take none: a fence handed the path it should remove would be a different command string
+every session, and "always allow" would never apply to it.
+
+**Adding one costs every user one approval the first time the new string runs, which is not the same
+event as a re-approval** — nothing they granted has been invalidated. This release is the first time
+the distinction has mattered. Editing a fence costs every user one re-approval; the protocol is in
+[`../CONTRIBUTING.md`](../CONTRIBUTING.md#editing-or-adding-a-shell-fence).
 
 **A prompt for a fence is the bug worth reporting** — include the prompt text and the rule you
 granted. A prompt for a verify, review, or grader command is not one: those are the three strings

@@ -103,7 +103,7 @@ copilot posts `Copilot is reviewing`. Those comments are non-terminal, and the w
 inside its jq program.
 
 A new preamble therefore means a fence edit, which follows the protocol in
-[`../CONTRIBUTING.md`](../CONTRIBUTING.md#editing-a-shell-fence). Until it is added the loop does not
+[`../CONTRIBUTING.md`](../CONTRIBUTING.md#editing-or-adding-a-shell-fence). Until it is added the loop does not
 hang: step 9 aborts with `interim-loop` and prints the `cid=` and the body, which is exactly the
 material the edit needs. Why the drop list cannot live in config is in
 [`design-notes.md`](design-notes.md#permission-rules-and-fence-bytes).

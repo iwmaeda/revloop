@@ -13,6 +13,69 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### A fourth fence: the loop now removes the worktrees it created
+
+**A fence was added and no existing fence changed, and those cost different things.** `wait-verdict`,
+`wait-ci` and `merge` are byte-identical and still match `tests/fence-hashes.txt`, so **there is no
+re-approval to give** — nothing you already granted was invalidated. The new `worktree-teardown` fence
+asks for one approval the first time a run reaches it, like any command string you have not seen
+before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so the diff shows one
+added line and three unchanged hashes; if any of the three moved, an existing fence was edited by
+accident and this paragraph is wrong.
+
+**If you granted git subcommands individually rather than `Bash(git:*)`, add `Bash(git worktree:*)`
+before your next run.** That is a hard failure rather than a prompt: the teardown cannot run without
+it. The blanket rule in `README.md` and `docs/permissions.md` already covers it.
+
+**Neither procedure had ever mentioned a git worktree, and runs were leaving them behind.** Nothing
+told a run to create one, and steps 3 and 10 make it tempting anyway, because "did this failure
+predate my change" and "what does the base branch score" are questions about another commit. Five
+leftovers were measured across two repositories — `rev36`, `main-wt`, `wt`, `wt-check`, `wt-check2` —
+four of them at `/tmp/<name>`, where a later session has neither the path nor a reason to look.
+
+**The name is what carries the record, because nothing else can.** A fence takes no arguments, shell
+state does not survive a Bash call, and neither procedure has a state file — so a teardown cannot be
+handed a path. Step 3 now gives the command: a worktree goes **under the session scratchpad**, at a
+path whose last component begins with **`revloop-wt-`**, and **`--detach`**, so a measurement never
+takes a branch hostage. Step 12 sweeps exactly those; `procedures/local-loop.md` step 11 cites that
+step rather than copying the fence, since a copy would sit outside the hash pin, outside `lint:sh`
+and outside the test.
+
+**A worktree of any other name is never touched.** The prefix, not the flag, is what bounds the
+fence's unconditional `--force`, and `tests/fence-worktree.test.sh` is what holds it there — every
+scenario plants a bystander and asserts it survives with its **directory**, not only its
+registration. `revloop-wt-` rather than `revloop-` deliberately: this project is called revloop, and
+`../revloop-fix` is a plausible worktree for somebody working on it.
+
+**The obligation is attached to the report rather than to a step**, which is what makes it reach
+every exit: every abort in both files reports and finishes, so one rule covers all of them, including
+the next abort somebody adds.
+
+**Two terminal lines, and only one is success.** `WORKTREE=swept removed=N` when nothing was left
+behind, `WORKTREE=partial removed=N stuck=M` when something was — **the failure token does not
+contain the success token**, for the reason `CHECKS_FAILED` is not called `NOT_ALL_PASS`. Two guards
+name themselves rather than passing silently: `WORKTREE=error reason=not-a-repo`, because a failed
+`git worktree list` prints no rows and would otherwise be read as a clean sweep, and
+`WORKTREE=stuck reason=cwd`, because at `git 2.34.1` `remove --force` will delete the worktree the
+shell is standing in and exit 0.
+
+**The fence carries no `git worktree prune`, and that is a measurement rather than an omission.**
+`remove --force` already deregisters a worktree whose directory is gone (`git 2.34.1`, exit 0), so a
+prune would add nothing while reaching past `revloop-wt-` to every stale registration in the
+repository — including one of your own on a drive that happens to be unmounted.
+
+**Creating a worktree costs a permission prompt every time, and `--auto` cannot suppress it.** The
+command carries a path and a commit-ish, so it is a different string on every invocation and cannot
+be a fence. `docs/permissions.md` counts it as a fourth string class, and step 3 says to prefer
+`git show`, `git diff` and `git log`, which answer most questions about another commit without
+leaving the tree you are in.
+
+**Nothing has run this in a loop.** Both `## Unexercised paths` sections say so, and the honest part
+is which half is unmeasured: the sweep is exercised, and **the naming rule is not** — none of the
+five leftovers that motivated this carries a name the fence would have matched. **It fails open.** A
+worktree created outside the convention is left behind exactly as it is today, under a procedure that
+now says it cleans up, and the report cannot mention it because the fence never saw it.
+
 ## [0.8.0] - 2026-09-04
 
 **No fence changed, so there is no re-approval to give.** The three shell fences in
