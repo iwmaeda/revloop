@@ -1095,10 +1095,11 @@ the level, and a repository that wants the old number writes it.
 
     Then report. Give the round count, the commit each round produced, every finding with its rung
     and its bucket, the checks that ran, and **which model reviewed**. **Name every worktree the
-    sweep removed, every `WORKTREE=stuck` path it could not, and every `WORKTREE=other` path it left
-    to another run** — under `--no-publish` this report is the whole durable record, so a leftover
-    unnamed here is a leftover nobody learns about, and the `other` lines are the only trace a run
-    that crashed before its own sweep will ever get.
+    sweep removed, every `WORKTREE=stuck` path it could not, every `WORKTREE=other` path it left to
+    another checkout, and any `WORKTREE=error` line at all** — under `--no-publish` this report is
+    the whole durable record, so a leftover unnamed here is a leftover nobody learns about, and an
+    `error` line means the sweep did not run, which a reader who sees only "reported and finished"
+    would otherwise take for a clean one.
 
     **Lead with every finding at the
     ladder's top rung that you did not fix**, declined and accepted alike, reading the rung from the
@@ -1199,6 +1200,13 @@ These are load-bearing. Each one exists because the obvious alternative fails.
   change behaviour. A findings ledger that suppressed a finding would be that file, with the
   suppression pointed at the one thing that decides whether the run passes. **Re-deriving is
   cheaper than being wrong**, and re-deriving is what a resumed run does.
+- **`.revloop/worktrees.txt` is not a counter-example, and the difference is what the rule is about.**
+  Step 11's sweep reads it, so something written by an earlier Bash call does reach a later one — but
+  what it records is a **resource this run created**, not a judgement it reached, and the only thing
+  it can change is which directory gets deleted. Nothing about the review, the findings or the
+  verdict is re-derivable from it, and nothing about them is spared by it. **A resumed run still
+  re-reviews and re-derives everything**; it just also knows what to clean up. The rule that survives
+  is the one that was always the point: **no local file may decide whether a finding was addressed.**
 
 ### Parsing
 
@@ -1241,14 +1249,14 @@ These are load-bearing. Each one exists because the obvious alternative fails.
   location alone.
 - **A worktree this run creates is this run's to remove**, under the rules
   [`remote-loop.md`](remote-loop.md) step 3 gives and its `## Notes` argue for — including that the
-  name carries **`$PPID`**, so a loop running beside this one in the same repository has its
-  worktrees named in the report and removed by nobody but itself, and including that only the name
-  is enforced and the placement is not. Cited rather than restated, because a second copy
-  of a naming convention is the drift this project's own contributing guide forbids, and this one is
-  spelled in a fence's `case` pattern. **It applies harder here**: that file's step 3 is this file's
-  step 3, so the temptation is identical, and this procedure has no pull request to leave a trace on
-  — its record is the commit and the report, and neither mentions a directory somebody left in
-  `/tmp`.
+  path is appended to **`.revloop/worktrees.txt`** at this checkout's top level, so a loop running
+  beside this one in the same repository has its worktrees named in the report as `WORKTREE=other`
+  and removed by nobody but itself, and including that the recording is the half nothing enforces.
+  Cited rather than restated, because a second copy of a convention is the drift this project's own
+  contributing guide forbids, and this one is spelled in a fence's `case` pattern and a file name.
+  **It applies harder here**: that file's step 3 is this file's step 3, so the temptation is
+  identical, and this procedure has no pull request to leave a trace on — its record is the commit
+  and the report, and neither mentions a directory somebody left in `/tmp`.
 - **This command never merges, and publishes unless told not to.** `--merge` does not exist here at
   all, and no configuration key can turn it on or turn publishing off. If you want a merge, run
   [`remote-loop.md`](remote-loop.md) on the branch this one leaves behind — on an ordinary run that
@@ -1396,5 +1404,5 @@ takes one should say so in the report and append a line to `.revloop/field-notes
   request, so two of it on one repository is a plausible afternoon. What is unmeasured **here** is
   that this file's step 11 runs the fence at all. No round has, and **four of the five leftovers that
   motivated the rule were produced by runs of this loop** — `wt`, `wt-check` and `wt-check2` in this
-  repository, `rev36` in another — every one of them named outside the convention the sweep matches
-  on. So the evidence that the problem exists is local and the evidence that the fix works is not.
+  repository, `rev36` in another — and not one of them was ever recorded anywhere a sweep could read.
+  So the evidence that the problem exists is local and the evidence that the fix works is not.

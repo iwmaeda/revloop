@@ -78,16 +78,18 @@ a fork, so the branches are your own.
 **One `--force` is constructed by a procedure, and it is not a push.** Step 12's
 `worktree-teardown` fence runs `git worktree remove --force`, so the sentence above — that neither
 procedure ever constructs a `--force` — is about pushes and about nothing else. What bounds the
-removal is not the permission system either: the fence matches only a worktree whose last path
-component begins with `revloop-wt-$PPID-`, which is the name step 3 requires a run to give a worktree
-it creates — the prefix says this family of loops made it and **the run id says which run**, because
-`git worktree list` answers for the whole repository and a loop running beside yours would otherwise
-be inside the same match. Anything else under the prefix is named as `WORKTREE=other` and left
-alone. The fence passes nothing else to that command either — no `git worktree prune`, which takes no
-path and would reach every stale registration in the repository including yours.
+removal is not the permission system either: **two conditions have to hold together.** The path must
+be a line in `.revloop/worktrees.txt` at your checkout's top level, which is where step 3 records
+every worktree it creates; and its last component must begin with `revloop-wt-`, the name step 3
+requires. The ledger is what says the worktree is this run's — `git worktree list` answers for the
+whole repository, so a loop running beside yours would otherwise be inside the same match, and it
+writes its own file in its own checkout instead. The name is the second bound, held back for the
+ledger's bad day. Anything of that name the ledger does not claim is reported as `WORKTREE=other` and
+left alone. The fence passes nothing else to that command either — no `git worktree prune`, which
+takes no path and would reach every stale registration in the repository including yours.
 **The bound is a test rather than a grant.**
-`tests/fence-worktree.test.sh` plants a worktree of another name **and one of another run** beside one
-the fence must remove, and asserts both survive — with their directories, not only their
+`tests/fence-worktree.test.sh` plants a worktree of another name **and a second checkout's own** beside
+one the fence must remove, and asserts both survive — with their directories, not only their
 registrations — which is the strongest form this can take while `Bash(git:*)` covers every subcommand
 equally.
 
@@ -295,9 +297,10 @@ that pre-approves a path is a rule that pre-approves any path.
 per run — at a convergence, at a merge, and before every abort's report — so like the other three it
 is one prompt the first time and none afterwards. It takes no arguments for exactly the reason the
 wait scripts take none: a fence handed the path it should remove would be a different command string
-every session, and "always allow" would never apply to it. **`$PPID` is inside its bytes rather than
-substituted into them** — the shell expands it at run time, so the fence scopes itself to the run
-that is running it and its text still never varies.
+every session, and "always allow" would never apply to it. **The path it needs is on disk rather than
+in its bytes** — step 3 wrote it to `.revloop/worktrees.txt`, and the fence resolves that file from
+`git rev-parse --show-toplevel`, so it scopes itself to the checkout it is running in and its text
+still never varies.
 
 **Adding one costs every user one approval the first time the new string runs, which is not the same
 event as a re-approval** — nothing they granted has been invalidated. This release is the first time

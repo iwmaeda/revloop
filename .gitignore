@@ -8,5 +8,6 @@ node_modules/
 # Per-developer toolchain overrides (see mise.toml)
 mise.local.toml
 
-# Field notes written by the loop at runtime (see docs/design-notes.md)
+# Files the loop writes at runtime: field notes, grading input, the worktree
+# ledger (see docs/design-notes.md)
 .revloop/

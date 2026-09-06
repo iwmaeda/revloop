@@ -20,7 +20,7 @@ repointed, because an entry should say what was true when it was written.
 re-approval to give** — nothing you already granted was invalidated. The new `worktree-teardown` fence
 asks for one approval the first time a run reaches it, like any command string you have not seen
 before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so the diff shows one
-added line and three unchanged hashes; if any of the three moved, an existing fence was edited by
+changed line and three unchanged hashes; if any of the three moved, an existing fence was edited by
 accident and this paragraph is wrong.
 
 **If you granted git subcommands individually rather than `Bash(git:*)`, add `Bash(git worktree:*)`
@@ -33,30 +33,42 @@ predate my change" and "what does the base branch score" are questions about ano
 leftovers were measured across two repositories — `rev36`, `main-wt`, `wt`, `wt-check`, `wt-check2` —
 four of them at `/tmp/<name>`, where a later session has neither the path nor a reason to look.
 
-**The name is what carries the record, because nothing else can.** A fence takes no arguments, shell
-state does not survive a Bash call, and neither procedure has a state file — so a teardown cannot be
-handed a path. Step 3 now gives the command: a worktree goes **under the session scratchpad**, at a
-path whose last component begins with **`revloop-wt-$PPID-`**, and **`--detach`**, so a measurement
-never takes a branch hostage. Step 12 sweeps exactly those; `procedures/local-loop.md` step 11 cites
-that step rather than copying the fence, since a copy would sit outside the hash pin, outside
-`lint:sh` and outside the test.
+**A run now writes down what it created, in `.revloop/worktrees.txt` at the checkout's top level.**
+Step 3 gives the command: a worktree goes **under the session scratchpad**, at a path whose last
+component begins with **`revloop-wt-`**, with **`--detach`** so a measurement never takes a branch
+hostage — and then **its path is appended to the ledger**, which is what makes it this run's. Step 12
+sweeps exactly the recorded ones; `procedures/local-loop.md` step 11 cites that step rather than
+copying the fence, since a copy would sit outside the hash pin, outside `lint:sh` and outside the
+test. The ledger is git-ignored on the same rule the field notes are, never staged, and **never read
+as input to a classification** — the only thing it decides is which directory the sweep may delete.
 
-**The run id is in that name because the prefix is not private.** `git worktree list` answers for the
-whole repository, so **two loops running against one repository are in each other's list** — and a
-sweep bounded by the prefix alone would `--force` the measurement the other run is standing in. The
-fence removes only `revloop-wt-$PPID-`, prints `WORKTREE=other path=…` for anything else under the
-prefix, and carries the count on both terminal lines. `$PPID` survives the no-arguments rule because
-the shell expands it: the fence's bytes are identical every session and resolve to a different run
-every session. **The cost is deliberate** — a leftover from a run that crashed before its sweep now
-matches nobody, so it is named on every later run and removed by none; adopting it would mean
-trusting one pid space to answer for another, and a wrong answer there deletes a live worktree.
+**The record is a file because nothing a fence can re-derive is per run, and the attempt is worth
+recording.** A fence takes no arguments and shell state does not survive the call that set it, so the
+first design put the run's identity in the worktree's **name**: `revloop-wt-$PPID-`, on the reasoning
+that the shell expands `$PPID` at run time and the fence's bytes therefore never change. **That is
+false on a harness this project supports.** On the Codex path, where each Bash action becomes a shell
+call, independent calls can share one app-server as their parent — so two concurrent runs expand
+`$PPID` to the same number, land in the same namespace, and each teardown would force-remove the
+other's live measurement. A harness's session id is worse, not better: one variable, one entry point,
+absent from the other. A written path has no such dependency, and the fence still takes no arguments
+— it resolves the ledger from `git rev-parse --show-toplevel`.
 
-**A worktree of any other name is never touched.** The name, not the flag, is what bounds the fence's
-unconditional `--force`, and `tests/fence-worktree.test.sh` is what holds it there — every scenario
-plants a stranger's worktree **and a neighbouring run's** and asserts both survive with their
-**directories**, not only their registrations. `revloop-wt-` rather than `revloop-` deliberately:
-this project is called revloop, and `../revloop-fix` is a plausible worktree for somebody working on
-it.
+**Two loops running against one repository are in each other's `git worktree list`, and the ledger is
+what separates them.** It sits at the checkout's own top level, so two runs write two different
+files; the case it does not separate is two runs in **one** checkout, which was already out of reach
+because they would share HEAD, the index and the branch. Anything family-named that this checkout's
+ledger does not claim is printed as `WORKTREE=other` and walked past. **A leftover from a run that
+crashed before its sweep is still in its own checkout's ledger**, so the next run there takes it —
+the earlier design abandoned it to nobody, and that trade is now settled the other way.
+
+**A worktree of any other name is never touched, and that is the second bound rather than the first.**
+The ledger says a worktree is this run's; the name is what stops a truncated or hand-edited ledger
+line from aiming an unconditional `--force` outside the family.
+`tests/fence-worktree.test.sh` holds both: it records a worktree of another name and asserts that
+recording it was not enough, plants **a second checkout's live measurement** beside one the fence must
+remove and asserts it survives with its **directory**, and sweeps from both checkouts in turn.
+`revloop-wt-` rather than `revloop-` deliberately: this project is called revloop, and
+`../revloop-fix` is a plausible worktree for somebody working on it.
 
 **The obligation is attached to the report rather than to a step**, which is what makes it reach
 every exit: every abort in both files reports and finishes, so one rule covers all of them, including
@@ -66,15 +78,16 @@ the next abort somebody adds.
 this run's was left behind, `WORKTREE=partial removed=N stuck=M other=K` when something was — **the
 failure token does not contain the success token**, for the reason `CHECKS_FAILED` is not called
 `NOT_ALL_PASS`, and `other=` rides on both because `swept` is a claim about this run rather than
-about the repository. Two guards
-name themselves rather than passing silently: `WORKTREE=error reason=not-a-repo`, because a failed
-`git worktree list` prints no rows and would otherwise be read as a clean sweep, and
-`WORKTREE=stuck reason=cwd`, because at `git 2.34.1` `remove --force` will delete the worktree the
-shell is standing in and exit 0.
+about the repository. Two guards name themselves rather than passing silently:
+`WORKTREE=error reason=not-a-repo`, because a failed `git worktree list` prints no rows and would
+otherwise be read as a clean sweep, and `WORKTREE=error reason=inside-worktree`, because a fence run
+from inside a measurement worktree would read that worktree's top level, find no ledger, and print a
+clean sweep over a record it never opened. The second guard also disarms a measured hazard: at
+`git 2.34.1`, `remove --force` deletes the worktree the shell is standing in and exits 0.
 
 **The fence carries no `git worktree prune`, and that is a measurement rather than an omission.**
 `remove --force` already deregisters a worktree whose directory is gone (`git 2.34.1`, exit 0), so a
-prune would add nothing while reaching past the name to every stale registration in the
+prune would add nothing while reaching past the ledger to every stale registration in the
 repository — including one of your own on a drive that happens to be unmounted, and including
 another run's.
 
@@ -85,12 +98,12 @@ be a fence. `docs/permissions.md` counts it as a fourth string class, and step 3
 leaving the tree you are in.
 
 **Nothing has run this in a loop.** Both `## Unexercised paths` sections say so, and the honest part
-is which half is unmeasured: the sweep is exercised, and **the naming rule is not** — none of the
-five leftovers that motivated this carries a name the fence would have matched. **It fails open.** A
-worktree created outside the convention is left behind exactly as it is today, under a procedure that
-now says it cleans up, and the report cannot mention it because the fence never saw it. **Two loops
-have never run against one repository at the same time either**, so the run id is exercised by
-fixture and by one hand-run measurement, not by the situation it exists for.
+is which half is unmeasured: the sweep is exercised, and **the recording is not** — none of the five
+leftovers that motivated this was ever written down anywhere. **It fails open.** A worktree created
+without its ledger line is left behind exactly as it is today, under a procedure that now says it
+cleans up, and the report cannot mention it because the fence never saw it. **Two loops have never
+run against one repository at the same time either** — the separation is measured by hand against a
+real repository with two checkouts, and by fixture, but not by the situation it exists for.
 
 ## [0.8.0] - 2026-09-04
 
