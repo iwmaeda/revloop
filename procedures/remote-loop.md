@@ -364,15 +364,20 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    running its tests, at another commit. When that is what you need:
 
    ```bash
-   git worktree add --detach "<scratch>/revloop-wt-<slug>" <commit-ish>
+   git worktree add --detach "<scratch>/revloop-wt-$PPID-<slug>" <commit-ish>
    ```
 
-   **Three parts of that line, doing three different jobs.** It goes **under the session scratchpad**,
+   **Four parts of that line, doing four different jobs.** It goes **under the session scratchpad**,
    so it dies with the session and step 4 can never stage it. Its last path component begins with
-   **`revloop-wt-`**, which is how step 12's teardown finds it — `## Notes` says why a name and not a
-   remembered path has to carry that. And **`--detach`**, so a measurement never takes a branch
-   hostage from the checkout you are working in. Remove it yourself when the measurement is done if
-   you like; step 12 removes whatever is left, on every path there is.
+   **`revloop-wt-`**, which is how step 12's teardown tells a worktree this family of loops created
+   from one of yours — `## Notes` says why a name and not a remembered path has to carry that. Then
+   **`$PPID`, which says whose run created it**: `git worktree list` answers for the whole
+   repository, so a second loop running against it at the same time is in the same list, and a
+   prefix on its own is a prefix every concurrent run shares. **Type `$PPID` rather than a number** —
+   the shell expands it, it is the same value in every Bash call of one session, and step 12 expands
+   the same thing. And **`--detach`**, so a measurement never takes a branch hostage from the
+   checkout you are working in. Remove it yourself when the measurement is done if you like; step 12
+   removes whatever is left, on every path there is.
 
    **This command is not a fence and cannot become one.** It carries a path and a commit-ish, so it
    is a different command string every time and is prompted every time, exactly as a verify command
@@ -1293,10 +1298,14 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     set -f
     L=$(git worktree list --porcelain 2>/dev/null) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
     HERE=$(git rev-parse --show-toplevel 2>/dev/null) || HERE=
-    R=0; S=0
+    R=0; S=0; O=0
     while IFS= read -r l; do
       case "$l" in "worktree "*) p=${l#worktree } ;; *) continue ;; esac
-      case "${p##*/}" in revloop-wt-?*) ;; *) continue ;; esac
+      case "${p##*/}" in
+        revloop-wt-$PPID-?*) ;;
+        revloop-wt-?*) O=$((O + 1)); echo "WORKTREE=other path=$p"; continue ;;
+        *) continue ;;
+      esac
       if [ "$p" = "$HERE" ]; then
         S=$((S + 1)); echo "WORKTREE=stuck reason=cwd path=$p"; continue
       fi
@@ -1306,7 +1315,7 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
         S=$((S + 1)); echo "WORKTREE=stuck path=$p"
       fi
     done <<< "$L"
-    if [ "$S" -eq 0 ]; then echo "WORKTREE=swept removed=$R"; else echo "WORKTREE=partial removed=$R stuck=$S"; fi
+    if [ "$S" -eq 0 ]; then echo "WORKTREE=swept removed=$R other=$O"; else echo "WORKTREE=partial removed=$R stuck=$S other=$O"; fi
     ```
 
     **The obligation is attached to the report rather than to this step, and that is what makes it
@@ -1315,12 +1324,15 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     the report is attached to all twelve steps' worth of aborts at once. Written per abort it would
     be correct on the day it was written and missing from the next abort somebody adds.
 
-    **There are two terminal lines and only one of them is success.** `WORKTREE=swept removed=N` is
-    printed when nothing was left behind, and `WORKTREE=partial removed=N stuck=M` when something
-    was. **The failure token deliberately does not contain the success token**, for the reason the CI
-    wait below is named `CHECKS_FAILED` rather than `NOT_ALL_PASS`: a reader who greps for `swept`
-    must not get a true answer out of a sweep that failed. **No terminal line at all is a third thing
-    again** and never a clean sweep — it means the fence did not finish.
+    **There are two terminal lines and only one of them is success.**
+    `WORKTREE=swept removed=N other=K` is printed when nothing of this run's was left behind, and
+    `WORKTREE=partial removed=N stuck=M other=K` when something was. **The failure token
+    deliberately does not contain the success token**, for the reason the CI wait below is named
+    `CHECKS_FAILED` rather than `NOT_ALL_PASS`: a reader who greps for `swept` must not get a true
+    answer out of a sweep that failed. **No terminal line at all is a third thing again** and never a
+    clean sweep — it means the fence did not finish. **`other=` rides on both lines and is never
+    zero for decoration**: `swept` is a claim about this run's worktrees and not about the
+    repository, and the count is what stops it being read as the second thing.
 
     **`WORKTREE=error reason=not-a-repo` is the one failure the fence names for itself**, and it
     exists because the alternative is the failure this whole family of loops is built to avoid: a
@@ -1336,25 +1348,47 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     fence run from inside a baseline worktree refuses that one and names it, rather than succeeding
     at something nobody wanted.
 
+    **`WORKTREE=other` is a worktree with this family's prefix and somebody else's run id, and the
+    fence names it and walks past it.** `git worktree list` answers for the whole repository, so a
+    second loop running against it at the same time has its worktrees in this list; **a sweep that
+    matched on the prefix alone would force-remove the measurement another run is standing in**, and
+    the `reason=cwd` guard could not stop it, because it knows this shell's checkout and not another
+    process's. So the name carries `$PPID` and this fence removes only its own. **The cost is real
+    and is paid deliberately**: a leftover from a run that crashed before step 12 now carries a run
+    id nobody will ever match, so **no later run sweeps it** and the only thing that happens to it is
+    that it gets named here. The alternative — adopting a leftover whose pid is no longer running —
+    rests on two pid spaces agreeing, and the price of a wrong answer there is deleting the live
+    worktree this line exists to protect.
+
+    **Run this fence as the Bash call itself, the way every fence is run** — not through `bash -c`,
+    not inside `( )`, not as a stage of a pipeline. `$PPID` is the parent of the shell that expands
+    it, so a wrapper puts the fence one level down and hands it the wrapper's pid instead of the
+    one step 3's command saw. Measured, both halves at claude-code 2.1.233: run directly, the two
+    calls report the same `$PPID` and the run's own worktree is removed; run through `bash <file>`
+    inside a subshell, the same worktree comes back as `WORKTREE=other`. **The failure is the safe
+    one** — nothing is deleted, and the line names what was left — but it is a leftover, so it is
+    worth not causing.
+
     **There is no `git worktree prune` here, and its absence is a measurement rather than an
     oversight.** A worktree whose directory was deleted underneath it — `/tmp` cleared between
     sessions is how that arrives — stays registered, and the obvious repair is a prune. But
     `git worktree remove --force` already succeeds on exactly that state: measured at `git 2.34.1`,
     it deregisters a missing worktree and exits zero. So a prune would buy nothing this fence does
-    not already do, **while widening what it
-    touches from `revloop-wt-` paths to every stale registration in the repository, including yours** —
+    not already do, **while widening what it touches from this run's own paths to every stale
+    registration in the repository, including yours and including another run's** —
     a worktree of your own on a drive that happens to be unmounted is registered and missing, which
-    is the state a prune cannot tell from an abandoned one. **The prefix is the whole bound, and a
-    prune is the one line that would leave it.**
+    is the state a prune cannot tell from an abandoned one. **The prefix and the run id are the whole
+    bound, and a prune is the one line that would leave both.**
 
     **`--force` is deliberate, and what bounds it is the name rather than the flag.** A baseline
     worktree carries build output, a linked `node_modules`, or an edit made in order to measure
     something, and plain `remove` refuses on any of them — measured at `git 2.34.1`, one untracked
     file is enough for `contains modified or untracked files, use --force to delete it` at exit 128.
     **A teardown that refuses on the ordinary case is not one.** What bounds it instead is that this
-    loop may create a worktree **only** at a path whose last component begins with `revloop-wt-`, and
-    this fence touches nothing else; `## Notes` states that rule, and why a name rather than a
-    remembered path is what carries it.
+    loop may create a worktree **only** at a path whose last component begins with
+    `revloop-wt-$PPID-`, and this fence removes nothing else — a worktree of another name is never
+    looked at, and one of this prefix and another run's id is named rather than removed; `## Notes`
+    states that rule, and why a name rather than a remembered path is what carries it.
 
     Then: if `--merge` was not passed, report and finish. **Lead the report with every finding at the
     ladder's top rung that you did not fix** — declined and accepted alike. **The rung is read from
@@ -1831,17 +1865,31 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
 - **Shell state does not survive between Bash calls.** A variable set in one call is empty in the
   next. Every fence is therefore self-contained, and the merge gate re-runs its own CI check rather
   than trusting a value from earlier.
-- **A worktree this run creates is this run's to remove.** Step 3 gives the command and the three
-  rules that make it findable; step 12 sweeps. **What is forbidden is creating one that nobody can
-  find afterwards** — five were measured left behind across two repositories, four of them at
-  `/tmp/<name>`, where a later session has neither the path nor a reason to look.
+- **A worktree this run creates is this run's to remove, and only this run's.** Step 3 gives the
+  command and the four rules that make it findable; step 12 sweeps. **What is forbidden is creating
+  one that nobody can find afterwards** — five were measured left behind across two repositories,
+  four of them at `/tmp/<name>`, where a later session has neither the path nor a reason to look.
 - **The name is the record, because there is nowhere else to keep one.** A fence takes no arguments,
   shell state does not survive the call that set it, and this procedure has no state file — so a
   teardown cannot be handed the path it should remove, and the only thing that can travel from the
   step that created a worktree to the step that removes it is **the worktree's own name**.
-  `revloop-wt-` is that channel. **A worktree whose name does not carry it is not this run's and is
-  never removed**, which is what makes an unconditional `--force` in step 12 safe: the prefix, not
-  the flag, is what bounds the blast radius.
+  `revloop-wt-$PPID-` is that channel. **A worktree whose name does not carry it is not this run's
+  and is never removed**, which is what makes an unconditional `--force` in step 12 safe: the name,
+  not the flag, is what bounds the blast radius.
+- **The run id is in that name because the prefix is not private.** `git worktree list` answers for
+  the whole repository and every linked worktree of it shares one common git dir, so two loops
+  running against the same repository at the same time are in each other's list. A prefix reserved
+  repository-wide is therefore a prefix **every concurrent run shares**, and a sweep bounded by it
+  alone would `--force` another run's live measurement. `$PPID` is what the fence can re-derive with
+  no arguments and no state file — the shell expands it, so **the fence's bytes never change and the
+  one approval still holds**, which is the property [`../docs/design-notes.md`](../docs/design-notes.md)
+  builds the fences on. **Not the session id from the environment**: that is one harness's variable
+  under one entry point, and the parent process is the same distinction with nothing to depend on.
+  Measured at claude-code 2.1.233: two Bash calls in one session report the same `$PPID`, equal to
+  the agent process's own pid. **What that number is not is depth-proof** — an environment variable
+  would be inherited by a subshell and a parent pid is not — which is why step 12 says to run the
+  fence as the call itself, and why the sweep failing that way names a worktree instead of removing
+  one.
 - **The two halves of step 3's rule are not enforced alike, and saying so is the point.** The
   **name** is mechanical: the fence matches it, and `tests/fence-worktree.test.sh` holds it there.
   The **placement** is not checked by anything — it is a rule the model follows, exactly as the ban
@@ -1930,14 +1978,33 @@ takes one of these should say so in the report:
 - **Step 12's worktree teardown. The fence is exercised; the rule it depends on is not.**
   `tests/fence-worktree.test.sh` drives every branch of it against throwaway repositories — a removal,
   a refusal, a run that owns nothing, a run outside a repository, and a run standing inside the
-  worktree it would otherwise delete — and each of its three loadbearing behaviours has been shown to
-  fail the suite when removed. **No loop has run it**, and **no worktree has ever been created under
-  the naming rule at all**: the five leftovers that motivated it were called `rev36`, `main-wt`, `wt`,
-  `wt-check` and `wt-check2`, and this fence would have matched none of them. So what is measured is
+  worktree it would otherwise delete, and a run beside another run's worktree — and each of its four
+  loadbearing behaviours has been shown to fail the suite when removed. **No loop has run it**, and
+  **no worktree has ever been created under the naming rule at all**: the five leftovers that
+  motivated it were called `rev36`, `main-wt`, `wt`, `wt-check` and `wt-check2`, and this fence would
+  have matched none of them. So what is measured is
   the sweep; what is unmeasured is **whether step 3's name is used**, which is the half that decides
   whether there is anything to sweep. **It fails open** — a worktree created outside the convention
   is left behind exactly as it is today, under a procedure that now says it cleans up, and the report
   cannot say so because the fence never saw it.
+- **Two loops have never run against one repository at the same time**, which is the situation the
+  run id exists for. `WORKTREE=other` is produced by a fixture — a worktree planted under this
+  prefix with a pid the run does not own — and never yet by a second live run. What the fixture pins
+  is that such a worktree keeps its **directory** and its registration and is named; what nobody has
+  watched is two loops finishing minutes apart.
+- **`$PPID` is measured on one harness and one machine.** Two Bash calls in one session reported the
+  same value, equal to the agent process's own pid, at claude-code 2.1.233 on Linux — and so did the
+  wrapped case, where a fence run a level down reports the wrapper's pid and leaves the run's own
+  worktree named rather than removed. **What is not measured is another harness**: one that routes
+  every Bash call through a persistent shell would still be self-consistent, and one that changes
+  the parent between step 3 and step 12 would produce that same safe failure, but neither has been
+  run. A subagent's shell has the same standing — nothing in either procedure delegates a worktree,
+  so nothing has tested one that does.
+- **A leftover from a run that never reached step 12 is now swept by nobody.** Before the run id, a
+  later run would have taken it; now its id matches no one, so it is named on every subsequent run
+  in that repository and removed on none. That is the deliberate direction of the trade in step 12
+  and it has not been observed in the field either — the five measured leftovers all predate the
+  naming rule entirely.
 - **`WORKTREE=stuck`, from a run.** The test produces one deterministically with `git worktree lock`,
   which is a stand-in: what a run would actually hit is a permission error or a filesystem that will
   not release the directory. What is pinned is that a refusal becomes a named line and a `partial`

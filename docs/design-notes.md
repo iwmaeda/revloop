@@ -100,8 +100,14 @@ prefix**, and that single fact shapes three decisions:
   which is a session-specific string, so the fence would change every session and be prompted for
   every session. There is nowhere else to keep the path: shell state does not survive a Bash call and
   neither procedure has a state file. **So the name is the channel.** A run may create a worktree only
-  at a path whose last component begins with `revloop-wt-`, and the fence matches that and nothing else.
-  The permission rule shaped the design, rather than the design being fitted to a rule afterwards.
+  at a path whose last component begins with `revloop-wt-$PPID-`, and the fence matches that and
+  nothing else. The run id is in the name for the same reason the rest of it is: `git worktree list`
+  answers for the whole repository, so two loops running against one repository are in each other's
+  list, and a prefix on its own would be a bound they share. **`$PPID` survives the no-arguments rule
+  because the shell expands it** — the fence's bytes are identical every session and resolve to a
+  different run every session, which is the same trick `wait-verdict` plays on the branch and the
+  pull request. The permission rule shaped the design, rather than the design being fitted to a rule
+  afterwards.
 
 **That is also why the fences are inline rather than shipped as scripts and called by path.** Behind a
 path the command string never changes while the file behind it does, so a plugin update could ship new

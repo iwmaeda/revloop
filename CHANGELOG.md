@@ -36,24 +36,37 @@ four of them at `/tmp/<name>`, where a later session has neither the path nor a 
 **The name is what carries the record, because nothing else can.** A fence takes no arguments, shell
 state does not survive a Bash call, and neither procedure has a state file — so a teardown cannot be
 handed a path. Step 3 now gives the command: a worktree goes **under the session scratchpad**, at a
-path whose last component begins with **`revloop-wt-`**, and **`--detach`**, so a measurement never
-takes a branch hostage. Step 12 sweeps exactly those; `procedures/local-loop.md` step 11 cites that
-step rather than copying the fence, since a copy would sit outside the hash pin, outside `lint:sh`
-and outside the test.
+path whose last component begins with **`revloop-wt-$PPID-`**, and **`--detach`**, so a measurement
+never takes a branch hostage. Step 12 sweeps exactly those; `procedures/local-loop.md` step 11 cites
+that step rather than copying the fence, since a copy would sit outside the hash pin, outside
+`lint:sh` and outside the test.
 
-**A worktree of any other name is never touched.** The prefix, not the flag, is what bounds the
-fence's unconditional `--force`, and `tests/fence-worktree.test.sh` is what holds it there — every
-scenario plants a bystander and asserts it survives with its **directory**, not only its
-registration. `revloop-wt-` rather than `revloop-` deliberately: this project is called revloop, and
-`../revloop-fix` is a plausible worktree for somebody working on it.
+**The run id is in that name because the prefix is not private.** `git worktree list` answers for the
+whole repository, so **two loops running against one repository are in each other's list** — and a
+sweep bounded by the prefix alone would `--force` the measurement the other run is standing in. The
+fence removes only `revloop-wt-$PPID-`, prints `WORKTREE=other path=…` for anything else under the
+prefix, and carries the count on both terminal lines. `$PPID` survives the no-arguments rule because
+the shell expands it: the fence's bytes are identical every session and resolve to a different run
+every session. **The cost is deliberate** — a leftover from a run that crashed before its sweep now
+matches nobody, so it is named on every later run and removed by none; adopting it would mean
+trusting one pid space to answer for another, and a wrong answer there deletes a live worktree.
+
+**A worktree of any other name is never touched.** The name, not the flag, is what bounds the fence's
+unconditional `--force`, and `tests/fence-worktree.test.sh` is what holds it there — every scenario
+plants a stranger's worktree **and a neighbouring run's** and asserts both survive with their
+**directories**, not only their registrations. `revloop-wt-` rather than `revloop-` deliberately:
+this project is called revloop, and `../revloop-fix` is a plausible worktree for somebody working on
+it.
 
 **The obligation is attached to the report rather than to a step**, which is what makes it reach
 every exit: every abort in both files reports and finishes, so one rule covers all of them, including
 the next abort somebody adds.
 
-**Two terminal lines, and only one is success.** `WORKTREE=swept removed=N` when nothing was left
-behind, `WORKTREE=partial removed=N stuck=M` when something was — **the failure token does not
-contain the success token**, for the reason `CHECKS_FAILED` is not called `NOT_ALL_PASS`. Two guards
+**Two terminal lines, and only one is success.** `WORKTREE=swept removed=N other=K` when nothing of
+this run's was left behind, `WORKTREE=partial removed=N stuck=M other=K` when something was — **the
+failure token does not contain the success token**, for the reason `CHECKS_FAILED` is not called
+`NOT_ALL_PASS`, and `other=` rides on both because `swept` is a claim about this run rather than
+about the repository. Two guards
 name themselves rather than passing silently: `WORKTREE=error reason=not-a-repo`, because a failed
 `git worktree list` prints no rows and would otherwise be read as a clean sweep, and
 `WORKTREE=stuck reason=cwd`, because at `git 2.34.1` `remove --force` will delete the worktree the
@@ -61,8 +74,9 @@ shell is standing in and exit 0.
 
 **The fence carries no `git worktree prune`, and that is a measurement rather than an omission.**
 `remove --force` already deregisters a worktree whose directory is gone (`git 2.34.1`, exit 0), so a
-prune would add nothing while reaching past `revloop-wt-` to every stale registration in the
-repository — including one of your own on a drive that happens to be unmounted.
+prune would add nothing while reaching past the name to every stale registration in the
+repository — including one of your own on a drive that happens to be unmounted, and including
+another run's.
 
 **Creating a worktree costs a permission prompt every time, and `--auto` cannot suppress it.** The
 command carries a path and a commit-ish, so it is a different string on every invocation and cannot
@@ -74,7 +88,9 @@ leaving the tree you are in.
 is which half is unmeasured: the sweep is exercised, and **the naming rule is not** — none of the
 five leftovers that motivated this carries a name the fence would have matched. **It fails open.** A
 worktree created outside the convention is left behind exactly as it is today, under a procedure that
-now says it cleans up, and the report cannot mention it because the fence never saw it.
+now says it cleans up, and the report cannot mention it because the fence never saw it. **Two loops
+have never run against one repository at the same time either**, so the run id is exercised by
+fixture and by one hand-run measurement, not by the situation it exists for.
 
 ## [0.8.0] - 2026-09-04
 
