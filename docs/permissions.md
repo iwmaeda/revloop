@@ -124,10 +124,14 @@ produces.
 rather than a new question. Step 3 now prepares and proves the ledger — real directory, regular leaf,
 readable, writable, created if absent, and no newline in the worktree path — **before**
 `git worktree add`, so a ledger it cannot use costs no worktree; and the fence proves the rewrite
-possible **before** the removal loop, under `WORKTREE=error reason=ledger-unwritable`, so a record
-that cannot shrink refuses the sweep rather than leaving just-removed paths still authorized in it.
-Both were measured failures: a worktree created and unrecorded on one side, a worktree removed with
-its ledger line intact on the other.
+possible **before** the removal loop, under `WORKTREE=error reason=ledger-unwritable`, by clearing
+and creating the temp path it will rename from — the operation itself, not a permission test, which
+a later round showed passes a directory standing at that path and then fails after the `--force` has
+run. Both failures were measured: a worktree created and unrecorded on one side, a worktree removed
+with its ledger line intact on the other. **The two sides prove different things because they do
+different things** — step 3 appends and so needs the file writable, the fence renames and so needs
+the directory writable — and step 3 proves **both**, since recording a worktree the fence cannot
+sweep is itself a leak.
 
 **None of these tests is atomic, and that limit is stated rather than left to be discovered.** They
 are pathname checks, so a process writing inside `$GIT_DIR` could swap the object between the check

@@ -58,7 +58,7 @@
 # `git worktree remove --force` one recorded line away from a developer's own
 # tree.
 #
-# TWENTY-TWO REPOSITORIES, BECAUSE THE OUTCOMES CANNOT SHARE ONE. The ordinary sweep
+# TWENTY-EIGHT REPOSITORIES, BECAUSE THE OUTCOMES CANNOT SHARE ONE. The ordinary sweep
 # must print no `stuck` at all, so the worktree that produces one cannot stand in
 # the same repository as that assertion; the no-prune case must hold a stale
 # registration and NO worktree of the run's own, since the claim is about what
@@ -764,6 +764,100 @@ else
   refute "and says nothing that is not a WORKTREE line" "$OUT_U" "Permission denied"
 fi
 
+
+
+# --- a read-only record in a writable directory -----------------------------
+# WHY THE REWRITE RENAMES INSTEAD OF TRUNCATING, and the one shape that shows it
+# without a race. `mv` replaces a DIRECTORY ENTRY, so it needs write on the
+# directory and nothing on the file; a truncate in place opens the FILE, so a
+# mode-0444 record stops it dead. Both are reachable here, which is what makes
+# this fixture the one that tells them apart -- the probe passes (the directory
+# is writable and the temp path can be cleared and created), so the sweep runs
+# all the way to the rewrite.
+#
+# IT IS ALSO THE PRODUCER/FENCE ASYMMETRY THAT IS CORRECT. Step 3 REFUSES this
+# checkout, because it APPENDS to the record and appending needs write on the
+# file; the fence accepts it, because it RENAMES over the record and renaming
+# does not. Reported on PR #27 as an inconsistency; the two sides test different
+# objects because they perform different operations, and the producer is the
+# stricter of the two, which fails safe -- it declines to record a worktree
+# rather than recording one that cannot be swept.
+RO=$(new_repo readonly-record-writable-dir)
+git -C "$RO" worktree add -q --detach "$RO/wt/revloop-wt-ro" HEAD
+echo built > "$RO/wt/revloop-wt-ro/artifact.txt"
+record "$RO" "$RO/wt/revloop-wt-ro"
+RO_DIR="$(git -C "$RO" rev-parse --absolute-git-dir)/revloop"
+if [ "$(id -u)" = 0 ]; then
+  printf '  note a read-only file does not stop root; the rename-vs-truncate split is unmeasured here\n'
+else
+  chmod 0444 "$RO_DIR/worktrees.txt"
+  OUT_RO=$( run_in "$RO" ); RC_RO=$?
+  chmod 0644 "$RO_DIR/worktrees.txt"
+  expect "a read-only record in a writable directory still sweeps" "$OUT_RO" "WORKTREE=removed path=$RO/wt/revloop-wt-ro"
+  expect "and the rename carries the rewrite through"              "$OUT_RO" "WORKTREE=swept removed=1 other=0 ledger=ok"
+  refute "so the write probe never refuses it"                     "$OUT_RO" "ledger-unwritable"
+  refute "and the record is never called unwritten"                "$OUT_RO" "ledger=error"
+  same   "the spent line is retired for real"                      "$(cat "$RO_DIR/worktrees.txt")" ""
+  same   "and the fence exits zero"                                "$RC_RO" "0"
+fi
+# --- a directory standing at the rewrite's temp path ------------------------
+# WHY THE PROBE PERFORMS THE OPERATION INSTEAD OF ASKING `[ -w ]` OF THE
+# DIRECTORY. Reported as a P1 on PR #27 against the permission-test version and
+# reproduced: `[ -w ]` is true here -- the ledger directory really is writable --
+# but `rm -f` cannot remove a DIRECTORY, so the rewrite failed only after
+# `git worktree remove --force` had already run. Measured against that version:
+# `WORKTREE=removed`, then `WORKTREE=swept removed=1 other=0 ledger=error`, with
+# the spent path still authorized in a record that could not shrink. A
+# permission test answers a question next to the one the fence needs; clearing
+# and creating the temp path answers the one it needs.
+FN=$(new_repo dir-at-temp-path)
+git -C "$FN" worktree add -q --detach "$FN/wt/revloop-wt-fn" HEAD
+echo built > "$FN/wt/revloop-wt-fn/artifact.txt"
+record "$FN" "$FN/wt/revloop-wt-fn"
+FN_DIR="$(git -C "$FN" rev-parse --absolute-git-dir)/revloop"
+mkdir -p "$FN_DIR/worktrees.txt.new/blocker"
+
+OUT_FN=$( run_in "$FN" ); RC_FN=$?
+expect "a directory at the temp path refuses the sweep" "$OUT_FN" "WORKTREE=error reason=ledger-unwritable path=$FN_DIR/worktrees.txt"
+refute "and removes nothing"                            "$OUT_FN" "WORKTREE=removed"
+refute "and never claims a clean sweep"                 "$OUT_FN" "WORKTREE=swept"
+refute "nor a partial one"                              "$OUT_FN" "WORKTREE=partial"
+expect "the worktree keeps its untracked file"          "$(cat "$FN/wt/revloop-wt-fn/artifact.txt")" "built"
+same   "and the record still authorizes it"             "$(cat "$FN_DIR/worktrees.txt")" "$FN/wt/revloop-wt-fn"
+same   "and the fence exits zero"                       "$RC_FN" "0"
+
+# AND THE REFUSAL IS THE PLANT: with the temp path clear the same repository
+# sweeps, so the block above is not satisfied by a checkout that could never
+# have swept at all.
+rm -rf "$FN_DIR/worktrees.txt.new"
+OUT_FN2=$( run_in "$FN" )
+expect "and the same repository sweeps once the temp path is clear" "$OUT_FN2" "WORKTREE=removed path=$FN/wt/revloop-wt-fn"
+expect "saying so on its terminal line"                             "$OUT_FN2" "WORKTREE=swept removed=1 other=0 ledger=ok"
+
+# --- an empty record under an unwritable directory --------------------------
+# THE PROBE IS SKIPPED HERE AND THAT IS HARMLESS, which is worth pinning because
+# it looks like a bypass. With `$M` empty nothing is authorized, so every
+# family-named path fails the membership test and the loop removes nothing --
+# and with nothing removed there is no rewrite to prove possible. The fence
+# reaches its terminal line without touching the directory it cannot write.
+EM=$(new_repo empty-record-readonly-dir)
+git -C "$EM" worktree add -q --detach "$EM/wt/revloop-wt-em" HEAD
+echo built > "$EM/wt/revloop-wt-em/artifact.txt"
+EM_DIR="$(git -C "$EM" rev-parse --absolute-git-dir)/revloop"
+mkdir -p "$EM_DIR"; : > "$EM_DIR/worktrees.txt"
+if [ "$(id -u)" = 0 ]; then
+  printf '  note a read-only directory does not stop root; the skipped probe is unmeasured here\n'
+else
+  chmod a-w "$EM_DIR"
+  OUT_EM=$( run_in "$EM" ); RC_EM=$?
+  chmod u+w "$EM_DIR"
+  expect "an empty record owns nothing"          "$OUT_EM" "WORKTREE=other path=$EM/wt/revloop-wt-em"
+  expect "and the sweep completes"               "$OUT_EM" "WORKTREE=swept removed=0 other=1 ledger=ok"
+  refute "removing nothing"                      "$OUT_EM" "WORKTREE=removed"
+  refute "and never reaching the write probe"    "$OUT_EM" "ledger-unwritable"
+  expect "the worktree keeps its untracked file" "$(cat "$EM/wt/revloop-wt-em/artifact.txt")" "built"
+  same   "and the fence exits zero"              "$RC_EM" "0"
+fi
 # --- a symlink planted at the record itself ---------------------------------
 # THE OTHER HALF, and the one that decides what the fence READS rather than what
 # it writes. `[ -e ]` and `[ -f ]` both follow a symlink, so a record redirected
@@ -1131,6 +1225,14 @@ READWRITE_RULE='[ -r "$D/worktrees.txt" ] && [ -w "$D/worktrees.txt" ]'
 # read. Measured at 0 red before this rule was added.
 # shellcheck disable=SC2016
 PREPARE_RULE='&& mkdir -p "$D" && { [ -e "$D/worktrees.txt" ] || : > "$D/worktrees.txt"; }'
+# And the clause that makes the producer prove what the FENCE will need rather
+# than only what it needs itself. Step 3 appends, so it requires write on the
+# FILE; the fence renames, so it requires write on the DIRECTORY. Without this
+# a mode-0555 directory holding a mode-0666 record passes step 3, records a
+# worktree, and is then refused by the sweep -- recorded and unsweepable, which
+# is the leak both sides exist to prevent. Reported on PR #27.
+# shellcheck disable=SC2016
+DIRWRITE_RULE='[ -w "$D/worktrees.txt" ] && [ -w "$D" ]'
 
 expect "remote-loop holds the fence"        "$(found "$FENCE_ID" "$REMOTE")"        "$FENCE_ID"
 expect "remote-loop states the name rule"   "$(found "$PREFIX_RULE" "$REMOTE")"     "$PREFIX_RULE"
@@ -1141,6 +1243,7 @@ expect "remote-loop types the ledger leaf too"   "$(foundf "$LEAFTYPE_RULE" "$RE
 expect "remote-loop refuses a newline in the path" "$(foundf "$NEWLINE_PATH_RULE" "$REMOTE")" "$NEWLINE_PATH_RULE"
 expect "remote-loop proves the ledger usable"      "$(foundf "$READWRITE_RULE" "$REMOTE")"    "$READWRITE_RULE"
 expect "remote-loop makes the ledger first"        "$(foundf "$PREPARE_RULE" "$REMOTE")"      "$PREPARE_RULE"
+expect "remote-loop proves what the fence needs"   "$(foundf "$DIRWRITE_RULE" "$REMOTE")"     "$DIRWRITE_RULE"
 expect "local-loop cites the teardown"      "$(found 'worktree-teardown' "$LOCAL")" "worktree-teardown"
 expect "local-loop cites the creation rule" "$(found 'step 3 gives' "$LOCAL")"      "step 3 gives"
 expect "local-loop names the ledger too"    "$(foundf "$LEDGER_RULE" "$LOCAL")"     "$LEDGER_RULE"

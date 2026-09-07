@@ -23,7 +23,7 @@ before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so 
 changed line and three unchanged hashes; if any of the three moved, an existing fence was edited by
 accident and this paragraph is wrong.
 
-**The new fence was then amended nine times before release, and that is still not a re-approval.**
+**The new fence was then amended ten times before release, and that is still not a re-approval.**
 An approval is keyed to the exact command string, and nobody has ever been prompted for the earlier
 bytes: `worktree-teardown` has not appeared in a tagged release, so there is nothing granted to
 invalidate. Against the release boundary this remains **one added fence and one first approval**, and
@@ -105,15 +105,32 @@ permanently.** `git worktree add` accepts it, the ledger takes it raw, and both 
 `stuck` is the one outcome that **keeps** its ledger line, so the leak was permanent. Refusing it in
 step 3 costs nothing: the path is one revloop composes.
 
-**The fence's probe asks `[ -w ]` of the directory rather than performing a trial write, and that is a
-side effect rather than a preference.** An unlink-and-recreate probe is the stronger test and would
-also **remove a symbolic link planted at `$F.new`**, disarming the condition the rewrite's own
-`rm -f` exists for — measured, deleting that `rm -f` then turned **0** assertions red instead of 5.
-The reordering still cost real mutation coverage of the rewrite's failure path, because the two
-fixtures that drove it now refuse earlier: `mv`-replaced-by-a-truncate fell from 6 red to 1, the
-rewrite entire from 20 to 17, and the rewrite's `2>/dev/null` joined the lines that can be deleted
-with the suite green. **Trading coverage of a failure path for never reaching it is the right
-direction and is still a trade**, so the table says so rather than absorbing it.
+**The probe performs the rewrite's own operations, and the first version of it did not.** It asked
+`[ -w ]` of the ledger directory, to avoid a side effect: an unlink-and-recreate probe also removes a
+symbolic link planted at `$F.new`, so the rewrite's own `rm -f` stops being what that fixture
+measures. A fourth review round returned the consequence as a P1 and it reproduced — `[ -w ]` is true
+of a writable directory that nonetheless holds a **directory** at `$F.new`, which `rm -f` cannot
+clear, so the rewrite failed _after_ `git worktree remove --force` had run and printed
+`WORKTREE=removed` then `ledger=error` with the spent path still authorized. **A permission test
+answers the question next to the one the fence needs.** It now clears and creates the temp path.
+
+**The same round found the two sides still proving different things, and one direction of that was a
+leak.** Step 3 appends, so it needs the record writable; the fence renames, so it needs the
+_directory_ writable and nothing on the record. A mode-0555 directory holding a mode-0666 record
+therefore passed step 3, recorded a worktree, and was refused by the sweep — **recorded and
+unsweepable**. Step 3 now proves the directory writable too. The opposite direction stays and is
+correct: a mode-0444 record in a writable directory is refused by step 3 and swept by the fence, the
+producer being the stricter of the two and declining to create rather than creating something it
+cannot record. The skipped probe on an empty record is likewise not a bypass — with nothing
+authorized the loop removes nothing, so there is no rewrite to prove — and both shapes are fixtures.
+
+**The reordering cost real mutation coverage and the table says so rather than absorbing it.** The
+rewrite entire fell from 20 red to 17, and the rewrite's own `rm -f "$F.new"` and its `2>/dev/null`
+joined the lines that can be deleted with the suite green, because the probe now clears that path
+first. Both stay, as second lines of defence against a re-plant in the window after the probe — the
+race that is declined above. `mv`-replaced-by-a-truncate is held at 3 only because a fixture was
+added to hold it: a mode-0444 record in a writable directory can be renamed over and cannot be
+truncated in place, which is the one shape that separates the two without a race.
 
 **Both halves of the writing guard are held by assertions on the procedure's text, and the first one
 written was vacuous.** No test in `tests/fence-worktree.test.sh` can reach a command that file does
@@ -323,8 +340,8 @@ the write, which no fixture races, and the membership read's here-string, whose 
 larger than the pipe buffer. The fixture that looks as though it should kill the third does
 not: a read-only ledger directory makes the unlink fail, and the unlink is the first link of the
 chain, so noclobber is never reached. All four are recorded in `## Unexercised paths` rather than
-counted as coverage — and re-measuring the whole suite over **229** assertions across **twenty-six**
-throwaway repositories did not change that.
+counted as coverage — and re-measuring the whole suite over **251** assertions across
+**twenty-eight** throwaway repositories did not change that.
 
 **Three more things the sweep's rewrite does not cover, all written down rather than argued away.**
 The retirement is measured by hand against a real repository — a path recorded, swept, retired, then
