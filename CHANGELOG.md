@@ -23,7 +23,7 @@ before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so 
 changed line and three unchanged hashes; if any of the three moved, an existing fence was edited by
 accident and this paragraph is wrong.
 
-**The new fence was then amended seven times before release, and that is still not a re-approval.**
+**The new fence was then amended eight times before release, and that is still not a re-approval.**
 An approval is keyed to the exact command string, and nobody has ever been prompted for the earlier
 bytes: `worktree-teardown` has not appeared in a tagged release, so there is nothing granted to
 invalidate. Against the release boundary this remains **one added fence and one first approval**, and
@@ -45,6 +45,28 @@ link and a **dangling** one would otherwise be reported as the wrong refusal. `d
 already claimed a record that is not a regular file was refused outright; this is what makes that
 sentence true rather than aspirational. **The fixture runs under a cap**, because a regression here
 wedges the suite instead of reddening it.
+
+**The eighth amendment closed the same class one path component higher, and it is the first defect
+here that a review found rather than an argument did.** Codex returned it as a P1 and it reproduced
+exactly: with `revloop` **itself** a symbolic link to a directory holding an ordinary
+`worktrees.txt`, every test the record guard makes comes back looking healthy — `[ -L "$F" ]` is
+false because the **leaf** is not the link, and `[ -f "$F" ]` is true because it **follows the
+parent** — so `cat` adopted a file whose location somebody else chose as the authorization list for
+an unconditional `--force`. Measured against the unguarded fence: the recorded worktree removed, its
+untracked file gone, and `WORKTREE=swept removed=1 other=0 ledger=ok` printed over all of it. The new
+`reason=ledger-dir-not-regular` refuses the link itself and never what it resolves to, which is what
+keeps a **dangling** one from being misreported as `ledger-unreadable`. The shapes that are not links
+still fail closed where they did: a `revloop` that is a regular file or a named pipe makes `cat` fail
+with `ENOTDIR` — measured, without blocking — so only the symbolic link ever succeeded at supplying
+bytes, and only it needed a refusal of its own.
+
+**The guard has a writing half, because a rule enforced on one side only trades one failure for
+another.** `mkdir -p` succeeds on a `revloop` that is already a link, so step 3 would have gone on
+appending the run's own worktree paths into the substituted file while the fence refused to read it
+— a destroyed worktree exchanged for a leaked one, under a reason naming neither. Step 3 now carries
+`[ ! -L "$D" ]`, **placed before `git worktree add`** so that an unusable ledger path costs the run
+no worktree at all. It is held by a prose assertion rather than a fixture, for the reason the newline
+clause is: no test in `tests/fence-worktree.test.sh` can reach a command that file does not run.
 
 **The same round moved one bound from the reader to the writer, which is where it turns out to
 belong.** `>>` onto a record whose last line lost its newline glues two absolute paths into a third
@@ -246,7 +268,7 @@ the write, which no fixture races, and the membership read's here-string, whose 
 larger than the pipe buffer. The fixture that looks as though it should kill the third does
 not: a read-only ledger directory makes the unlink fail, and the unlink is the first link of the
 chain, so noclobber is never reached. All four are recorded in `## Unexercised paths` rather than
-counted as coverage — and re-measuring the whole suite over **202** assertions across **twenty-four**
+counted as coverage — and re-measuring the whole suite over **222** assertions across **twenty-six**
 throwaway repositories did not change that.
 
 **Three more things the sweep's rewrite does not cover, all written down rather than argued away.**

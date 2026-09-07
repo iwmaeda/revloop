@@ -104,6 +104,14 @@ only whether it is a link**, because the two are different sets and the gap betw
 wrong answer but a **hang**: a named pipe is not a link, so it reached the read, and opening a FIFO
 with no writer blocks forever — measured, the fence printed no line at all and the step never
 finished. Anyone who can plant a link there can run `mkfifo`, which needs no privilege.
+**The same question is asked of the directory the record sits in, one path component higher**, and
+that one arrived from a review rather than from this argument: a `revloop` that is itself a symbolic
+link passes every test made on the leaf — `[ -L ]` is false because the leaf is not the link, and
+`[ -f ]` is true because it follows the parent — so the read adopted a substituted file and the
+`--force` took the worktree named in it. It is refused as
+`WORKTREE=error reason=ledger-dir-not-regular`, on the link itself rather than on what it resolves
+to, and **step 3 refuses to record through one too**, before it creates a worktree — otherwise the
+run would keep writing its paths into the substituted file while the sweep declined to read it.
 **Neither is a permission the system enforces
 for you**, which is the same sentence as the one above it: the bound is in the fence's bytes and in
 `tests/fence-worktree.test.sh`, which plants a link at each of the two paths and asserts the file it

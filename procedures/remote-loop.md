@@ -365,7 +365,8 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
 
    ```bash
    D=$(git rev-parse --absolute-git-dir)/revloop
-   git worktree add --detach "<scratch>/revloop-wt-<slug>" <commit-ish> \
+   [ ! -L "$D" ] || { echo "revloop: $D is a symbolic link, refusing to record through it"; false; } \
+     && git worktree add --detach "<scratch>/revloop-wt-<slug>" <commit-ish> \
      && mkdir -p "$D" \
      && { [ ! -s "$D/worktrees.txt" ] || [ -z "$(tail -c1 "$D/worktrees.txt")" ] || printf '\n' >> "$D/worktrees.txt"; } \
      && git -C "<scratch>/revloop-wt-<slug>" rev-parse --show-toplevel >> "$D/worktrees.txt"
@@ -404,6 +405,18 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    typed path and the recorded one differ. **The clauses are chained with `&&` on purpose**: a
    worktree created and not recorded is a worktree nothing will sweep, and `## Notes` says why that
    failure is left open rather than closed.
+
+   **The link test is the other bound this side keeps, and it is the writing half of a rule step 12
+   enforces on reading.** `mkdir -p` succeeds on a `revloop` that is already a **symbolic link to a
+   directory**, so without it this chain appends the paths of the worktrees you just created into a
+   file somebody else chose the location of — and step 12, which refuses that shape with
+   `reason=ledger-dir-not-regular`, then finds no record of its own and leaves every one of them
+   behind. **It is placed before `git worktree add` rather than after it** so that a ledger path this
+   run cannot use costs it no worktree: the `&&` chain means a guard sitting later would refuse only
+   after a worktree existed, which is exactly the unrecorded-worktree failure the chain is ordered to
+   avoid. Refusing on the link rather than on what it points at is deliberate and matches the fence:
+   a record whose location was chosen elsewhere is not a record this run may read **or** write, and
+   the only safe reading of it is none.
 
    **The newline clause is the one bound this record keeps on the writing side, and it is here
    because no reader can replace it.** `>>` onto a record whose last line lost its newline — a hand
@@ -1341,6 +1354,7 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     HERE=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
     G=$(git rev-parse --absolute-git-dir 2>/dev/null) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
     F="$G/revloop/worktrees.txt"
+    if [ -L "$G/revloop" ]; then echo "WORKTREE=error reason=ledger-dir-not-regular path=$G/revloop"; exit 0; fi
     if [ -L "$F" ] || { [ -e "$F" ] && [ ! -f "$F" ]; }; then echo "WORKTREE=error reason=ledger-not-regular path=$F"; exit 0; fi
     case "${HERE##*/}" in revloop-wt-*) if [ -f "$G/gitdir" ] && [ ! -f "$F" ]; then echo "WORKTREE=error reason=inside-worktree path=$HERE"; exit 0; fi ;; esac
     if [ -e "$G/revloop" ]; then M=$(cat "$F" 2>/dev/null) || { echo "WORKTREE=error reason=ledger-unreadable path=$F"; exit 0; }; else M=; fi
@@ -1438,6 +1452,40 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     the file before the command that fills it runs, so the state is close to unreachable — and when
     it does arrive the fence refuses rather than lies, which is the direction every other guard here
     errs in.
+
+    **`WORKTREE=error reason=ledger-dir-not-regular` guards the path component above the record,
+    and it is the one refusal here that was reported rather than reasoned out.** Codex returned it
+    as a P1 on `iwmaeda/revloop#27` and it reproduced exactly: with `revloop` itself a **symbolic
+    link to a directory** holding an ordinary `worktrees.txt`, every test the guard below makes comes
+    back looking like a healthy record — `[ -L "$F" ]` is false because the **leaf** is not the link,
+    and `[ -f "$F" ]` is true because it **follows the parent**. The read then adopts a file whose
+    location somebody else chose as the authorization list for an unconditional `--force`. Measured
+    against the unguarded fence: `WORKTREE=removed` on the recorded worktree and
+    `WORKTREE=swept removed=1 other=0 ledger=ok` printed over it, with the untracked file inside it
+    gone — the exact outcome every other guard on this page exists to prevent, reached one path
+    component higher than any of them looked.
+
+    **It tests the link and never what the link resolves to**, which is the same choice the leaf
+    guard makes and for the same reason: a record whose location was chosen elsewhere is not a
+    record this run may read, and resolving it only decides how convincing the substitute is. That
+    also keeps the refusal correctly named — asking `[ -e ]` or `[ -d ]` of the directory lets a
+    **dangling** link fall through to a read that fails, which reports `ledger-unreadable`, a record
+    that could not be read, when what is there is a path this run must not use at all. Both members
+    are fixtures.
+
+    **The shapes that are not links still fail closed, and they are why this guard is one test
+    rather than a second type table.** A `revloop` that is a regular file or a named pipe makes
+    `cat "$F"` fail with `ENOTDIR` — measured, without blocking, which is the failure mode the FIFO
+    at the leaf had — so the read guard below already refuses them as `ledger-unreadable`, and an
+    absent `revloop` leaves `M` empty so every family-named path is somebody else's. **Only the
+    symbolic link succeeds at supplying bytes**, so it is the only shape that needs a refusal of its
+    own, and `[ -e "$G/revloop" ]` below keeps covering the rest exactly as it did.
+
+    **The rule has a writing half, and step 3 carries it.** `mkdir -p` succeeds on a `revloop` that
+    is already a link, so without `[ ! -L "$D" ]` there a run appends the paths of the worktrees it
+    just created into the substituted file, and this fence — now refusing that shape — finds no
+    record of its own and leaves every one of them behind. A guard on one side only would trade a
+    destroyed worktree for a leaked one while reporting a reason that named neither.
 
     **`WORKTREE=error reason=ledger-not-regular` is the third, and it asks the one question the
     other two cannot.** `[ -e ]` and `[ -f ]` both follow a symbolic link, so a record replaced by a
@@ -2274,7 +2322,7 @@ takes one of these should say so in the report:
   into a schema is only as strong as what reads the schema**, and here that is a person or an agent
   rather than a process.
 - **Step 12's worktree teardown. The fence is exercised; the rule it depends on is not.**
-  `tests/fence-worktree.test.sh` drives every branch of it against **twenty-four** throwaway
+  `tests/fence-worktree.test.sh` drives every branch of it against **twenty-six** throwaway
   repositories — a removal, a refusal, a run that owns nothing, a run outside a repository, a bare
   repository, a run standing inside the worktree it would otherwise delete, a run whose ledger is
   missing, two checkouts of one repository sweeping past each other, one that places its worktree
@@ -2282,21 +2330,24 @@ takes one of these should say so in the report:
   directory is read-only, one whose ledger cannot be **read** in each of the three ways that breaks,
   two whose own **names** are in the family, one whose record is a **symbolic link**, one whose
   record is a **dangling** link, one whose record is a **named pipe**, one whose record is a
-  **directory**, one with a link planted at the rewrite's **temp path**, one where that
+  **directory**, two whose ledger **directory** is a symbolic link — one resolving and one
+  dangling — one with a link planted at the rewrite's **temp path**, one where that
   plant cannot be unlinked, one carrying a stale temp file from an earlier run, one whose worktree is
   named the family prefix and nothing else, one whose record lost its final **newline** and is
   repaired by step 3's clause, and one where the unrepaired append has already **glued** two paths
   into one — and each of its loadbearing behaviours has been shown to fail the suite when removed.
-  **Re-measured over 202 assertions**, since both the fence and the fixture count moved:
+  **Re-measured over 222 assertions**, since both the fence and the fixture count moved:
 
   | Remove                                            | Assertions that go red |
   | ------------------------------------------------- | ---------------------- |
   | the ledger membership check                       | 35                     |
-  | the `revloop-wt-` match in the loop               | 23                     |
-  | the `--force`                                     | 21                     |
+  | the `revloop-wt-` match in the loop               | 24                     |
+  | the `--force`                                     | 24                     |
+  | the `ledger=` field                               | 21                     |
   | the ledger rewrite                                | 20                     |
-  | the `ledger=` field                               | 20                     |
-  | deriving the ledger from `--git-common-dir`       | 16                     |
+  | deriving the ledger from `--git-common-dir`       | 18                     |
+  | asking `[ -e ]`/`[ -d ]` of the ledger directory  | 11                     |
+  | the `ledger-dir-not-regular` guard entire         | 10                     |
   | the `ledger-not-regular` guard entire             | 9                      |
   | the `[ ! -f "$F" ]` conjunct of the guard         | 7                      |
   | the `ledger-unreadable` guard entire              | 7                      |
@@ -2312,6 +2363,7 @@ takes one of these should say so in the report:
   | asking `[ -d "$G/revloop" ]` rather than `[ -e ]` | 2                      |
   | the rewrite's `2>/dev/null`                       | 1                      |
   | step 3's newline clause                           | **1 — see below**      |
+  | step 3's `[ ! -L "$D" ]` link test                | **1 — see below**      |
   | the here-string, back to a pipeline               | **0 — see below**      |
   | the `git worktree list` guard                     | **0 — see below**      |
   | the `--absolute-git-dir` guard                    | **0 — see below**      |
@@ -2324,16 +2376,22 @@ takes one of these should say so in the report:
   bit removed. `[ -d ]` misses a `revloop` that is a regular file. Only `[ -e "$G/revloop" ]` covers
   all three.
 
-  **Deriving the ledger's directory from `--git-common-dir` turns 16 red**, "the other checkout keeps
+  **Deriving the ledger's directory from `--git-common-dir` turns 18 red**, "the other checkout keeps
   its directory" among them, which is the measurement behind that rejection rather than an argument
   for it.
 
-  **Two of the rows above are hardenings no fixture can kill, and the table says so rather than
+  **Three of the rows above are hardenings no fixture can kill, and the table says so rather than
   rounding them up.** Removing **step 3's newline clause** turns exactly **1** red, and that one is
   the prose assertion holding the procedure to the copy of the clause in the test's own `record()`
   helper — the behavioural cost is measured instead by `glued-ledger`, a fixture that hardcodes the
   unrepaired append and pins the leak it produces, so the clause and its consequence are checked from
-  opposite sides and neither check moves when the other is deleted. Restoring **the here-string to a
+  opposite sides and neither check moves when the other is deleted. **Step 3's `[ ! -L "$D" ]` link
+  test turns 1 red for the same structural reason and a sharper one**: it is the writing half of the
+  rule the `ledger-dir-not-regular` guard enforces on reading, it lives in step 3's block rather than
+  in a fence, and **no fixture in that file can reach a command the file does not run**. Its 1 is
+  likewise a prose assertion, and without it step 3 could go back to recording through a symlinked
+  directory while every sweep fixture stayed green — the two halves would disagree with nothing to
+  say so. Restoring **the here-string to a
   pipeline** turns **0** red: under `set -o pipefail`, a record larger than the pipe buffer makes
   `grep -q` exit on an early match before `printf` has finished writing, `printf` takes `SIGPIPE`,
   and the pipeline's non-zero status reads as "not ours" — measured, a path this checkout owns came
@@ -2440,7 +2498,7 @@ takes one of these should say so in the report:
   measured at `git 2.34.1`, which is the case `tests/fence-worktree.test.sh` pins. **So the guards on
   the list, on `--absolute-git-dir`, on the rewrite's `set -C` and on the membership read's
   here-string are the only four lines in this fence that can be deleted with the suite green — and
-  re-measuring over 202 assertions did not change that.** The list guard stays on the reasoning it
+  re-measuring over 222 assertions did not change that.** The list guard stays on the reasoning it
   always did: a `list` that fails prints no
   rows, and the loop behind it would then remove nothing and print a clean sweep over a repository it
   never read. The `--absolute-git-dir` guard is weaker still — `--show-toplevel` succeeded two lines

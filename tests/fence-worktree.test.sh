@@ -896,6 +896,79 @@ OUT_DD2=$( run_in "$DD" )
 expect "and the same repository sweeps once the record is regular" "$OUT_DD2" "WORKTREE=removed path=$DD/wt/revloop-wt-dd"
 expect "saying so on its terminal line"                            "$OUT_DD2" "WORKTREE=swept removed=1 other=0 ledger=ok"
 
+
+# --- a symlink planted at the ledger's DIRECTORY ----------------------------
+# THE GUARD ABOVE ASKS ABOUT THE LEAF, AND THIS IS THE PATH COMPONENT ABOVE IT.
+# Reported as P1 on PR #27 and reproduced before it was fixed: when `revloop`
+# itself is a symbolic link to a directory holding a regular `worktrees.txt`,
+# every test the leaf guard makes comes back the way an ordinary record does --
+# `[ -L "$F" ]` is false because the LEAF is not the link, and `[ -f "$F" ]` is
+# true because it follows the parent. The read then adopts a file whose location
+# somebody else chose as the authorization list for an unconditional `--force`.
+# Measured against the unfixed fence: `WORKTREE=removed` on the recorded
+# worktree and `WORKTREE=swept removed=1 other=0 ledger=ok` printed over it,
+# with the untracked file in it gone.
+#
+# THE ASSERTIONS ARE ON THE VICTIM'S BYTES AND THE WORKTREE'S DIRECTORY, because
+# the claim is that the fence touched neither -- the same shape as the leaf
+# symlink fixture above, one component up.
+SD=$(new_repo symlink-ledger-dir)
+git -C "$SD" worktree add -q --detach "$SD/wt/revloop-wt-sd" HEAD
+echo built > "$SD/wt/revloop-wt-sd/artifact.txt"
+record "$SD" "$SD/wt/revloop-wt-sd"
+SD_G=$(git -C "$SD" rev-parse --absolute-git-dir)
+# Move the real ledger aside and put an attacker-owned directory in its place,
+# carrying a record that names the very worktree this checkout owns.
+mv "$SD_G/revloop" "$SD/real-ledger"
+mkdir -p "$SD/elsewhere"
+cp "$SD/real-ledger/worktrees.txt" "$SD/elsewhere/worktrees.txt"
+ln -s "$SD/elsewhere" "$SD_G/revloop"
+
+OUT_SD=$( run_in "$SD" ); RC_SD=$?
+expect "a ledger directory that is a symlink refuses the sweep" "$OUT_SD" "WORKTREE=error reason=ledger-dir-not-regular path=$SD_G/revloop"
+refute "and never claims a clean sweep"                         "$OUT_SD" "WORKTREE=swept"
+refute "nor a partial one"                                      "$OUT_SD" "WORKTREE=partial"
+refute "and removes nothing"                                    "$OUT_SD" "WORKTREE=removed"
+refute "and calls nothing another's"                            "$OUT_SD" "WORKTREE=other"
+refute "and does not misreport it as the leaf refusal"          "$OUT_SD" "reason=ledger-not-regular"
+expect "the worktree keeps its directory"                       "$(test -d "$SD/wt/revloop-wt-sd" && echo PRESENT)" "PRESENT"
+expect "and its untracked file"                                 "$(cat "$SD/wt/revloop-wt-sd/artifact.txt")" "built"
+expect "and the file behind the link is untouched"              "$(cat "$SD/elsewhere/worktrees.txt")" "$SD/wt/revloop-wt-sd"
+same   "and the fence exits zero"                               "$RC_SD" "0"
+
+# AND THE REFUSAL IS THE PLANT: with the real directory back, the same
+# repository sweeps the same worktree, so the block above is not satisfied by a
+# checkout the fence could never have swept.
+rm -f "$SD_G/revloop"; mv "$SD/real-ledger" "$SD_G/revloop"
+OUT_SD2=$( run_in "$SD" )
+expect "and the same repository sweeps once the directory is real" "$OUT_SD2" "WORKTREE=removed path=$SD/wt/revloop-wt-sd"
+expect "saying so on its terminal line"                            "$OUT_SD2" "WORKTREE=swept removed=1 other=0 ledger=ok"
+
+# --- a DANGLING symlink at the ledger's directory ---------------------------
+# The same member with its target removed. It matters on its own because the
+# guard tests the LINK and not what it resolves to: a fence that asked
+# `[ -e ]` or `[ -d ]` about the directory would let this one fall through to a
+# read that fails, and report `ledger-unreadable` -- a record that could not be
+# read -- when what is there is a path this run must not use at all.
+GD=$(new_repo dangling-ledger-dir)
+git -C "$GD" worktree add -q --detach "$GD/wt/revloop-wt-gd" HEAD
+echo built > "$GD/wt/revloop-wt-gd/artifact.txt"
+record "$GD" "$GD/wt/revloop-wt-gd"
+GD_G=$(git -C "$GD" rev-parse --absolute-git-dir)
+mv "$GD_G/revloop" "$GD/real-ledger"
+ln -s "$GD/no-such-directory" "$GD_G/revloop"
+
+OUT_GD=$( run_in "$GD" ); RC_GD=$?
+expect "a dangling ledger directory refuses the sweep" "$OUT_GD" "WORKTREE=error reason=ledger-dir-not-regular path=$GD_G/revloop"
+refute "and is not reported as an unreadable record"   "$OUT_GD" "ledger-unreadable"
+refute "and never claims a clean sweep"                "$OUT_GD" "WORKTREE=swept"
+refute "and removes nothing"                           "$OUT_GD" "WORKTREE=removed"
+expect "the worktree keeps its untracked file"         "$(cat "$GD/wt/revloop-wt-gd/artifact.txt")" "built"
+same   "and the fence exits zero"                      "$RC_GD" "0"
+
+rm -f "$GD_G/revloop"; mv "$GD/real-ledger" "$GD_G/revloop"
+OUT_GD2=$( run_in "$GD" )
+expect "and the same repository sweeps once the directory is real" "$OUT_GD2" "WORKTREE=removed path=$GD/wt/revloop-wt-gd"
 # --- a stale temp file from an earlier run ----------------------------------
 # `set -C` refuses an existing REGULAR file too -- measured at bash 5.1.16 -- so
 # on its own it would wedge the rewrite into `ledger=error` for good the first
@@ -1013,11 +1086,18 @@ LEDGER_RULE='`revloop/worktrees.txt`'
 # because the helper above is a COPY of it: if step 3 loses the clause and this
 # file keeps it, every fixture still passes while the real writer glues.
 NEWLINE_RULE='tail -c1'
+# The writer's link test is asserted the same way and for the same reason: it
+# lives in step 3's block rather than in the fence, so no fixture in this file
+# can reach it, and the sweep guard it pairs with would still pass every test
+# here if step 3 quietly went back to recording through a symlinked directory.
+# shellcheck disable=SC2016
+LINKDIR_RULE='[ ! -L "$D" ]'
 
 expect "remote-loop holds the fence"        "$(found "$FENCE_ID" "$REMOTE")"        "$FENCE_ID"
 expect "remote-loop states the name rule"   "$(found "$PREFIX_RULE" "$REMOTE")"     "$PREFIX_RULE"
 expect "remote-loop names the ledger"       "$(foundf "$LEDGER_RULE" "$REMOTE")"    "$LEDGER_RULE"
 expect "remote-loop restores the newline"   "$(foundf "$NEWLINE_RULE" "$REMOTE")"   "$NEWLINE_RULE"
+expect "remote-loop refuses a linked ledger dir" "$(foundf "$LINKDIR_RULE" "$REMOTE")" "$LINKDIR_RULE"
 expect "local-loop cites the teardown"      "$(found 'worktree-teardown' "$LOCAL")" "worktree-teardown"
 expect "local-loop cites the creation rule" "$(found 'step 3 gives' "$LOCAL")"      "step 3 gives"
 expect "local-loop names the ledger too"    "$(foundf "$LEDGER_RULE" "$LOCAL")"     "$LEDGER_RULE"
