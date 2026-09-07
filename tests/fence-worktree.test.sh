@@ -58,7 +58,7 @@
 # `git worktree remove --force` one recorded line away from a developer's own
 # tree.
 #
-# THIRTEEN REPOSITORIES, BECAUSE THE OUTCOMES CANNOT SHARE ONE. The ordinary sweep
+# FOURTEEN REPOSITORIES, BECAUSE THE OUTCOMES CANNOT SHARE ONE. The ordinary sweep
 # must print no `stuck` at all, so the worktree that produces one cannot stand in
 # the same repository as that assertion; the no-prune case must hold a stale
 # registration and NO worktree of the run's own, since the claim is about what
@@ -70,15 +70,43 @@
 # put it -- outside the checkout -- because a worktree inside the checkout is
 # itself untracked and would mask the assertion; the two retirement cases each
 # need a repository they can sweep twice; the write-failure case needs one whose
-# ledger directory can be made read-only without disturbing anything else; and
-# the two guard false positives need repositories whose own NAMES are in the
-# family, which no other fixture can be without changing what it measures.
+# ledger directory can be made read-only without disturbing anything else; the
+# unreadable case needs its own again, because it takes READ off where the
+# other takes WRITE off and the two cannot be staged in one repository without
+# each measuring the other's state; and the two guard false positives need
+# repositories whose own NAMES are in the family, which no other fixture can be
+# without changing what it measures.
 #
 # THE DIRECTORY IS WHAT IS MADE READ-ONLY, NOT THE FILE. The rewrite creates a
 # sibling and renames over the target, and rename(2) needs write permission on
 # the parent and none at all on the target -- so a read-only `worktrees.txt`
 # would be replaced happily and the fixture would measure nothing. The EXIT trap
 # chmods $TMP back before rm -rf, which is what makes leaving one behind safe.
+# It restores `u+rwX` rather than `u+w`, and that is not tidiness: the
+# unreadable-ledger fixture below takes SEARCH off a directory, and `rm -rf`
+# cannot descend into one it may not enter. `X` sets execute on directories and
+# leaves the fence extracted at the top of this file un-executable, which it has
+# no reason to be.
+#
+# AN UNREADABLE RECORD IS NOT AN EMPTY ONE, and the fence used to treat them
+# alike: `cat` failing meant `M=` meant every recorded path fell out as
+# `WORKTREE=other`, the rewrite was skipped so `ledger=ok` survived, and the
+# terminal line claimed a clean sweep over a record nothing had opened. Measured
+# against the unfixed fence at git 2.34.1: `WORKTREE=swept removed=0 other=1
+# ledger=ok` with the run's own worktree still on disk and its untracked file in
+# it.
+#
+# THE GUARD ASKS ABOUT THE DIRECTORY AND NOT THE FILE, and `unreadable-ledger`
+# needs three cases because that is what makes the choice loadbearing. Asking
+# `[ -e "$F" ]` looks like the obvious test and is DEAD CODE: measured, a file
+# that is `[ -e ]` implies its parent is `[ -d ]`, so the file test can never be
+# the one that fires. And it is not merely redundant but weaker -- taking SEARCH
+# off the directory makes `[ -e ]` on the file inside it false, since stat(2)
+# needs search on every component, while stat on the directory needs search only
+# on ITS parent. The three cases are therefore an unreadable file, a directory
+# with search taken off, and a `revloop` that is a regular file where the
+# directory should be; `[ -e "$G/revloop" ]` is true in all three and `[ -d ]`
+# misses the last.
 #
 # `reason=inside-worktree` IS THREE CONDITIONS AND USED TO BE ONE. The old guard
 # read the invoking checkout's basename alone, which reserved `revloop-wt-*` for
@@ -154,7 +182,7 @@ same() { # same <label> <actual> <expected> -- exact, unlike lib.sh's expect
 # recorded, and git resolves symlinks. A contributor whose TMPDIR is behind one
 # -- /tmp on macOS is -- would otherwise get a red suite that is green in CI.
 TMP=$(cd "$(mktemp -d)" && pwd -P)
-trap 'chmod -R u+w "$TMP" 2>/dev/null; rm -rf "$TMP"' EXIT
+trap 'chmod -R u+rwX "$TMP" 2>/dev/null; rm -rf "$TMP"' EXIT
 FENCE="$TMP/worktree-teardown.sh"
 "$ROOT/tests/extract-fences.sh" worktree-teardown > "$FENCE"
 
@@ -501,6 +529,75 @@ else
   refute "and never calls the record ok"      "$OUT_K" "ledger=ok"
   same   "and still exits zero"               "$RC_K"  "0"
   same   "the record is left exactly as it was" "$(cat "$LEDGER_K_DIR/worktrees.txt")" "$K/wt/revloop-wt-w"
+fi
+
+# --- the record cannot be read ----------------------------------------------
+# A FAILED READ USED TO BE AN ABSENT RECORD, and that is the one direction this
+# fence must never fail in. `cat` exiting non-zero left `M` empty, so every
+# recorded path fell out as WORKTREE=other, the `[ -n "$M" ]` rewrite was
+# skipped so `ledger=ok` survived, and the terminal line announced a clean sweep
+# over a record it had not opened -- with the run's own worktree still on disk.
+# Both cases below are asserted on the DIRECTORY surviving and on the ledger
+# coming back byte-identical, because the claim is that the fence touched
+# nothing at all, not merely that it printed a different word.
+N=$(new_repo unreadable-ledger)
+git -C "$N" worktree add -q --detach "$N/wt/revloop-wt-u" HEAD
+echo built > "$N/wt/revloop-wt-u/artifact.txt"
+record "$N" "$N/wt/revloop-wt-u"
+LEDGER_N_DIR="$(git -C "$N" rev-parse --absolute-git-dir)/revloop"
+LEDGER_N="$LEDGER_N_DIR/worktrees.txt"
+if [ "$(id -u)" = 0 ]; then
+  printf '  note a mode of 000 does not stop root; ledger-unreadable unmeasured here\n'
+else
+  # THE FILE. Still `[ -e ]` and still `[ -f ]` -- only the read fails.
+  chmod a-r "$LEDGER_N"
+  OUT_N1=$( run_in "$N" ); RC_N1=$?
+  chmod u+r "$LEDGER_N"
+  expect "an unreadable record refuses the sweep" "$OUT_N1" "WORKTREE=error reason=ledger-unreadable path=$LEDGER_N"
+  refute "and never claims a clean one"           "$OUT_N1" "WORKTREE=swept"
+  refute "nor a partial one"                      "$OUT_N1" "WORKTREE=partial"
+  refute "and removes nothing"                    "$OUT_N1" "WORKTREE=removed"
+  refute "and calls nothing another's"            "$OUT_N1" "WORKTREE=other"
+  same   "and still exits zero"                   "$RC_N1"  "0"
+  expect "the worktree keeps its directory"       "$(test -d "$N/wt/revloop-wt-u" && echo PRESENT)" "PRESENT"
+  expect "and its untracked file"                 "$(cat "$N/wt/revloop-wt-u/artifact.txt")" "built"
+  expect "and its registration"                   "$(git -C "$N" worktree list)" "$N/wt/revloop-wt-u"
+  same   "and the record is untouched"            "$(cat "$LEDGER_N")" "$N/wt/revloop-wt-u"
+
+  # THE DIRECTORY. Search taken off makes `[ -e ]` on the file inside it FALSE,
+  # so a guard written against the FILE reads this as "never recorded" and
+  # sweeps past it. Asking about the directory is what catches it: stat(2) needs
+  # search on the parent and nothing on the directory itself. git 2.34.1.
+  chmod a-rx "$LEDGER_N_DIR"
+  OUT_N2=$( run_in "$N" ); RC_N2=$?
+  chmod u+rx "$LEDGER_N_DIR"
+  expect "an unsearchable ledger directory too" "$OUT_N2" "WORKTREE=error reason=ledger-unreadable path=$LEDGER_N"
+  refute "with no clean sweep claimed"          "$OUT_N2" "WORKTREE=swept"
+  refute "and nothing removed"                  "$OUT_N2" "WORKTREE=removed"
+  same   "and still exiting zero"               "$RC_N2"  "0"
+  expect "the worktree still on disk"           "$(test -d "$N/wt/revloop-wt-u" && echo PRESENT)" "PRESENT"
+  same   "and the record still untouched"       "$(cat "$LEDGER_N")" "$N/wt/revloop-wt-u"
+
+  # NOT A DIRECTORY AT ALL. Nothing step 3 does produces this -- it is what a
+  # `revloop` clobbered by something else looks like -- and it is the case that
+  # separates `[ -e "$G/revloop" ]` from `[ -d "$G/revloop" ]`: the second reads
+  # it as "never recorded" and sweeps. There is no record to consult here, so
+  # refusing is the fail-closed answer rather than an accurate one.
+  mv "$LEDGER_N_DIR" "$LEDGER_N_DIR.aside"
+  : > "$LEDGER_N_DIR"
+  OUT_N3=$( run_in "$N" ); RC_N3=$?
+  rm -f "$LEDGER_N_DIR"; mv "$LEDGER_N_DIR.aside" "$LEDGER_N_DIR"
+  expect "a record that is not a directory refuses too" "$OUT_N3" "WORKTREE=error reason=ledger-unreadable path=$LEDGER_N"
+  refute "claiming no sweep"                            "$OUT_N3" "WORKTREE=swept"
+  same   "and exiting zero"                             "$RC_N3"  "0"
+  expect "with the worktree still there"                "$(test -d "$N/wt/revloop-wt-u" && echo PRESENT)" "PRESENT"
+
+  # AND THE REFUSAL IS THE PERMISSIONS, NOT THE FIXTURE. Without this the three
+  # cases above are satisfied by a repository the fence could never sweep.
+  OUT_N4=$( run_in "$N" )
+  expect "and the same repository sweeps once readable" "$OUT_N4" "WORKTREE=removed path=$N/wt/revloop-wt-u"
+  expect "saying so on the terminal line"               "$OUT_N4" "WORKTREE=swept removed=1 other=0 ledger=ok"
+  same   "and retiring the line it spent"               "$(cat "$LEDGER_N")" ""
 fi
 
 # --- a clone of this project is not a measurement worktree ------------------

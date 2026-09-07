@@ -23,8 +23,8 @@ before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so 
 changed line and three unchanged hashes; if any of the three moved, an existing fence was edited by
 accident and this paragraph is wrong.
 
-**The new fence was then amended twice before release, and that is still not a re-approval.** An
-approval is keyed to the exact command string, and nobody has ever been prompted for the earlier
+**The new fence was then amended three times before release, and that is still not a re-approval.**
+An approval is keyed to the exact command string, and nobody has ever been prompted for the earlier
 bytes: `worktree-teardown` has not appeared in a tagged release, so there is nothing granted to
 invalidate. Against the release boundary this remains **one added fence and one first approval**, and
 `tests/fence-hashes.txt`'s `worktree-teardown` line moving again while the other three stay
@@ -102,11 +102,24 @@ the next abort somebody adds.
 nothing of this run's was left behind, `WORKTREE=partial removed=N stuck=M other=K ledger=S` when
 something was — **the failure token does not contain the success token**, for the reason
 `CHECKS_FAILED` is not called `NOT_ALL_PASS`, and `other=` rides on both because `swept` is a claim
-about this run rather than about the repository. Two guards name themselves rather than passing
+about this run rather than about the repository. Three guards name themselves rather than passing
 silently: `WORKTREE=error reason=not-a-repo`, because a failed `git worktree list` prints no rows and
-would otherwise be read as a clean sweep, and `WORKTREE=error reason=inside-worktree`, because a
+would otherwise be read as a clean sweep; `WORKTREE=error reason=inside-worktree`, because a
 fence run from inside a measurement worktree would read that worktree's own git directory, find no
-ledger, and print a clean sweep over a record it never opened.
+ledger, and print a clean sweep over a record it never opened; and
+`WORKTREE=error reason=ledger-unreadable`, because a record that exists and cannot be read is not an
+empty one.
+
+**An unreadable ledger is refused rather than treated as an absent one.** The read fell back to an
+empty value on any failure, and an empty value is not neutral here: every recorded worktree then
+falls out as somebody else's, the rewrite is skipped so `ledger=ok` survives, and the terminal line
+announces a clean sweep **over a record nothing opened**, with the run's own worktrees still on disk.
+Measured at `git 2.34.1` against a ledger at mode `0200`: `WORKTREE=swept removed=0 other=1
+ledger=ok`, the worktree present and its untracked file intact. The guard asks
+`[ -e "$G/revloop" ]` — about the ledger's **directory** and not the ledger — because permissions are
+checked per component: a file test is both unreachable, since a file that exists implies a parent
+that does, and blind to a directory whose search bit is gone, which is exactly the state where the
+record is present and unreadable at once.
 
 **A swept path stops being authorized, and it used not to.** The record was append-only, so a line
 outlived the worktree it was written for and kept that path authorized for the fence's unconditional
@@ -156,15 +169,18 @@ run against one repository at the same time either** — the separation is measu
 real repository with two checkouts, and by fixture, but not by the situation it exists for. And the
 guard on `git rev-parse --absolute-git-dir` joins the guard on `git worktree list` as a line **no
 fixture can turn red**, since `--show-toplevel` has already succeeded above it; both are recorded in
-`## Unexercised paths` rather than counted as coverage — and re-measuring the whole suite over **108**
-assertions across **thirteen** throwaway repositories did not change that.
+`## Unexercised paths` rather than counted as coverage — and re-measuring the whole suite over **131**
+assertions across **fourteen** throwaway repositories did not change that.
 
 **Three more things the sweep's rewrite does not cover, all written down rather than argued away.**
 The retirement is measured by hand against a real repository — a path recorded, swept, retired, then
 re-occupied and correctly named `WORKTREE=other` with its untracked file intact — but **no round has
-ever recorded a path, spent it, and re-used it**. `ledger=error` is produced by a read-only directory,
-which stands in for the full disk or lost permission a run would actually hit, and that fixture skips
-itself as root. And the record is read once at the top of the fence and written once at the bottom,
+ever recorded a path, spent it, and re-used it**. `ledger=error` is produced by a read-only directory
+and `reason=ledger-unreadable` by a `chmod`, which stand in for the full disk, the lost permission or
+the ownership change a run would actually hit, and both fixtures skip themselves as root. In a
+**linked** checkout whose own name is in the family, an unreadable ledger satisfies the
+`inside-worktree` guard first, so that state reports the wrong one of the two reasons — both refuse
+and neither removes anything. And the record is read once at the top of the fence and written once at the bottom,
 so a line appended in between is discarded — which needs **two runs in one checkout**, a
 configuration that already could not work, since they would share HEAD, the index and the branch.
 

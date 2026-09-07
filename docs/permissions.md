@@ -94,6 +94,10 @@ takes no path and would reach every stale registration in the repository includi
 checkout's own git directory, replaced through a sibling temp file in that same directory. Nothing it
 writes is ever in your working tree, so `git status`, `git ls-files -o`, `git add -A` and
 `git clean -xdf` all return exactly what they returned before — measured at `git 2.34.1`.
+**And if it cannot read that file, it removes nothing**: a record that exists and cannot be read is
+not an empty one, so the fence reports `WORKTREE=error reason=ledger-unreadable` and the sweep does
+not run, rather than reading the failure as "this run owns nothing" and printing a clean sweep over a
+record it never opened.
 **The bound is a test rather than a grant.**
 `tests/fence-worktree.test.sh` plants a worktree of another name **and a second checkout's own** beside
 one the fence must remove, and asserts both survive — with their directories, not only their
