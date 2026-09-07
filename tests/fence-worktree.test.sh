@@ -58,7 +58,7 @@
 # `git worktree remove --force` one recorded line away from a developer's own
 # tree.
 #
-# TWENTY-EIGHT REPOSITORIES, BECAUSE THE OUTCOMES CANNOT SHARE ONE. The ordinary sweep
+# THIRTY REPOSITORIES, BECAUSE THE OUTCOMES CANNOT SHARE ONE. The ordinary sweep
 # must print no `stuck` at all, so the worktree that produces one cannot stand in
 # the same repository as that assertion; the no-prune case must hold a stale
 # registration and NO worktree of the run's own, since the claim is about what
@@ -834,6 +834,33 @@ OUT_FN2=$( run_in "$FN" )
 expect "and the same repository sweeps once the temp path is clear" "$OUT_FN2" "WORKTREE=removed path=$FN/wt/revloop-wt-fn"
 expect "saying so on its terminal line"                             "$OUT_FN2" "WORKTREE=swept removed=1 other=0 ledger=ok"
 
+
+# --- the rename the probe now performs --------------------------------------
+# THE PROBE USED TO PROVE ONLY HALF ITS OWN REWRITE. It cleared and created
+# `$F.new` and never attempted `mv -f "$F.new" "$F"`, so a directory whose
+# entries can be created but whose existing record cannot be replaced -- a
+# sticky directory holding somebody else's file is the reported case -- passed
+# the probe and failed at the rename, after the `--force` had run. Reported as a
+# P1 on PR #27. The probe now performs all three operations, and it is
+# BYTE-PRESERVING: it copies the record to the temp path and renames it back, so
+# a checkout that can be swept is left exactly as it was found.
+IR=$(new_repo identity-rename-probe)
+git -C "$IR" worktree add -q --detach "$IR/wt/revloop-wt-ir" HEAD
+echo built > "$IR/wt/revloop-wt-ir/artifact.txt"
+git -C "$IR" worktree add -q --detach "$IR/wt/revloop-wt-ir2" HEAD
+record "$IR" "$IR/wt/revloop-wt-ir" "$IR/wt/revloop-wt-ir2"
+IR_DIR="$(git -C "$IR" rev-parse --absolute-git-dir)/revloop"
+IR_BEFORE=$(cat "$IR_DIR/worktrees.txt")
+
+OUT_IR=$( run_in "$IR" ); RC_IR=$?
+expect "the probe's rename does not disturb the record" "$OUT_IR" "WORKTREE=removed path=$IR/wt/revloop-wt-ir"
+expect "and the second entry is swept from the same record" "$OUT_IR" "WORKTREE=removed path=$IR/wt/revloop-wt-ir2"
+expect "and the terminal line is clean"                 "$OUT_IR" "WORKTREE=swept removed=2 other=0 ledger=ok"
+same   "and both lines are retired for real"            "$(cat "$IR_DIR/worktrees.txt")" ""
+same   "and the temp path is left behind by neither"    "$(test -e "$IR_DIR/worktrees.txt.new" && echo PRESENT)" ""
+same   "and the fence exits zero"                       "$RC_IR" "0"
+same   "the record really did name both before the run" "$IR_BEFORE" "$IR/wt/revloop-wt-ir
+$IR/wt/revloop-wt-ir2"
 # --- an empty record under an unwritable directory --------------------------
 # THE PROBE IS SKIPPED HERE AND THAT IS HARMLESS, which is worth pinning because
 # it looks like a bypass. With `$M` empty nothing is authorized, so every
@@ -1233,6 +1260,22 @@ PREPARE_RULE='&& mkdir -p "$D" && { [ -e "$D/worktrees.txt" ] || : > "$D/worktre
 # is the leak both sides exist to prevent. Reported on PR #27.
 # shellcheck disable=SC2016
 DIRWRITE_RULE='[ -w "$D/worktrees.txt" ] && [ -w "$D" ]'
+# The canonical-path clause. `$W` is the path TYPED; the ledger records what
+# `rev-parse --show-toplevel` RESOLVES it to, so a `<scratch>` that is a symlink
+# whose target contains a newline passes a check on `$W` and records a split
+# entry -- measured, `$W` with 0 newlines resolving to a value with 2. Note the
+# assignment: `pwd -P` prints a TRAILING newline, so piping it to `wc -l` counts
+# 1 for every clean path and refuses everything; `$( )` strips that and keeps
+# only the inner ones. That spelling was wrong in the first draft and the
+# ordinary-scratch control caught it.
+# shellcheck disable=SC2016
+CANONICAL_RULE='P=$(cd "${W%/*}" && pwd -P) && [ "$(printf '"'"'%s'"'"' "$P" | wc -l)" -eq 0 ]'
+# The temp-path probe, which BOTH sides now run because both depend on it: the
+# fence renames through `$F.new`, and a producer that recorded a worktree the
+# fence cannot sweep has leaked it. Same three operations on each side -- clear,
+# create, rename -- so a state one accepts is a state the other accepts.
+# shellcheck disable=SC2016
+PROBE_RULE='rm -f "$D/worktrees.txt.new" && cp -p "$D/worktrees.txt" "$D/worktrees.txt.new" && mv -f "$D/worktrees.txt.new" "$D/worktrees.txt"'
 
 expect "remote-loop holds the fence"        "$(found "$FENCE_ID" "$REMOTE")"        "$FENCE_ID"
 expect "remote-loop states the name rule"   "$(found "$PREFIX_RULE" "$REMOTE")"     "$PREFIX_RULE"
@@ -1244,6 +1287,8 @@ expect "remote-loop refuses a newline in the path" "$(foundf "$NEWLINE_PATH_RULE
 expect "remote-loop proves the ledger usable"      "$(foundf "$READWRITE_RULE" "$REMOTE")"    "$READWRITE_RULE"
 expect "remote-loop makes the ledger first"        "$(foundf "$PREPARE_RULE" "$REMOTE")"      "$PREPARE_RULE"
 expect "remote-loop proves what the fence needs"   "$(foundf "$DIRWRITE_RULE" "$REMOTE")"     "$DIRWRITE_RULE"
+expect "remote-loop checks the canonical path"     "$(foundf "$CANONICAL_RULE" "$REMOTE")"    "$CANONICAL_RULE"
+expect "remote-loop runs the probe on both sides"  "$(foundf "$PROBE_RULE" "$REMOTE")"        "$PROBE_RULE"
 expect "local-loop cites the teardown"      "$(found 'worktree-teardown' "$LOCAL")" "worktree-teardown"
 expect "local-loop cites the creation rule" "$(found 'step 3 gives' "$LOCAL")"      "step 3 gives"
 expect "local-loop names the ledger too"    "$(foundf "$LEDGER_RULE" "$LOCAL")"     "$LEDGER_RULE"

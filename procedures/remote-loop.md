@@ -367,10 +367,12 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    D=$(git rev-parse --absolute-git-dir)/revloop
    W="<scratch>/revloop-wt-<slug>"
    { [ "$(printf '%s' "$W" | wc -l)" -eq 0 ] \
+       && P=$(cd "${W%/*}" && pwd -P) && [ "$(printf '%s' "$P" | wc -l)" -eq 0 ] \
        && [ ! -L "$D" ] && { [ ! -e "$D" ] || [ -d "$D" ]; } \
        && [ ! -L "$D/worktrees.txt" ] && { [ ! -e "$D/worktrees.txt" ] || [ -f "$D/worktrees.txt" ]; } \
        && mkdir -p "$D" && { [ -e "$D/worktrees.txt" ] || : > "$D/worktrees.txt"; } \
        && [ -r "$D/worktrees.txt" ] && [ -w "$D/worktrees.txt" ] && [ -w "$D" ] \
+       && { rm -f "$D/worktrees.txt.new" && cp -p "$D/worktrees.txt" "$D/worktrees.txt.new" && mv -f "$D/worktrees.txt.new" "$D/worktrees.txt"; } \
        && { [ ! -s "$D/worktrees.txt" ] || [ -z "$(tail -c1 "$D/worktrees.txt")" ] || printf '\n' >> "$D/worktrees.txt"; }; } \
      || { echo "revloop: $D is not a ledger this run may write; nothing was created"; false; } \
      && git worktree add --detach "$W" <commit-ish> \
@@ -418,6 +420,26 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    is the whole of why it is a guard rather than another link in the chain: every clause after
    `worktree add` can only fail once a worktree exists, which is precisely the unrecorded-worktree
    leak the `&&` ordering is meant to avoid.
+
+   **The canonical path is checked and not only the typed one, because the ledger records the
+   canonical one.** `git -C "$W" rev-parse --show-toplevel` resolves symbolic links, so a
+   `<scratch>` that is a link whose **target** contains a newline yields a recorded value that
+   splits although `$W` does not — measured, `$W` with 0 newlines resolving to a value with 2, after
+   which `git worktree list --porcelain` splits the same path, the sweep cannot match it, and the
+   entry is retired under a `swept` line while the worktree stays on disk for good. Reported as a P1
+   on `iwmaeda/revloop#27`. The clause resolves the parent and checks that, which is exact because
+   the last component is one this procedure composes and has already been checked. **Note the
+   assignment**: `pwd -P` prints a trailing newline, so piping it straight to `wc -l` counts 1 for
+   every clean path and refuses everything — that spelling was written first and the ordinary-scratch
+   control caught it.
+
+   **The temp-path probe is run here as well as in the fence, and it is the same three operations in
+   both places.** The fence renames through `$D/worktrees.txt.new`, so a state that stops the fence
+   there is a state this side must not record into: a **directory** standing at that path passes
+   every permission test on `$D` and refuses the sweep, which left step 3 recording worktrees the
+   fence would not take. Reported as a P1 on the same round, and the answer is not another test but
+   the same one — a state one side accepts is now a state the other accepts, because both prove it
+   by doing it.
 
    **Each shape it refuses was measured, and two of them were reported.** `mkdir -p` succeeds on a
    `revloop` that is already a **symbolic link to a directory**, so without the link test this chain
@@ -1376,7 +1398,7 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     if [ -L "$F" ] || { [ -e "$F" ] && [ ! -f "$F" ]; }; then echo "WORKTREE=error reason=ledger-not-regular path=$F"; exit 0; fi
     case "${HERE##*/}" in revloop-wt-*) if [ -f "$G/gitdir" ] && [ ! -f "$F" ]; then echo "WORKTREE=error reason=inside-worktree path=$HERE"; exit 0; fi ;; esac
     if [ -e "$G/revloop" ]; then M=$(cat "$F" 2>/dev/null) || { echo "WORKTREE=error reason=ledger-unreadable path=$F"; exit 0; }; else M=; fi
-    [ -z "$M" ] || { rm -f "$F.new" && ( set -C; : > "$F.new" ) && rm -f "$F.new"; } 2>/dev/null || { echo "WORKTREE=error reason=ledger-unwritable path=$F"; exit 0; }
+    [ -z "$M" ] || { rm -f "$F.new" && cp -p "$F" "$F.new" && mv -f "$F.new" "$F"; } 2>/dev/null || { echo "WORKTREE=error reason=ledger-unwritable path=$F"; exit 0; }
     R=0; S=0; O=0; K=
     while IFS= read -r l; do
       case "$l" in "worktree "*) p=${l#worktree } ;; *) continue ;; esac
@@ -1627,6 +1649,25 @@ ledger=ok` printed over all of it. `rm -f` removes the link rather than followin
     sweep and removes nothing — the worktrees stay, reported, for a later run with a writable ledger
     to take. **A leak the next run sweeps beats a removal whose authorization outlives it**, which is
     the same ordering step 3 keeps on the writing side.
+
+    **It performs all three of the rewrite's operations, and it reached that shape in two
+    corrections.** The rewrite clears `$F.new`, creates it, and renames it over `$F`; a probe that
+    proved only the first two passed a state where the third fails — a sticky directory whose
+    existing record belongs to another user permits creating and deleting your own entries and
+    refuses replacing theirs, so the fence removed the worktree and then printed `ledger=error` with
+    the spent path still authorized. Reported as a P1 on `iwmaeda/revloop#27`. **The probe is
+    byte-preserving and mode-preserving**: `cp -p` copies the record to the temp path and the rename
+    puts it back, so a checkout that can be swept is left exactly as it was found. `cp -p` rather
+    than a redirection because the mode has to survive — a record created fresh by `cat >` comes back
+    at the umask, which silently relaxes a read-only ledger and, measured, also destroys the one
+    fixture that separates `mv` from a truncate in place.
+
+    **The rename half is the one operation here no fixture reaches.** Producing "create succeeds,
+    rename fails" needs a second user or root — a sticky directory holding somebody else's file is
+    the reachable form and this suite creates neither — so removing the `mv` from the probe turns
+    **0** assertions red. It is kept because it is the operation the rewrite performs and the
+    reported failure is real; it is listed at 0 rather than counted as coverage, which is the same
+    treatment the rewrite's `set -C` gets.
 
     **It performs the operation rather than asking `[ -w ]` of the directory, and the first version
     of it made the weaker choice and was wrong.** `[ -w ]` was chosen to avoid a side effect — an
@@ -2414,9 +2455,9 @@ takes one of these should say so in the report:
   `severityMap` stays a named condition of `bad-severity-map` in step 1: **retiring a runtime abort
   into a schema is only as strong as what reads the schema**, and here that is a person or an agent
   rather than a process.
-- **Step 12's worktree teardown. The fence is exercised; the rule it depends on is not.**
-  `tests/fence-worktree.test.sh` drives every branch of it against **twenty-eight** throwaway
-  repositories — a removal, a refusal, a run that owns nothing, a run outside a repository, a bare
+- **Step 12's worktree teardown. Most of the fence is exercised; the rule it depends on is not, and
+  neither is one of its own branches.** `tests/fence-worktree.test.sh` drives it against **thirty**
+  throwaway repositories — a removal, a refusal, a run that owns nothing, a run outside a repository, a bare
   repository, a run standing inside the worktree it would otherwise delete, a run whose ledger is
   missing, two checkouts of one repository sweeping past each other, one that places its worktree
   where step 3 actually says to, two that sweep twice to show a path being retired, one whose ledger
@@ -2428,24 +2469,29 @@ takes one of these should say so in the report:
   plant cannot be unlinked, one carrying a stale temp file from an earlier run, one whose worktree is
   named the family prefix and nothing else, one whose record lost its final **newline** and is
   repaired by step 3's clause, and one where the unrepaired append has already **glued** two paths
-  into one — and each of its loadbearing behaviours has been shown to fail the suite when removed.
-  **Re-measured over 251 assertions**, since both the fence and the fixture count moved:
+  into one. **What it does not reach is the post-removal `ledger=error` path**: the write probe now
+  refuses an unwritable record before the loop, so every fixture that used to arrive at a failed
+  rewrite stops at `reason=ledger-unwritable` instead, and the bullets below say so. Each of the
+  fence's loadbearing behaviours has been shown to fail the suite when removed, **except the six
+  lines listed at 0** — which is a different claim from covering every branch, and is the one this
+  paragraph makes.
+  **Re-measured over 260 assertions**, since both the fence and the fixture count moved:
 
   | Remove                                            | Assertions that go red |
   | ------------------------------------------------- | ---------------------- |
   | the ledger membership check                       | 39                     |
-  | the `--force`                                     | 29                     |
-  | the `revloop-wt-` match in the loop               | 27                     |
-  | the `ledger=` field                               | 22                     |
+  | the `--force`                                     | 31                     |
+  | the `revloop-wt-` match in the loop               | 28                     |
+  | the `ledger=` field                               | 23                     |
   | deriving the ledger from `--git-common-dir`       | 20                     |
-  | the ledger rewrite                                | 17                     |
+  | the ledger rewrite                                | 18                     |
   | the `ledger-unwritable` probe                     | 13                     |
   | asking `[ -e ]`/`[ -d ]` of the ledger directory  | 11                     |
   | the `ledger-dir-not-regular` guard entire         | 10                     |
   | the `ledger-not-regular` guard entire             | 9                      |
+  | step 3's ledger usability test entire             | **9 — see below**      |
   | the `[ ! -f "$F" ]` conjunct of the guard         | 7                      |
   | the `ledger-unreadable` guard entire              | 7                      |
-  | step 3's ledger usability test entire             | **7 — see below**      |
   | the loop's `$p != $HERE` refusal                  | 5                      |
   | asking `[ -e "$F" ]` rather than the directory    | 4                      |
   | its widened conjunct alone, leaving `[ -L ]`      | 4                      |
@@ -2457,11 +2503,14 @@ takes one of these should say so in the report:
   | asking `[ -d "$G/revloop" ]` rather than `[ -e ]` | 2                      |
   | its readable-and-writable clause                  | **2 — see below**      |
   | its newline-in-the-path clause                    | **1 — see below**      |
+  | its canonical-path clause                         | **1 — see below**      |
   | its directory-type clause                         | **1 — see below**      |
   | its leaf-type clause                              | **1 — see below**      |
   | its directory-writable clause                     | **1 — see below**      |
   | its make-the-ledger-first clause                  | **1 — see below**      |
+  | its temp-path probe clause                        | **1 — see below**      |
   | its final-newline clause                          | **1 — see below**      |
+  | the probe's `mv`, leaving clear-and-create        | **0 — see below**      |
   | the rewrite's `rm -f "$F.new"`                    | **0 — see below**      |
   | the rewrite's `2>/dev/null`                       | **0 — see below**      |
   | the here-string, back to a pipeline               | **0 — see below**      |
@@ -2484,10 +2533,10 @@ takes one of these should say so in the report:
   rounding them up.** All of them live in **step 3's block rather than in a fence**, and
   `tests/fence-worktree.test.sh` runs the fence — **no fixture in it can reach a command the file
   does not run** — so each is held by an assertion on the procedure's own text instead. The
-  usability test's own row is **7** because deleting it deletes all six of its clauses and the
+  usability test's own row is **9** because deleting it deletes all eight of its clauses and the
   newline clause that now sits inside it; each clause is listed separately because that is what
-  deleting only that clause costs, and a single row would let five of the six go missing behind one
-  number. **Its readable-and-writable row reads 2 rather than 1** because the directory-writable
+  deleting only that clause costs, and a single row would let seven of the eight go missing behind
+  one number. **Its readable-and-writable row reads 2 rather than 1** because the directory-writable
   rule quotes the leaf test as its left half, so removing the leaf test takes both assertions with
   it; removing only `[ -w "$D" ]` costs the 1 its own row records.
 
@@ -2506,7 +2555,7 @@ takes one of these should say so in the report:
   prose _describing_ the guard — including in this table — so deleting step 3's whole usability test
   left it **green**, and the row that claimed to pin the guard pinned nothing. Measured: the deletion
   turned exactly one assertion red, and it was the leaf rule. The rule now matches the compound
-  clause, which is written in the command and nowhere else, and the deletion turns 7. **A prose
+  clause, which is written in the command and nowhere else, and the deletion turns 9. **A prose
   assertion satisfied by prose is the failure mode of this whole technique**, so it is recorded here
   rather than only fixed. Restoring **the here-string to a
   pipeline** turns **0** red: under `set -o pipefail`, a record larger than the pipe buffer makes
@@ -2533,6 +2582,13 @@ takes one of these should say so in the report:
   two-checkout measurement were re-run against the amended fence and stayed clean before and after.
   **What that does not cover is the interval it is about**: nobody has watched a path be recorded by
   one round, retired by the sweep, and re-used by a later one.
+- **The probe's rename is the one operation in this fence that no fixture performs a failure of.**
+  Removing the `mv` from it, leaving the clear-and-create it used to be, turns **0** assertions red.
+  The state that separates them is "entries can be created, the existing record cannot be replaced",
+  which needs a sticky directory holding another user's file — a second user, or root — and this
+  suite creates neither. It is kept because the rewrite performs that rename and the failure was
+  reported against a probe that did not: a sweep that removed the worktree and then could not shrink
+  the record. **Listed at 0 rather than counted**, on the same footing as `set -C`.
 - **`ledger=error` is no longer reachable by any fixture, and that is a consequence of the
   reordering rather than a gap that was always there.** A read-only ledger directory used to produce
   it and now produces `reason=ledger-unwritable` before anything is removed, which is what the two

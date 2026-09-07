@@ -105,6 +105,31 @@ permanently.** `git worktree add` accepts it, the ledger takes it raw, and both 
 `stuck` is the one outcome that **keeps** its ledger line, so the leak was permanent. Refusing it in
 step 3 costs nothing: the path is one revloop composes.
 
+**A fifth round took the probe the rest of the way, and found the newline check reading the wrong
+string.** The probe still proved only two of the rewrite's three operations — it cleared and created
+`$F.new` and never attempted the rename onto `$F` — so a sticky directory holding another user's
+record passed it and failed at the rename, after the `--force`. It now does all three, with `cp -p`
+so the record's bytes **and mode** come back unchanged; a redirection would recreate it at the umask,
+silently relaxing a read-only ledger and destroying the one fixture that separates `mv` from a
+truncate in place. **The rename is the single operation here no fixture can fail**: producing "create
+succeeds, rename fails" needs a second user or root, so it is listed at 0 in the table rather than
+counted as coverage.
+
+**The same round found step 3 checking the path it was given rather than the path it records.**
+`rev-parse --show-toplevel` resolves symbolic links, so a `<scratch>` that is a link whose target
+contains a newline records a value that splits although the typed path does not — measured, 0
+newlines in, 2 out, after which the sweep cannot match the entry, retires it, and reports `swept`
+while the worktree stays on disk permanently. Step 3 now resolves the parent and checks that. The
+first spelling of the check was itself wrong — `pwd -P` prints a trailing newline, so piping it to
+`wc -l` counts 1 for every clean path and refused everything — and the ordinary-scratch control
+caught it before it shipped.
+
+**And the temp-path probe now runs on both sides, which is what finally makes their accepted states
+the same set.** A directory standing at `$D/worktrees.txt.new` passes every permission test on the
+directory and stops the sweep, so step 3 was recording worktrees the fence would refuse. The answer
+was not another test but the same one: both sides prove the state by performing the three operations,
+so a state one accepts is a state the other accepts.
+
 **The probe performs the rewrite's own operations, and the first version of it did not.** It asked
 `[ -w ]` of the ledger directory, to avoid a side effect: an unlink-and-recreate probe also removes a
 symbolic link planted at `$F.new`, so the rewrite's own `rm -f` stops being what that fixture
@@ -332,16 +357,17 @@ leftovers that motivated this was ever written down anywhere. **It fails open.**
 without its ledger line is left behind exactly as it is today, under a procedure that now says it
 cleans up, and the report cannot mention it because the fence never saw it. **Two loops have never
 run against one repository at the same time either** — the separation is measured by hand against a
-real repository with two checkouts, and by fixture, but not by the situation it exists for. And **four**
+real repository with two checkouts, and by fixture, but not by the situation it exists for. And **six**
 lines in the fence can be deleted with the suite green: the guard on `git worktree list`, the guard
 on `git rev-parse --absolute-git-dir` — since `--show-toplevel` has already succeeded above it —
 the rewrite's `set -C`, whose subject is a second process replanting a link between the unlink and
-the write, which no fixture races, and the membership read's here-string, whose subject is a record
-larger than the pipe buffer. The fixture that looks as though it should kill the third does
-not: a read-only ledger directory makes the unlink fail, and the unlink is the first link of the
-chain, so noclobber is never reached. All four are recorded in `## Unexercised paths` rather than
-counted as coverage — and re-measuring the whole suite over **251** assertions across
-**twenty-eight** throwaway repositories did not change that.
+the write, which no fixture races, the membership read's here-string, whose subject is a record
+larger than the pipe buffer, and — since the write probe began clearing and creating `$F.new` before
+the loop — the rewrite's own `rm -f "$F.new"` and its `2>/dev/null`, whose conditions the probe now
+reaches first. The last two stay as second lines of defence against a re-plant in the window after
+the probe, which is the race declined above. All six are recorded in `## Unexercised paths` rather
+than counted as coverage — and re-measuring the whole suite over **260** assertions across
+**thirty** throwaway repositories did not change that.
 
 **Three more things the sweep's rewrite does not cover, all written down rather than argued away.**
 The retirement is measured by hand against a real repository — a path recorded, swept, retired, then

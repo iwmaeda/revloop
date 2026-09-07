@@ -121,17 +121,21 @@ already refused that shape; the writer walked into it, which is what a rule enfo
 produces.
 
 **A third round moved both sides to validate before they change anything**, which is an ordering
-rather than a new question. Step 3 now prepares and proves the ledger — real directory, regular leaf,
-readable, writable, created if absent, and no newline in the worktree path — **before**
-`git worktree add`, so a ledger it cannot use costs no worktree; and the fence proves the rewrite
-possible **before** the removal loop, under `WORKTREE=error reason=ledger-unwritable`, by clearing
-and creating the temp path it will rename from — the operation itself, not a permission test, which
-a later round showed passes a directory standing at that path and then fails after the `--force` has
-run. Both failures were measured: a worktree created and unrecorded on one side, a worktree removed
-with its ledger line intact on the other. **The two sides prove different things because they do
-different things** — step 3 appends and so needs the file writable, the fence renames and so needs
-the directory writable — and step 3 proves **both**, since recording a worktree the fence cannot
-sweep is itself a leak.
+rather than a new question. Step 3 now prepares and proves the ledger — real directory, regular
+leaf, readable, writable, created if absent, and no newline in the worktree path — **before** `git
+worktree add`, so a ledger it cannot use costs no worktree; and the fence proves the rewrite
+possible **before** the removal loop, under `WORKTREE=error reason=ledger-unwritable`, by
+performing its three operations — clearing the temp path, creating it, and renaming it over the
+record — rather than testing a permission that stands next to them. Two later rounds moved it
+there: a permission test passes a **directory** standing at the temp path, and a clear-and-create
+passes a sticky directory whose record belongs to another user, each failing only after the
+`--force` had run. The probe is byte- and mode-preserving, so a checkout it accepts is left as it
+was found; **step 3 runs the same probe**, which is what makes the states the two sides accept one
+set rather than two. Both failures were measured: a worktree created and unrecorded on one side, a
+worktree removed with its ledger line intact on the other. **The two sides prove different things
+because they do different things** — step 3 appends and so needs the file writable, the fence
+renames and so needs the directory writable — and step 3 proves **both**, since recording a
+worktree the fence cannot sweep is itself a leak.
 
 **None of these tests is atomic, and that limit is stated rather than left to be discovered.** They
 are pathname checks, so a process writing inside `$GIT_DIR` could swap the object between the check
