@@ -1090,14 +1090,29 @@ NEWLINE_RULE='tail -c1'
 # lives in step 3's block rather than in the fence, so no fixture in this file
 # can reach it, and the sweep guard it pairs with would still pass every test
 # here if step 3 quietly went back to recording through a symlinked directory.
+# THE LITERAL HAS TO BE ONE ONLY THE COMMAND CARRIES, and the first version of
+# this rule was not. `[ ! -L "$D" ]` alone appears three more times in the prose
+# that DESCRIBES the guard, so deleting the guard outright left this assertion
+# green -- measured: removing step 3's whole usability test turned exactly one
+# assertion red, and it was the leaf rule below rather than this one. A prose
+# assertion satisfied by prose pins nothing. The compound clause below is
+# written in the command and nowhere else.
 # shellcheck disable=SC2016
-LINKDIR_RULE='[ ! -L "$D" ]'
+LINKDIR_RULE='[ ! -L "$D" ] && { [ ! -e "$D" ] || [ -d "$D" ]; }'
+# The leaf half of the same guard, pinned separately because it closes a
+# different measured failure: `[ -s ]` is false on a FIFO, so the newline clause
+# short-circuits and `>>` blocks on opening it with no reader -- the reading
+# side's hang, arriving from the writing end. A single assertion on the link
+# test would stay green while that half was deleted.
+# shellcheck disable=SC2016
+LEAFTYPE_RULE='[ ! -L "$D/worktrees.txt" ]'
 
 expect "remote-loop holds the fence"        "$(found "$FENCE_ID" "$REMOTE")"        "$FENCE_ID"
 expect "remote-loop states the name rule"   "$(found "$PREFIX_RULE" "$REMOTE")"     "$PREFIX_RULE"
 expect "remote-loop names the ledger"       "$(foundf "$LEDGER_RULE" "$REMOTE")"    "$LEDGER_RULE"
 expect "remote-loop restores the newline"   "$(foundf "$NEWLINE_RULE" "$REMOTE")"   "$NEWLINE_RULE"
-expect "remote-loop refuses a linked ledger dir" "$(foundf "$LINKDIR_RULE" "$REMOTE")" "$LINKDIR_RULE"
+expect "remote-loop types the ledger dir"        "$(foundf "$LINKDIR_RULE" "$REMOTE")" "$LINKDIR_RULE"
+expect "remote-loop types the ledger leaf too"   "$(foundf "$LEAFTYPE_RULE" "$REMOTE")" "$LEAFTYPE_RULE"
 expect "local-loop cites the teardown"      "$(found 'worktree-teardown' "$LOCAL")" "worktree-teardown"
 expect "local-loop cites the creation rule" "$(found 'step 3 gives' "$LOCAL")"      "step 3 gives"
 expect "local-loop names the ledger too"    "$(foundf "$LEDGER_RULE" "$LOCAL")"     "$LEDGER_RULE"

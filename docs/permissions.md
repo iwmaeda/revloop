@@ -112,6 +112,23 @@ link passes every test made on the leaf — `[ -L ]` is false because the leaf i
 `WORKTREE=error reason=ledger-dir-not-regular`, on the link itself rather than on what it resolves
 to, and **step 3 refuses to record through one too**, before it creates a worktree — otherwise the
 run would keep writing its paths into the substituted file while the sweep declined to read it.
+**A second review round widened that writing test from the link to both path components**, because a
+link-only check let two other shapes through: a `revloop` that is a regular file or a named pipe made
+`mkdir -p` fail _after_ the worktree existed, leaving it created and unrecorded, and a `worktrees.txt`
+that is a named pipe made the append **block** — `[ -s ]` is false on a FIFO, so the size clause
+short-circuits and `>>` waits on a reader that never comes. Both were measured. The reader had
+already refused that shape; the writer walked into it, which is what a rule enforced on one side only
+produces.
+
+**None of these tests is atomic, and that limit is stated rather than left to be discovered.** They
+are pathname checks, so a process writing inside `$GIT_DIR` could swap the object between the check
+and the use. That is declined on the threat model: such a process already runs your code through
+`.git/config`'s `core.fsmonitor` and `core.sshCommand` and through `.git/hooks/*`, so no shell-level
+check is the boundary there — and `O_NOFOLLOW`, `flock` and inode revalidation are not portably
+reachable from a shell fence whose permission story depends on one byte-stable string. **What they
+are for is the ledger that is visibly not this run's** — a stale link, a hand-made directory, a FIFO
+left by an experiment — where the alternative is an unconditional `--force` against a path the run
+never recorded.
 **Neither is a permission the system enforces
 for you**, which is the same sentence as the one above it: the bound is in the fence's bytes and in
 `tests/fence-worktree.test.sh`, which plants a link at each of the two paths and asserts the file it

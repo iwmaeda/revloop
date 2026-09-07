@@ -63,10 +63,37 @@ bytes, and only it needed a refusal of its own.
 **The guard has a writing half, because a rule enforced on one side only trades one failure for
 another.** `mkdir -p` succeeds on a `revloop` that is already a link, so step 3 would have gone on
 appending the run's own worktree paths into the substituted file while the fence refused to read it
-— a destroyed worktree exchanged for a leaked one, under a reason naming neither. Step 3 now carries
-`[ ! -L "$D" ]`, **placed before `git worktree add`** so that an unusable ledger path costs the run
-no worktree at all. It is held by a prose assertion rather than a fixture, for the reason the newline
-clause is: no test in `tests/fence-worktree.test.sh` can reach a command that file does not run.
+— a destroyed worktree exchanged for a leaked one, under a reason naming neither. Step 3 now refuses
+any ledger path it cannot write, **before `git worktree add`** so that an unusable one costs the run
+no worktree at all.
+
+**A second review round widened that writing half from the link to the whole path, and both shapes it
+added were measured failures rather than arguments.** A `revloop` that is a **regular file** or a
+**named pipe** passed a link-only test and made `mkdir -p` fail _after_ the worktree existed —
+measured, the worktree created and the record absent, which is the leak the placement was meant to
+prevent, arriving through a shape the link test did not cover. And a `worktrees.txt` that is a
+**named pipe** is the reading side's hang from the other end: `[ -s ]` is false on a FIFO, so the
+newline clause short-circuits and `>>` blocks on opening it with no reader — measured, the command
+had to be killed, with the worktree already created. **The reader refused that shape and the writer
+walked into it**, which is what a rule enforced on one side only produces.
+
+**That round declined the rest of the finding on the threat model, and wrote the reason down.** It
+asked for one serialization and no-follow mechanism with identity revalidation across every pathname
+test, on the premise of a process that can write inside `$GIT_DIR`. Such a process already has
+arbitrary code execution as you — `core.fsmonitor` and `core.sshCommand` in `.git/config`, and
+`.git/hooks/*`, are run by ordinary git commands this procedure invokes — so winning the race would
+defend a boundary already crossed two files away; and `O_NOFOLLOW` is not reachable from POSIX shell,
+`flock` is not POSIX, and `stat`'s inode flags differ between GNU and BSD, so the mechanism would add
+a non-portable dependency, **cost every user a re-approval**, and still only narrow the window.
+`## Unexercised paths` now records the race as a class nothing covers.
+
+**Both halves of the writing guard are held by assertions on the procedure's text, and the first one
+written was vacuous.** No test in `tests/fence-worktree.test.sh` can reach a command that file does
+not run, so the pin is a search of the procedure — and the first literal chosen, `[ ! -L "$D" ]`,
+also appears three times in the prose describing the guard, so deleting the guard outright left the
+assertion **green**. It now matches a compound clause the command carries and the prose does not.
+**A prose assertion satisfied by prose pins nothing**, which is recorded beside the mutation table
+rather than only corrected.
 
 **The same round moved one bound from the reader to the writer, which is where it turns out to
 belong.** `>>` onto a record whose last line lost its newline glues two absolute paths into a third
