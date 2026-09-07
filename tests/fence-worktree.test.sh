@@ -825,6 +825,77 @@ OUT_V2=$( run_capped "$V" )
 expect "and the same repository sweeps once the record is regular" "$OUT_V2" "WORKTREE=removed path=$V/wt/revloop-wt-v"
 expect "saying so on its terminal line"                            "$OUT_V2" "WORKTREE=swept removed=1 other=0 ledger=ok"
 
+# --- a dangling symlink planted at the record -------------------------------
+# THE MEMBER THAT DECIDES WHICH OF TWO REFUSALS FIRES, and the reason `[ -L ]`
+# is the FIRST half of the guard rather than a duplicate of the type test. A
+# dangling link is the one shape where the two halves disagree: `[ -e ]` follows
+# the link and a target that is not there makes it FALSE, so the type test alone
+# never fires and the entry falls through to the read, where `cat` fails and the
+# fence reports `ledger-unreadable` -- a record that could not be read, when what
+# is actually there is a record whose bytes somebody else chose the location of.
+# Measured against the fence with `[ -L "$F" ] ||` removed: exactly that swap,
+# `ledger-not-regular` becoming `ledger-unreadable` on this input.
+#
+# THE SYMLINK FIXTURE ABOVE CANNOT WITNESS THIS. Its link resolves to a regular
+# file, so `[ -e ]` and `[ -f ]` are both true there and the same mutation makes
+# the guard miss entirely rather than misname -- which is a different failure
+# caught by a different assertion. Both members are needed to hold the guard to
+# the shape it is written in.
+DL=$(new_repo dangling-ledger)
+git -C "$DL" worktree add -q --detach "$DL/wt/revloop-wt-dl" HEAD
+echo built > "$DL/wt/revloop-wt-dl/artifact.txt"
+record "$DL" "$DL/wt/revloop-wt-dl"
+LEDGER_DL="$(git -C "$DL" rev-parse --absolute-git-dir)/revloop/worktrees.txt"
+rm -f "$LEDGER_DL"
+ln -s "$DL/target-that-is-not-there" "$LEDGER_DL"
+
+OUT_DL=$( run_in "$DL" ); RC_DL=$?
+expect "a record that is a dangling symlink refuses the sweep" "$OUT_DL" "WORKTREE=error reason=ledger-not-regular path=$LEDGER_DL"
+refute "and is NOT reported as the unreadable record it is not" "$OUT_DL" "ledger-unreadable"
+refute "and never claims a clean sweep"                         "$OUT_DL" "WORKTREE=swept"
+refute "nor a partial one"                                      "$OUT_DL" "WORKTREE=partial"
+refute "and removes nothing"                                    "$OUT_DL" "WORKTREE=removed"
+expect "the worktree keeps its untracked file"                  "$(cat "$DL/wt/revloop-wt-dl/artifact.txt")" "built"
+same   "and the fence exits zero"                               "$RC_DL" "0"
+
+# AND THE REFUSAL IS THE PLANT: without this the block above is satisfied by a
+# repository the fence could never have swept at all.
+rm -f "$LEDGER_DL"; record "$DL" "$DL/wt/revloop-wt-dl"
+OUT_DL2=$( run_in "$DL" )
+expect "and the same repository sweeps once the record is regular" "$OUT_DL2" "WORKTREE=removed path=$DL/wt/revloop-wt-dl"
+expect "saying so on its terminal line"                            "$OUT_DL2" "WORKTREE=swept removed=1 other=0 ledger=ok"
+
+# --- a directory planted at the record --------------------------------------
+# THE LAST MEMBER OF THE TYPE SPACE THAT NEEDS NO PRIVILEGE TO CREATE. `mkdir`
+# is as available as `mkfifo`, and a directory is neither a link nor a regular
+# file, so it is the member that asks whether the guard tests the file's TYPE or
+# merely excludes the two shapes that were found first. It reaches the read the
+# same way a FIFO does, and `cat` on a directory fails rather than blocking --
+# so the unguarded outcome here is `ledger-unreadable` rather than the hang, and
+# the record is again one whose contents the fence must not adopt.
+DD=$(new_repo directory-ledger)
+git -C "$DD" worktree add -q --detach "$DD/wt/revloop-wt-dd" HEAD
+echo built > "$DD/wt/revloop-wt-dd/artifact.txt"
+record "$DD" "$DD/wt/revloop-wt-dd"
+LEDGER_DD="$(git -C "$DD" rev-parse --absolute-git-dir)/revloop/worktrees.txt"
+rm -f "$LEDGER_DD"
+mkdir "$LEDGER_DD"
+
+OUT_DD=$( run_in "$DD" ); RC_DD=$?
+expect "a record that is a directory refuses the sweep" "$OUT_DD" "WORKTREE=error reason=ledger-not-regular path=$LEDGER_DD"
+refute "and is not reported as an unreadable record"    "$OUT_DD" "ledger-unreadable"
+refute "and never claims a clean sweep"                 "$OUT_DD" "WORKTREE=swept"
+refute "nor a partial one"                              "$OUT_DD" "WORKTREE=partial"
+refute "and removes nothing"                            "$OUT_DD" "WORKTREE=removed"
+expect "the worktree keeps its untracked file"          "$(cat "$DD/wt/revloop-wt-dd/artifact.txt")" "built"
+same   "and the fence exits zero"                       "$RC_DD" "0"
+
+# AND THE REFUSAL IS THE PLANT here too.
+rmdir "$LEDGER_DD"; record "$DD" "$DD/wt/revloop-wt-dd"
+OUT_DD2=$( run_in "$DD" )
+expect "and the same repository sweeps once the record is regular" "$OUT_DD2" "WORKTREE=removed path=$DD/wt/revloop-wt-dd"
+expect "saying so on its terminal line"                            "$OUT_DD2" "WORKTREE=swept removed=1 other=0 ledger=ok"
+
 # --- a stale temp file from an earlier run ----------------------------------
 # `set -C` refuses an existing REGULAR file too -- measured at bash 5.1.16 -- so
 # on its own it would wedge the rewrite into `ledger=error` for good the first

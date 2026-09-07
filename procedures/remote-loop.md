@@ -1461,6 +1461,19 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     link and a **dangling** one would otherwise fall through to the read and be reported as the
     wrong one of the two refusals.
 
+    **Both of those sentences are now fixtures rather than reasoning, and they had to be, because
+    the two halves of this guard fail differently and one fixture cannot witness both.** A link to
+    an existing regular file makes `[ -e ]` and `[ -f ]` both true, so dropping `[ -L ]` there makes
+    the guard **miss entirely** and adopt somebody else's bytes; a **dangling** link makes `[ -e ]`
+    false, so the same deletion makes it **misname** — `ledger-unreadable`, a record that could not
+    be read, over a record whose location somebody else chose. Measured, the deletion turns the
+    first fixture's assertions red and prints `ledger-unreadable` on the second. The **directory**
+    is the last member of the type space that needs no privilege to create, and it is what holds
+    the widened conjunct to asking the file's type rather than excluding the two shapes that were
+    found first: a guard reading `[ -L "$F" ] || [ -p "$F" ]` passes every other fixture here and
+    refuses neither. Neither member changes what the fence does today — both already refuse — which
+    is exactly why they were the two left unpinned.
+
     **The rewrite unlinks its own temp path before writing it, and that is not tidiness.** `$F.new`
     is a fixed name derived from a fixed location, so anything able to write the ledger's directory
     could leave a symbolic link there — and a plain `>` follows one, truncating whatever it points
@@ -2261,38 +2274,39 @@ takes one of these should say so in the report:
   into a schema is only as strong as what reads the schema**, and here that is a person or an agent
   rather than a process.
 - **Step 12's worktree teardown. The fence is exercised; the rule it depends on is not.**
-  `tests/fence-worktree.test.sh` drives every branch of it against **twenty-two** throwaway
+  `tests/fence-worktree.test.sh` drives every branch of it against **twenty-four** throwaway
   repositories — a removal, a refusal, a run that owns nothing, a run outside a repository, a bare
   repository, a run standing inside the worktree it would otherwise delete, a run whose ledger is
   missing, two checkouts of one repository sweeping past each other, one that places its worktree
   where step 3 actually says to, two that sweep twice to show a path being retired, one whose ledger
   directory is read-only, one whose ledger cannot be **read** in each of the three ways that breaks,
   two whose own **names** are in the family, one whose record is a **symbolic link**, one whose
-  record is a **named pipe**, one with a link planted at the rewrite's **temp path**, one where that
+  record is a **dangling** link, one whose record is a **named pipe**, one whose record is a
+  **directory**, one with a link planted at the rewrite's **temp path**, one where that
   plant cannot be unlinked, one carrying a stale temp file from an earlier run, one whose worktree is
   named the family prefix and nothing else, one whose record lost its final **newline** and is
   repaired by step 3's clause, and one where the unrepaired append has already **glued** two paths
   into one — and each of its loadbearing behaviours has been shown to fail the suite when removed.
-  **Re-measured over 184 assertions**, since both the fence and the fixture count moved:
+  **Re-measured over 202 assertions**, since both the fence and the fixture count moved:
 
   | Remove                                            | Assertions that go red |
   | ------------------------------------------------- | ---------------------- |
   | the ledger membership check                       | 35                     |
-  | the `revloop-wt-` match in the loop               | 21                     |
+  | the `revloop-wt-` match in the loop               | 23                     |
+  | the `--force`                                     | 21                     |
   | the ledger rewrite                                | 20                     |
-  | the `--force`                                     | 17                     |
-  | the `ledger=` field                               | 16                     |
-  | deriving the ledger from `--git-common-dir`       | 14                     |
+  | the `ledger=` field                               | 20                     |
+  | deriving the ledger from `--git-common-dir`       | 16                     |
+  | the `ledger-not-regular` guard entire             | 9                      |
   | the `[ ! -f "$F" ]` conjunct of the guard         | 7                      |
   | the `ledger-unreadable` guard entire              | 7                      |
   | `mv` replaced by a truncate in place              | 6                      |
   | the loop's `$p != $HERE` refusal                  | 5                      |
   | the rewrite's `rm -f "$F.new"`                    | 5                      |
-  | the `ledger-not-regular` guard entire             | 5                      |
   | asking `[ -e "$F" ]` rather than the directory    | 4                      |
+  | its widened conjunct alone, leaving `[ -L ]`      | 4                      |
   | the `[ -f "$G/gitdir" ]` conjunct of the guard    | 3                      |
   | the `swept` / `partial` split                     | 3                      |
-  | its widened conjunct alone, leaving `[ -L ]`      | 2                      |
   | the `inside-worktree` guard entire                | 2                      |
   | the `--show-toplevel` guard                       | 2                      |
   | asking `[ -d "$G/revloop" ]` rather than `[ -e ]` | 2                      |
@@ -2310,7 +2324,7 @@ takes one of these should say so in the report:
   bit removed. `[ -d ]` misses a `revloop` that is a regular file. Only `[ -e "$G/revloop" ]` covers
   all three.
 
-  **Deriving the ledger's directory from `--git-common-dir` turns 14 red**, "the other checkout keeps
+  **Deriving the ledger's directory from `--git-common-dir` turns 16 red**, "the other checkout keeps
   its directory" among them, which is the measurement behind that rejection rather than an argument
   for it.
 
@@ -2426,7 +2440,7 @@ takes one of these should say so in the report:
   measured at `git 2.34.1`, which is the case `tests/fence-worktree.test.sh` pins. **So the guards on
   the list, on `--absolute-git-dir`, on the rewrite's `set -C` and on the membership read's
   here-string are the only four lines in this fence that can be deleted with the suite green — and
-  re-measuring over 184 assertions did not change that.** The list guard stays on the reasoning it
+  re-measuring over 202 assertions did not change that.** The list guard stays on the reasoning it
   always did: a `list` that fails prints no
   rows, and the loop behind it would then remove nothing and print a clean sweep over a repository it
   never read. The `--absolute-git-dir` guard is weaker still — `--show-toplevel` succeeded two lines

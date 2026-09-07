@@ -246,7 +246,7 @@ the write, which no fixture races, and the membership read's here-string, whose 
 larger than the pipe buffer. The fixture that looks as though it should kill the third does
 not: a read-only ledger directory makes the unlink fail, and the unlink is the first link of the
 chain, so noclobber is never reached. All four are recorded in `## Unexercised paths` rather than
-counted as coverage — and re-measuring the whole suite over **184** assertions across **twenty-two**
+counted as coverage — and re-measuring the whole suite over **202** assertions across **twenty-four**
 throwaway repositories did not change that.
 
 **Three more things the sweep's rewrite does not cover, all written down rather than argued away.**
