@@ -94,6 +94,15 @@ takes no path and would reach every stale registration in the repository includi
 checkout's own git directory, replaced through a sibling temp file in that same directory. Nothing it
 writes is ever in your working tree, so `git status`, `git ls-files -o`, `git add -A` and
 `git clean -xdf` all return exactly what they returned before — measured at `git 2.34.1`.
+**And it writes both paths only where it controls what is standing there.** A record replaced by a
+symbolic link would be read as the list of paths this `--force` may take, and a link left at the temp
+path would have the write follow it — truncating a file elsewhere and then leaving the record itself
+pointing at it. So a record that is not a regular file is refused outright
+(`WORKTREE=error reason=ledger-not-regular`, and nothing is removed), and the temp path is unlinked
+before it is written and opened `O_EXCL` when it is. **Neither is a permission the system enforces
+for you**, which is the same sentence as the one above it: the bound is in the fence's bytes and in
+`tests/fence-worktree.test.sh`, which plants a link at each of the two paths and asserts the file it
+pointed at keeps its bytes.
 **And if it cannot read that file, it removes nothing**: a record that exists and cannot be read is
 not an empty one, so the fence reports `WORKTREE=error reason=ledger-unreadable` and the sweep does
 not run, rather than reading the failure as "this run owns nothing" and printing a clean sweep over a

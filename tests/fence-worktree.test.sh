@@ -227,8 +227,9 @@ git -C "$A" worktree add -q --detach "$A/wt/mine" HEAD
 # the last component, and a version that matched the whole path would take this
 # one with it -- which is how a prefix rule quietly becomes a substring rule.
 git -C "$A" worktree add -q --detach "$A/wt/revloop-wt-outer/inner" HEAD
-# The family name with nothing after it. The `?*` in the fence's case pattern is
-# what refuses this, and without a fixture nothing would notice it being dropped.
+# The family name MINUS ITS TRAILING HYPHEN, which is not in the family: the
+# pattern's own `-` is what refuses this, and the `?*` that used to follow it
+# never was. The empty-slug fixture below is the other side of that line.
 git -C "$A" worktree add -q --detach "$A/wt/revloop-wt" HEAD
 # ANOTHER CHECKOUT'S, live and dirty: family-named, and in nobody's ledger here.
 # This is the one a sweep bounded by the name alone would delete.
@@ -657,6 +658,135 @@ expect "and the verdict says so"                   "$OUT_M2" "WORKTREE=partial r
 expect "and it is still on disk"                   "$(test -d "$M/revloop-wt-fix" && echo PRESENT)" "PRESENT"
 expect "and still registered"                      "$(git -C "$M" worktree list)" "$M/revloop-wt-fix"
 same   "and its line is kept, not retired"         "$(cat "$LEDGER_M")" "$M/revloop-wt-fix"
+
+# --- a symlink planted at the temp path -------------------------------------
+# THE REWRITE USED TO FOLLOW ONE. `$F.new` is a fixed, derivable name written
+# with a plain `>`, so anything able to write the ledger's directory could plant
+# a symlink there and have the redirection truncate whatever it pointed at --
+# and the `mv` then left THE RECORD ITSELF a symlink to that file, so the next
+# run's step 3 appended worktree paths into it and this fence read it back as
+# the list of paths its unconditional --force may take. Measured against the
+# unfixed fence at git 2.34.1: the victim truncated to zero bytes, the record a
+# symlink to it, and `WORKTREE=swept removed=1 other=0 ledger=ok` printed over
+# all of it. `rm -f` unlinks the symlink instead of following it, and `set -C`
+# makes the redirection O_EXCL so a re-plant in that window fails the write
+# rather than winning it -- measured at bash 5.1.16, noclobber refuses an
+# existing symlink whether or not its target exists.
+P=$(new_repo symlink-temp)
+git -C "$P" worktree add -q --detach "$P/wt/revloop-wt-p" HEAD
+record "$P" "$P/wt/revloop-wt-p"
+LEDGER_P_DIR="$(git -C "$P" rev-parse --absolute-git-dir)/revloop"
+echo untouched > "$P/victim.txt"
+ln -s "$P/victim.txt" "$LEDGER_P_DIR/worktrees.txt.new"
+
+OUT_P=$( run_in "$P" ); RC_P=$?
+same   "a planted temp symlink truncates nothing" "$(cat "$P/victim.txt")" "untouched"
+expect "the sweep still removes what it owns"     "$OUT_P" "WORKTREE=removed path=$P/wt/revloop-wt-p"
+expect "and the record is written for real"       "$OUT_P" "WORKTREE=swept removed=1 other=0 ledger=ok"
+same   "the record is a regular file, not a link" "$(test -L "$LEDGER_P_DIR/worktrees.txt" && echo LINK)" ""
+same   "and holds the empty stuck set"            "$(cat "$LEDGER_P_DIR/worktrees.txt")" ""
+same   "and the fence exits zero"                 "$RC_P" "0"
+
+# --- a plant the unlink cannot clear ----------------------------------------
+# WHY THE UNLINK IS THE FIRST LINK OF THE `&&` CHAIN AND NOT A STATEMENT BEFORE
+# IT. With the ledger's directory read-only the unlink fails, and a read-only
+# DIRECTORY does not stop a write THROUGH a link to a file outside it -- so a
+# fence that unlinked, ignored the result and wrote anyway would truncate the
+# victim and still report `ledger=error`, naming a failure other than the one
+# that happened. Measured at bash 5.1.16. Chained, the failed unlink stops the
+# write instead: if the temp path cannot be cleared, nothing is written through
+# whatever is standing there. `set -C` is NOT what saves this case and this
+# fixture does not measure it -- see `## Unexercised paths`, where it is the
+# third guard in this fence that no fixture can turn red.
+U=$(new_repo unclearable-plant)
+git -C "$U" worktree add -q --detach "$U/wt/revloop-wt-v" HEAD
+record "$U" "$U/wt/revloop-wt-v"
+LEDGER_U_DIR="$(git -C "$U" rev-parse --absolute-git-dir)/revloop"
+echo untouched > "$U/victim.txt"
+ln -s "$U/victim.txt" "$LEDGER_U_DIR/worktrees.txt.new"
+if [ "$(id -u)" = 0 ]; then
+  printf '  note a read-only directory does not stop root; the noclobber write is unmeasured here\n'
+else
+  chmod a-w "$LEDGER_U_DIR"
+  OUT_U=$( run_in "$U" ); RC_U=$?
+  chmod u+w "$LEDGER_U_DIR"
+  same   "a plant the unlink cannot clear truncates nothing" "$(cat "$U/victim.txt")" "untouched"
+  same   "and the temp path is left as it was found"        "$(readlink "$LEDGER_U_DIR/worktrees.txt.new")" "$U/victim.txt"
+  expect "the removal still happens"                    "$OUT_U" "WORKTREE=removed path=$U/wt/revloop-wt-v"
+  expect "and the verdict names the write failure"      "$OUT_U" "ledger=error"
+  same   "the record is left exactly as it was"         "$(cat "$LEDGER_U_DIR/worktrees.txt")" "$U/wt/revloop-wt-v"
+  same   "and the fence exits zero"                     "$RC_U" "0"
+  # THE FENCE'S OUTPUT IS PARSED, so a failing unlink may not narrate itself:
+  # `rm` writes `Permission denied` to stderr, and the report reads these lines.
+  refute "and says nothing that is not a WORKTREE line" "$OUT_U" "Permission denied"
+fi
+
+# --- a symlink planted at the record itself ---------------------------------
+# THE OTHER HALF, and the one that decides what the fence READS rather than what
+# it writes. `[ -e ]` and `[ -f ]` both follow a symlink, so a record redirected
+# at another file passes every test the read guard makes and is then used as the
+# authorization list. Refusing is the same fail-closed shape as
+# `ledger-unreadable` one level out: a record that is not a regular file is not
+# an absent one. Asserted on the victim's BYTES and the worktree's DIRECTORY,
+# because the claim is that the fence touched nothing at all.
+Q=$(new_repo symlink-ledger)
+git -C "$Q" worktree add -q --detach "$Q/wt/revloop-wt-q" HEAD
+echo built > "$Q/wt/revloop-wt-q/artifact.txt"
+record "$Q" "$Q/wt/revloop-wt-q"
+LEDGER_Q="$(git -C "$Q" rev-parse --absolute-git-dir)/revloop/worktrees.txt"
+echo untouched > "$Q/victim.txt"
+rm -f "$LEDGER_Q"
+ln -s "$Q/victim.txt" "$LEDGER_Q"
+
+OUT_Q=$( run_in "$Q" ); RC_Q=$?
+expect "a record that is a symlink refuses the sweep" "$OUT_Q" "WORKTREE=error reason=ledger-not-regular path=$LEDGER_Q"
+refute "and never claims a clean one"                 "$OUT_Q" "WORKTREE=swept"
+refute "nor a partial one"                            "$OUT_Q" "WORKTREE=partial"
+refute "and removes nothing"                          "$OUT_Q" "WORKTREE=removed"
+refute "and calls nothing another's"                  "$OUT_Q" "WORKTREE=other"
+same   "the file it pointed at keeps its bytes"       "$(cat "$Q/victim.txt")" "untouched"
+expect "and the worktree keeps its directory"         "$(test -f "$Q/wt/revloop-wt-q/artifact.txt" && echo PRESENT)" "PRESENT"
+same   "and the fence exits zero"                     "$RC_Q" "0"
+
+# --- a stale temp file from an earlier run ----------------------------------
+# `set -C` refuses an existing REGULAR file too -- measured at bash 5.1.16 -- so
+# on its own it would wedge the rewrite into `ledger=error` for good the first
+# time a rename failed and left the residue this file's `## Unexercised paths`
+# entry describes. The `rm -f` is therefore not decoration on the symlink fix:
+# it is what keeps that residue self-clearing, and it narrows the documented
+# leftover from permanent to one sweep long.
+R=$(new_repo stale-temp)
+git -C "$R" worktree add -q --detach "$R/wt/revloop-wt-r" HEAD
+record "$R" "$R/wt/revloop-wt-r"
+LEDGER_R_DIR="$(git -C "$R" rev-parse --absolute-git-dir)/revloop"
+echo leftover > "$LEDGER_R_DIR/worktrees.txt.new"
+
+OUT_R=$( run_in "$R" )
+expect "a stale temp file does not wedge the rewrite" "$OUT_R" "WORKTREE=swept removed=1 other=0 ledger=ok"
+same   "and the record is rewritten"                  "$(cat "$LEDGER_R_DIR/worktrees.txt")" ""
+same   "and the residue is gone"                      "$(test -e "$LEDGER_R_DIR/worktrees.txt.new" && echo PRESENT)" ""
+
+# --- the family name with nothing after it ----------------------------------
+# STEP 3'S TEMPLATE IS `revloop-wt-<slug>`, and an empty slug lands on the one
+# string the pattern used to exclude: `?*` demanded a character AFTER the prefix
+# while step 3's rule says the component BEGINS WITH it. A run that recorded
+# such a path had it skipped in silence -- not removed, not named as another's,
+# and its line retired by the rewrite regardless, under a `swept` line. The
+# neighbour without the hyphen is still refused, and the pattern's own trailing
+# `-` is what does that; the `?*` never was.
+T=$(new_repo empty-slug)
+git -C "$T" worktree add -q --detach "$T/wt/revloop-wt-" HEAD
+git -C "$T" worktree add -q --detach "$T/wt/revloop-wt" HEAD
+record "$T" "$T/wt/revloop-wt-"
+LEDGER_T="$(git -C "$T" rev-parse --absolute-git-dir)/revloop/worktrees.txt"
+
+OUT_T=$( run_in "$T" ); LIST_T=$( git -C "$T" worktree list )
+expect "the bare prefix is inside the family"     "$OUT_T"  "WORKTREE=removed path=$T/wt/revloop-wt-"
+expect "and the sweep says so once"               "$OUT_T"  "WORKTREE=swept removed=1 other=0 ledger=ok"
+same   "and the line it spent is retired"         "$(cat "$LEDGER_T")" ""
+refute "the name without the hyphen is untouched" "$OUT_T"  "path=$T/wt/revloop-wt "
+expect "and keeps its registration"               "$LIST_T" "$T/wt/revloop-wt "
+expect "and its directory"                        "$(test -d "$T/wt/revloop-wt" && echo PRESENT)" "PRESENT"
 
 # --- the rule is written in both procedures ---------------------------------
 #

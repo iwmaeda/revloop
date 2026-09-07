@@ -1325,12 +1325,13 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     HERE=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
     G=$(git rev-parse --absolute-git-dir 2>/dev/null) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
     F="$G/revloop/worktrees.txt"
-    case "${HERE##*/}" in revloop-wt-?*) if [ -f "$G/gitdir" ] && [ ! -f "$F" ]; then echo "WORKTREE=error reason=inside-worktree path=$HERE"; exit 0; fi ;; esac
+    if [ -L "$F" ]; then echo "WORKTREE=error reason=ledger-not-regular path=$F"; exit 0; fi
+    case "${HERE##*/}" in revloop-wt-*) if [ -f "$G/gitdir" ] && [ ! -f "$F" ]; then echo "WORKTREE=error reason=inside-worktree path=$HERE"; exit 0; fi ;; esac
     if [ -e "$G/revloop" ]; then M=$(cat "$F" 2>/dev/null) || { echo "WORKTREE=error reason=ledger-unreadable path=$F"; exit 0; }; else M=; fi
     R=0; S=0; O=0; K=
     while IFS= read -r l; do
       case "$l" in "worktree "*) p=${l#worktree } ;; *) continue ;; esac
-      case "${p##*/}" in revloop-wt-?*) ;; *) continue ;; esac
+      case "${p##*/}" in revloop-wt-*) ;; *) continue ;; esac
       if ! printf '%s\n' "$M" | grep -qxF -- "$p"; then
         O=$((O + 1)); echo "WORKTREE=other path=$p"; continue
       fi
@@ -1342,7 +1343,7 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     done <<< "$L"
     E=ok
     if [ -n "$M" ]; then
-      { printf '%s' "$K" > "$F.new" && mv -f "$F.new" "$F"; } 2>/dev/null || E=error
+      { rm -f "$F.new" && ( set -C; printf '%s' "$K" > "$F.new" ) && mv -f "$F.new" "$F"; } 2>/dev/null || E=error
     fi
     if [ "$S" -eq 0 ]; then echo "WORKTREE=swept removed=$R other=$O ledger=$E"; else echo "WORKTREE=partial removed=$R stuck=$S other=$O ledger=$E"; fi
     ```
@@ -1421,6 +1422,44 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
     the file before the command that fills it runs, so the state is close to unreachable — and when
     it does arrive the fence refuses rather than lies, which is the direction every other guard here
     errs in.
+
+    **`WORKTREE=error reason=ledger-not-regular` is the third, and it asks the one question the
+    other two cannot.** `[ -e ]` and `[ -f ]` both follow a symbolic link, so a record replaced by a
+    link to another file passes every test the read above makes, and its contents are then the list
+    of paths this unconditional `--force` may take. A record that is not a regular file is not an
+    absent one and is not an unreadable one either: it is a record pointed somewhere else, and the
+    only safe reading of it is none. So the fence refuses before it reads, in the same shape as the
+    two guards above and for the same reason — **the alternative is a `swept` line over somebody
+    else's file**.
+
+    **The rewrite unlinks its own temp path before writing it, and that is not tidiness.** `$F.new`
+    is a fixed name derived from a fixed location, so anything able to write the ledger's directory
+    could leave a symbolic link there — and a plain `>` follows one, truncating whatever it points
+    at, after which the `mv` leaves **the record itself** a link to that file: step 3 then appends
+    worktree paths into it and this fence reads it back as the authorization list. Measured at
+    `git 2.34.1` against the unguarded rewrite, with a link planted at `$F.new`: the target
+    truncated to nothing, `worktrees.txt` a link to it, and `WORKTREE=swept removed=1 other=0
+ledger=ok` printed over all of it. `rm -f` removes the link rather than following it, and
+    **it is the first link of the `&&` chain rather than a statement before it** — a read-only
+    ledger directory makes the unlink fail while a write _through_ a link to a file outside that
+    directory still succeeds, so a fence that unlinked and wrote anyway would truncate the target
+    and report `ledger=error`, naming a failure other than the one that happened. Chained, a temp
+    path that cannot be cleared is one nothing is written through.
+
+    **`set -C` covers the window the unlink leaves, and no fixture reaches it.** Between a
+    successful unlink and the redirection there is room to plant the link again; noclobber makes
+    that open `O_EXCL`, so the re-plant loses the write instead of winning it — measured at
+    `bash 5.1.16`, an existing symbolic link is refused whether or not its target exists. Producing
+    that interleaving needs a second process racing the fence, which no fixture here does, so
+    `## Unexercised paths` records it as the third line in this fence that no test can turn red
+    rather than counting it as coverage.
+
+    **The unlink also retires a residue this file used to call permanent.** A `$F.new` left behind
+    by a rename that failed is cleared by the next sweep instead of sitting in the git directory for
+    good, so the leftover is now one sweep long. That is a consequence of the guard rather than its
+    purpose, and it is why `set -C` on its own would have been the wrong fix: noclobber refuses an
+    existing **regular** file too — measured at `bash 5.1.16` — so without the unlink the first
+    failed rename would have wedged every later rewrite into `ledger=error`.
 
     A `stuck` line is a worktree still on disk and still registered, and **it belongs in the report
     by path**: a leftover this loop announces is one somebody can remove, and a leftover it swallows
@@ -2084,7 +2123,22 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   in. **The test is `[ -e "$G/revloop" ]` and deliberately not `[ -e "$F" ]`**: permissions are
   checked per component, so the file test is both unreachable — a file that exists implies a parent
   that does — and blind to a directory whose search bit is gone, which is the case where the ledger
-  is present and unreadable at once.
+  is present and unreadable at once. **And a record that is not a regular file is a third thing
+  again**: `[ -e ]` and `[ -f ]` both follow a symbolic link, so a record replaced by a link to
+  another file passes every test either guard makes, and what the fence would then read as the list
+  of paths it may `--force` is a file somebody else chose. `reason=ledger-not-regular` refuses it
+  before the read, which is why that test is first — it is the one condition the other two cannot
+  see.
+- **The record is written the same way it is read: through a path the fence controls, or not at
+  all.** The rewrite's temp file is a fixed name in a fixed directory, and a plain `>` follows a
+  symbolic link — so a link planted at `$F.new` truncated whatever it pointed at and the `mv` then
+  left **the record itself** a link to that file, which step 3 appended into and this fence read
+  back as authorization. Measured at `git 2.34.1`: the target emptied, `worktrees.txt` a link to it,
+  `WORKTREE=swept removed=1 other=0 ledger=ok` over all of it. The unlink is the first link of the
+  `&&` chain, so a temp path that cannot be cleared is one nothing is written through; `set -C`
+  closes the window between the unlink and the write, and is the third line in this fence no fixture
+  can turn red. **The unlink is also what makes noclobber safe to add**: it refuses an existing
+  regular file too, so on its own it would have wedged every rewrite after the first failed rename.
 - **Substitute every `<n>` before running.** A forgotten placeholder is read by the shell as a
   **redirect from a file named `n`**, which `bash -n` does not catch.
 - **Never quote the contents of `.env*` in a comment.** Answer findings that touch secrets with a
@@ -2163,36 +2217,42 @@ takes one of these should say so in the report:
   into a schema is only as strong as what reads the schema**, and here that is a person or an agent
   rather than a process.
 - **Step 12's worktree teardown. The fence is exercised; the rule it depends on is not.**
-  `tests/fence-worktree.test.sh` drives every branch of it against **fourteen** throwaway
+  `tests/fence-worktree.test.sh` drives every branch of it against **nineteen** throwaway
   repositories — a removal, a refusal, a run that owns nothing, a run outside a repository, a bare
   repository, a run standing inside the worktree it would otherwise delete, a run whose ledger is
   missing, two checkouts of one repository sweeping past each other, one that places its worktree
   where step 3 actually says to, two that sweep twice to show a path being retired, one whose ledger
   directory is read-only, one whose ledger cannot be **read** in each of the three ways that breaks,
-  and two whose own **names** are in the family — and each of its loadbearing behaviours has been
-  shown to fail the suite when removed. **Re-measured over 131 assertions**, since both the fence and
-  the fixture count moved:
+  two whose own **names** are in the family, one whose record is a **symbolic link**, one with a link
+  planted at the rewrite's **temp path**, one where that plant cannot be unlinked, one carrying a
+  stale temp file from an earlier run, and one whose worktree is named the family prefix and nothing
+  else — and each of its loadbearing behaviours has been shown to fail the suite when removed.
+  **Re-measured over 161 assertions**, since both the fence and the fixture count moved:
 
   | Remove                                            | Assertions that go red |
   | ------------------------------------------------- | ---------------------- |
   | the ledger membership check                       | 30                     |
-  | the `revloop-wt-` match in the loop               | 15                     |
-  | the ledger rewrite                                | 15                     |
+  | the ledger rewrite                                | 20                     |
+  | the `revloop-wt-` match in the loop               | 18                     |
   | the `--force`                                     | 15                     |
-  | the `ledger=` field                               | 11                     |
+  | the `ledger=` field                               | 15                     |
   | deriving the ledger from `--git-common-dir`       | 9                      |
   | the `[ ! -f "$F" ]` conjunct of the guard         | 7                      |
   | the `ledger-unreadable` guard entire              | 7                      |
+  | `mv` replaced by a truncate in place              | 6                      |
   | the loop's `$p != $HERE` refusal                  | 5                      |
+  | the rewrite's `rm -f "$F.new"`                    | 5                      |
   | asking `[ -e "$F" ]` rather than the directory    | 4                      |
   | the `[ -f "$G/gitdir" ]` conjunct of the guard    | 3                      |
-  | `mv` replaced by a truncate in place              | 3                      |
   | the `swept` / `partial` split                     | 3                      |
+  | the `ledger-not-regular` guard                    | 3                      |
   | the `inside-worktree` guard entire                | 2                      |
   | the `--show-toplevel` guard                       | 2                      |
   | asking `[ -d "$G/revloop" ]` rather than `[ -e ]` | 2                      |
+  | the rewrite's `2>/dev/null`                       | 1                      |
   | the `git worktree list` guard                     | **0 — see below**      |
   | the `--absolute-git-dir` guard                    | **0 — see below**      |
+  | the rewrite's `set -C`                            | **0 — see below**      |
 
   **The two rows naming the read guard's alternatives are the point of that guard rather than
   decoration.** `[ -e "$F" ]` was the first draft and turns **0** red on its own — it is implied by
@@ -2224,11 +2284,15 @@ takes one of these should say so in the report:
   reach either deterministically; what is pinned is that the removals still happen, the previous
   record survives whole, the terminal line says so, and the fence still exits zero. **The fixture
   also skips itself as root**, where a read-only directory stops nothing, so on a root CI runner that
-  branch is unmeasured and says so rather than passing quietly. **And one residue is unmeasured
-  either way**: if the temp file is written and the rename then fails, `worktrees.txt.new` is left in
-  the git directory. Nothing removes it — deliberately, because an `rm` in a fence whose entire
-  argument is a bounded `--force` costs more than the file does — and it is invisible to
-  `git status`, `ls-files -o`, `add -A` and `clean -xdf` for the same reason the record is.
+  branch is unmeasured and says so rather than passing quietly. **And the residue this bullet used to call
+  permanent is now one sweep long**: if the temp file is written and the rename then fails,
+  `worktrees.txt.new` is left in the git directory, and the next sweep unlinks it before writing its
+  own. That `rm` is in the fence for the symbolic link rather than for the residue — this file
+  argued against one on the grounds that it cost more than the file did, and that was right about
+  the residue and wrong about what else a fixed temp name is good for. It is still invisible to
+  `git status`, `ls-files -o`, `add -A` and `clean -xdf` for the same reason the record is. **What
+  is unmeasured either way** is a rename that fails after the write: the fixtures reach a read-only
+  directory, where the unlink fails first and nothing is written at all.
 - **`reason=ledger-unreadable` is produced by `chmod`, which is a stand-in in the same way.** What a
   run would actually hit is an ownership change, a filesystem returning `EIO`, or a permission the
   harness lost part-way; what the three fixtures reach deterministically and without root are a file
@@ -2237,6 +2301,22 @@ takes one of these should say so in the report:
   byte-identical, so what is pinned is that the fence touched nothing — not merely that it printed a
   different word. **That block skips itself as root**, where none of the three modes stops a read, so
   on a root CI runner the guard is unmeasured and says so rather than passing quietly.
+- **The two symbolic-link guards are produced by `ln -s`, and what that stands in for is the half
+  nothing here can reach.** A link at the record or at the rewrite's temp path is planted by the
+  fixture in one call; what a run would meet is another process with write access to the ledger's
+  directory — a group-writable `.git`, or code the loop itself ran under step 3, which exists to
+  build and test a commit you have not read. **Unlike the `chmod` fixtures these need no root skip**,
+  so both branches are measured on every runner. What is still unmeasured is the interleaving: see
+  the three-guards bullet below for `set -C`, whose whole subject is a re-plant no fixture produces.
+- **Step 3's append has no guard of its own, and cannot have one.** `>> "$D/worktrees.txt"` follows a
+  symbolic link exactly as the rewrite's `>` did, so a record already redirected takes the run's
+  worktree paths with it. What closes the loop is step 12 rather than step 3: the sweep refuses a
+  record that is not a regular file, so the redirection is reported the next time a sweep runs
+  instead of being read as authorization. **Between the plant and that sweep the paths are written
+  into somebody else's file**, which is a disclosure rather than a leak — the file is appended to,
+  never truncated, and nothing is removed on the strength of it. Step 3 is a prompted per-invocation
+  command rather than a fence, so a guard there would be a rule an operator can skip; the fence is
+  where the bound belongs.
 - **One state reports the wrong reason, and both reasons refuse.** In a **linked** checkout whose own
   name is in the family, an unreadable ledger directory makes `[ -f "$F" ]` false, which satisfies the
   `inside-worktree` guard's third conjunct — so it prints `reason=inside-worktree` where
@@ -2273,21 +2353,27 @@ takes one of these should say so in the report:
   case where a typed path and a recorded one come apart. **One version, one filesystem** — a git that
   recorded the unresolved path would leave the run's own worktree named as `other`, which is the safe
   direction but still a leftover.
-- **Two guards in the fence are held by argument rather than by a fixture, and moving the ledger
-  added the second.** `WORKTREE=error reason=not-a-repo` is now printed from **three** places — a
+- **Three guards in the fence are held by argument rather than by a fixture, and hardening the
+  rewrite added the third.** `WORKTREE=error reason=not-a-repo` is printed from **three** places — a
   failing `git worktree list`, a failing `rev-parse --show-toplevel`, and a failing
   `rev-parse --absolute-git-dir` — and only one state has been found that separates any of them.
   Outside a repository all three fail together; in a bare repository **only `--show-toplevel` does**,
   measured at `git 2.34.1`, which is the case `tests/fence-worktree.test.sh` pins. **So the guards on
-  the list and on `--absolute-git-dir` are still the only two lines in this fence that can be
-  deleted with the suite green — and re-measuring over 108 assertions did not change that.** The
-  list guard stays on the reasoning it always did: a `list` that fails prints no rows, and the loop
-  behind it would then remove nothing and print a clean sweep over a repository it never read. The
-  `--absolute-git-dir` guard is weaker still — `--show-toplevel` succeeded two lines above it, so
-  **no reachable state has been found in which it fires at all** — and it is there because the
-  alternative is `cat "/revloop/worktrees.txt"`, an empty ledger, and a `swept` line over a record
-  that was never opened. **A guard that is unreachable today is cheaper than a false `swept`
-  tomorrow**, and this bullet is what stops that being a coverage claim.
+  the list, on `--absolute-git-dir` and on the rewrite's `set -C` are the only three lines in this
+  fence that can be deleted with the suite green — and re-measuring over 161 assertions did not
+  change that.** The list guard stays on the reasoning it always did: a `list` that fails prints no
+  rows, and the loop behind it would then remove nothing and print a clean sweep over a repository it
+  never read. The `--absolute-git-dir` guard is weaker still — `--show-toplevel` succeeded two lines
+  above it, so **no reachable state has been found in which it fires at all** — and it is there
+  because the alternative is `cat "/revloop/worktrees.txt"`, an empty ledger, and a `swept` line over
+  a record that was never opened. **`set -C` is unreachable for a different reason, and a sharper
+  one**: the state it answers is a second process replanting a symbolic link at `$F.new` between the
+  unlink and the redirection, and no fixture here races the fence. It turned **0** red when removed,
+  and the fixture that looked like it should have killed it does not — a read-only ledger directory
+  makes the unlink fail, and the unlink is the first link of the `&&` chain, so nothing is written
+  and noclobber is never reached. What that fixture pins is the chaining; what nothing pins is the
+  race. **A guard that is unreachable today is cheaper than a false `swept` tomorrow**, and this
+  bullet is what stops any of the three being a coverage claim.
 - **`WORKTREE=stuck`, from a run.** The test produces one deterministically with `git worktree lock`,
   which is a stand-in: what a run would actually hit is a permission error or a filesystem that will
   not release the directory. What is pinned is that a refusal becomes a named line and a `partial`

@@ -23,13 +23,14 @@ before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so 
 changed line and three unchanged hashes; if any of the three moved, an existing fence was edited by
 accident and this paragraph is wrong.
 
-**The new fence was then amended three times before release, and that is still not a re-approval.**
+**The new fence was then amended six times before release, and that is still not a re-approval.**
 An approval is keyed to the exact command string, and nobody has ever been prompted for the earlier
 bytes: `worktree-teardown` has not appeared in a tagged release, so there is nothing granted to
 invalidate. Against the release boundary this remains **one added fence and one first approval**, and
 `tests/fence-hashes.txt`'s `worktree-teardown` line moving again while the other three stay
-byte-identical is what says so. `CONTRIBUTING.md` carries the distinction: adding a fence and editing
-one are different events, and only the second costs anybody a re-approval.
+byte-identical is what says so — the count above is read from those hashes rather than from memory,
+and it was wrong here by three until it was. `CONTRIBUTING.md` carries the distinction: adding a
+fence and editing one are different events, and only the second costs anybody a re-approval.
 
 **If you granted git subcommands individually rather than `Bash(git:*)`, add `Bash(git worktree:*)`
 before your next run.** That is a hard failure rather than a prompt: the teardown cannot run without
@@ -160,17 +161,55 @@ be a fence. `docs/permissions.md` counts it as a fourth string class, and step 3
 `git show`, `git diff` and `git log`, which answer most questions about another commit without
 leaving the tree you are in.
 
+**The record and its temp file are now written only where the fence controls what is standing
+there.** `$F.new` was a fixed name written with a plain `>`, so anything able to write the ledger's
+directory could leave a symbolic link at it: the redirection followed the link and truncated whatever
+it pointed at, and the rename then left **the record itself** a link to that file — which step 3
+appended into and the fence read back as the list of paths its unconditional `--force` may take.
+Measured at `git 2.34.1` against the unhardened rewrite, with a link planted at `$F.new`: the target
+emptied, `worktrees.txt` a link to it, and `WORKTREE=swept removed=1 other=0 ledger=ok` printed over
+all of it — **the false success line this fence's whole design refuses to print.** Three changes
+answer it. The temp path is unlinked before it is written, and **the unlink is the first link of the
+`&&` chain rather than a statement before it**, because a read-only ledger directory makes the unlink
+fail while a write _through_ a link to a file outside that directory still succeeds — so a fence that
+unlinked and wrote anyway would truncate the target and report `ledger=error`, naming a failure other
+than the one that happened. The write is then `O_EXCL` under `set -C`, which covers the window
+between a successful unlink and the redirection. And a record that is not a regular file is refused
+before it is read at all: `WORKTREE=error reason=ledger-not-regular`, the sweep does not run, and
+nothing is removed — because `[ -e ]` and `[ -f ]` both follow a link, so this is the one condition
+neither of the other two read guards can see.
+
+**Adding the unlink retires an argument this file made in the other direction.** The residue a failed
+rename leaves at `worktrees.txt.new` was documented as permanent, on the reasoning that an `rm` in a
+fence whose entire argument is a bounded `--force` costs more than the file does. That was right
+about the residue and wrong about what else a fixed temp name is good for; the leftover is now one
+sweep long, as a consequence of the guard rather than its purpose. It also decides the shape:
+`set -C` alone would have been the wrong fix, since noclobber refuses an existing **regular** file
+too — measured at `bash 5.1.16` — so without the unlink the first failed rename would have wedged
+every later rewrite into `ledger=error`.
+
+**And the family name now means one thing in both places it is written.** Step 3 says the last path
+component **begins with** `revloop-wt-`; the fence asked for a character after the prefix, so a run
+whose `<slug>` came out empty recorded a path the sweep then skipped in silence — not removed, not
+named as another's, and its ledger line retired by the rewrite regardless, under a `swept` line. The
+pattern is `revloop-wt-*` now. A worktree named `revloop-wt` without the hyphen is still outside the
+family, and the pattern's own trailing `-` is what refuses it, as it always was.
+
 **Nothing has run this in a loop.** Both `## Unexercised paths` sections say so, and the honest part
 is which half is unmeasured: the sweep is exercised, and **the recording is not** — none of the five
 leftovers that motivated this was ever written down anywhere. **It fails open.** A worktree created
 without its ledger line is left behind exactly as it is today, under a procedure that now says it
 cleans up, and the report cannot mention it because the fence never saw it. **Two loops have never
 run against one repository at the same time either** — the separation is measured by hand against a
-real repository with two checkouts, and by fixture, but not by the situation it exists for. And the
-guard on `git rev-parse --absolute-git-dir` joins the guard on `git worktree list` as a line **no
-fixture can turn red**, since `--show-toplevel` has already succeeded above it; both are recorded in
-`## Unexercised paths` rather than counted as coverage — and re-measuring the whole suite over **131**
-assertions across **fourteen** throwaway repositories did not change that.
+real repository with two checkouts, and by fixture, but not by the situation it exists for. And **three**
+lines in the fence can be deleted with the suite green: the guard on `git worktree list`, the guard
+on `git rev-parse --absolute-git-dir` — since `--show-toplevel` has already succeeded above it — and
+the rewrite's `set -C`, whose subject is a second process replanting a link between the unlink and
+the write, which no fixture races. The fixture that looks as though it should kill the third does
+not: a read-only ledger directory makes the unlink fail, and the unlink is the first link of the
+chain, so noclobber is never reached. All three are recorded in `## Unexercised paths` rather than
+counted as coverage — and re-measuring the whole suite over **161** assertions across **nineteen**
+throwaway repositories did not change that.
 
 **Three more things the sweep's rewrite does not cover, all written down rather than argued away.**
 The retirement is measured by hand against a real repository — a path recorded, swept, retired, then
