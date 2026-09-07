@@ -367,7 +367,7 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    D=$(git rev-parse --absolute-git-dir)/revloop
    W="<scratch>/revloop-wt-<slug>"
    { [ "$(printf '%s' "$W" | wc -l)" -eq 0 ] \
-       && P=$(cd "${W%/*}" && pwd -P) && [ "$(printf '%s' "$P" | wc -l)" -eq 0 ] \
+       && P=$(cd "${W%/*}" && pwd -P && printf x) && [ "$(printf '%s' "$P" | wc -l)" -eq 1 ] \
        && [ ! -L "$D" ] && { [ ! -e "$D" ] || [ -d "$D" ]; } \
        && [ ! -L "$D/worktrees.txt" ] && { [ ! -e "$D/worktrees.txt" ] || [ -f "$D/worktrees.txt" ]; } \
        && mkdir -p "$D" && { [ -e "$D/worktrees.txt" ] || : > "$D/worktrees.txt"; } \
@@ -438,8 +438,19 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    there is a state this side must not record into: a **directory** standing at that path passes
    every permission test on `$D` and refuses the sweep, which left step 3 recording worktrees the
    fence would not take. Reported as a P1 on the same round, and the answer is not another test but
-   the same one — a state one side accepts is now a state the other accepts, because both prove it
-   by doing it.
+   the same one — the shared probe decides that class identically on both sides, because both decide
+   it by doing it.
+
+   **What that does not buy is one accepted set, and claiming it did was an overclaim that had to be
+   withdrawn.** Two differences remain and both are deliberate. **A mode-0444 record in a writable
+   directory** is refused here and swept by the fence: this side appends and needs the file
+   writable, that side renames and does not. **An empty record** makes the fence skip its probe
+   entirely — with nothing authorized it removes nothing, so there is no rewrite to prove — while
+   this side runs the probe whatever the record holds, because it is about to add a line. So the
+   fence accepts an unwritable ledger directory that this side refuses, and refuses a read-only
+   record that this side also refuses for its own reason. **The alignment is over the states the
+   probe decides**, which is the class that produced the leak; the rest is two commands doing two
+   jobs, and the leak direction — recording something the sweep cannot take — is the one closed.
 
    **Each shape it refuses was measured, and two of them were reported.** `mkdir -p` succeeds on a
    `revloop` that is already a **symbolic link to a directory**, so without the link test this chain
@@ -2544,11 +2555,12 @@ takes one of these should say so in the report:
   procedure to the copy of the clause in the test's own `record()` helper; the behavioural cost is
   measured instead by `glued-ledger`, a fixture that hardcodes the unrepaired append and pins the
   leak it produces, so the clause and its consequence are checked from opposite sides and neither
-  check moves when the other is deleted. **Step 3's ledger usability test turns 7**, and each of its
-  six clauses is listed on its own because each closes a different measured failure — a split ledger
-  line, a substituted directory, a substituted or blocking leaf, a record the run cannot use, a
-  record the _fence_ cannot rewrite, and a ledger directory with no leaf in it. A single row for the
-  test would let five of them go missing behind one number.
+  check moves when the other is deleted. **Step 3's ledger usability test turns 9**, and each of its
+  eight clauses is listed on its own because each closes a different measured failure — a split
+  ledger line, a canonical path that splits although the typed one does not, a substituted
+  directory, a substituted or blocking leaf, a record the run cannot use, a record the _fence_
+  cannot rewrite, a temp path the fence cannot clear, and a ledger directory with no leaf in it. A
+  single row for the test would let seven of them go missing behind one number.
 
   **The literal an assertion matches has to be one only the command carries, and the first version of
   the directory row's was not.** It matched `[ ! -L "$D" ]`, which also appears three times in the
@@ -2666,8 +2678,8 @@ takes one of these should say so in the report:
   case where a typed path and a recorded one come apart. **One version, one filesystem** — a git that
   recorded the unresolved path would leave the run's own worktree named as `other`, which is the safe
   direction but still a leftover.
-- **Four lines in the fence are held by argument rather than by a fixture, and the here-string above
-  is the fourth.** `WORKTREE=error reason=not-a-repo` is printed from **three** places — a
+- **Six lines in the fence are held by argument rather than by a fixture, and the here-string above
+  is one of them.** `WORKTREE=error reason=not-a-repo` is printed from **three** places — a
   failing `git worktree list`, a failing `rev-parse --show-toplevel`, and a failing
   `rev-parse --absolute-git-dir` — and only one state has been found that separates any of them.
   Outside a repository all three fail together; in a bare repository **only `--show-toplevel` does**,
@@ -2681,7 +2693,7 @@ takes one of these should say so in the report:
   suppression is for. **Both stay** — they are what stands between the rewrite and a re-plant in the
   window after the probe, which is the race `## Unexercised paths` declines — but they are now second
   lines of defence, and the table says 0 rather than pretending otherwise. **The rewrite entire also
-  fell from 20 to 17 for the same reason**, and `mv`-replaced-by-a-truncate is held at 3 only because
+  fell from 20 red to 18 for the same reason**, and `mv`-replaced-by-a-truncate is held at 3 only because
   `readonly-record-writable-dir` was added to hold it: a mode-0444 record in a writable directory is
   renamed over happily and cannot be truncated in place. **Trading mutation coverage of a failure
   path for never reaching it is the right direction and is still a trade**, so it is written here

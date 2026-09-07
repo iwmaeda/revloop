@@ -1267,9 +1267,17 @@ DIRWRITE_RULE='[ -w "$D/worktrees.txt" ] && [ -w "$D" ]'
 # assignment: `pwd -P` prints a TRAILING newline, so piping it to `wc -l` counts
 # 1 for every clean path and refuses everything; `$( )` strips that and keeps
 # only the inner ones. That spelling was wrong in the first draft and the
-# ordinary-scratch control caught it.
+# ordinary-scratch control caught it. THE SENTINEL IS THE SECOND CORRECTION and
+# the subtler one: `$( )` strips EVERY trailing newline, not just the one `pwd`
+# adds as a terminator, so a directory whose final component ENDS with a newline
+# came back indistinguishable from a clean one -- measured, 0 counted where the
+# recorded path holds 1, the producer accepting it and the fence then emptying
+# the ledger under `swept removed=0 other=0` with the worktree still registered.
+# `printf x` gives the capture a non-newline last byte, so nothing is stripped
+# and the count is exact: 1 is `pwd`'s own terminator, anything more is in the
+# path.
 # shellcheck disable=SC2016
-CANONICAL_RULE='P=$(cd "${W%/*}" && pwd -P) && [ "$(printf '"'"'%s'"'"' "$P" | wc -l)" -eq 0 ]'
+CANONICAL_RULE='P=$(cd "${W%/*}" && pwd -P && printf x) && [ "$(printf '"'"'%s'"'"' "$P" | wc -l)" -eq 1 ]'
 # The temp-path probe, which BOTH sides now run because both depend on it: the
 # fence renames through `$F.new`, and a producer that recorded a worktree the
 # fence cannot sweep has leaked it. Same three operations on each side -- clear,

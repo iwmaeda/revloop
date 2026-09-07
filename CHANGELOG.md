@@ -23,7 +23,7 @@ before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so 
 changed line and three unchanged hashes; if any of the three moved, an existing fence was edited by
 accident and this paragraph is wrong.
 
-**The new fence was then amended ten times before release, and that is still not a re-approval.**
+**The new fence was then amended eleven times before release, and that is still not a re-approval.**
 An approval is keyed to the exact command string, and nobody has ever been prompted for the earlier
 bytes: `worktree-teardown` has not appeared in a tagged release, so there is nothing granted to
 invalidate. Against the release boundary this remains **one added fence and one first approval**, and
@@ -124,11 +124,15 @@ first spelling of the check was itself wrong — `pwd -P` prints a trailing newl
 `wc -l` counts 1 for every clean path and refused everything — and the ordinary-scratch control
 caught it before it shipped.
 
-**And the temp-path probe now runs on both sides, which is what finally makes their accepted states
-the same set.** A directory standing at `$D/worktrees.txt.new` passes every permission test on the
-directory and stops the sweep, so step 3 was recording worktrees the fence would refuse. The answer
-was not another test but the same one: both sides prove the state by performing the three operations,
-so a state one accepts is a state the other accepts.
+**And the temp-path probe now runs on both sides, which closes the leak direction rather than making
+the two accepted sets identical.** A directory standing at `$D/worktrees.txt.new` passes every
+permission test on the directory and stops the sweep, so step 3 was recording worktrees the fence
+would refuse. The answer was not another test but the same one: both sides decide that class by
+performing the three operations. **Two differences remain and are deliberate** — a mode-0444 record
+in a writable directory is refused by step 3 and swept by the fence, because one appends and the
+other renames; and an empty record makes the fence skip the probe entirely, since with nothing
+authorized there is no rewrite to prove. An earlier draft of this entry claimed the sets coincide,
+which they do not.
 
 **The probe performs the rewrite's own operations, and the first version of it did not.** It asked
 `[ -w ]` of the ledger directory, to avoid a side effect: an unlink-and-recreate probe also removes a
@@ -150,7 +154,7 @@ cannot record. The skipped probe on an empty record is likewise not a bypass —
 authorized the loop removes nothing, so there is no rewrite to prove — and both shapes are fixtures.
 
 **The reordering cost real mutation coverage and the table says so rather than absorbing it.** The
-rewrite entire fell from 20 red to 17, and the rewrite's own `rm -f "$F.new"` and its `2>/dev/null`
+rewrite entire fell from 20 red to 18, and the rewrite's own `rm -f "$F.new"` and its `2>/dev/null`
 joined the lines that can be deleted with the suite green, because the probe now clears that path
 first. Both stay, as second lines of defence against a re-plant in the window after the probe — the
 race that is declined above. `mv`-replaced-by-a-truncate is held at 3 only because a fixture was
@@ -185,7 +189,7 @@ because the test helper carries a copy of the clause and a copy can drift from w
 "not ours", so a path this checkout owns comes back `WORKTREE=other` and is left behind. It needs
 roughly 2300 unretired lines in one checkout, which the retirement puts out of reach — so the
 here-string is kept for removing the only pipeline in this fence whose status is tested, and because
-it costs fewer bytes than what it replaces. It is the **fourth** line recorded in
+it costs fewer bytes than what it replaces. It is **one of the six** lines recorded in
 `## Unexercised paths` as deletable with the suite green rather than counted as coverage.
 
 **If you granted git subcommands individually rather than `Bash(git:*)`, add `Bash(git worktree:*)`

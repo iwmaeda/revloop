@@ -130,12 +130,15 @@ record — rather than testing a permission that stands next to them. Two later 
 there: a permission test passes a **directory** standing at the temp path, and a clear-and-create
 passes a sticky directory whose record belongs to another user, each failing only after the
 `--force` had run. The probe is byte- and mode-preserving, so a checkout it accepts is left as it
-was found; **step 3 runs the same probe**, which is what makes the states the two sides accept one
-set rather than two. Both failures were measured: a worktree created and unrecorded on one side, a
-worktree removed with its ledger line intact on the other. **The two sides prove different things
-because they do different things** — step 3 appends and so needs the file writable, the fence
-renames and so needs the directory writable — and step 3 proves **both**, since recording a
-worktree the fence cannot sweep is itself a leak.
+was found; **step 3 runs the same probe**, so the class of states that probe decides is decided
+the same way on both sides. **It does not make their accepted states one set, and it is worth not
+overstating**: a mode-0444 record in a writable directory is refused by step 3 and swept by the
+fence, and an empty record makes the fence skip the probe altogether. What is closed is the leak
+direction — recording a worktree the sweep cannot take. Both failures were measured: a worktree
+created and unrecorded on one side, a worktree removed with its ledger line intact on the other.
+**The two sides prove different things because they do different things** — step 3 appends and so
+needs the file writable, the fence renames and so needs the directory writable — and step 3 proves
+**both**, since recording a worktree the fence cannot sweep is itself a leak.
 
 **None of these tests is atomic, and that limit is stated rather than left to be discovered.** They
 are pathname checks, so a process writing inside `$GIT_DIR` could swap the object between the check
