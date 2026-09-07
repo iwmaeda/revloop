@@ -170,12 +170,19 @@
 # line over a record nothing opened. `## Unexercised paths` in remote-loop.md
 # records both gaps rather than hiding them.
 #
-# `git worktree lock` IS HOW `stuck` IS REACHED, and it is a stand-in rather than
-# the real case. What a run would actually hit is a permission error or a
-# filesystem that will not release the directory; a lock is the one refusal that
-# can be produced deterministically and without root. What it pins is that a
-# refusal becomes a named line and a `partial` verdict rather than silence -- not
-# the specific cause.
+# `stuck` IS REACHED TWO WAYS, AND THIS COMMENT USED TO NAME ONLY ONE. It said a
+# lock was "a stand-in rather than the real case", that a run would really hit a
+# permission error, and that a lock was "the one refusal that can be produced
+# deterministically and without root". The last part was false -- a subdirectory
+# with its write bit off does it -- and the substitute differed from the thing it
+# stood for in the one way the fence depended on. A lock is refused BEFORE git
+# touches anything, so the registration survives and a second sweep finds the
+# path again. A permission error is refused AFTER git has deregistered the
+# worktree, so a second sweep never sees it at all: the path leaves the list, the
+# ledger line is spent by the rewrite, and the fence prints its success token
+# over a directory still on disk, permanently. Both shapes are fixtured now --
+# `stuck` below for the lock, `deregistered-live` for the other, swept twice
+# because the second round is where the defect was.
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=tests/lib.sh
@@ -361,6 +368,88 @@ same   "a stuck worktree keeps its ledger line" "$(cat "$LEDGER_B")" "$B/wt/revl
 expect "and the rewrite is still reported ok"   "$OUT_B"  "ledger=ok"
 OUT_B2=$( run_in "$B" )
 expect "so a second sweep still finds it"       "$OUT_B2" "WORKTREE=stuck path=$B/wt/revloop-wt-locked"
+
+# --- a removal that deregisters before it fails -----------------------------
+# THE THIRD OUTCOME OF `remove --force`, AND THE ONE THE LOCK ABOVE STANDS IN
+# FOR BADLY. A lock makes git refuse before it touches anything -- exit 128,
+# the registration intact -- so the fixture above passes its second sweep by
+# never having lost the row it re-reads. What a run actually hits is a
+# worktree whose contents will not delete: a build output, a container-written
+# file, a cache directory with its write bit off. Measured at git 2.34.1, git
+# handles that the other way round -- it DEREGISTERS the worktree and THEN
+# fails to finish deleting it, exit 255, the directory still on disk. The path
+# is then absent from `git worktree list`, so a sweep driven by that list alone
+# never visits it again, spends its ledger line on the rewrite, and prints the
+# success token over a directory nobody will look for again. That is the leak
+# this file exists to close, arriving through the sweep that closes it, which
+# is why the SECOND round below is the assertion that matters.
+DR=$(new_repo deregistered-live)
+git -C "$DR" worktree add -q --detach "$DR/wt/revloop-wt-dr" HEAD
+record "$DR" "$DR/wt/revloop-wt-dr"
+mkdir -p "$DR/wt/revloop-wt-dr/build" && : > "$DR/wt/revloop-wt-dr/build/out.o"
+LEDGER_DR="$(git -C "$DR" rev-parse --absolute-git-dir)/revloop/worktrees.txt"
+if [ "$(id -u)" = 0 ]; then
+  printf '  note an unwritable directory does not stop root; the deregistering failure is unmeasured here\n'
+else
+  chmod a-w "$DR/wt/revloop-wt-dr/build"
+  OUT_DR=$( run_in "$DR" ); RC_DR=$?
+  LIST_DR=$( git -C "$DR" worktree list )
+
+  expect "a removal that cannot finish is named" "$OUT_DR" "WORKTREE=stuck path=$DR/wt/revloop-wt-dr"
+  expect "and the verdict says so"            "$OUT_DR"  "WORKTREE=partial removed=0 stuck=1 other=0"
+  refute "a failed sweep never claims success" "$OUT_DR" "WORKTREE=swept"
+  same   "and still exits zero"               "$RC_DR"   "0"
+  expect "the worktree is still on disk"      "$(test -d "$DR/wt/revloop-wt-dr" && echo PRESENT)" "PRESENT"
+  # THE FACT THE WHOLE FIXTURE TURNS ON, asserted rather than assumed: git has
+  # already dropped the registration, so this round is the last one the list
+  # can offer the path at all.
+  refute "and git has already forgotten it"   "$LIST_DR" "revloop-wt-dr"
+  same   "and it keeps its ledger line"       "$(cat "$LEDGER_DR")" "$DR/wt/revloop-wt-dr"
+
+  # THE REGRESSION. Before the ledger pass, this round printed
+  # `WORKTREE=swept removed=0 other=0 ledger=ok`, emptied the record, and left
+  # the directory on disk -- and every round after it said the same thing.
+  OUT_DR2=$( run_in "$DR" )
+  expect "a later sweep still finds it"       "$OUT_DR2" "WORKTREE=stuck path=$DR/wt/revloop-wt-dr"
+  expect "and still reports partial"          "$OUT_DR2" "WORKTREE=partial removed=0 stuck=1 other=0"
+  refute "and never claims a clean sweep"     "$OUT_DR2" "WORKTREE=swept"
+  same   "the record still holds the path"    "$(cat "$LEDGER_DR")" "$DR/wt/revloop-wt-dr"
+  expect "and the directory is still there"   "$(test -d "$DR/wt/revloop-wt-dr" && echo PRESENT)" "PRESENT"
+  chmod u+w "$DR/wt/revloop-wt-dr/build"
+fi
+
+# --- a recorded path that is gone from both ---------------------------------
+# THE RETIREMENT HALF OF THE SAME PASS. Reporting a recorded path the list no
+# longer carries would keep every spent line forever if that were all it asked.
+# A path absent from the list AND absent from disk is a removal that already
+# finished -- the ordinary end of a line's life -- and it has to be retired in
+# silence. Without this the pass's `[ -e "$p" ]` could be deleted with the
+# suite green, which is the shape this file refuses to ship.
+DG=$(new_repo deregistered-gone)
+git -C "$DG" worktree add -q --detach "$DG/wt/revloop-wt-dg" HEAD
+record "$DG" "$DG/wt/revloop-wt-dg"
+LEDGER_DG="$(git -C "$DG" rev-parse --absolute-git-dir)/revloop/worktrees.txt"
+# AND A LINE OF ANOTHER NAME THAT IS IN NEITHER PLACE THE LOOP LOOKS. The pass
+# reads the record rather than the list, so the list's own name filter never
+# sees this one: an ordinary directory, never a worktree, claimed by a ledger
+# somebody hand-edited. It is out of the family, so the pass must walk past it
+# and let the rewrite retire it. Without the name check it is reported `stuck`
+# instead and KEPT -- and being absent from the list it can never be retired
+# by any later round either, so the record grows a line nothing can ever spend.
+mkdir -p "$DG/wt/mine-dg"
+printf '%s\n' "$DG/wt/mine-dg" >> "$LEDGER_DG"
+# Deregistered and deleted: what a completed removal leaves behind.
+rm -rf "$DG/wt/revloop-wt-dg"
+git -C "$DG" worktree prune
+
+OUT_DG=$( run_in "$DG" )
+
+expect "a spent path is retired in silence"  "$OUT_DG" "WORKTREE=swept removed=0 other=0 ledger=ok"
+refute "and is not reported as stuck"        "$OUT_DG" "WORKTREE=stuck"
+refute "nor as another checkout's"           "$OUT_DG" "WORKTREE=other"
+refute "an out-of-family line is not named"  "$OUT_DG" "$DG/wt/mine-dg"
+expect "and its directory is untouched"      "$(test -d "$DG/wt/mine-dg" && echo PRESENT)" "PRESENT"
+same   "and both lines leave the record"     "$(cat "$LEDGER_DG")" ""
 
 # --- the fence owns nothing, and touches nothing ----------------------------
 # The no-prune claim, which is the one thing a `git worktree prune` in this fence

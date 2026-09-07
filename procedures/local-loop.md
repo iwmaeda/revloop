@@ -1419,3 +1419,10 @@ takes one should say so in the report and append a line to `.revloop/field-notes
   is the shape a spent record was added for and the shape most likely to expose the read-modify-write
   window that file records — and it is also the procedure that makes two loops in one repository
   plausible, since it needs no pull request. Both are fixtured and neither has been watched.
+  **And sweeping the same checkout every round is the shape that would have shown the fence's own
+  leak fastest**, which is now closed: a removal that fails after git has already deregistered the
+  worktree used to leave a path the next round could not see, spending its ledger line and printing a
+  clean sweep over a directory still on disk. It is fixtured in
+  [`remote-loop.md`](remote-loop.md)'s suite, swept twice; **no round of this loop has produced
+  one**, and this procedure is where a run most plausibly would, because it is the one that repeats
+  against a single checkout.

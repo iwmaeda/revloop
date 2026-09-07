@@ -1465,6 +1465,13 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
         S=$((S + 1)); K=$K$p$'\n'; echo "WORKTREE=stuck path=$p"
       fi
     done <<< "$L"
+    while IFS= read -r p; do
+      [ -n "$p" ] || continue
+      case "${p##*/}" in revloop-wt-*) ;; *) continue ;; esac
+      grep -qxF -- "worktree $p" <<< "$L" && continue
+      [ -e "$p" ] || continue
+      S=$((S + 1)); K=$K$p$'\n'; echo "WORKTREE=stuck path=$p"
+    done <<< "$M"
     E=ok
     if [ -n "$M" ]; then
       { rm -f "$F.new" && ( set -C; printf '%s' "$K" > "$F.new" ) && mv -f "$F.new" "$F"; } 2>/dev/null || E=error
@@ -1680,11 +1687,38 @@ ledger=ok` printed over all of it. `rm -f` removes the link rather than followin
     existing **regular** file too — measured at `bash 5.1.16` — so without the unlink the first
     failed rename would have wedged every later rewrite into `ledger=error`.
 
-    A `stuck` line is a worktree still on disk and still registered, and **it belongs in the report
-    by path**: a leftover this loop announces is one somebody can remove, and a leftover it swallows
-    is the defect this fence exists for. **A `stuck` path is also the one thing that keeps its ledger
-    line**, so the next run in this checkout still has a claim on it — the retirement above is per
-    outcome and not per run.
+    A `stuck` line is a worktree **still on disk**, and **it belongs in the report by path**: a
+    leftover this loop announces is one somebody can remove, and a leftover it swallows is the defect
+    this fence exists for. **A `stuck` path is also the one thing that keeps its ledger line**, so
+    the next run in this checkout still has a claim on it — the retirement above is per outcome and
+    not per run.
+
+    **It used to say "still on disk and still registered", and the second half was measured false.**
+    `git worktree remove --force` has a third outcome besides removing and refusing: when the
+    directory holds something it cannot delete, git **deregisters the worktree first and then fails
+    to finish**, exit 255 at `git 2.34.1`, leaving the directory where it was. One unwritable
+    subdirectory is enough, and that is ordinary for a worktree this step creates — step 3 says a
+    worktree is for building the project or running its tests, which is what leaves a build output,
+    a container-written file or a cache with its write bit off.
+
+    **So the loop above cannot be the whole sweep, because `git worktree list` has already forgotten
+    the path.** The round that fails reports `stuck` correctly; every round after it never visits the
+    path at all, spends its ledger line on the rewrite, and prints `WORKTREE=swept` over a directory
+    that is still there — measured, and permanent, because nothing looks at that path again. **That
+    is this fence's own leak, in the shape of the leak it was written to close**: the five leftovers
+    that motivated it were also directories nothing had a record of.
+
+    **The second loop is therefore driven by the record rather than by the list.** It walks `$M`, and
+    a path the list did not carry this round but which is **still on disk** is reported `stuck` and
+    keeps its line, exactly as the first loop would have. Three conditions bound it, and each is a
+    different failure: the family name, because a hand-edited record naming something out of the
+    family would otherwise be reported and then **kept forever**, unretirable because no later round
+    can find it in the list either; `worktree $p` against `$L`, so a path the first loop already
+    handled is not counted twice in the same round; and `[ -e "$p" ]`, because a path that is gone
+    from the list **and** from disk is an ordinary completed removal, and retiring it in silence is
+    what keeps the record shrinking. **The pass removes nothing.** It only reports and retains, so it
+    widens no `--force` — the two bounds on that command are still the record and the name, both read
+    by the loop above.
 
     **The loop refuses `$p = $HERE` before it reaches `remove`, and that line carries a hazard the
     guard below used to carry on its way past.** Measured at `git 2.34.1`, `remove --force` deletes
@@ -2509,7 +2543,7 @@ takes one of these should say so in the report:
   into a schema is only as strong as what reads the schema**, and here that is a person or an agent
   rather than a process.
 - **Step 12's worktree teardown. Most of the fence is exercised; the rule it depends on is not, and
-  neither is one of its own branches.** `tests/fence-worktree.test.sh` drives it against **thirty**
+  neither is one of its own branches.** `tests/fence-worktree.test.sh` drives it against **thirty-two**
   throwaway repositories — a removal, a refusal, a run that owns nothing, a run outside a repository, a bare
   repository, a run standing inside the worktree it would otherwise delete, a run whose ledger is
   missing, two checkouts of one repository sweeping past each other, one that places its worktree
@@ -2522,34 +2556,39 @@ takes one of these should say so in the report:
   plant cannot be unlinked, one carrying a stale temp file from an earlier run, one whose worktree is
   named the family prefix and nothing else, one whose record lost its final **newline** and is
   repaired by step 3's clause, and one where the unrepaired append has already **glued** two paths
-  into one. **What it does not reach is the post-removal `ledger=error` path**: the write probe now
-  refuses an unwritable record before the loop, so every fixture that used to arrive at a failed
-  rewrite stops at `reason=ledger-unwritable` instead, and the bullets below say so. Each of the
-  fence's loadbearing behaviours has been shown to fail the suite when removed, **except the seven
-  lines listed at 0** — which is a different claim from covering every branch, and is the one this
-  paragraph makes.
-  **Re-measured across 263 assertions**, since both the fence and the fixture count moved:
+  into one, one whose removal **deregisters before it fails** and is swept twice, and one whose
+  recorded paths are gone from the list in both of the ways that happens. **What it does not reach is
+  the post-removal `ledger=error` path**: the write probe now refuses an unwritable record before the
+  loop, so every fixture that used to arrive at a failed rewrite stops at `reason=ledger-unwritable`
+  instead, and the bullets below say so. Each of the fence's loadbearing behaviours has been shown to
+  fail the suite when removed, **except the nine lines listed at 0** — which is a different claim
+  from covering every branch, and is the one this paragraph makes.
+  **Re-measured across 281 assertions**, since both the fence and the fixture count moved again:
 
   | Remove                                            | Assertions that go red |
   | ------------------------------------------------- | ---------------------- |
   | the ledger membership check                       | 39                     |
-  | the `--force`                                     | 31                     |
-  | the `revloop-wt-` match in the loop               | 28                     |
-  | the `ledger=` field                               | 23                     |
+  | the `revloop-wt-` match in the loop               | 32                     |
+  | the `--force`                                     | 32                     |
+  | the `ledger=` field                               | 24                     |
   | deriving the ledger from `--git-common-dir`       | 20                     |
-  | the ledger rewrite                                | 18                     |
+  | the ledger rewrite                                | 19                     |
   | the `ledger-unwritable` probe                     | 13                     |
-  | asking `[ -e ]`/`[ -d ]` of the ledger directory  | 11                     |
   | step 3's ledger usability test entire             | **11 — see below**     |
   | the `ledger-dir-not-regular` guard entire         | 10                     |
   | the `ledger-not-regular` guard entire             | 9                      |
+  | the ledger pass's `[ -e "$p" ]` clause            | 9                      |
+  | the ledger pass's already-seen check              | 8                      |
   | the `[ ! -f "$F" ]` conjunct of the guard         | 7                      |
   | the `ledger-unreadable` guard entire              | 7                      |
+  | the `swept` / `partial` split                     | 7                      |
+  | the ledger-directory read guard entire            | **5 — see below**      |
   | the loop's `$p != $HERE` refusal                  | 5                      |
   | asking `[ -e "$F" ]` rather than the directory    | 4                      |
   | its widened conjunct alone, leaving `[ -L ]`      | 4                      |
+  | the ledger pass entire                            | **4 — see below**      |
+  | the ledger pass's `revloop-wt-` name check        | 4                      |
   | the `[ -f "$G/gitdir" ]` conjunct of the guard    | 3                      |
-  | the `swept` / `partial` split                     | 3                      |
   | `mv` replaced by a truncate in place              | 3                      |
   | the `inside-worktree` guard entire                | 2                      |
   | the `--show-toplevel` guard                       | 2                      |
@@ -2572,6 +2611,8 @@ takes one of these should say so in the report:
   | the `git worktree list` guard                     | **0 — see below**      |
   | the `--absolute-git-dir` guard                    | **0 — see below**      |
   | the rewrite's `set -C`                            | **0 — see below**      |
+  | the fence's own sentinel capture                  | **0 — see below**      |
+  | `set -f`                                          | **0 — see below**      |
 
   **The two rows naming the read guard's alternatives are the point of that guard rather than
   decoration.** `[ -e "$F" ]` was the first draft and turns **0** red on its own — it is implied by
@@ -2584,10 +2625,35 @@ takes one of these should say so in the report:
   its directory" among them, which is the measurement behind that rejection rather than an argument
   for it.
 
-  **Twelve of the rows above are hardenings no fixture can kill, and the table says so rather than
-  rounding them up.** All of them live in **step 3's block rather than in a fence**, and
+  **The ledger-directory read guard's own row was wrong, and re-measuring is what found it.** It read
+  **11** and no mutation reproduces that number: removing the guard while keeping the read and its
+  error handling turns **5**, asking `[ -f "$F" ]` instead turns 4, and deleting the line outright
+  turns 98, which is a syntax break rather than a mutation. Measured against the **unchanged** suite
+  as well as this one, so the fixtures added here are not what moved it. **11 is what step 3's
+  usability test turns**, one row further down, which is the likeliest way it got here. The row now
+  says 5 and names its mutation.
+
+  **The ledger pass entire turns 4 while two of its own clauses turn 9 and 8, and the inversion is
+  the point rather than an error.** Deleting the pass costs only the second-sweep assertions of
+  `deregistered-live`, because everything else the pass does is to walk past things. Keeping the pass
+  and deleting a bound makes it _act_ on paths it should have walked past, which breaks the fixtures
+  that assert those paths are untouched — more assertions than the pass's own. A row is what deleting
+  that one thing costs, and here the parts cost more than the whole.
+
+  **Fourteen of the rows above are hardenings no fixture can kill, and the table says so rather than
+  rounding them up. Twelve of them live in step 3's block and two in the fence, and the two halves
+  are held by different things.** Step 3's block is **not a fence**: it carries a path and a
+  commit-ish, so it is prompted every time and no line of `tests/fence-hashes.txt` covers it, and
   `tests/fence-worktree.test.sh` runs the fence — **no fixture in it can reach a command the file
-  does not run** — so each is held by an assertion on the procedure's own text instead. The
+  does not run** — so each of its twelve is held by an assertion on the procedure's own text instead.
+  **The fence's two need no such assertion, and this paragraph used to claim there were none.**
+  `set -f` and the fence's own sentinel capture can both be deleted with the suite green, but every
+  byte of the fence is pinned by `tests/fence-hashes.txt`, so neither can go missing quietly: the
+  hash moves, CI fails, and `CONTRIBUTING.md`'s protocol asks for the change to be deliberate. A text
+  assertion restating a line the hash already covers would be the "prose satisfied by prose" failure
+  this section records below, one level up. What their **0** means is what it means everywhere else
+  here — no fixture reaches the state — and for `set -f` there is none to reach, since every
+  expansion in this fence is quoted and the option is defensive consistency with the other three. The
   usability test's own row is **11** because deleting it deletes all ten of its clauses and the
   newline clause that now sits inside it; each clause is listed separately because that is what
   deleting only that clause costs, and a single row would let ten of the eleven go missing behind
@@ -2724,15 +2790,21 @@ takes one of these should say so in the report:
   case where a typed path and a recorded one come apart. **One version, one filesystem** — a git that
   recorded the unresolved path would leave the run's own worktree named as `other`, which is the safe
   direction but still a leftover.
-- **Seven lines in the fence are held by argument rather than by a fixture, and the here-string
+- **Nine lines in the fence are held by argument rather than by a fixture, and the here-string
   above is one of them.** `WORKTREE=error reason=not-a-repo` is printed from **three** places — a
   failing `git worktree list`, a failing `rev-parse --show-toplevel`, and a failing
   `rev-parse --absolute-git-dir` — and only one state has been found that separates any of them.
   Outside a repository all three fail together; in a bare repository **only `--show-toplevel` does**,
   measured at `git 2.34.1`, which is the case `tests/fence-worktree.test.sh` pins. **So the guards on
   the list, on `--absolute-git-dir`, on the rewrite's `set -C`, on the membership read's here-string
-  on the rewrite's own `rm -f "$F.new"`, on its `2>/dev/null` and on the write probe's own `mv` are the
-  seven lines in this fence that can be deleted with the suite green.** Three of them joined in the
+  on the rewrite's own `rm -f "$F.new"`, on its `2>/dev/null`, on the write probe's own `mv`, on
+  `set -f` and on the fence's own sentinel capture are the
+  nine lines in this fence that can be deleted with the suite green.**
+  **The last two joined the list by being measured rather than by being added**, and the paragraph
+  above the table says what holds them instead: the fence's bytes are hash-pinned, so a line that no
+  fixture reaches still cannot go missing quietly. `set -f` has no reachable state at all — every
+  expansion here is quoted — and the sentinel capture's is a git directory whose own last component
+  ends in a newline, which step 3 cannot produce and no fixture builds. Three of them joined in the
   rounds that added the write probe, and each is 0 for its own reason rather than for a shared one.
   **The rewrite's `rm -f "$F.new"`**: the probe clears that path before the loop, so a link planted
   there is already gone by the time the rewrite's unlink runs — it stays as the second line of
@@ -2775,10 +2847,17 @@ takes one of these should say so in the report:
   hand-made ledger, not the racing one**, and this bullet is where that limit is written down rather
   than inferred from their passing.
 
-- **`WORKTREE=stuck`, from a run.** The test produces one deterministically with `git worktree lock`,
-  which is a stand-in: what a run would actually hit is a permission error or a filesystem that will
-  not release the directory. What is pinned is that a refusal becomes a named line and a `partial`
-  verdict rather than silence — never the cause. **`reason=inside-worktree` has the same standing**,
+- **`WORKTREE=stuck`, from a run.** The test produces one with `git worktree lock` and one with a
+  subdirectory whose write bit is off. **The lock used to be the only one, described here as a
+  stand-in for "a permission error or a filesystem that will not release the directory", and that
+  was the gap this fence's worst defect hid in.** The two shapes are not interchangeable: a lock is
+  refused **before** git touches anything, so the registration survives and a second sweep finds the
+  path again; a permission error is refused **after** git has deregistered the worktree, so a second
+  sweep never sees it. The fixture that stood in for the class had the one property the class does
+  not, and the sweep was built on it. The second shape is now its own fixture, swept twice, and the
+  stand-in reasoning is retired with it — the original claim that a permission error could not be
+  produced "deterministically and without root" was also wrong. What is still unpinned is the
+  **cause**: no run has produced either. **`reason=inside-worktree` has the same standing**,
   and the hazard it used to disarm on the way past — at `git 2.34.1` `remove --force` deletes the
   worktree the shell is standing in and exits 0 — is now refused by the loop's own `$p != $HERE`
   test, which a fixture reaches by planting a ledger line claiming the checkout the fence stands in.

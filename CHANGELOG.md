@@ -23,7 +23,7 @@ before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so 
 changed line and three unchanged hashes; if any of the three moved, an existing fence was edited by
 accident and this paragraph is wrong.
 
-**The new fence was then amended eleven times before release, and that is still not a re-approval.**
+**The new fence was then amended twelve times before release, and that is still not a re-approval.**
 An approval is keyed to the exact command string, and nobody has ever been prompted for the earlier
 bytes: `worktree-teardown` has not appeared in a tagged release, so there is nothing granted to
 invalidate. Against the release boundary this remains **one added fence and one first approval**, and
@@ -31,6 +31,39 @@ invalidate. Against the release boundary this remains **one added fence and one 
 byte-identical is what says so — the count above is read from those hashes rather than from memory,
 and it was wrong here by three until it was. `CONTRIBUTING.md` carries the distinction: adding a
 fence and editing one are different events, and only the second costs anybody a re-approval.
+
+**The twelfth amendment closed the fence's own leak, and it is the one defect here that produced a
+false success line.** `git worktree remove --force` has a third outcome besides removing and
+refusing: when the worktree holds something it cannot delete, git **deregisters it first and then
+fails to finish**, exit 255 at `git 2.34.1`, leaving the directory on disk. One subdirectory with its
+write bit off is enough, and that is ordinary for a worktree whose stated purpose is building the
+project or running its tests. The sweep was driven by `git worktree list` alone, so the round that
+failed reported `WORKTREE=stuck` correctly and **every round after it never saw the path again**:
+the ledger line was spent by the rewrite and the terminal line read
+`WORKTREE=swept removed=0 other=0 ledger=ok` over a directory that was still there, permanently and
+with nothing left to report it. That is the leak this fence was written to close, arriving through
+the sweep that closes it — the five leftovers that motivated the feature were also directories
+nothing had a record of. **A second loop now walks the record rather than the list**: a recorded path
+the list no longer carries but which is still on disk is reported `stuck` and keeps its line. It
+removes nothing, so neither bound on the `--force` moves.
+
+**The fixture that should have caught it was the reason it was missed.** `stuck` was reached only
+with `git worktree lock`, described in the suite as a stand-in for "a permission error or a
+filesystem that will not release the directory". A lock is refused **before** git touches anything,
+so the registration survives and a second sweep finds the path again; a permission error is refused
+**after** the deregistration, so a second sweep never sees it. The substitute differed from the class
+it stood for in the exact dimension the sweep depended on, and the stated reason for using it — that
+a lock was the only refusal producible deterministically without root — was itself false. Both shapes
+are fixtured now, and the second is swept twice, because the second round is where the defect lived.
+
+**Re-measuring the whole table then found two more claims that were wrong.** It said seven lines in
+the fence could be deleted with the suite green; `set -f` and the fence's own sentinel capture make
+**nine**, and the sentence that all such lines lived in step 3's block rather than in a fence was
+false with them. They need no text assertion — every byte of a fence is pinned by
+`tests/fence-hashes.txt`, which is what step 3's block does not have — and the section now says that
+instead of claiming a coverage it did not have. The ledger-directory read guard's row read **11** and
+no mutation reproduces it: the guard entire turns 5, measured against the unchanged suite as well as
+this one. 11 is what step 3's usability test turns, one row below.
 
 **The seventh amendment closed a hang, and the review that found it is the reason the guard's name
 is now true.** `reason=ledger-not-regular` was written for a symbolic link and named for the

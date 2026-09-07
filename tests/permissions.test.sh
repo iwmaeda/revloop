@@ -72,8 +72,25 @@ fi
 # names `git show HEAD` twice in order to forbid it.
 blocks() { awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "${PROCS[@]}" "${CMDS[@]}"; }
 
+# `git -C <path> <subcommand>` PUTS THE SUBCOMMAND IN THE THIRD FIELD and the
+# extraction below reads the second, so it contributed NOTHING. Step 3's
+# recording command is the first in this repository to use that form, and
+# `git -C "$W" rev-parse` matched no subcommand at all -- harmless the day it
+# landed, because `rev-parse` is granted from another line, and a hole in the
+# one check that exists to catch this list drifting. So the option is normalised
+# away first.
+#
+# AND THEN ANYTHING STILL UNREADABLE IS A FAILURE, not an empty contribution.
+# That is the same rule the gh api half below spends a paragraph on: a check
+# that falls back to "nothing found" when it cannot parse a line is fail-open by
+# construction, and fail-open is the one direction a permission check must not
+# take. Widening this normaliser is how a new spelling gets handled; going quiet
+# is not.
+normalise() { sed -E 's/(^|[^A-Za-z0-9_-])git -C ("[^"]*"|[^[:space:]]+) /\1git /g'; }
 # Subcommands the procedures run, taken from fenced bash blocks only.
-USED=$(blocks | grep -oE '\bgit [a-z][a-z-]*' | sed 's/^git //' | sort -u)
+USED=$(blocks | normalise | grep -oE '\bgit [a-z][a-z-]*' | sed 's/^git //' | sort -u)
+UNREADABLE=$(blocks | normalise | grep -oE '\bgit +[^ ]*' | grep -vE '^git +[a-z]' | sed 's/^/UNREADABLE /')
+refute "every git invocation names a subcommand" "$UNREADABLE" "UNREADABLE "
 # Subcommands docs/permissions.md grants individually.
 GRANTED=$(grep -oE 'Bash\(git [a-z][a-z-]*' "$DOC" | sed 's/^Bash(git //' | sort -u)
 
