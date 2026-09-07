@@ -364,11 +364,12 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    running its tests, at another commit. When that is what you need:
 
    ```bash
-   D=$(git rev-parse --absolute-git-dir)/revloop
+   D=$(git rev-parse --absolute-git-dir && printf x); D=${D%x}; D=${D%?}/revloop
    N=revloop-wt-<slug>
    { case $N in revloop-wt-*[!A-Za-z0-9._-]*|revloop-wt-) false ;; revloop-wt-*) true ;; *) false ;; esac \
        && P=$(cd "<scratch>" && pwd -P && printf x) && [ "$(printf '%s' "$P" | wc -l)" -eq 1 ] \
-       && P=$(cd "<scratch>" && pwd -P) && W="${P%/}/$N" && [ ! -L "$W" ] \
+       && P=${P%x} && P=${P%?} && case $P in //[!/]*) false ;; *) true ;; esac \
+       && W="${P%/}/$N" && [ ! -L "$W" ] \
        && [ ! -L "$D" ] && { [ ! -e "$D" ] || [ -d "$D" ]; } \
        && [ ! -L "$D/worktrees.txt" ] && { [ ! -e "$D/worktrees.txt" ] || [ -f "$D/worktrees.txt" ]; } \
        && mkdir -p "$D" && { [ -e "$D/worktrees.txt" ] || : > "$D/worktrees.txt"; } \
@@ -440,6 +441,18 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    the leaf can redirect; and `[ ! -L "$W" ]` now runs on a string this step composed rather than on
    one it was given, which is the only form in which that test means what it says. **Three rounds of
    closing spellings is the evidence for the shape**, not an argument against having tried.
+
+   **Two more representations had to go with it, and both are about the same promise.** A
+   `<scratch>` spelled with **exactly two leading slashes** survives `pwd -P` and `${P%/}` unchanged
+   while git records the single-slash form — measured, `//tmp/x/revloop-wt-a` built against
+   `/tmp/x/revloop-wt-a` recorded. It is **refused rather than normalised**: POSIX leaves a leading
+   `//` implementation-defined and it may name a network root, so a run cannot promise the built and
+   recorded paths are one where the two spellings may be two places. And **the git directory is
+   captured with a sentinel**, because `$( )` strips a trailing newline: a `.git` file pointing at a
+   directory whose name ends in one would otherwise resolve to the sibling without it, so two
+   checkouts would share a single `revloop/worktrees.txt` and one sweep could retire the other's
+   lines. The fence captures `G` the same way, for the same reason and with the same three
+   substitutions.
 
    **`${P%/}` is part of building it, and it is there because composing can produce a spelling too.**
    With `<scratch>` at `/`, `pwd -P` returns `/` and a plain join gives `//revloop-wt-<slug>` while
@@ -1431,7 +1444,8 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
     set -f
     L=$(git worktree list --porcelain 2>/dev/null) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
     HERE=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
-    G=$(git rev-parse --absolute-git-dir 2>/dev/null) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
+    G=$(git rev-parse --absolute-git-dir 2>/dev/null && printf x) || { echo "WORKTREE=error reason=not-a-repo"; exit 0; }
+    G=${G%x}; G=${G%?}
     F="$G/revloop/worktrees.txt"
     if [ -L "$G/revloop" ]; then echo "WORKTREE=error reason=ledger-dir-not-regular path=$G/revloop"; exit 0; fi
     if [ -L "$F" ] || { [ -e "$F" ] && [ ! -f "$F" ]; }; then echo "WORKTREE=error reason=ledger-not-regular path=$F"; exit 0; fi
@@ -2514,7 +2528,7 @@ takes one of these should say so in the report:
   fence's loadbearing behaviours has been shown to fail the suite when removed, **except the seven
   lines listed at 0** — which is a different claim from covering every branch, and is the one this
   paragraph makes.
-  **Re-measured across 261 assertions**, since both the fence and the fixture count moved:
+  **Re-measured across 263 assertions**, since both the fence and the fixture count moved:
 
   | Remove                                            | Assertions that go red |
   | ------------------------------------------------- | ---------------------- |
@@ -2526,9 +2540,9 @@ takes one of these should say so in the report:
   | the ledger rewrite                                | 18                     |
   | the `ledger-unwritable` probe                     | 13                     |
   | asking `[ -e ]`/`[ -d ]` of the ledger directory  | 11                     |
+  | step 3's ledger usability test entire             | **11 — see below**     |
   | the `ledger-dir-not-regular` guard entire         | 10                     |
   | the `ledger-not-regular` guard entire             | 9                      |
-  | step 3's ledger usability test entire             | **10 — see below**     |
   | the `[ ! -f "$F" ]` conjunct of the guard         | 7                      |
   | the `ledger-unreadable` guard entire              | 7                      |
   | the loop's `$p != $HERE` refusal                  | 5                      |
@@ -2541,11 +2555,12 @@ takes one of these should say so in the report:
   | the `--show-toplevel` guard                       | 2                      |
   | asking `[ -d "$G/revloop" ]` rather than `[ -e ]` | 2                      |
   | its readable-and-writable clause                  | **2 — see below**      |
-  | its newline-in-the-path clause                    | **1 — see below**      |
-  | its symlinked-final-component clause              | **1 — see below**      |
-  | its canonical-path clause                         | **1 — see below**      |
-  | its directory-type clause                         | **1 — see below**      |
-  | its leaf-type clause                              | **1 — see below**      |
+  | its slug-is-one-component clause                  | **1 — see below**      |
+  | its double-root refusal                           | **1 — see below**      |
+  | its canonical-parent clause                       | **1 — see below**      |
+  | its built-path leaf clause                        | **1 — see below**      |
+  | its ledger-directory-type clause                  | **1 — see below**      |
+  | its ledger-leaf-type clause                       | **1 — see below**      |
   | its directory-writable clause                     | **1 — see below**      |
   | its make-the-ledger-first clause                  | **1 — see below**      |
   | its temp-path probe clause                        | **1 — see below**      |
@@ -2569,13 +2584,13 @@ takes one of these should say so in the report:
   its directory" among them, which is the measurement behind that rejection rather than an argument
   for it.
 
-  **Eleven of the rows above are hardenings no fixture can kill, and the table says so rather than
+  **Twelve of the rows above are hardenings no fixture can kill, and the table says so rather than
   rounding them up.** All of them live in **step 3's block rather than in a fence**, and
   `tests/fence-worktree.test.sh` runs the fence — **no fixture in it can reach a command the file
   does not run** — so each is held by an assertion on the procedure's own text instead. The
-  usability test's own row is **10** because deleting it deletes all nine of its clauses and the
+  usability test's own row is **11** because deleting it deletes all ten of its clauses and the
   newline clause that now sits inside it; each clause is listed separately because that is what
-  deleting only that clause costs, and a single row would let nine of the ten go missing behind
+  deleting only that clause costs, and a single row would let ten of the eleven go missing behind
   one number. **Its readable-and-writable row reads 2 rather than 1** because the directory-writable
   rule quotes the leaf test as its left half, so removing the leaf test takes both assertions with
   it; removing only `[ -w "$D" ]` costs the 1 its own row records.
@@ -2584,21 +2599,21 @@ takes one of these should say so in the report:
   procedure to the copy of the clause in the test's own `record()` helper; the behavioural cost is
   measured instead by `glued-ledger`, a fixture that hardcodes the unrepaired append and pins the
   leak it produces, so the clause and its consequence are checked from opposite sides and neither
-  check moves when the other is deleted. **Step 3's ledger usability test turns 10**, and each of its
-  ten clauses is listed on its own because each closes a different measured failure — a slug that is
-  not a single ordinary component, a worktree path that is itself a symbolic link and so records its
-  target, a canonical parent that splits although the typed path does not, a substituted ledger
-  directory, a substituted or blocking leaf, a record the run cannot use, a record the _fence_ cannot
-  rewrite, a temp path the fence cannot clear, a ledger directory with no leaf in it, and the final
-  newline the next append depends on. A single row for the test would let nine of them go missing
-  behind one number.
+  check moves when the other is deleted. **Step 3's ledger usability test turns 11**, and each of its
+  eleven clauses is listed on its own because each closes a different measured failure — a slug that
+  is not a single ordinary component, a parent spelled with two leading slashes that git records with
+  one, a canonical parent that splits although the typed path does not, a worktree path that is
+  itself a symbolic link and so records its target, a substituted ledger directory, a substituted or
+  blocking leaf, a record the run cannot use, a record the _fence_ cannot rewrite, a temp path the
+  fence cannot clear, a ledger directory with no leaf in it, and the final newline the next append
+  depends on. A single row for the test would let ten of them go missing behind one number.
 
   **The literal an assertion matches has to be one only the command carries, and the first version of
   the directory row's was not.** It matched `[ ! -L "$D" ]`, which also appears three times in the
   prose _describing_ the guard — including in this table — so deleting step 3's whole usability test
   left it **green**, and the row that claimed to pin the guard pinned nothing. Measured: the deletion
   turned exactly one assertion red, and it was the leaf rule. The rule now matches the compound
-  clause, which is written in the command and nowhere else, and the deletion turns 10. **A prose
+  clause, which is written in the command and nowhere else, and the deletion turns 11. **A prose
   assertion satisfied by prose is the failure mode of this whole technique**, so it is recorded here
   rather than only fixed. Restoring **the here-string to a
   pipeline** turns **0** red: under `set -o pipefail`, a record larger than the pipe buffer makes
@@ -2718,14 +2733,18 @@ takes one of these should say so in the report:
   the list, on `--absolute-git-dir`, on the rewrite's `set -C`, on the membership read's here-string
   on the rewrite's own `rm -f "$F.new"`, on its `2>/dev/null` and on the write probe's own `mv` are the
   seven lines in this fence that can be deleted with the suite green.** Three of them joined in the
-  rounds that added the write probe, and the probe is the cause of all three: it clears and creates
-  `$F.new` **before** the loop, so a link planted at that path is already gone by the time the
-  rewrite's own unlink runs, and a read-only directory refuses the sweep before the redirection whose
-  stderr the suppression is for. **Its own `mv` is the third** — the state that would fail it needs a
-  sticky directory holding another user's record, so a second user or root, which this suite creates
-  neither of. **Both stay** — they are what stands between the rewrite and a re-plant in the
-  window after the probe, which is the race `## Unexercised paths` declines — but they are now second
-  lines of defence, and the table says 0 rather than pretending otherwise. **The rewrite entire also
+  rounds that added the write probe, and each is 0 for its own reason rather than for a shared one.
+  **The rewrite's `rm -f "$F.new"`**: the probe clears that path before the loop, so a link planted
+  there is already gone by the time the rewrite's unlink runs — it stays as the second line of
+  defence against a re-plant in the window **after** the probe, which is the race
+  `## Unexercised paths` declines. **The rewrite's `2>/dev/null`**: it suppresses diagnostics from a
+  rewrite that now only runs after the probe has shown the same operations succeed, so the fixtures
+  that used to make it speak refuse earlier — it stays because the fence's output is parsed and a
+  stray `Permission denied` line is not a `WORKTREE=` line. **The probe's own `mv`**: it is the
+  operation the rewrite performs, and the state that fails it needs a sticky directory holding
+  another user's record — a second user or root, which this suite creates neither of. **All three
+  stay and the table says 0 for each**, rather than one explanation being stretched over three
+  different commands. **The rewrite entire also
   fell from 20 red to 18 for the same reason**, and `mv`-replaced-by-a-truncate is held at 3 only because
   `readonly-record-writable-dir` was added to hold it: a mode-0444 record in a writable directory is
   renamed over happily and cannot be truncated in place. **Trading mutation coverage of a failure

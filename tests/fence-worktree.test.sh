@@ -1251,7 +1251,16 @@ LEAFTYPE_RULE='[ ! -L "$D/worktrees.txt" ]'
 # registered. Patching spellings lost three times, so step 3 no longer accepts a
 # path at all: it accepts a NAME, checks it is one component from a fixed
 # character set, and BUILDS the path from a canonical parent. There is no
-# spelling left for a caller to choose. `${P%/}` IS PART OF THAT: with `<scratch>`
+# spelling left for a caller to choose. TWO MORE REPRESENTATIONS HAD TO GO WITH
+# IT, both measured: a `<scratch>` spelled with exactly two leading slashes
+# survives `pwd -P` and `${P%/}` unchanged while git records the single-slash
+# form, so it is REFUSED rather than normalised -- POSIX leaves `//` as a
+# possible network root, and a run cannot promise "built is recorded" where the
+# two may name different namespaces; and the git directory itself is captured
+# with a sentinel, because `$( )` strips a trailing newline from a directory
+# whose name ends in one, which would make `gitdir` and `gitdir\n` share a
+# single ledger and let one checkout's sweep retire the other's lines.
+# `${P%/}` IS PART OF THAT: with `<scratch>`
 # at `/`, `pwd -P` returns `/` and a plain join builds `//revloop-wt-<slug>`
 # while git normalises and records `/revloop-wt-<slug>` -- the built value and
 # the recorded value apart again, one round after the shape was adopted to stop
@@ -1300,7 +1309,11 @@ DIRWRITE_RULE='[ -w "$D/worktrees.txt" ] && [ -w "$D" ]'
 # `other` is never printed for it either. The canonical-parent rule below cannot
 # see this: the parent is clean and it is the LEAF that redirects.
 # shellcheck disable=SC2016
-LEAFLINK_RULE='P=$(cd "<scratch>" && pwd -P) && W="${P%/}/$N" && [ ! -L "$W" ]'
+LEAFLINK_RULE='W="${P%/}/$N" && [ ! -L "$W" ]'
+# shellcheck disable=SC2016
+DOUBLEROOT_RULE='case $P in //[!/]*) false ;; *) true ;; esac'
+# shellcheck disable=SC2016
+GITDIR_RULE='D=$(git rev-parse --absolute-git-dir && printf x); D=${D%x}; D=${D%?}/revloop'
 # shellcheck disable=SC2016
 CANONICAL_RULE='P=$(cd "<scratch>" && pwd -P && printf x) && [ "$(printf '"'"'%s'"'"' "$P" | wc -l)" -eq 1 ]'
 # The temp-path probe, which BOTH sides now run because both depend on it: the
@@ -1321,6 +1334,8 @@ expect "remote-loop proves the ledger usable"      "$(foundf "$READWRITE_RULE" "
 expect "remote-loop makes the ledger first"        "$(foundf "$PREPARE_RULE" "$REMOTE")"      "$PREPARE_RULE"
 expect "remote-loop proves what the fence needs"   "$(foundf "$DIRWRITE_RULE" "$REMOTE")"     "$DIRWRITE_RULE"
 expect "remote-loop builds the path it records"    "$(foundf "$LEAFLINK_RULE" "$REMOTE")"     "$LEAFLINK_RULE"
+expect "remote-loop refuses a double-root parent"  "$(foundf "$DOUBLEROOT_RULE" "$REMOTE")"   "$DOUBLEROOT_RULE"
+expect "remote-loop keeps the git dir's own bytes" "$(foundf "$GITDIR_RULE" "$REMOTE")"       "$GITDIR_RULE"
 expect "remote-loop checks the canonical path"     "$(foundf "$CANONICAL_RULE" "$REMOTE")"    "$CANONICAL_RULE"
 expect "remote-loop runs the probe on both sides"  "$(foundf "$PROBE_RULE" "$REMOTE")"        "$PROBE_RULE"
 expect "local-loop cites the teardown"      "$(found 'worktree-teardown' "$LOCAL")" "worktree-teardown"

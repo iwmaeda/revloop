@@ -125,6 +125,10 @@ single component drawn from `A-Za-z0-9._-` and carrying the family prefix, and *
 from a parent it canonicalises itself — so no slash can appear in the name, no suffix can attach
 to it, and `[ ! -L "$W" ]` runs on a string the step composed rather than one it was handed. The
 spellings that got there: a newline in the typed path; a symlinked parent whose target held one; a
+parent spelled with two leading slashes, which git records with one and which is **refused** rather
+than normalised because POSIX may make `//` a network root; a git directory whose own name ends in a
+newline, which `$( )` silently trims — so two checkouts would share one ledger and one sweep could
+retire the other's lines, and both step 3 and the fence now capture it with a sentinel; and a
 symlinked leaf, which is a separate hole with the same cause: `git worktree add` accepts such a
 path and records its target, so a family-named `$W` pointing outside the family was recorded under
 a name the fence's filter drops before the membership test, leaving `swept removed=0 other=0
@@ -165,12 +169,16 @@ cannot record. The skipped probe on an empty record is likewise not a bypass —
 authorized the loop removes nothing, so there is no rewrite to prove — and both shapes are fixtures.
 
 **The reordering cost real mutation coverage and the table says so rather than absorbing it.** The
-rewrite entire fell from 20 red to 18, and the rewrite's own `rm -f "$F.new"`, its `2>/dev/null`
-and the probe's own `mv`
-joined the lines that can be deleted with the suite green, because the probe now clears that path
-first. Both stay, as second lines of defence against a re-plant in the window after the probe — the
-race that is declined above. `mv`-replaced-by-a-truncate is held at 3 only because a fixture was
-added to hold it: a mode-0444 record in a writable directory can be renamed over and cannot be
+rewrite entire fell from 20 red to 18, and three more lines joined the ones that can be deleted
+with the suite green — each for its own reason, not a shared one. The rewrite's own `rm -f
+"$F.new"` is 0 because the probe clears that path first, and it stays as the second line of
+defence against a re-plant in the window **after** the probe, which is the race declined above.
+Its `2>/dev/null` is 0 because the fixtures that used to make the rewrite speak now refuse
+earlier, and it stays because the fence's output is parsed and a stray `Permission denied` is not
+a `WORKTREE=` line. The probe's own `mv` is 0 because the state that fails it needs a sticky
+directory holding another user's record — a second user or root — and it stays because it is the
+operation the rewrite performs. `mv`-replaced-by-a-truncate is held at 3 only because a fixture
+was added to hold it: a mode-0444 record in a writable directory can be renamed over and cannot be
 truncated in place, which is the one shape that separates the two without a race.
 
 **Both halves of the writing guard are held by assertions on the procedure's text, and the first one
@@ -387,7 +395,7 @@ the loop — the rewrite's own `rm -f "$F.new"`, its `2>/dev/null` and the probe
 conditions the probe now
 reaches first. The last two stay as second lines of defence against a re-plant in the window after
 the probe, which is the race declined above. All seven are recorded in `## Unexercised paths` rather
-than counted as coverage — and re-measuring the whole suite across **261** assertions and **thirty**
+than counted as coverage — and re-measuring the whole suite across **263** assertions and **thirty**
 throwaway repositories did not change that.
 
 **Three more things the sweep's rewrite does not cover, all written down rather than argued away.**
