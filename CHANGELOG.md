@@ -119,9 +119,14 @@ counted as coverage.
 `rev-parse --show-toplevel` resolves symbolic links, so a `<scratch>` that is a link whose target
 contains a newline records a value that splits although the typed path does not — measured, 0
 newlines in, 2 out, after which the sweep cannot match the entry, retires it, and reports `swept`
-while the worktree stays on disk permanently. Step 3 now resolves the parent and checks that. The
-first spelling of the check was itself wrong — `pwd -P` prints a trailing newline, so piping it to
-`wc -l` counts 1 for every clean path and refused everything — and the ordinary-scratch control
+while the worktree stays on disk permanently. Step 3 now resolves the parent and checks that, and —
+after a further round — refuses a final component that is **itself** a symbolic link, which is a
+separate hole with the same cause: `git worktree add` accepts such a path and records its target, so
+a family-named `$W` pointing outside the family was recorded under a name the fence's filter drops
+before the membership test, leaving `swept removed=0 other=0 ledger=ok` over a worktree that is never
+even called `other`. The first spelling of the parent check was itself wrong — `pwd -P` prints a
+trailing newline, so piping it to `wc -l` counts 1 for every clean path and refused everything — and
+the ordinary-scratch control
 caught it before it shipped.
 
 **And the temp-path probe now runs on both sides, which closes the leak direction rather than making
@@ -154,7 +159,8 @@ cannot record. The skipped probe on an empty record is likewise not a bypass —
 authorized the loop removes nothing, so there is no rewrite to prove — and both shapes are fixtures.
 
 **The reordering cost real mutation coverage and the table says so rather than absorbing it.** The
-rewrite entire fell from 20 red to 18, and the rewrite's own `rm -f "$F.new"` and its `2>/dev/null`
+rewrite entire fell from 20 red to 18, and the rewrite's own `rm -f "$F.new"`, its `2>/dev/null`
+and the probe's own `mv`
 joined the lines that can be deleted with the suite green, because the probe now clears that path
 first. Both stay, as second lines of defence against a re-plant in the window after the probe — the
 race that is declined above. `mv`-replaced-by-a-truncate is held at 3 only because a fixture was
@@ -189,7 +195,7 @@ because the test helper carries a copy of the clause and a copy can drift from w
 "not ours", so a path this checkout owns comes back `WORKTREE=other` and is left behind. It needs
 roughly 2300 unretired lines in one checkout, which the retirement puts out of reach — so the
 here-string is kept for removing the only pipeline in this fence whose status is tested, and because
-it costs fewer bytes than what it replaces. It is **one of the six** lines recorded in
+it costs fewer bytes than what it replaces. It is **one of the seven** lines recorded in
 `## Unexercised paths` as deletable with the suite green rather than counted as coverage.
 
 **If you granted git subcommands individually rather than `Bash(git:*)`, add `Bash(git worktree:*)`
@@ -361,17 +367,18 @@ leftovers that motivated this was ever written down anywhere. **It fails open.**
 without its ledger line is left behind exactly as it is today, under a procedure that now says it
 cleans up, and the report cannot mention it because the fence never saw it. **Two loops have never
 run against one repository at the same time either** — the separation is measured by hand against a
-real repository with two checkouts, and by fixture, but not by the situation it exists for. And **six**
+real repository with two checkouts, and by fixture, but not by the situation it exists for. And **seven**
 lines in the fence can be deleted with the suite green: the guard on `git worktree list`, the guard
 on `git rev-parse --absolute-git-dir` — since `--show-toplevel` has already succeeded above it —
 the rewrite's `set -C`, whose subject is a second process replanting a link between the unlink and
 the write, which no fixture races, the membership read's here-string, whose subject is a record
 larger than the pipe buffer, and — since the write probe began clearing and creating `$F.new` before
-the loop — the rewrite's own `rm -f "$F.new"` and its `2>/dev/null`, whose conditions the probe now
+the loop — the rewrite's own `rm -f "$F.new"`, its `2>/dev/null` and the probe's own `mv`, whose
+conditions the probe now
 reaches first. The last two stay as second lines of defence against a re-plant in the window after
 the probe, which is the race declined above. All six are recorded in `## Unexercised paths` rather
-than counted as coverage — and re-measuring the whole suite over **260** assertions across
-**thirty** throwaway repositories did not change that.
+than counted as coverage — and re-measuring the whole suite across **261** assertions and **thirty**
+throwaway repositories did not change that.
 
 **Three more things the sweep's rewrite does not cover, all written down rather than argued away.**
 The retirement is measured by hand against a real repository — a path recorded, swept, retired, then

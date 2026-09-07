@@ -1276,6 +1276,16 @@ DIRWRITE_RULE='[ -w "$D/worktrees.txt" ] && [ -w "$D" ]'
 # `printf x` gives the capture a non-newline last byte, so nothing is stripped
 # and the count is exact: 1 is `pwd`'s own terminator, anything more is in the
 # path.
+# The final component's own test. `git worktree add` accepts a path that already
+# exists as a symlink to an empty directory and records the TARGET, so a
+# family-named `$W` pointing at a directory outside the family produced a
+# recorded path the fence's name filter drops before it ever reaches the
+# membership test -- measured, `WORKTREE=swept removed=0 other=0 ledger=ok` with
+# the ledger line retired and the worktree still registered. Silently, because
+# `other` is never printed for it either. The canonical-parent rule below cannot
+# see this: the parent is clean and it is the LEAF that redirects.
+# shellcheck disable=SC2016
+LEAFLINK_RULE='[ ! -L "$W" ]'
 # shellcheck disable=SC2016
 CANONICAL_RULE='P=$(cd "${W%/*}" && pwd -P && printf x) && [ "$(printf '"'"'%s'"'"' "$P" | wc -l)" -eq 1 ]'
 # The temp-path probe, which BOTH sides now run because both depend on it: the
@@ -1295,6 +1305,7 @@ expect "remote-loop refuses a newline in the path" "$(foundf "$NEWLINE_PATH_RULE
 expect "remote-loop proves the ledger usable"      "$(foundf "$READWRITE_RULE" "$REMOTE")"    "$READWRITE_RULE"
 expect "remote-loop makes the ledger first"        "$(foundf "$PREPARE_RULE" "$REMOTE")"      "$PREPARE_RULE"
 expect "remote-loop proves what the fence needs"   "$(foundf "$DIRWRITE_RULE" "$REMOTE")"     "$DIRWRITE_RULE"
+expect "remote-loop refuses a symlinked worktree"  "$(foundf "$LEAFLINK_RULE" "$REMOTE")"     "$LEAFLINK_RULE"
 expect "remote-loop checks the canonical path"     "$(foundf "$CANONICAL_RULE" "$REMOTE")"    "$CANONICAL_RULE"
 expect "remote-loop runs the probe on both sides"  "$(foundf "$PROBE_RULE" "$REMOTE")"        "$PROBE_RULE"
 expect "local-loop cites the teardown"      "$(found 'worktree-teardown' "$LOCAL")" "worktree-teardown"

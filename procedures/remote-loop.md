@@ -367,6 +367,7 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    D=$(git rev-parse --absolute-git-dir)/revloop
    W="<scratch>/revloop-wt-<slug>"
    { [ "$(printf '%s' "$W" | wc -l)" -eq 0 ] \
+       && [ ! -L "$W" ] \
        && P=$(cd "${W%/*}" && pwd -P && printf x) && [ "$(printf '%s' "$P" | wc -l)" -eq 1 ] \
        && [ ! -L "$D" ] && { [ ! -e "$D" ] || [ -d "$D" ]; } \
        && [ ! -L "$D/worktrees.txt" ] && { [ ! -e "$D/worktrees.txt" ] || [ -f "$D/worktrees.txt" ]; } \
@@ -420,6 +421,14 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    is the whole of why it is a guard rather than another link in the chain: every clause after
    `worktree add` can only fail once a worktree exists, which is precisely the unrecorded-worktree
    leak the `&&` ordering is meant to avoid.
+
+   **The final component is refused when it is itself a symbolic link, and that is a different hole
+   from the one below it.** `git worktree add` accepts a path that already exists as a link to an
+   empty directory and records the **target**, so a family-named `$W` pointing outside the family
+   produced a recorded path the fence's name filter drops before the membership test ever runs —
+   measured, `WORKTREE=swept removed=0 other=0 ledger=ok` with the ledger line retired and the
+   worktree still registered. **Silently**, because a dropped name is not even reported as `other`.
+   The canonical-parent clause cannot see it: the parent is clean and it is the leaf that redirects.
 
    **The canonical path is checked and not only the typed one, because the ledger records the
    canonical one.** `git -C "$W" rev-parse --show-toplevel` resolves symbolic links, so a
@@ -2486,7 +2495,7 @@ takes one of these should say so in the report:
   fence's loadbearing behaviours has been shown to fail the suite when removed, **except the six
   lines listed at 0** — which is a different claim from covering every branch, and is the one this
   paragraph makes.
-  **Re-measured over 260 assertions**, since both the fence and the fixture count moved:
+  **Re-measured across 261 assertions**, since both the fence and the fixture count moved:
 
   | Remove                                            | Assertions that go red |
   | ------------------------------------------------- | ---------------------- |
@@ -2500,7 +2509,7 @@ takes one of these should say so in the report:
   | asking `[ -e ]`/`[ -d ]` of the ledger directory  | 11                     |
   | the `ledger-dir-not-regular` guard entire         | 10                     |
   | the `ledger-not-regular` guard entire             | 9                      |
-  | step 3's ledger usability test entire             | **9 — see below**      |
+  | step 3's ledger usability test entire             | **10 — see below**     |
   | the `[ ! -f "$F" ]` conjunct of the guard         | 7                      |
   | the `ledger-unreadable` guard entire              | 7                      |
   | the loop's `$p != $HERE` refusal                  | 5                      |
@@ -2514,6 +2523,7 @@ takes one of these should say so in the report:
   | asking `[ -d "$G/revloop" ]` rather than `[ -e ]` | 2                      |
   | its readable-and-writable clause                  | **2 — see below**      |
   | its newline-in-the-path clause                    | **1 — see below**      |
+  | its symlinked-final-component clause              | **1 — see below**      |
   | its canonical-path clause                         | **1 — see below**      |
   | its directory-type clause                         | **1 — see below**      |
   | its leaf-type clause                              | **1 — see below**      |
@@ -2540,13 +2550,13 @@ takes one of these should say so in the report:
   its directory" among them, which is the measurement behind that rejection rather than an argument
   for it.
 
-  **Six of the rows above are hardenings no fixture can kill, and the table says so rather than
+  **Eleven of the rows above are hardenings no fixture can kill, and the table says so rather than
   rounding them up.** All of them live in **step 3's block rather than in a fence**, and
   `tests/fence-worktree.test.sh` runs the fence — **no fixture in it can reach a command the file
   does not run** — so each is held by an assertion on the procedure's own text instead. The
-  usability test's own row is **9** because deleting it deletes all eight of its clauses and the
+  usability test's own row is **10** because deleting it deletes all nine of its clauses and the
   newline clause that now sits inside it; each clause is listed separately because that is what
-  deleting only that clause costs, and a single row would let seven of the eight go missing behind
+  deleting only that clause costs, and a single row would let nine of the ten go missing behind
   one number. **Its readable-and-writable row reads 2 rather than 1** because the directory-writable
   rule quotes the leaf test as its left half, so removing the leaf test takes both assertions with
   it; removing only `[ -w "$D" ]` costs the 1 its own row records.
@@ -2555,19 +2565,20 @@ takes one of these should say so in the report:
   procedure to the copy of the clause in the test's own `record()` helper; the behavioural cost is
   measured instead by `glued-ledger`, a fixture that hardcodes the unrepaired append and pins the
   leak it produces, so the clause and its consequence are checked from opposite sides and neither
-  check moves when the other is deleted. **Step 3's ledger usability test turns 9**, and each of its
-  eight clauses is listed on its own because each closes a different measured failure — a split
-  ledger line, a canonical path that splits although the typed one does not, a substituted
-  directory, a substituted or blocking leaf, a record the run cannot use, a record the _fence_
-  cannot rewrite, a temp path the fence cannot clear, and a ledger directory with no leaf in it. A
-  single row for the test would let seven of them go missing behind one number.
+  check moves when the other is deleted. **Step 3's ledger usability test turns 10**, and each of its
+  nine clauses is listed on its own because each closes a different measured failure — a split
+  ledger line, a worktree path that is itself a symbolic link and so records its target, a canonical
+  parent that splits although the typed path does not, a substituted ledger directory, a substituted
+  or blocking leaf, a record the run cannot use, a record the _fence_ cannot rewrite, a temp path the
+  fence cannot clear, and a ledger directory with no leaf in it. A single row for the test would let
+  nine of them go missing behind one number.
 
   **The literal an assertion matches has to be one only the command carries, and the first version of
   the directory row's was not.** It matched `[ ! -L "$D" ]`, which also appears three times in the
   prose _describing_ the guard — including in this table — so deleting step 3's whole usability test
   left it **green**, and the row that claimed to pin the guard pinned nothing. Measured: the deletion
   turned exactly one assertion red, and it was the leaf rule. The rule now matches the compound
-  clause, which is written in the command and nowhere else, and the deletion turns 9. **A prose
+  clause, which is written in the command and nowhere else, and the deletion turns 10. **A prose
   assertion satisfied by prose is the failure mode of this whole technique**, so it is recorded here
   rather than only fixed. Restoring **the here-string to a
   pipeline** turns **0** red: under `set -o pipefail`, a record larger than the pipe buffer makes
@@ -2678,19 +2689,21 @@ takes one of these should say so in the report:
   case where a typed path and a recorded one come apart. **One version, one filesystem** — a git that
   recorded the unresolved path would leave the run's own worktree named as `other`, which is the safe
   direction but still a leftover.
-- **Six lines in the fence are held by argument rather than by a fixture, and the here-string above
-  is one of them.** `WORKTREE=error reason=not-a-repo` is printed from **three** places — a
+- **Seven lines in the fence are held by argument rather than by a fixture, and the here-string
+  above is one of them.** `WORKTREE=error reason=not-a-repo` is printed from **three** places — a
   failing `git worktree list`, a failing `rev-parse --show-toplevel`, and a failing
   `rev-parse --absolute-git-dir` — and only one state has been found that separates any of them.
   Outside a repository all three fail together; in a bare repository **only `--show-toplevel` does**,
   measured at `git 2.34.1`, which is the case `tests/fence-worktree.test.sh` pins. **So the guards on
   the list, on `--absolute-git-dir`, on the rewrite's `set -C`, on the membership read's here-string
-  and — newly — on the rewrite's own `rm -f "$F.new"` and its `2>/dev/null` are the six lines in this
-  fence that can be deleted with the suite green.** The last two joined them in this round rather
-  than having always been there, and the cause is the write probe: it clears and creates `$F.new`
-  **before** the loop, so a link planted at that path is already gone by the time the rewrite's own
-  unlink runs, and a read-only directory refuses the sweep before the redirection whose stderr the
-  suppression is for. **Both stay** — they are what stands between the rewrite and a re-plant in the
+  on the rewrite's own `rm -f "$F.new"`, on its `2>/dev/null` and on the write probe's own `mv` are the
+  seven lines in this fence that can be deleted with the suite green.** Three of them joined in the
+  rounds that added the write probe, and the probe is the cause of all three: it clears and creates
+  `$F.new` **before** the loop, so a link planted at that path is already gone by the time the
+  rewrite's own unlink runs, and a read-only directory refuses the sweep before the redirection whose
+  stderr the suppression is for. **Its own `mv` is the third** — the state that would fail it needs a
+  sticky directory holding another user's record, so a second user or root, which this suite creates
+  neither of. **Both stay** — they are what stands between the rewrite and a re-plant in the
   window after the probe, which is the race `## Unexercised paths` declines — but they are now second
   lines of defence, and the table says 0 rather than pretending otherwise. **The rewrite entire also
   fell from 20 red to 18 for the same reason**, and `mv`-replaced-by-a-truncate is held at 3 only because
