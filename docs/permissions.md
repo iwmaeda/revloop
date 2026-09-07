@@ -120,6 +120,15 @@ short-circuits and `>>` waits on a reader that never comes. Both were measured. 
 already refused that shape; the writer walked into it, which is what a rule enforced on one side only
 produces.
 
+**A third round moved both sides to validate before they change anything**, which is an ordering
+rather than a new question. Step 3 now prepares and proves the ledger — real directory, regular leaf,
+readable, writable, created if absent, and no newline in the worktree path — **before**
+`git worktree add`, so a ledger it cannot use costs no worktree; and the fence proves the rewrite
+possible **before** the removal loop, under `WORKTREE=error reason=ledger-unwritable`, so a record
+that cannot shrink refuses the sweep rather than leaving just-removed paths still authorized in it.
+Both were measured failures: a worktree created and unrecorded on one side, a worktree removed with
+its ledger line intact on the other.
+
 **None of these tests is atomic, and that limit is stated rather than left to be discovered.** They
 are pathname checks, so a process writing inside `$GIT_DIR` could swap the object between the check
 and the use. That is declined on the threat model: such a process already runs your code through

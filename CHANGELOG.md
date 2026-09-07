@@ -23,7 +23,7 @@ before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so 
 changed line and three unchanged hashes; if any of the three moved, an existing fence was edited by
 accident and this paragraph is wrong.
 
-**The new fence was then amended eight times before release, and that is still not a re-approval.**
+**The new fence was then amended nine times before release, and that is still not a re-approval.**
 An approval is keyed to the exact command string, and nobody has ever been prompted for the earlier
 bytes: `worktree-teardown` has not appeared in a tagged release, so there is nothing granted to
 invalidate. Against the release boundary this remains **one added fence and one first approval**, and
@@ -86,6 +86,34 @@ defend a boundary already crossed two files away; and `O_NOFOLLOW` is not reacha
 `flock` is not POSIX, and `stat`'s inode flags differ between GNU and BSD, so the mechanism would add
 a non-portable dependency, **cost every user a re-approval**, and still only narrow the window.
 `## Unexercised paths` now records the race as a class nothing covers.
+
+**A third review round moved both sides to validate before they change anything.** Codex returned the
+ordering as a P1 and both halves reproduced. On the writing side, a ledger file the run could not
+write let `git worktree add` succeed and the append fail — measured, **the worktree created and
+unrecorded**, which is the leak the whole step exists to close. On the sweeping side, a read-only
+ledger directory produced `WORKTREE=removed` and then `ledger=error` — measured, **the worktree gone
+from disk and its line still in the record**, authorized for another sweep. Step 3 now prepares and
+proves the ledger — real directory, regular leaf, readable, writable, created if absent — **before**
+`git worktree add`, and the fence proves the rewrite possible **before** the removal loop, under
+`reason=ledger-unwritable`. A leak the next run sweeps beats a removal whose authorization outlives
+it.
+
+**The same round refused a worktree path containing a newline, which is the one shape that leaked
+permanently.** `git worktree add` accepts it, the ledger takes it raw, and both the record and
+`git worktree list --porcelain` are newline-delimited — so the entry splits, the fence reports
+`WORKTREE=stuck` against a truncated prefix, and the real worktree is never removed. Measured, and
+`stuck` is the one outcome that **keeps** its ledger line, so the leak was permanent. Refusing it in
+step 3 costs nothing: the path is one revloop composes.
+
+**The fence's probe asks `[ -w ]` of the directory rather than performing a trial write, and that is a
+side effect rather than a preference.** An unlink-and-recreate probe is the stronger test and would
+also **remove a symbolic link planted at `$F.new`**, disarming the condition the rewrite's own
+`rm -f` exists for — measured, deleting that `rm -f` then turned **0** assertions red instead of 5.
+The reordering still cost real mutation coverage of the rewrite's failure path, because the two
+fixtures that drove it now refuse earlier: `mv`-replaced-by-a-truncate fell from 6 red to 1, the
+rewrite entire from 20 to 17, and the rewrite's `2>/dev/null` joined the lines that can be deleted
+with the suite green. **Trading coverage of a failure path for never reaching it is the right
+direction and is still a trade**, so the table says so rather than absorbing it.
 
 **Both halves of the writing guard are held by assertions on the procedure's text, and the first one
 written was vacuous.** No test in `tests/fence-worktree.test.sh` can reach a command that file does
@@ -295,7 +323,7 @@ the write, which no fixture races, and the membership read's here-string, whose 
 larger than the pipe buffer. The fixture that looks as though it should kill the third does
 not: a read-only ledger directory makes the unlink fail, and the unlink is the first link of the
 chain, so noclobber is never reached. All four are recorded in `## Unexercised paths` rather than
-counted as coverage — and re-measuring the whole suite over **222** assertions across **twenty-six**
+counted as coverage — and re-measuring the whole suite over **229** assertions across **twenty-six**
 throwaway repositories did not change that.
 
 **Three more things the sweep's rewrite does not cover, all written down rather than argued away.**

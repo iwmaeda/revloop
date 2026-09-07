@@ -547,11 +547,14 @@ refute "and is not removed"                        "$OUT_J2" "WORKTREE=removed"
 expect "and is still on disk"                      "$(test -d "$J/wt/revloop-wt-h" && echo PRESENT)" "PRESENT"
 
 # --- the record cannot be written -------------------------------------------
-# THE FAIL-SAFE DIRECTION. The rewrite writes a sibling and renames over the
-# target, so a failure leaves the OLD record whole: nothing is lost, and what
-# persists is an over-broad authorization the terminal line has just named. The
-# alternative -- truncating in place -- would lose the stuck entries on a failed
-# write, which is the leak this fence exists to prevent, produced by the fence.
+# THE FAIL-SAFE DIRECTION, AND THE ORDER IS THE WHOLE OF IT. The fence used to
+# remove first and discover the unwritable record afterwards, which left the
+# removed path STILL AUTHORIZED in a ledger that could not shrink -- reported as
+# `ledger=error`, but reported after the `--force` had run. Codex returned that
+# ordering as a P1 and it reproduced: the worktree removed, and its line still in
+# the record. The rewrite is now PROVEN POSSIBLE before anything is removed, so
+# this shape refuses the whole sweep instead, and the worktrees stay. A leak the
+# next run sweeps beats a removal whose authorization outlives it.
 K=$(new_repo readonly-ledger)
 git -C "$K" worktree add -q --detach "$K/wt/revloop-wt-w" HEAD
 record "$K" "$K/wt/revloop-wt-w"
@@ -562,9 +565,11 @@ else
   chmod a-w "$LEDGER_K_DIR"
   OUT_K=$( run_in "$K" ); RC_K=$?
   chmod u+w "$LEDGER_K_DIR"
-  expect "the removal happens even so"        "$OUT_K" "WORKTREE=removed path=$K/wt/revloop-wt-w"
-  expect "and the verdict names the failure"  "$OUT_K" "ledger=error"
-  refute "and never calls the record ok"      "$OUT_K" "ledger=ok"
+  expect "an unwritable record refuses the sweep" "$OUT_K" "WORKTREE=error reason=ledger-unwritable path=$LEDGER_K_DIR/worktrees.txt"
+  refute "and removes nothing"                "$OUT_K" "WORKTREE=removed"
+  refute "and never claims a clean sweep"     "$OUT_K" "WORKTREE=swept"
+  refute "nor a partial one"                  "$OUT_K" "WORKTREE=partial"
+  expect "the worktree is still on disk"      "$(test -d "$K/wt/revloop-wt-w" && echo PRESENT)" "PRESENT"
   same   "and still exits zero"               "$RC_K"  "0"
   same   "the record is left exactly as it was" "$(cat "$LEDGER_K_DIR/worktrees.txt")" "$K/wt/revloop-wt-w"
 fi
@@ -749,8 +754,9 @@ else
   chmod u+w "$LEDGER_U_DIR"
   same   "a plant the unlink cannot clear truncates nothing" "$(cat "$U/victim.txt")" "untouched"
   same   "and the temp path is left as it was found"        "$(readlink "$LEDGER_U_DIR/worktrees.txt.new")" "$U/victim.txt"
-  expect "the removal still happens"                    "$OUT_U" "WORKTREE=removed path=$U/wt/revloop-wt-v"
-  expect "and the verdict names the write failure"      "$OUT_U" "ledger=error"
+  expect "the sweep is refused before any removal"       "$OUT_U" "WORKTREE=error reason=ledger-unwritable"
+  refute "and nothing is removed"                       "$OUT_U" "WORKTREE=removed"
+  expect "the worktree is still on disk"                "$(test -d "$U/wt/revloop-wt-v" && echo PRESENT)" "PRESENT"
   same   "the record is left exactly as it was"         "$(cat "$LEDGER_U_DIR/worktrees.txt")" "$U/wt/revloop-wt-v"
   same   "and the fence exits zero"                     "$RC_U" "0"
   # THE FENCE'S OUTPUT IS PARSED, so a failing unlink may not narrate itself:
@@ -1106,6 +1112,25 @@ LINKDIR_RULE='[ ! -L "$D" ] && { [ ! -e "$D" ] || [ -d "$D" ]; }'
 # test would stay green while that half was deleted.
 # shellcheck disable=SC2016
 LEAFTYPE_RULE='[ ! -L "$D/worktrees.txt" ]'
+# The two clauses that make every refusal precede `git worktree add`. Both are
+# ordering rules, so neither shows up in the fence's output at all: a newline in
+# the worktree path splits BOTH the ledger line and `git worktree list
+# --porcelain`, so the real worktree leaks while the fence reports `stuck` on a
+# truncated prefix; and a record the run cannot read or write is one the fence
+# refuses, so accepting it here creates a worktree nothing will ever sweep.
+# Each literal is written in the command and nowhere else -- checked, because a
+# rule matched by the prose that describes it pins nothing.
+# shellcheck disable=SC2016
+NEWLINE_PATH_RULE='"$(printf '"'"'%s'"'"' "$W" | wc -l)" -eq 0'
+# shellcheck disable=SC2016
+READWRITE_RULE='[ -r "$D/worktrees.txt" ] && [ -w "$D/worktrees.txt" ]'
+# And the clause that MAKES the ledger before the worktree exists, which is what
+# turns the two rules above from tests into guarantees: without it a checkout
+# whose ledger directory exists with no leaf in it is accepted here and refused
+# by the fence as `ledger-unreadable`, and the readability test has nothing to
+# read. Measured at 0 red before this rule was added.
+# shellcheck disable=SC2016
+PREPARE_RULE='&& mkdir -p "$D" && { [ -e "$D/worktrees.txt" ] || : > "$D/worktrees.txt"; }'
 
 expect "remote-loop holds the fence"        "$(found "$FENCE_ID" "$REMOTE")"        "$FENCE_ID"
 expect "remote-loop states the name rule"   "$(found "$PREFIX_RULE" "$REMOTE")"     "$PREFIX_RULE"
@@ -1113,6 +1138,9 @@ expect "remote-loop names the ledger"       "$(foundf "$LEDGER_RULE" "$REMOTE")"
 expect "remote-loop restores the newline"   "$(foundf "$NEWLINE_RULE" "$REMOTE")"   "$NEWLINE_RULE"
 expect "remote-loop types the ledger dir"        "$(foundf "$LINKDIR_RULE" "$REMOTE")" "$LINKDIR_RULE"
 expect "remote-loop types the ledger leaf too"   "$(foundf "$LEAFTYPE_RULE" "$REMOTE")" "$LEAFTYPE_RULE"
+expect "remote-loop refuses a newline in the path" "$(foundf "$NEWLINE_PATH_RULE" "$REMOTE")" "$NEWLINE_PATH_RULE"
+expect "remote-loop proves the ledger usable"      "$(foundf "$READWRITE_RULE" "$REMOTE")"    "$READWRITE_RULE"
+expect "remote-loop makes the ledger first"        "$(foundf "$PREPARE_RULE" "$REMOTE")"      "$PREPARE_RULE"
 expect "local-loop cites the teardown"      "$(found 'worktree-teardown' "$LOCAL")" "worktree-teardown"
 expect "local-loop cites the creation rule" "$(found 'step 3 gives' "$LOCAL")"      "step 3 gives"
 expect "local-loop names the ledger too"    "$(foundf "$LEDGER_RULE" "$LOCAL")"     "$LEDGER_RULE"
