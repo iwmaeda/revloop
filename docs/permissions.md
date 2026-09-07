@@ -270,7 +270,7 @@ disagree.
 ## Counting the prompts
 
 **Count them by string class rather than by loop, because a string class is what the permission
-system matches on.** Three exist, and only the first is covered by the rules above:
+system matches on.** Four exist, and only the first is covered by the rules above:
 
 | String                                             | Prompts                           | Why                                                              |
 | -------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------- |
