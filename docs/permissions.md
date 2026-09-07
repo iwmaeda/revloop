@@ -134,10 +134,12 @@ was found; **step 3 runs the same probe**, so the class of states that probe dec
 the same way on both sides. **It does not make their accepted states one set, and it is worth not
 overstating**: a mode-0444 record in a writable directory is refused by step 3 and swept by the
 fence, and an empty record makes the fence skip the probe altogether. What is closed is the leak
-direction — recording a worktree the sweep cannot take. **Step 3 also refuses a worktree path that
-is itself a symbolic link**, because `git worktree add` records the target rather than the path it
-was given: a family-named path pointing outside the family was recorded under a name the sweep's
-own filter drops, leaving the worktree behind under a clean `swept` line without even naming it.
+direction — recording a worktree the sweep cannot take. **Step 3 does not accept a worktree path at
+all**, because `git worktree add` records what the path resolves to rather than the path it was
+given: it takes a **name**, checks it is a single component from a fixed character set, and builds
+the path from a parent it canonicalises itself. Three rounds of refusing one spelling and meeting the
+next — a newline, a symlinked parent, a symlinked leaf, then that leaf test itself defeated by a
+trailing slash — are why it is built rather than checked.
 Both failures were measured: a worktree created and unrecorded on one side, a worktree removed
 with its ledger line intact on the other. **The two sides prove different things because they do
 different things** — step 3 appends and so needs the file writable, the fence renames and so needs

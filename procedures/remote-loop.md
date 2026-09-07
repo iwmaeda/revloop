@@ -365,10 +365,10 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
 
    ```bash
    D=$(git rev-parse --absolute-git-dir)/revloop
-   W="<scratch>/revloop-wt-<slug>"
-   { [ "$(printf '%s' "$W" | wc -l)" -eq 0 ] \
-       && [ ! -L "$W" ] \
-       && P=$(cd "${W%/*}" && pwd -P && printf x) && [ "$(printf '%s' "$P" | wc -l)" -eq 1 ] \
+   N=revloop-wt-<slug>
+   { case $N in revloop-wt-*[!A-Za-z0-9._-]*|revloop-wt-) false ;; revloop-wt-*) true ;; *) false ;; esac \
+       && P=$(cd "<scratch>" && pwd -P && printf x) && [ "$(printf '%s' "$P" | wc -l)" -eq 1 ] \
+       && P=$(cd "<scratch>" && pwd -P) && W="$P/$N" && [ ! -L "$W" ] \
        && [ ! -L "$D" ] && { [ ! -e "$D" ] || [ -d "$D" ]; } \
        && [ ! -L "$D/worktrees.txt" ] && { [ ! -e "$D/worktrees.txt" ] || [ -f "$D/worktrees.txt" ]; } \
        && mkdir -p "$D" && { [ -e "$D/worktrees.txt" ] || : > "$D/worktrees.txt"; } \
@@ -422,25 +422,36 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    `worktree add` can only fail once a worktree exists, which is precisely the unrecorded-worktree
    leak the `&&` ordering is meant to avoid.
 
-   **The final component is refused when it is itself a symbolic link, and that is a different hole
-   from the one below it.** `git worktree add` accepts a path that already exists as a link to an
-   empty directory and records the **target**, so a family-named `$W` pointing outside the family
-   produced a recorded path the fence's name filter drops before the membership test ever runs —
-   measured, `WORKTREE=swept removed=0 other=0 ledger=ok` with the ledger line retired and the
-   worktree still registered. **Silently**, because a dropped name is not even reported as `other`.
-   The canonical-parent clause cannot see it: the parent is clean and it is the leaf that redirects.
+   **Step 3 takes a name and builds the path, and it does that because checking a path lost three
+   times.** The value `git worktree add` is handed and the value `rev-parse --show-toplevel` records
+   are not the same string, and each round closed one spelling of the gap and met the next: a newline
+   in the typed path; a **symlinked parent** whose target held a newline; a **symlinked leaf**, which
+   makes git record the target, so a family-named path pointing outside the family was dropped by the
+   sweep's own name filter before the membership test — measured, `WORKTREE=swept removed=0 other=0
+ledger=ok` with the ledger line retired and the worktree still registered, and **silently**, because
+   a dropped name is not reported as `other` either. Then `[ ! -L "$W" ]` itself fell to `$W` spelled
+   with a **trailing slash, a doubled slash, or a `/.` suffix** — each makes the test follow the link
+   — and the same leak came back.
 
-   **The canonical path is checked and not only the typed one, because the ledger records the
-   canonical one.** `git -C "$W" rev-parse --show-toplevel` resolves symbolic links, so a
-   `<scratch>` that is a link whose **target** contains a newline yields a recorded value that
-   splits although `$W` does not — measured, `$W` with 0 newlines resolving to a value with 2, after
-   which `git worktree list --porcelain` splits the same path, the sweep cannot match it, and the
-   entry is retired under a `swept` line while the worktree stays on disk for good. Reported as a P1
-   on `iwmaeda/revloop#27`. The clause resolves the parent and checks that, which is exact because
-   the last component is one this procedure composes and has already been checked. **Note the
-   assignment**: `pwd -P` prints a trailing newline, so piping it straight to `wc -l` counts 1 for
-   every clean path and refuses everything — that spelling was written first and the ordinary-scratch
-   control caught it.
+   **So the free-form input is gone rather than patched again.** `N` is a **name**, checked to be one
+   component drawn from `A-Za-z0-9._-` and carrying the family prefix, and the path is **built** from
+   a parent this step canonicalises itself. There is no spelling left for a caller to choose: no
+   slash can appear in `N`, so no suffix can attach; the parent is already resolved, so nothing above
+   the leaf can redirect; and `[ ! -L "$W" ]` now runs on a string this step composed rather than on
+   one it was given, which is the only form in which that test means what it says. **Three rounds of
+   closing spellings is the evidence for the shape**, not an argument against having tried.
+
+   **The parent is canonicalised because `git -C "$W" rev-parse --show-toplevel` resolves symbolic
+   links.** A `<scratch>` that is a link whose **target** contains a newline yields a recorded value
+   that splits although the typed path does not — measured, 0 newlines in and 2 out, after which
+   `git worktree list --porcelain` splits the same path, the sweep cannot match it, and the entry is
+   retired under a `swept` line while the worktree stays on disk for good. With the parent resolved
+   here and `N` holding no slash, the value built is the value recorded. **Note the sentinel**:
+   `pwd -P` prints a trailing newline and `$( )` strips _every_ trailing newline, so the first two
+   spellings of this clause were both wrong in opposite directions — one counted `pwd`'s terminator
+   as content and refused every path, the other let a directory whose name **ends** in a newline
+   through. `printf x` makes the capture end in a non-newline byte, so exactly one newline is the
+   terminator and anything above it is in the path.
 
    **The temp-path probe is run here as well as in the fence, and it is the same three operations in
    both places.** The fence renames through `$D/worktrees.txt.new`, so a state that stops the fence

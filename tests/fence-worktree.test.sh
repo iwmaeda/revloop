@@ -1241,8 +1241,19 @@ LEAFTYPE_RULE='[ ! -L "$D/worktrees.txt" ]'
 # refuses, so accepting it here creates a worktree nothing will ever sweep.
 # Each literal is written in the command and nowhere else -- checked, because a
 # rule matched by the prose that describes it pins nothing.
+# THE SLUG IS NOW VALIDATED AS A NAME RATHER THAN THE PATH AS A STRING, and that
+# is the third correction to this clause in three rounds. A newline test on `$W`
+# was defeated by a symlinked parent; a `[ ! -L "$W" ]` test on the leaf was
+# defeated by `$W` spelled with a trailing slash, a doubled slash or a `/.`
+# suffix -- each of which makes the test FOLLOW the link, so `git worktree add`
+# recorded the target and the sweep dropped it before the membership test,
+# measured as `WORKTREE=swept removed=0 other=0 ledger=ok` over a worktree left
+# registered. Patching spellings lost three times, so step 3 no longer accepts a
+# path at all: it accepts a NAME, checks it is one component from a fixed
+# character set, and BUILDS the path from a canonical parent. There is no
+# spelling left for a caller to choose.
 # shellcheck disable=SC2016
-NEWLINE_PATH_RULE='"$(printf '"'"'%s'"'"' "$W" | wc -l)" -eq 0'
+NEWLINE_PATH_RULE='case $N in revloop-wt-*[!A-Za-z0-9._-]*|revloop-wt-) false ;; revloop-wt-*) true ;; *) false ;; esac'
 # shellcheck disable=SC2016
 READWRITE_RULE='[ -r "$D/worktrees.txt" ] && [ -w "$D/worktrees.txt" ]'
 # And the clause that MAKES the ledger before the worktree exists, which is what
@@ -1285,9 +1296,9 @@ DIRWRITE_RULE='[ -w "$D/worktrees.txt" ] && [ -w "$D" ]'
 # `other` is never printed for it either. The canonical-parent rule below cannot
 # see this: the parent is clean and it is the LEAF that redirects.
 # shellcheck disable=SC2016
-LEAFLINK_RULE='[ ! -L "$W" ]'
+LEAFLINK_RULE='P=$(cd "<scratch>" && pwd -P) && W="$P/$N" && [ ! -L "$W" ]'
 # shellcheck disable=SC2016
-CANONICAL_RULE='P=$(cd "${W%/*}" && pwd -P && printf x) && [ "$(printf '"'"'%s'"'"' "$P" | wc -l)" -eq 1 ]'
+CANONICAL_RULE='P=$(cd "<scratch>" && pwd -P && printf x) && [ "$(printf '"'"'%s'"'"' "$P" | wc -l)" -eq 1 ]'
 # The temp-path probe, which BOTH sides now run because both depend on it: the
 # fence renames through `$F.new`, and a producer that recorded a worktree the
 # fence cannot sweep has leaked it. Same three operations on each side -- clear,
@@ -1301,11 +1312,11 @@ expect "remote-loop names the ledger"       "$(foundf "$LEDGER_RULE" "$REMOTE")"
 expect "remote-loop restores the newline"   "$(foundf "$NEWLINE_RULE" "$REMOTE")"   "$NEWLINE_RULE"
 expect "remote-loop types the ledger dir"        "$(foundf "$LINKDIR_RULE" "$REMOTE")" "$LINKDIR_RULE"
 expect "remote-loop types the ledger leaf too"   "$(foundf "$LEAFTYPE_RULE" "$REMOTE")" "$LEAFTYPE_RULE"
-expect "remote-loop refuses a newline in the path" "$(foundf "$NEWLINE_PATH_RULE" "$REMOTE")" "$NEWLINE_PATH_RULE"
+expect "remote-loop validates the slug as a name" "$(foundf "$NEWLINE_PATH_RULE" "$REMOTE")" "$NEWLINE_PATH_RULE"
 expect "remote-loop proves the ledger usable"      "$(foundf "$READWRITE_RULE" "$REMOTE")"    "$READWRITE_RULE"
 expect "remote-loop makes the ledger first"        "$(foundf "$PREPARE_RULE" "$REMOTE")"      "$PREPARE_RULE"
 expect "remote-loop proves what the fence needs"   "$(foundf "$DIRWRITE_RULE" "$REMOTE")"     "$DIRWRITE_RULE"
-expect "remote-loop refuses a symlinked worktree"  "$(foundf "$LEAFLINK_RULE" "$REMOTE")"     "$LEAFLINK_RULE"
+expect "remote-loop builds the path it records"    "$(foundf "$LEAFLINK_RULE" "$REMOTE")"     "$LEAFLINK_RULE"
 expect "remote-loop checks the canonical path"     "$(foundf "$CANONICAL_RULE" "$REMOTE")"    "$CANONICAL_RULE"
 expect "remote-loop runs the probe on both sides"  "$(foundf "$PROBE_RULE" "$REMOTE")"        "$PROBE_RULE"
 expect "local-loop cites the teardown"      "$(found 'worktree-teardown' "$LOCAL")" "worktree-teardown"

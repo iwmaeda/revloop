@@ -119,15 +119,21 @@ counted as coverage.
 `rev-parse --show-toplevel` resolves symbolic links, so a `<scratch>` that is a link whose target
 contains a newline records a value that splits although the typed path does not — measured, 0
 newlines in, 2 out, after which the sweep cannot match the entry, retires it, and reports `swept`
-while the worktree stays on disk permanently. Step 3 now resolves the parent and checks that, and —
-after a further round — refuses a final component that is **itself** a symbolic link, which is a
-separate hole with the same cause: `git worktree add` accepts such a path and records its target, so
-a family-named `$W` pointing outside the family was recorded under a name the fence's filter drops
-before the membership test, leaving `swept removed=0 other=0 ledger=ok` over a worktree that is never
-even called `other`. The first spelling of the parent check was itself wrong — `pwd -P` prints a
-trailing newline, so piping it to `wc -l` counts 1 for every clean path and refused everything — and
-the ordinary-scratch control
-caught it before it shipped.
+while the worktree stays on disk permanently. **After three rounds of closing one spelling and
+meeting the next, step 3 stopped accepting a path at all.** It takes a **name**, checks it is a
+single component drawn from `A-Za-z0-9._-` and carrying the family prefix, and **builds** the path
+from a parent it canonicalises itself — so no slash can appear in the name, no suffix can attach
+to it, and `[ ! -L "$W" ]` runs on a string the step composed rather than one it was handed. The
+spellings that got there: a newline in the typed path; a symlinked parent whose target held one; a
+symlinked leaf, which is a separate hole with the same cause: `git worktree add` accepts such a
+path and records its target, so a family-named `$W` pointing outside the family was recorded under
+a name the fence's filter drops before the membership test, leaving `swept removed=0 other=0
+ledger=ok` over a worktree that is never even called `other`; and then that leaf test itself,
+defeated by `$W` spelled with a trailing slash, a doubled slash or a `/.` suffix, each of which
+makes the test **follow** the link and brought the same leak straight back. The first spelling of
+the parent check was itself wrong — `pwd -P` prints a trailing newline, so piping it to `wc -l`
+counts 1 for every clean path and refused everything — and the ordinary-scratch control caught it
+before it shipped.
 
 **And the temp-path probe now runs on both sides, which closes the leak direction rather than making
 the two accepted sets identical.** A directory standing at `$D/worktrees.txt.new` passes every
@@ -376,7 +382,7 @@ larger than the pipe buffer, and — since the write probe began clearing and cr
 the loop — the rewrite's own `rm -f "$F.new"`, its `2>/dev/null` and the probe's own `mv`, whose
 conditions the probe now
 reaches first. The last two stay as second lines of defence against a re-plant in the window after
-the probe, which is the race declined above. All six are recorded in `## Unexercised paths` rather
+the probe, which is the race declined above. All seven are recorded in `## Unexercised paths` rather
 than counted as coverage — and re-measuring the whole suite across **261** assertions and **thirty**
 throwaway repositories did not change that.
 
