@@ -13,6 +13,8 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-07
+
 ### A fourth fence: the loop now removes the worktrees it created
 
 **A fence was added and no existing fence changed, and those cost different things.** `wait-verdict`,
@@ -23,7 +25,7 @@ before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so 
 changed line and three unchanged hashes; if any of the three moved, an existing fence was edited by
 accident and this paragraph is wrong.
 
-**The new fence was then amended twelve times before release, and that is still not a re-approval.**
+**The new fence was then amended thirteen times before release, and that is still not a re-approval.**
 An approval is keyed to the exact command string, and nobody has ever been prompted for the earlier
 bytes: `worktree-teardown` has not appeared in a tagged release, so there is nothing granted to
 invalidate. Against the release boundary this remains **one added fence and one first approval**, and
@@ -32,7 +34,7 @@ byte-identical is what says so — the count above is read from those hashes rat
 and it was wrong here by three until it was. `CONTRIBUTING.md` carries the distinction: adding a
 fence and editing one are different events, and only the second costs anybody a re-approval.
 
-**The twelfth amendment closed the fence's own leak, and it is the one defect here that produced a
+**The thirteenth amendment closed the fence's own leak, and it is the one defect here that produced a
 false success line.** `git worktree remove --force` has a third outcome besides removing and
 refusing: when the worktree holds something it cannot delete, git **deregisters it first and then
 fails to finish**, exit 255 at `git 2.34.1`, leaving the directory on disk. One subdirectory with its
@@ -428,8 +430,8 @@ the loop — the rewrite's own `rm -f "$F.new"`, its `2>/dev/null` and the probe
 conditions the probe now
 reaches first. The last two stay as second lines of defence against a re-plant in the window after
 the probe, which is the race declined above. All seven are recorded in `## Unexercised paths` rather
-than counted as coverage — and re-measuring the whole suite across **263** assertions and **thirty**
-throwaway repositories did not change that.
+than counted as coverage — and re-measuring the whole suite across **281** assertions and
+**thirty-two** throwaway repositories did not change that.
 
 **Three more things the sweep's rewrite does not cover, all written down rather than argued away.**
 The retirement is measured by hand against a real repository — a path recorded, swept, retired, then
@@ -442,6 +444,32 @@ the ownership change a run would actually hit, and both fixtures skip themselves
 and neither removes anything. And the record is read once at the top of the fence and written once at the bottom,
 so a line appended in between is discarded — which needs **two runs in one checkout**, a
 configuration that already could not work, since they would share HEAD, the index and the branch.
+
+### Also in 0.9.0
+
+- **The amendment count above was read out of `tests/fence-hashes.txt` again before the tag, and it
+  was short by one.** That line took fourteen distinct values between 0.8.0 and this release — the
+  introduction and thirteen amendments — while the entry said twelve, having been written when
+  `a2eda36` was the tip and not moved when `edebd66` landed behind it. The amendment that closed the
+  fence's own leak is the thirteenth. The two this entry names by ordinal are unaffected: the seventh
+  is still the hang, and the eighth still the ledger directory. **This is the second time the count
+  in this entry has been wrong**, the first being by three, which is the argument for reading it at
+  the tag rather than at the merge.
+- **The suite's own totals were stale in the same way, and the procedure already disagreed with
+  them.** The entry said the whole suite was re-measured across 263 assertions and thirty throwaway
+  repositories. Both were exact at `a2eda36` — measured again at that commit, the suite reports
+  `263 passed` and builds 30 — and `edebd66` took them to **281** and **thirty-two** without moving
+  the sentence. `procedures/remote-loop.md`'s `## Unexercised paths` had said thirty-two since that
+  commit, so the two files disagreed about a number one of them had counted. **Three numbers in this
+  entry were written against the same tip and left behind by the same commit**, which is the pattern
+  rather than three separate slips.
+- **`docs/install.md` derived the `git` floor from "the one command every fence depends on"**, and
+  the fourth fence depends on none of it. `worktree-teardown` runs `git rev-parse --absolute-git-dir`,
+  `git rev-parse --show-toplevel`, `git worktree list --porcelain` and `git worktree remove --force`,
+  and no `git branch --show-current`. **The floor does not move**: the highest of those is
+  `git worktree remove` at 2.17, below the 2.22 the other three fences set — so what was false was
+  the derivation and not the number, and the page now says which fences share the command and which
+  one does not. Found by reading the package rather than by a test.
 
 ## [0.8.0] - 2026-09-04
 
@@ -2693,6 +2721,7 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.9.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.9.0
 [0.8.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.8.0
 [0.7.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.7.0
 [0.6.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.6.0

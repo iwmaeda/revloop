@@ -66,8 +66,14 @@ the bot replies. The [card](../reviewers/) for that reviewer records how long an
 | `jq`  | **not required**     | `gh` embeds a jq implementation; the procedure never pipes to `jq`                                                    |
 
 The two floors are graded differently on purpose. The `gh` floor is a version the procedure was
-actually driven on; the `git` floor is derived from the one command every fence depends on, and
-labelled as such. **One `gh` subcommand exists at the floor and does not work** — see
+actually driven on; the `git` floor is derived, and labelled as such — it is the highest release any
+fence's commands require, rather than a version anybody ran. **It is not one command that every fence
+depends on**, which is what this sentence said until the fourth fence arrived.
+`git branch --show-current` is what sets the 2.22 and it appears in three of the four, while
+`worktree-teardown` uses none of it. That fence's own highest is `git worktree remove` at **2.17**,
+so it does not move the floor — worth stating rather than leaving to be re-derived, because the next
+fence added may.
+**One `gh` subcommand exists at the floor and does not work** — see
 [`known-environment-quirks.md`](known-environment-quirks.md), which is also why the procedure prefers
 the stable REST surface to a subcommand.
 
