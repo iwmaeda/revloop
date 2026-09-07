@@ -95,6 +95,27 @@ prefix**, and that single fact shapes three decisions:
   name would differ every round, "always allow" would never apply, and you would be prompted every
   round — exactly where `--auto` dies. The fences resolve the repository and PR themselves, so their
   text is permanently identical and one approval holds.
+- **The teardown fence takes none either, and that is what decided how a worktree is identified.** It
+  removes the worktrees a run created, and the obvious way to tell it which is to hand it the path —
+  which is a session-specific string, so the fence would change every session and be prompted for
+  every session. **So the path is written down where the fence can find it with no argument**: step 3
+  appends it to `revloop/worktrees.txt` inside the checkout's own git directory, and the fence
+  resolves that location from `git rev-parse --absolute-git-dir`. The bytes are identical every
+  session and resolve to a different checkout's record in a different checkout, which is the same
+  trick `wait-verdict` plays on the branch and the pull request. **The fence writes that file back as
+  well as reading it**, which is what keeps a command string that can never change from accumulating
+  authority as the file behind it grows: each sweep leaves only the paths it could not remove.
+  **`--absolute-git-dir` and not `--git-common-dir`**: the common dir is shared by every linked
+  worktree of a repository, so it would put two concurrently running loops back in one ledger — the
+  failure the run id was replaced to fix. **And the git directory rather than the working tree**,
+  because revloop runs against
+  somebody else's repository, where a top-level record is an untracked file this project's
+  `.gitignore` cannot reach and the loop's own clean-tree check would return. **The identity could
+  not be derived instead of recorded**, and the attempt is worth keeping: `revloop-wt-$PPID-` in the
+  name looked like a run id the shell hands over for free, until it turned out that a harness
+  routing every Bash call through one app-server gives two concurrent runs the same parent. A
+  recorded path has no such dependency. The permission rule shaped the design, rather than the
+  design being fitted to a rule afterwards.
 
 **That is also why the fences are inline rather than shipped as scripts and called by path.** Behind a
 path the command string never changes while the file behind it does, so a plugin update could ship new
@@ -381,11 +402,14 @@ rather than supplied, which is the distinction this whole paragraph rests on.
 why a flag which merely suppresses stops may not touch this one, and why publishing may retire it: a
 stop standing in for a missing check belongs exactly where the check is missing.
 
-**Its memory is the commit, and there is no local state file.** A findings ledger read back as input
-would break the rule field notes live under — never read a local file as input to a classification —
-and it would break it at the one place that decides whether the run passes. A resumed run re-reviews
-and re-derives instead, which is also the more correct answer: an acceptance is a judgement about the
-tree in front of you, and the tree may have moved.
+**Its memory is the commit, and nothing local decides anything.** A findings ledger read back as
+input would break the rule field notes live under — never read a local file as input to a
+classification — and it would break it at the one place that decides whether the run passes. A
+resumed run re-reviews and re-derives instead, which is also the more correct answer: an acceptance
+is a judgement about the tree in front of you, and the tree may have moved. **The worktree ledger is
+the one local file a later step reads and writes back**, and it stays inside the rule because what it
+records is a directory this run created rather than a conclusion it reached — and because the write
+only ever narrows it, retiring each path the sweep consumed.
 
 ## Field notes
 
@@ -394,6 +418,23 @@ card, the procedure appends one line to `.revloop/field-notes.md` — date, PR, 
 Three rules make that safe: never read them as input to a classification (they are for humans, and for
 upstreaming into `reviewers/*.md`); never stage them (`.revloop/` is git-ignored, and step 4's
 explicit-staging rule keeps it out of commits anyway); and cap them at 500 lines, rotated.
+
+**The worktree ledger is not in that directory, and the difference is the audience.** A run records
+each git worktree it creates in `revloop/worktrees.txt` inside the checkout's own git directory —
+`.git/revloop/` in an ordinary checkout, `.git/worktrees/<name>/revloop/` in a linked one — which is
+how the teardown fence knows which worktrees are its own — and **the same fence retires each entry it
+consumes**, so a record buys one removal rather than authorizing that path for good. Field notes are
+for a person to find and upstream, so they live in the tree and pay for it; the ledger is read and
+rewritten by a fence and touched by nothing else,
+so it lives where **no `git status`, `git ls-files -o`, `git add -A` or `git clean -xdf` can reach
+it** and needs no ignore rule in the repository the loop is running against. The third rule still
+holds and is the only one that had to be argued: it is never read as input to a classification — the
+only thing it decides is which directory the sweep may delete.
+
+**The other two files keep the cost, deliberately.** `.revloop/field-notes.md` and
+`.revloop/grading-input.txt` are untracked files in a repository that does not ignore `.revloop/`,
+and moving them under the git directory would hide the one artifact whose whole purpose is to be
+found later by a human.
 
 A project's `.revloop/` is unrelated to `~/.revloop`, the clone path the Codex install suggests.
 

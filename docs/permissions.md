@@ -75,6 +75,100 @@ permission system enforces. The blast radius is your working tree and the branch
 write. Two things bound it: neither procedure ever constructs a `--force` push, and step 1 aborts on
 a fork, so the branches are your own.
 
+**One `--force` is constructed by a procedure, and it is not a push.** Step 12's
+`worktree-teardown` fence runs `git worktree remove --force`, so the sentence above — that neither
+procedure ever constructs a `--force` — is about pushes and about nothing else. What bounds the
+removal is not the permission system either: **two conditions have to hold together, and the first is
+spent when it is used.** The path must be a line in `revloop/worktrees.txt` inside your checkout's own
+git directory, which is where step 3 records every worktree it creates; and its last component must
+begin with `revloop-wt-`, the name step 3 requires. **The sweep then rewrites that record to the
+paths it could not remove**, so a line authorizes one removal rather than that path forever — without
+which a worktree you later create where one of the loop's used to be would be inside the match, since
+it carries the same name. The ledger is what says the worktree is this run's — `git worktree list` answers for the
+whole repository, so a loop running beside yours would otherwise be inside the same match, and it
+writes its own file in its own checkout instead. The name is the second bound, held back for the
+ledger's bad day. Anything of that name the ledger does not claim is reported as `WORKTREE=other` and
+left alone. The fence passes nothing else to that command either — no `git worktree prune`, which
+takes no path and would reach every stale registration in the repository including yours.
+**It writes one file, and this is the page that has to say so**: `revloop/worktrees.txt` inside your
+checkout's own git directory, replaced through a sibling temp file in that same directory. Nothing it
+writes is ever in your working tree, so `git status`, `git ls-files -o`, `git add -A` and
+`git clean -xdf` all return exactly what they returned before — measured at `git 2.34.1`.
+**And it writes both paths only where it controls what is standing there.** A record replaced by a
+symbolic link would be read as the list of paths this `--force` may take, and a link left at the temp
+path would have the write follow it — truncating a file elsewhere and then leaving the record itself
+pointing at it. So a record that is not a regular file is refused outright
+(`WORKTREE=error reason=ledger-not-regular`, and nothing is removed), and the temp path is unlinked
+before it is written and opened `O_EXCL` when it is. **That refusal asks the file's type and not
+only whether it is a link**, because the two are different sets and the gap between them was not a
+wrong answer but a **hang**: a named pipe is not a link, so it reached the read, and opening a FIFO
+with no writer blocks forever — measured, the fence printed no line at all and the step never
+finished. Anyone who can plant a link there can run `mkfifo`, which needs no privilege.
+**The same question is asked of the directory the record sits in, one path component higher**, and
+that one arrived from a review rather than from this argument: a `revloop` that is itself a symbolic
+link passes every test made on the leaf — `[ -L ]` is false because the leaf is not the link, and
+`[ -f ]` is true because it follows the parent — so the read adopted a substituted file and the
+`--force` took the worktree named in it. It is refused as
+`WORKTREE=error reason=ledger-dir-not-regular`, on the link itself rather than on what it resolves
+to, and **step 3 refuses to record through one too**, before it creates a worktree — otherwise the
+run would keep writing its paths into the substituted file while the sweep declined to read it.
+**A second review round widened that writing test from the link to both path components**, because a
+link-only check let two other shapes through: a `revloop` that is a regular file or a named pipe made
+`mkdir -p` fail _after_ the worktree existed, leaving it created and unrecorded, and a `worktrees.txt`
+that is a named pipe made the append **block** — `[ -s ]` is false on a FIFO, so the size clause
+short-circuits and `>>` waits on a reader that never comes. Both were measured. The reader had
+already refused that shape; the writer walked into it, which is what a rule enforced on one side only
+produces.
+
+**A third round moved both sides to validate before they change anything**, which is an ordering
+rather than a new question. Step 3 now prepares and proves the ledger — real directory, regular
+leaf, readable, writable, created if absent, and no newline in the worktree path — **before** `git
+worktree add`, so a ledger it cannot use costs no worktree; and the fence proves the rewrite
+possible **before** the removal loop, under `WORKTREE=error reason=ledger-unwritable`, by
+performing its three operations — clearing the temp path, creating it, and renaming it over the
+record — rather than testing a permission that stands next to them. Two later rounds moved it
+there: a permission test passes a **directory** standing at the temp path, and a clear-and-create
+passes a sticky directory whose record belongs to another user, each failing only after the
+`--force` had run. The probe is byte- and mode-preserving, so a checkout it accepts is left as it
+was found; **step 3 runs the same probe**, so the class of states that probe decides is decided
+the same way on both sides. **It does not make their accepted states one set, and it is worth not
+overstating**: a mode-0444 record in a writable directory is refused by step 3 and swept by the
+fence, and an empty record makes the fence skip the probe altogether. What is closed is the leak
+direction — recording a worktree the sweep cannot take. **Step 3 does not accept a worktree path at
+all**, because `git worktree add` records what the path resolves to rather than the path it was
+given: it takes a **name**, checks it is a single component from a fixed character set, and builds
+the path from a parent it canonicalises itself. Three rounds of refusing one spelling and meeting the
+next — a newline, a symlinked parent, a symlinked leaf, then that leaf test itself defeated by a
+trailing slash — are why it is built rather than checked.
+Both failures were measured: a worktree created and unrecorded on one side, a worktree removed
+with its ledger line intact on the other. **The two sides prove different things because they do
+different things** — step 3 appends and so needs the file writable, the fence renames and so needs
+the directory writable — and step 3 proves **both**, since recording a worktree the fence cannot
+sweep is itself a leak.
+
+**None of these tests is atomic, and that limit is stated rather than left to be discovered.** They
+are pathname checks, so a process writing inside `$GIT_DIR` could swap the object between the check
+and the use. That is declined on the threat model: such a process already runs your code through
+`.git/config`'s `core.fsmonitor` and `core.sshCommand` and through `.git/hooks/*`, so no shell-level
+check is the boundary there — and `O_NOFOLLOW`, `flock` and inode revalidation are not portably
+reachable from a shell fence whose permission story depends on one byte-stable string. **What they
+are for is the ledger that is visibly not this run's** — a stale link, a hand-made directory, a FIFO
+left by an experiment — where the alternative is an unconditional `--force` against a path the run
+never recorded.
+**Neither is a permission the system enforces
+for you**, which is the same sentence as the one above it: the bound is in the fence's bytes and in
+`tests/fence-worktree.test.sh`, which plants a link at each of the two paths and asserts the file it
+pointed at keeps its bytes.
+**And if it cannot read that file, it removes nothing**: a record that exists and cannot be read is
+not an empty one, so the fence reports `WORKTREE=error reason=ledger-unreadable` and the sweep does
+not run, rather than reading the failure as "this run owns nothing" and printing a clean sweep over a
+record it never opened.
+**The bound is a test rather than a grant.**
+`tests/fence-worktree.test.sh` plants a worktree of another name **and a second checkout's own** beside
+one the fence must remove, and asserts both survive — with their directories, not only their
+registrations — which is the strongest form this can take while `Bash(git:*)` covers every subcommand
+equally.
+
 **The `local-*` commands hold this rule too, and push with it unless `--no-publish`.** The same shape
 applies to its four `gh` rules: the grants are present on every run, and it is the procedure rather
 than the permission system that keeps them within their purpose. That is why they are the narrow
@@ -83,7 +177,8 @@ ones.
 If that is not enough, grant subcommands individually — `Bash(git status:*)`, `Bash(git diff:*)`,
 `Bash(git log:*)`, `Bash(git add:*)`, `Bash(git commit:*)`, `Bash(git checkout:*)`,
 `Bash(git branch:*)`, `Bash(git push:*)`, `Bash(git rev-parse:*)`, `Bash(git merge-base:*)`,
-`Bash(git fetch:*)`, `Bash(git switch:*)`, `Bash(git ls-files:*)`, `Bash(git pull:*)` — and accept that the list will need
+`Bash(git fetch:*)`, `Bash(git switch:*)`, `Bash(git ls-files:*)`, `Bash(git pull:*)`,
+`Bash(git worktree:*)` — and accept that the list will need
 extending the first time a step reaches for something not on it. Nobody has measured which
 repositories need which subset.
 
@@ -240,13 +335,14 @@ disagree.
 ## Counting the prompts
 
 **Count them by string class rather than by loop, because a string class is what the permission
-system matches on.** Three exist, and only the first is covered by the rules above:
+system matches on.** Four exist, and only the first is covered by the rules above:
 
-| String                                             | Prompts                           | Why                                                           |
-| -------------------------------------------------- | --------------------------------- | ------------------------------------------------------------- |
-| A fence                                            | Once, at the first approval       | It takes no arguments, so its command string never varies     |
-| A verify command, or a `subprocess` review command | Every round it runs               | Repository-supplied. Pre-approving it is the hole             |
-| The grader, on a graded run                        | Every round, in **both** families | Procedure-owned, but it carries a model, so it is not a fence |
+| String                                             | Prompts                           | Why                                                              |
+| -------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------- |
+| A fence                                            | Once, at the first approval       | It takes no arguments, so its command string never varies        |
+| A verify command, or a `subprocess` review command | Every round it runs               | Repository-supplied. Pre-approving it is the hole                |
+| The grader, on a graded run                        | Every round, in **both** families | Procedure-owned, but it carries a model, so it is not a fence    |
+| A worktree creation, in step 3                     | Every time one is created         | Procedure-owned, but it carries a path and a commit, so likewise |
 
 **"Zero prompts per round" was never a property of the pull-request loop; it is a property of the
 fences.** A remote round runs the repository's verify commands exactly as a local round does — step
@@ -265,8 +361,31 @@ the pull-request family, which has no `--model` and interpolates nothing — bec
 that will run, and being shown a template while a different string executes is the failure the whole
 not-pre-approved rule is about.
 
-Editing a fence costs every user one re-approval; the protocol is in
-[`../CONTRIBUTING.md`](../CONTRIBUTING.md#editing-a-shell-fence).
+**The fourth row is the reason step 3 tells you to prefer a read over a worktree.** `git show`,
+`git diff` and `git log` answer most questions about another commit, and a worktree is for what they
+cannot do — build the project, or run its tests, at another commit. The command that creates one
+carries a path and a commit-ish, so it is a different string every time and cannot be a fence.
+**On an `--auto` run that prompt is a stop the flag does not suppress**, which is a cost of the
+feature rather than a defect in it: the alternative is pre-approving `git worktree add`, and a rule
+that pre-approves a path is a rule that pre-approves any path.
+
+**There are four fences, and the fourth arrived with the worktree teardown.** Step 12 runs it once
+per run — at a convergence, at a merge, and before every abort's report — so like the other three it
+is one prompt the first time and none afterwards. It takes no arguments for exactly the reason the
+wait scripts take none: a fence handed the path it should remove would be a different command string
+every session, and "always allow" would never apply to it. **The path it needs is on disk rather than
+in its bytes** — step 3 wrote it to `revloop/worktrees.txt` inside the checkout's own git directory,
+and the fence resolves that file from `git rev-parse --absolute-git-dir`, so it scopes itself to the
+checkout it is running in and its text still never varies. **That directory rather than the working
+tree**, because revloop runs against your repository and a ledger in your tree would be an untracked
+file in it — measured at `git 2.34.1`, one that both `git status --porcelain -uall` and
+`git ls-files -o --exclude-standard` return, and that `git add -A` would stage. Under the git
+directory all three return nothing.
+
+**Adding one costs every user one approval the first time the new string runs, which is not the same
+event as a re-approval** — nothing they granted has been invalidated. This release is the first time
+the distinction has mattered. Editing a fence costs every user one re-approval; the protocol is in
+[`../CONTRIBUTING.md`](../CONTRIBUTING.md#editing-or-adding-a-shell-fence).
 
 **A prompt for a fence is the bug worth reporting** — include the prompt text and the rule you
 granted. A prompt for a verify, review, or grader command is not one: those are the three strings

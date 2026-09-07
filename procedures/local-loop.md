@@ -1078,8 +1078,32 @@ the level, and a repository that wants the old number writes it.
     shipped default among them. A gate phrased as the absence of flags does not survive its flags
     being inverted; this one is phrased as the flag that exists.
 
-11. Report. Give the round count, the commit each round produced, every finding with its rung and its
-    bucket, the checks that ran, and **which model reviewed**. **Lead with every finding at the
+11. **Sweep, then report. The sweep is [`remote-loop.md`](remote-loop.md) step 12's, unchanged** —
+    the same `worktree-teardown` fence, run before the report on every exit this procedure has: the
+    two convergences, and each of `max-rounds`, `repeat-findings`, `reviewer-rate-limited`,
+    `review-command-failed`, `unparsed-review-output`, `unconfirmed-empty-review`,
+    `dirty-after-push`, and every abort step 1 can take. **Naming them is not a list to maintain**;
+    it is the observation that makes the citation work — each of those reports and finishes, so a
+    rule attached to the report is attached to all of them, which is the argument that file makes
+    about its own twelve steps.
+
+    **The fence is cited and deliberately not copied here.** `tests/extract-fences.sh --list` reads
+    [`remote-loop.md`](remote-loop.md) alone, so a second copy in this file would be outside the
+    hash pin, outside `npm run lint:sh`, and outside the test that proves it leaves a worktree it
+    did not create alone — a fence with none of the things that make a fence trustworthy, carrying
+    an unconditional `--force`.
+
+    Then report. Give the round count, the commit each round produced, every finding with its rung
+    and its bucket, the checks that ran, and **which model reviewed**. **Name every worktree the
+    sweep removed, every `WORKTREE=stuck` path it could not, every `WORKTREE=other` path it left to
+    another checkout, a terminal `ledger=error`, and any `WORKTREE=error` line at all** — under
+    `--no-publish` this report is the whole durable record, so a leftover unnamed here is a leftover
+    nobody learns about; an `error` line means the sweep did not run, which a reader who sees only
+    "reported and finished" would otherwise take for a clean one; and `ledger=error` means it ran and
+    the record it works from did not shrink, so the paths it removed are still authorized for the
+    next one.
+
+    **Lead with every finding at the
     ladder's top rung that you did not fix**, declined and accepted alike, reading the rung from the
     reviewer's `severityLevels` — **or, on a graded run, from the canonical ladder the
     grader ranked on** — **or, with neither, lead with every finding you did not fix, in the order
@@ -1178,6 +1202,16 @@ These are load-bearing. Each one exists because the obvious alternative fails.
   change behaviour. A findings ledger that suppressed a finding would be that file, with the
   suppression pointed at the one thing that decides whether the run passes. **Re-deriving is
   cheaper than being wrong**, and re-deriving is what a resumed run does.
+- **`revloop/worktrees.txt` is not a counter-example, and the difference is what the rule is about.**
+  Step 11's sweep reads it **and writes it back**, so something written by an earlier Bash call does
+  reach a later one and is then narrowed by it — but what it records is a **resource this run
+  created**, not a judgement it reached, and the only thing it can change is which directory gets
+  deleted. The write is the same kind of fact as the read and strictly less of it: the sweep retires
+  every path it consumed, so what a later call inherits is a shorter list of directories it may
+  delete and never a longer one. Nothing about the review, the findings or the
+  verdict is re-derivable from it, and nothing about them is spared by it. **A resumed run still
+  re-reviews and re-derives everything**; it just also knows what to clean up. The rule that survives
+  is the one that was always the point: **no local file may decide whether a finding was addressed.**
 
 ### Parsing
 
@@ -1218,6 +1252,20 @@ These are load-bearing. Each one exists because the obvious alternative fails.
   for the same reason: a wrapper CI does not use makes local green and remote red diverge.
 - **Never quote the contents of `.env*`.** Answer a finding that touches secrets with a path and a
   location alone.
+- **A worktree this run creates is this run's to remove**, under the rules
+  [`remote-loop.md`](remote-loop.md) step 3 gives and its `## Notes` argue for — including that the
+  path is appended to **`revloop/worktrees.txt`** inside this checkout's own git directory — not
+  into the working tree, so a measurement worktree never costs this file's step 4 its clean tree —
+  so a loop running beside this one in the same repository has its worktrees named in the report as
+  `WORKTREE=other` and removed by nobody but itself, and including that the recording is the half
+  nothing enforces. **A recorded path is also spent when it is used**: step 12's sweep rewrites the
+  record to what it could not remove, so a line buys one removal rather than that path in
+  perpetuity — which matters most here, where the same repository is swept round after round.
+  Cited rather than restated, because a second copy of a convention is the drift this project's own
+  contributing guide forbids, and this one is spelled in a fence's `case` pattern and a file name.
+  **It applies harder here**: that file's step 3 is this file's step 3, so the temptation is
+  identical, and this procedure has no pull request to leave a trace on — its record is the commit
+  and the report, and neither mentions a directory somebody left in `/tmp`.
 - **This command never merges, and publishes unless told not to.** `--merge` does not exist here at
   all, and no configuration key can turn it on or turn publishing off. If you want a merge, run
   [`remote-loop.md`](remote-loop.md) on the branch this one leaves behind — on an ordinary run that
@@ -1359,3 +1407,22 @@ takes one should say so in the report and append a line to `.revloop/field-notes
   pushed a round. That `git push` runs the hook is documented rather than observed here.
 - **`unsafe-review-command`.** Unreachable through the schema, which is the point of it, so it has
   never fired and cannot be exercised without hand-editing a validated file.
+- **The worktree sweep, on this procedure.** [`remote-loop.md`](remote-loop.md) records what has and
+  has not been measured about the fence itself — including that two loops have never run against one
+  repository at the same time, which **this** procedure makes easiest of the two: it needs no pull
+  request, so two of it on one repository is a plausible afternoon. What is unmeasured **here** is
+  that this file's step 11 runs the fence at all. No round has, and **four of the five leftovers that
+  motivated the rule were produced by runs of this loop** — `wt`, `wt-check` and `wt-check2` in this
+  repository, `rev36` in another — and not one of them was ever recorded anywhere a sweep could read.
+  So the evidence that the problem exists is local and the evidence that the fix works is not.
+  **Nor has the retirement run here.** This procedure sweeps the same checkout on every round, which
+  is the shape a spent record was added for and the shape most likely to expose the read-modify-write
+  window that file records — and it is also the procedure that makes two loops in one repository
+  plausible, since it needs no pull request. Both are fixtured and neither has been watched.
+  **And sweeping the same checkout every round is the shape that would have shown the fence's own
+  leak fastest**, which is now closed: a removal that fails after git has already deregistered the
+  worktree used to leave a path the next round could not see, spending its ledger line and printing a
+  clean sweep over a directory still on disk. It is fixtured in
+  [`remote-loop.md`](remote-loop.md)'s suite, swept twice; **no round of this loop has produced
+  one**, and this procedure is where a run most plausibly would, because it is the one that repeats
+  against a single checkout.

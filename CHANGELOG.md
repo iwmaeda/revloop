@@ -13,6 +13,436 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### A fourth fence: the loop now removes the worktrees it created
+
+**A fence was added and no existing fence changed, and those cost different things.** `wait-verdict`,
+`wait-ci` and `merge` are byte-identical and still match `tests/fence-hashes.txt`, so **there is no
+re-approval to give** — nothing you already granted was invalidated. The new `worktree-teardown` fence
+asks for one approval the first time a run reaches it, like any command string you have not seen
+before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so the diff shows one
+changed line and three unchanged hashes; if any of the three moved, an existing fence was edited by
+accident and this paragraph is wrong.
+
+**The new fence was then amended twelve times before release, and that is still not a re-approval.**
+An approval is keyed to the exact command string, and nobody has ever been prompted for the earlier
+bytes: `worktree-teardown` has not appeared in a tagged release, so there is nothing granted to
+invalidate. Against the release boundary this remains **one added fence and one first approval**, and
+`tests/fence-hashes.txt`'s `worktree-teardown` line moving again while the other three stay
+byte-identical is what says so — the count above is read from those hashes rather than from memory,
+and it was wrong here by three until it was. `CONTRIBUTING.md` carries the distinction: adding a
+fence and editing one are different events, and only the second costs anybody a re-approval.
+
+**The twelfth amendment closed the fence's own leak, and it is the one defect here that produced a
+false success line.** `git worktree remove --force` has a third outcome besides removing and
+refusing: when the worktree holds something it cannot delete, git **deregisters it first and then
+fails to finish**, exit 255 at `git 2.34.1`, leaving the directory on disk. One subdirectory with its
+write bit off is enough, and that is ordinary for a worktree whose stated purpose is building the
+project or running its tests. The sweep was driven by `git worktree list` alone, so the round that
+failed reported `WORKTREE=stuck` correctly and **every round after it never saw the path again**:
+the ledger line was spent by the rewrite and the terminal line read
+`WORKTREE=swept removed=0 other=0 ledger=ok` over a directory that was still there, permanently and
+with nothing left to report it. That is the leak this fence was written to close, arriving through
+the sweep that closes it — the five leftovers that motivated the feature were also directories
+nothing had a record of. **A second loop now walks the record rather than the list**: a recorded path
+the list no longer carries but which is still on disk is reported `stuck` and keeps its line. It
+removes nothing, so neither bound on the `--force` moves.
+
+**The fixture that should have caught it was the reason it was missed.** `stuck` was reached only
+with `git worktree lock`, described in the suite as a stand-in for "a permission error or a
+filesystem that will not release the directory". A lock is refused **before** git touches anything,
+so the registration survives and a second sweep finds the path again; a permission error is refused
+**after** the deregistration, so a second sweep never sees it. The substitute differed from the class
+it stood for in the exact dimension the sweep depended on, and the stated reason for using it — that
+a lock was the only refusal producible deterministically without root — was itself false. Both shapes
+are fixtured now, and the second is swept twice, because the second round is where the defect lived.
+
+**Re-measuring the whole table then found two more claims that were wrong.** It said seven lines in
+the fence could be deleted with the suite green; `set -f` and the fence's own sentinel capture make
+**nine**, and the sentence that all such lines lived in step 3's block rather than in a fence was
+false with them. They need no text assertion — every byte of a fence is pinned by
+`tests/fence-hashes.txt`, which is what step 3's block does not have — and the section now says that
+instead of claiming a coverage it did not have. The ledger-directory read guard's row read **11** and
+no mutation reproduces it: the guard entire turns 5, measured against the unchanged suite as well as
+this one. 11 is what step 3's usability test turns, one row below.
+
+**The seventh amendment closed a hang, and the review that found it is the reason the guard's name
+is now true.** `reason=ledger-not-regular` was written for a symbolic link and named for the
+category, and those are not the same set: a **named pipe** is not a link, so it passed `[ -L ]`
+untouched and reached `cat`, which blocks on opening a FIFO with no writer. Measured against the
+unwidened guard, the fence ran to `timeout` and printed **no `WORKTREE=` line at all** — step 12
+never finished, so the report every exit of that procedure owes never happened. Every other route to
+"no terminal line" is an interruption from outside; this one was an input the guard was believed to
+exclude, and `mkfifo` needs no privilege, so it sat inside the threat model the link already had.
+The test is now the file's type, with `[ -L ]` kept as the first half because `[ -e ]` follows a
+link and a **dangling** one would otherwise be reported as the wrong refusal. `docs/permissions.md`
+already claimed a record that is not a regular file was refused outright; this is what makes that
+sentence true rather than aspirational. **The fixture runs under a cap**, because a regression here
+wedges the suite instead of reddening it.
+
+**The eighth amendment closed the same class one path component higher, and it is the first defect
+here that a review found rather than an argument did.** Codex returned it as a P1 and it reproduced
+exactly: with `revloop` **itself** a symbolic link to a directory holding an ordinary
+`worktrees.txt`, every test the record guard makes comes back looking healthy — `[ -L "$F" ]` is
+false because the **leaf** is not the link, and `[ -f "$F" ]` is true because it **follows the
+parent** — so `cat` adopted a file whose location somebody else chose as the authorization list for
+an unconditional `--force`. Measured against the unguarded fence: the recorded worktree removed, its
+untracked file gone, and `WORKTREE=swept removed=1 other=0 ledger=ok` printed over all of it. The new
+`reason=ledger-dir-not-regular` refuses the link itself and never what it resolves to, which is what
+keeps a **dangling** one from being misreported as `ledger-unreadable`. The shapes that are not links
+still fail closed where they did: a `revloop` that is a regular file or a named pipe makes `cat` fail
+with `ENOTDIR` — measured, without blocking — so only the symbolic link ever succeeded at supplying
+bytes, and only it needed a refusal of its own.
+
+**The guard has a writing half, because a rule enforced on one side only trades one failure for
+another.** `mkdir -p` succeeds on a `revloop` that is already a link, so step 3 would have gone on
+appending the run's own worktree paths into the substituted file while the fence refused to read it
+— a destroyed worktree exchanged for a leaked one, under a reason naming neither. Step 3 now refuses
+any ledger path it cannot write, **before `git worktree add`** so that an unusable one costs the run
+no worktree at all.
+
+**A second review round widened that writing half from the link to the whole path, and both shapes it
+added were measured failures rather than arguments.** A `revloop` that is a **regular file** or a
+**named pipe** passed a link-only test and made `mkdir -p` fail _after_ the worktree existed —
+measured, the worktree created and the record absent, which is the leak the placement was meant to
+prevent, arriving through a shape the link test did not cover. And a `worktrees.txt` that is a
+**named pipe** is the reading side's hang from the other end: `[ -s ]` is false on a FIFO, so the
+newline clause short-circuits and `>>` blocks on opening it with no reader — measured, the command
+had to be killed, with the worktree already created. **The reader refused that shape and the writer
+walked into it**, which is what a rule enforced on one side only produces.
+
+**That round declined the rest of the finding on the threat model, and wrote the reason down.** It
+asked for one serialization and no-follow mechanism with identity revalidation across every pathname
+test, on the premise of a process that can write inside `$GIT_DIR`. Such a process already has
+arbitrary code execution as you — `core.fsmonitor` and `core.sshCommand` in `.git/config`, and
+`.git/hooks/*`, are run by ordinary git commands this procedure invokes — so winning the race would
+defend a boundary already crossed two files away; and `O_NOFOLLOW` is not reachable from POSIX shell,
+`flock` is not POSIX, and `stat`'s inode flags differ between GNU and BSD, so the mechanism would add
+a non-portable dependency, **cost every user a re-approval**, and still only narrow the window.
+`## Unexercised paths` now records the race as a class nothing covers.
+
+**A third review round moved both sides to validate before they change anything.** Codex returned the
+ordering as a P1 and both halves reproduced. On the writing side, a ledger file the run could not
+write let `git worktree add` succeed and the append fail — measured, **the worktree created and
+unrecorded**, which is the leak the whole step exists to close. On the sweeping side, a read-only
+ledger directory produced `WORKTREE=removed` and then `ledger=error` — measured, **the worktree gone
+from disk and its line still in the record**, authorized for another sweep. Step 3 now prepares and
+proves the ledger — real directory, regular leaf, readable, writable, created if absent — **before**
+`git worktree add`, and the fence proves the rewrite possible **before** the removal loop, under
+`reason=ledger-unwritable`. A leak the next run sweeps beats a removal whose authorization outlives
+it.
+
+**The same round refused a worktree path containing a newline, which is the one shape that leaked
+permanently.** `git worktree add` accepts it, the ledger takes it raw, and both the record and
+`git worktree list --porcelain` are newline-delimited — so the entry splits, the fence reports
+`WORKTREE=stuck` against a truncated prefix, and the real worktree is never removed. Measured, and
+`stuck` is the one outcome that **keeps** its ledger line, so the leak was permanent. Refusing it in
+step 3 costs nothing: the path is one revloop composes.
+
+**A fifth round took the probe the rest of the way, and found the newline check reading the wrong
+string.** The probe still proved only two of the rewrite's three operations — it cleared and created
+`$F.new` and never attempted the rename onto `$F` — so a sticky directory holding another user's
+record passed it and failed at the rename, after the `--force`. It now does all three, with `cp -p`
+so the record's bytes **and mode** come back unchanged; a redirection would recreate it at the umask,
+silently relaxing a read-only ledger and destroying the one fixture that separates `mv` from a
+truncate in place. **The rename is the single operation here no fixture can fail**: producing "create
+succeeds, rename fails" needs a second user or root, so it is listed at 0 in the table rather than
+counted as coverage.
+
+**The same round found step 3 checking the path it was given rather than the path it records.**
+`rev-parse --show-toplevel` resolves symbolic links, so a `<scratch>` that is a link whose target
+contains a newline records a value that splits although the typed path does not — measured, 0
+newlines in, 2 out, after which the sweep cannot match the entry, retires it, and reports `swept`
+while the worktree stays on disk permanently. **After three rounds of closing one spelling and
+meeting the next, step 3 stopped accepting a path at all.** It takes a **name**, checks it is a
+single component drawn from `A-Za-z0-9._-` and carrying the family prefix, and **builds** the path
+from a parent it canonicalises itself — so no slash can appear in the name, no suffix can attach
+to it, and `[ ! -L "$W" ]` runs on a string the step composed rather than one it was handed. The
+spellings that got there: a newline in the typed path; a symlinked parent whose target held one; a
+parent spelled with two leading slashes, which git records with one and which is **refused** rather
+than normalised because POSIX may make `//` a network root; a git directory whose own name ends in a
+newline, which `$( )` silently trims — so two checkouts would share one ledger and one sweep could
+retire the other's lines, and both step 3 and the fence now capture it with a sentinel; and a
+symlinked leaf, which is a separate hole with the same cause: `git worktree add` accepts such a
+path and records its target, so a family-named `$W` pointing outside the family was recorded under
+a name the fence's filter drops before the membership test, leaving `swept removed=0 other=0
+ledger=ok` over a worktree that is never even called `other`; and then that leaf test itself,
+defeated by `$W` spelled with a trailing slash, a doubled slash or a `/.` suffix, each of which
+makes the test **follow** the link and brought the same leak straight back. The first spelling of
+the parent check was itself wrong — `pwd -P` prints a trailing newline, so piping it to `wc -l`
+counts 1 for every clean path and refused everything — and the ordinary-scratch control caught it
+before it shipped.
+
+**And the temp-path probe now runs on both sides, which closes the leak direction rather than making
+the two accepted sets identical.** A directory standing at `$D/worktrees.txt.new` passes every
+permission test on the directory and stops the sweep, so step 3 was recording worktrees the fence
+would refuse. The answer was not another test but the same one: both sides decide that class by
+performing the three operations. **Two differences remain and are deliberate** — a mode-0444 record
+in a writable directory is refused by step 3 and swept by the fence, because one appends and the
+other renames; and an empty record makes the fence skip the probe entirely, since with nothing
+authorized there is no rewrite to prove. An earlier draft of this entry claimed the sets coincide,
+which they do not.
+
+**The probe performs the rewrite's own operations, and the first version of it did not.** It asked
+`[ -w ]` of the ledger directory, to avoid a side effect: an unlink-and-recreate probe also removes a
+symbolic link planted at `$F.new`, so the rewrite's own `rm -f` stops being what that fixture
+measures. A fourth review round returned the consequence as a P1 and it reproduced — `[ -w ]` is true
+of a writable directory that nonetheless holds a **directory** at `$F.new`, which `rm -f` cannot
+clear, so the rewrite failed _after_ `git worktree remove --force` had run and printed
+`WORKTREE=removed` then `ledger=error` with the spent path still authorized. **A permission test
+answers the question next to the one the fence needs.** It now clears and creates the temp path.
+
+**The same round found the two sides still proving different things, and one direction of that was a
+leak.** Step 3 appends, so it needs the record writable; the fence renames, so it needs the
+_directory_ writable and nothing on the record. A mode-0555 directory holding a mode-0666 record
+therefore passed step 3, recorded a worktree, and was refused by the sweep — **recorded and
+unsweepable**. Step 3 now proves the directory writable too. The opposite direction stays and is
+correct: a mode-0444 record in a writable directory is refused by step 3 and swept by the fence, the
+producer being the stricter of the two and declining to create rather than creating something it
+cannot record. The skipped probe on an empty record is likewise not a bypass — with nothing
+authorized the loop removes nothing, so there is no rewrite to prove — and both shapes are fixtures.
+
+**The reordering cost real mutation coverage and the table says so rather than absorbing it.** The
+rewrite entire fell from 20 red to 18, and three more lines joined the ones that can be deleted
+with the suite green — each for its own reason, not a shared one. The rewrite's own `rm -f
+"$F.new"` is 0 because the probe clears that path first, and it stays as the second line of
+defence against a re-plant in the window **after** the probe, which is the race declined above.
+Its `2>/dev/null` is 0 because the fixtures that used to make the rewrite speak now refuse
+earlier, and it stays because the fence's output is parsed and a stray `Permission denied` is not
+a `WORKTREE=` line. The probe's own `mv` is 0 because the state that fails it needs a sticky
+directory holding another user's record — a second user or root — and it stays because it is the
+operation the rewrite performs. `mv`-replaced-by-a-truncate is held at 3 only because a fixture
+was added to hold it: a mode-0444 record in a writable directory can be renamed over and cannot be
+truncated in place, which is the one shape that separates the two without a race.
+
+**Both halves of the writing guard are held by assertions on the procedure's text, and the first one
+written was vacuous.** No test in `tests/fence-worktree.test.sh` can reach a command that file does
+not run, so the pin is a search of the procedure — and the first literal chosen, `[ ! -L "$D" ]`,
+also appears three times in the prose describing the guard, so deleting the guard outright left the
+assertion **green**. It now matches a compound clause the command carries and the prose does not.
+**A prose assertion satisfied by prose pins nothing**, which is recorded beside the mutation table
+rather than only corrected.
+
+**The same round moved one bound from the reader to the writer, which is where it turns out to
+belong.** `>>` onto a record whose last line lost its newline glues two absolute paths into a third
+that is syntactically valid and matches no worktree — measured, both entries came back
+`WORKTREE=other` under `WORKTREE=swept removed=0 other=2 ledger=ok`, with both directories still on
+disk: **the run's own worktrees, leaked, under the success token**. The obvious fix is a reading
+guard and it is worse than the bug. `M=$(cat "$F")` strips trailing newlines, so an unterminated
+record already reads back and sweeps **correctly**, and a fence that refused it would convert a
+working state into a refusal that leaks every worktree the run recorded — the exact shape
+`reason=inside-worktree` was narrowed to stop producing. Nothing distinguishes the glued record
+afterwards either. So step 3 restores the newline **before** it appends, while the two lines are
+still two; the fence is unchanged by this half, and `glued-ledger` keeps the unrepaired append as a
+fixture so the clause's absence stays measured. **Two fixtures and one prose assertion** hold it,
+because the test helper carries a copy of the clause and a copy can drift from what it copies.
+
+**And the membership read lost its pipeline, which is a hardening no fixture can kill.** Under
+`set -o pipefail` a record larger than the pipe buffer lets `grep -q` exit on an early match before
+`printf` has finished writing; `printf` takes `SIGPIPE` and the pipeline's non-zero status reads as
+"not ours", so a path this checkout owns comes back `WORKTREE=other` and is left behind. It needs
+roughly 2300 unretired lines in one checkout, which the retirement puts out of reach — so the
+here-string is kept for removing the only pipeline in this fence whose status is tested, and because
+it costs fewer bytes than what it replaces. It is **one of the seven** lines recorded in
+`## Unexercised paths` as deletable with the suite green rather than counted as coverage.
+
+**If you granted git subcommands individually rather than `Bash(git:*)`, add `Bash(git worktree:*)`
+before your next run.** That is a hard failure rather than a prompt: the teardown cannot run without
+it. The blanket rule in `README.md` and `docs/permissions.md` already covers it.
+
+**Neither procedure had ever mentioned a git worktree, and runs were leaving them behind.** Nothing
+told a run to create one, and steps 3 and 10 make it tempting anyway, because "did this failure
+predate my change" and "what does the base branch score" are questions about another commit. Five
+leftovers were measured across two repositories — `rev36`, `main-wt`, `wt`, `wt-check`, `wt-check2` —
+four of them at `/tmp/<name>`, where a later session has neither the path nor a reason to look.
+
+**A run now writes down what it created, in `revloop/worktrees.txt` inside the checkout's own git
+directory.** Step 3 gives the command: a worktree goes **under the session scratchpad**, at a path
+whose last component begins with **`revloop-wt-`**, with **`--detach`** so a measurement never takes
+a branch hostage — and then **its path is appended to the ledger**, which is what makes it this run's.
+Step 12 sweeps exactly the recorded ones; `procedures/local-loop.md` step 11 cites that step rather
+than copying the fence, since a copy would sit outside the hash pin, outside `lint:sh` and outside
+the test. The ledger is **never read as input to a classification** — the only thing it decides is
+which directory the sweep may delete.
+
+**The ledger is not a file in your working tree, and for revloop that is the difference between
+working and not.** revloop runs against **your** repository, where this repository's `.gitignore` has
+no reach, so a record at the checkout's top level would be an untracked file in yours — and measured
+at `git 2.34.1`, `.revloop/worktrees.txt` in a repository that does not ignore it is returned by both
+`git status --porcelain -uall`, which is the clean-tree requirement the local loop's step 4 depends
+on, and `git ls-files -o --exclude-standard`, which is the secret-scan preflight. **The first
+measurement worktree of a run would have cost that run its clean tree.** Under the git directory both
+return nothing, `git add -A` cannot stage it and `git clean -xdf` does not touch it, so **"never
+stage the ledger" stopped being a rule and became a property of where it lives** — and no consumer
+repository needs an ignore rule for it. `.revloop/field-notes.md` and `.revloop/grading-input.txt`
+**stay in the tree and keep that cost on purpose**: they are artifacts for a person to find, and a
+record for a person is worthless where only a fence looks.
+
+**The record is a file because nothing a fence can re-derive is per run, and the attempt is worth
+recording.** A fence takes no arguments and shell state does not survive the call that set it, so the
+first design put the run's identity in the worktree's **name**: `revloop-wt-$PPID-`, on the reasoning
+that the shell expands `$PPID` at run time and the fence's bytes therefore never change. **That is
+false on a harness this project supports.** On the Codex path, where each Bash action becomes a shell
+call, independent calls can share one app-server as their parent — so two concurrent runs expand
+`$PPID` to the same number, land in the same namespace, and each teardown would force-remove the
+other's live measurement. A harness's session id is worse, not better: one variable, one entry point,
+absent from the other. A written path has no such dependency, and the fence still takes no arguments
+— it resolves the ledger from `git rev-parse --absolute-git-dir`.
+
+**Two loops running against one repository are in each other's `git worktree list`, and the ledger is
+what separates them.** It sits inside the checkout's own git directory, which is per worktree where
+the common one is not — measured at `git 2.34.1`, `--absolute-git-dir` prints `.git` in an ordinary
+checkout and `.git/worktrees/<name>` in a linked one, while `--git-common-dir` prints the same path
+in both and would have merged the two runs back into one ledger. So two runs write two different
+files; the case it does not separate is two runs in **one** checkout, which was already out of reach
+because they would share HEAD, the index and the branch. Anything family-named that this checkout's
+ledger does not claim is printed as `WORKTREE=other` and walked past. **A leftover from a run that
+crashed before its sweep is still in its own checkout's ledger**, so the next run there takes it —
+the earlier design abandoned it to nobody, and that trade is now settled the other way.
+
+**A worktree of any other name is never touched, and that is the second bound rather than the first.**
+The ledger says a worktree is this run's; the name is what stops a truncated or hand-edited ledger
+line from aiming an unconditional `--force` outside the family.
+`tests/fence-worktree.test.sh` holds both: it records a worktree of another name and asserts that
+recording it was not enough, plants **a second checkout's live measurement** beside one the fence must
+remove and asserts it survives with its **directory**, and sweeps from both checkouts in turn.
+`revloop-wt-` rather than `revloop-` deliberately: this project is called revloop, and
+`../revloop-fix` is a plausible worktree for somebody working on it.
+
+**The obligation is attached to the report rather than to a step**, which is what makes it reach
+every exit: every abort in both files reports and finishes, so one rule covers all of them, including
+the next abort somebody adds.
+
+**Two terminal lines, and only one is success.** `WORKTREE=swept removed=N other=K ledger=S` when
+nothing of this run's was left behind, `WORKTREE=partial removed=N stuck=M other=K ledger=S` when
+something was — **the failure token does not contain the success token**, for the reason
+`CHECKS_FAILED` is not called `NOT_ALL_PASS`, and `other=` rides on both because `swept` is a claim
+about this run rather than about the repository. Six guards name themselves rather than passing
+silently: `WORKTREE=error reason=not-a-repo`, because a failed `git worktree list` prints no rows and
+would otherwise be read as a clean sweep; `WORKTREE=error reason=inside-worktree`, because a
+fence run from inside a measurement worktree would read that worktree's own git directory, find no
+ledger, and print a clean sweep over a record it never opened;
+`WORKTREE=error reason=ledger-unreadable`, because a record that exists and cannot be read is not an
+empty one; `WORKTREE=error reason=ledger-not-regular` and
+`WORKTREE=error reason=ledger-dir-not-regular`, because a record — or the directory holding it —
+whose location somebody else chose is not one this unconditional `--force` may take its list from;
+and `WORKTREE=error reason=ledger-unwritable`, because a record that cannot be rewritten would leave
+every path it just removed still authorized.
+
+**An unreadable ledger is refused rather than treated as an absent one.** The read fell back to an
+empty value on any failure, and an empty value is not neutral here: every recorded worktree then
+falls out as somebody else's, the rewrite is skipped so `ledger=ok` survives, and the terminal line
+announces a clean sweep **over a record nothing opened**, with the run's own worktrees still on disk.
+Measured at `git 2.34.1` against a ledger at mode `0200`: `WORKTREE=swept removed=0 other=1
+ledger=ok`, the worktree present and its untracked file intact. The guard asks
+`[ -e "$G/revloop" ]` — about the ledger's **directory** and not the ledger — because permissions are
+checked per component: a file test is both unreachable, since a file that exists implies a parent
+that does, and blind to a directory whose search bit is gone, which is exactly the state where the
+record is present and unreadable at once.
+
+**A swept path stops being authorized, and it used not to.** The record was append-only, so a line
+outlived the worktree it was written for and kept that path authorized for the fence's unconditional
+`--force` **forever** — and the family name is no second bound in that case, because whatever appears
+at that path next is family-named by construction. A later round, another checkout, or a person
+creating a worktree where one of the loop's used to be would have had it deleted with its untracked
+work in it. The sweep now rewrites the record to **exactly the paths it could not remove**: a removal
+spends its line, so does a name refusal, and so does a worktree that left the repository by a route
+the loop never walks. Only a `stuck` path keeps one. `ledger=ok` on the terminal line means the
+record now holds exactly what that line calls `stuck`; `ledger=error` means the removals happened and
+the record did not shrink, so those paths are authorized for one more sweep — nothing is lost, since
+the rewrite renames a sibling over the target and a failure leaves the previous record whole.
+
+**And a checkout of your own named `revloop-wt-something` no longer refuses the sweep.**
+`reason=inside-worktree` used to read the invoking checkout's last path component alone, which
+reserved that name for every checkout anybody might run a loop from — a clone at
+`~/src/revloop-wt-client`, or a branch checkout named `revloop-wt-fix`, aborted the whole teardown
+and left behind every worktree the run had recorded, which is the leak the fence exists to close. A
+measurement worktree is not a name: it is family-named, **linked**, and has **no record of its own**,
+because step 3 writes into the git directory of the checkout it runs from and never into the worktree
+it just created. The guard asks all three, and `[ -f "$G/gitdir" ]` is the linked test — measured at
+`git 2.34.1`, a linked worktree's git directory holds a `gitdir` file and an ordinary checkout's
+`.git` does not. **The floor did not move**: that layout arrived with worktrees in 2.5, below the 2.17
+`worktree remove` already assumed. The hazard the old guard disarmed on its way past — at
+`git 2.34.1`, `remove --force` deletes the worktree the shell is standing in and exits 0 — is now
+refused by the loop itself, which never calls `remove` on the path it is standing in and reports it
+`stuck`.
+
+**The fence carries no `git worktree prune`, and that is a measurement rather than an omission.**
+`remove --force` already deregisters a worktree whose directory is gone (`git 2.34.1`, exit 0), so a
+prune would add nothing while reaching past the ledger to every stale registration in the
+repository — including one of your own on a drive that happens to be unmounted, and including
+another run's.
+
+**Creating a worktree costs a permission prompt every time, and `--auto` cannot suppress it.** The
+command carries a path and a commit-ish, so it is a different string on every invocation and cannot
+be a fence. `docs/permissions.md` counts it as a fourth string class, and step 3 says to prefer
+`git show`, `git diff` and `git log`, which answer most questions about another commit without
+leaving the tree you are in.
+
+**The record and its temp file are now written only where the fence controls what is standing
+there.** `$F.new` was a fixed name written with a plain `>`, so anything able to write the ledger's
+directory could leave a symbolic link at it: the redirection followed the link and truncated whatever
+it pointed at, and the rename then left **the record itself** a link to that file — which step 3
+appended into and the fence read back as the list of paths its unconditional `--force` may take.
+Measured at `git 2.34.1` against the unhardened rewrite, with a link planted at `$F.new`: the target
+emptied, `worktrees.txt` a link to it, and `WORKTREE=swept removed=1 other=0 ledger=ok` printed over
+all of it — **the false success line this fence's whole design refuses to print.** Three changes
+answer it. The temp path is unlinked before it is written, and **the unlink is the first link of the
+`&&` chain rather than a statement before it**, because a read-only ledger directory makes the unlink
+fail while a write _through_ a link to a file outside that directory still succeeds — so a fence that
+unlinked and wrote anyway would truncate the target and report `ledger=error`, naming a failure other
+than the one that happened. The write is then `O_EXCL` under `set -C`, which covers the window
+between a successful unlink and the redirection. And a record that is not a regular file is refused
+before it is read at all: `WORKTREE=error reason=ledger-not-regular`, the sweep does not run, and
+nothing is removed — because `[ -e ]` and `[ -f ]` both follow a link, so this is the one condition
+neither of the other two read guards can see.
+
+**Adding the unlink retires an argument this file made in the other direction.** The residue a failed
+rename leaves at `worktrees.txt.new` was documented as permanent, on the reasoning that an `rm` in a
+fence whose entire argument is a bounded `--force` costs more than the file does. That was right
+about the residue and wrong about what else a fixed temp name is good for; the leftover is now one
+sweep long, as a consequence of the guard rather than its purpose. It also decides the shape:
+`set -C` alone would have been the wrong fix, since noclobber refuses an existing **regular** file
+too — measured at `bash 5.1.16` — so without the unlink the first failed rename would have wedged
+every later rewrite into `ledger=error`.
+
+**And the family name now means one thing in both places it is written.** Step 3 says the last path
+component **begins with** `revloop-wt-`; the fence asked for a character after the prefix, so a run
+whose `<slug>` came out empty recorded a path the sweep then skipped in silence — not removed, not
+named as another's, and its ledger line retired by the rewrite regardless, under a `swept` line. The
+pattern is `revloop-wt-*` now. A worktree named `revloop-wt` without the hyphen is still outside the
+family, and the pattern's own trailing `-` is what refuses it, as it always was.
+
+**Nothing has run this in a loop.** Both `## Unexercised paths` sections say so, and the honest part
+is which half is unmeasured: the sweep is exercised, and **the recording is not** — none of the five
+leftovers that motivated this was ever written down anywhere. **It fails open.** A worktree created
+without its ledger line is left behind exactly as it is today, under a procedure that now says it
+cleans up, and the report cannot mention it because the fence never saw it. **Two loops have never
+run against one repository at the same time either** — the separation is measured by hand against a
+real repository with two checkouts, and by fixture, but not by the situation it exists for. And **seven**
+lines in the fence can be deleted with the suite green: the guard on `git worktree list`, the guard
+on `git rev-parse --absolute-git-dir` — since `--show-toplevel` has already succeeded above it —
+the rewrite's `set -C`, whose subject is a second process replanting a link between the unlink and
+the write, which no fixture races, the membership read's here-string, whose subject is a record
+larger than the pipe buffer, and — since the write probe began clearing and creating `$F.new` before
+the loop — the rewrite's own `rm -f "$F.new"`, its `2>/dev/null` and the probe's own `mv`, whose
+conditions the probe now
+reaches first. The last two stay as second lines of defence against a re-plant in the window after
+the probe, which is the race declined above. All seven are recorded in `## Unexercised paths` rather
+than counted as coverage — and re-measuring the whole suite across **263** assertions and **thirty**
+throwaway repositories did not change that.
+
+**Three more things the sweep's rewrite does not cover, all written down rather than argued away.**
+The retirement is measured by hand against a real repository — a path recorded, swept, retired, then
+re-occupied and correctly named `WORKTREE=other` with its untracked file intact — but **no round has
+ever recorded a path, spent it, and re-used it**. `ledger=error` is produced by a read-only directory
+and `reason=ledger-unreadable` by a `chmod`, which stand in for the full disk, the lost permission or
+the ownership change a run would actually hit, and both fixtures skip themselves as root. In a
+**linked** checkout whose own name is in the family, an unreadable ledger satisfies the
+`inside-worktree` guard first, so that state reports the wrong one of the two reasons — both refuse
+and neither removes anything. And the record is read once at the top of the fence and written once at the bottom,
+so a line appended in between is discarded — which needs **two runs in one checkout**, a
+configuration that already could not work, since they would share HEAD, the index and the branch.
+
 ## [0.8.0] - 2026-09-04
 
 **No fence changed, so there is no re-approval to give.** The three shell fences in
