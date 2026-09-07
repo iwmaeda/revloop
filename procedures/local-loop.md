@@ -1096,10 +1096,12 @@ the level, and a repository that wants the old number writes it.
     Then report. Give the round count, the commit each round produced, every finding with its rung
     and its bucket, the checks that ran, and **which model reviewed**. **Name every worktree the
     sweep removed, every `WORKTREE=stuck` path it could not, every `WORKTREE=other` path it left to
-    another checkout, and any `WORKTREE=error` line at all** — under `--no-publish` this report is
-    the whole durable record, so a leftover unnamed here is a leftover nobody learns about, and an
-    `error` line means the sweep did not run, which a reader who sees only "reported and finished"
-    would otherwise take for a clean one.
+    another checkout, a terminal `ledger=error`, and any `WORKTREE=error` line at all** — under
+    `--no-publish` this report is the whole durable record, so a leftover unnamed here is a leftover
+    nobody learns about; an `error` line means the sweep did not run, which a reader who sees only
+    "reported and finished" would otherwise take for a clean one; and `ledger=error` means it ran and
+    the record it works from did not shrink, so the paths it removed are still authorized for the
+    next one.
 
     **Lead with every finding at the
     ladder's top rung that you did not fix**, declined and accepted alike, reading the rung from the
@@ -1201,9 +1203,12 @@ These are load-bearing. Each one exists because the obvious alternative fails.
   suppression pointed at the one thing that decides whether the run passes. **Re-deriving is
   cheaper than being wrong**, and re-deriving is what a resumed run does.
 - **`revloop/worktrees.txt` is not a counter-example, and the difference is what the rule is about.**
-  Step 11's sweep reads it, so something written by an earlier Bash call does reach a later one — but
-  what it records is a **resource this run created**, not a judgement it reached, and the only thing
-  it can change is which directory gets deleted. Nothing about the review, the findings or the
+  Step 11's sweep reads it **and writes it back**, so something written by an earlier Bash call does
+  reach a later one and is then narrowed by it — but what it records is a **resource this run
+  created**, not a judgement it reached, and the only thing it can change is which directory gets
+  deleted. The write is the same kind of fact as the read and strictly less of it: the sweep retires
+  every path it consumed, so what a later call inherits is a shorter list of directories it may
+  delete and never a longer one. Nothing about the review, the findings or the
   verdict is re-derivable from it, and nothing about them is spared by it. **A resumed run still
   re-reviews and re-derives everything**; it just also knows what to clean up. The rule that survives
   is the one that was always the point: **no local file may decide whether a finding was addressed.**
@@ -1253,7 +1258,9 @@ These are load-bearing. Each one exists because the obvious alternative fails.
   into the working tree, so a measurement worktree never costs this file's step 4 its clean tree —
   so a loop running beside this one in the same repository has its worktrees named in the report as
   `WORKTREE=other` and removed by nobody but itself, and including that the recording is the half
-  nothing enforces.
+  nothing enforces. **A recorded path is also spent when it is used**: step 12's sweep rewrites the
+  record to what it could not remove, so a line buys one removal rather than that path in
+  perpetuity — which matters most here, where the same repository is swept round after round.
   Cited rather than restated, because a second copy of a convention is the drift this project's own
   contributing guide forbids, and this one is spelled in a fence's `case` pattern and a file name.
   **It applies harder here**: that file's step 3 is this file's step 3, so the temptation is
@@ -1408,3 +1415,7 @@ takes one should say so in the report and append a line to `.revloop/field-notes
   motivated the rule were produced by runs of this loop** — `wt`, `wt-check` and `wt-check2` in this
   repository, `rev36` in another — and not one of them was ever recorded anywhere a sweep could read.
   So the evidence that the problem exists is local and the evidence that the fix works is not.
+  **Nor has the retirement run here.** This procedure sweeps the same checkout on every round, which
+  is the shape a spent record was added for and the shape most likely to expose the read-modify-write
+  window that file records — and it is also the procedure that makes two loops in one repository
+  plausible, since it needs no pull request. Both are fixtured and neither has been watched.

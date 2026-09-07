@@ -78,15 +78,22 @@ a fork, so the branches are your own.
 **One `--force` is constructed by a procedure, and it is not a push.** Step 12's
 `worktree-teardown` fence runs `git worktree remove --force`, so the sentence above — that neither
 procedure ever constructs a `--force` — is about pushes and about nothing else. What bounds the
-removal is not the permission system either: **two conditions have to hold together.** The path must
-be a line in `revloop/worktrees.txt` inside your checkout's own git directory, which is where step 3
-records every worktree it creates; and its last component must begin with `revloop-wt-`, the name
-step 3 requires. The ledger is what says the worktree is this run's — `git worktree list` answers for the
+removal is not the permission system either: **two conditions have to hold together, and the first is
+spent when it is used.** The path must be a line in `revloop/worktrees.txt` inside your checkout's own
+git directory, which is where step 3 records every worktree it creates; and its last component must
+begin with `revloop-wt-`, the name step 3 requires. **The sweep then rewrites that record to the
+paths it could not remove**, so a line authorizes one removal rather than that path forever — without
+which a worktree you later create where one of the loop's used to be would be inside the match, since
+it carries the same name. The ledger is what says the worktree is this run's — `git worktree list` answers for the
 whole repository, so a loop running beside yours would otherwise be inside the same match, and it
 writes its own file in its own checkout instead. The name is the second bound, held back for the
 ledger's bad day. Anything of that name the ledger does not claim is reported as `WORKTREE=other` and
 left alone. The fence passes nothing else to that command either — no `git worktree prune`, which
 takes no path and would reach every stale registration in the repository including yours.
+**It writes one file, and this is the page that has to say so**: `revloop/worktrees.txt` inside your
+checkout's own git directory, replaced through a sibling temp file in that same directory. Nothing it
+writes is ever in your working tree, so `git status`, `git ls-files -o`, `git add -A` and
+`git clean -xdf` all return exactly what they returned before — measured at `git 2.34.1`.
 **The bound is a test rather than a grant.**
 `tests/fence-worktree.test.sh` plants a worktree of another name **and a second checkout's own** beside
 one the fence must remove, and asserts both survive — with their directories, not only their

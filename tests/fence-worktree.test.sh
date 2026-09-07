@@ -16,6 +16,22 @@
 # repository below deliberately records a worktree of another name and asserts
 # that recording it was not enough.
 #
+# AND THE FIRST CONDITION IS A LEASE RATHER THAN A LICENCE, which is the newest
+# claim here and the one two repositories exist for. The ledger used to be
+# append-only, so a path stayed authorized for that unconditional `--force`
+# forever after its own worktree was gone -- and the name is no help at all
+# there, because whatever turns up at that path next carries the same name. The
+# sweep now rewrites the record to exactly the paths it could not remove, so
+# `reuse` plants a second worktree at a path the first sweep consumed and
+# `hand-removed` retires a line whose worktree left the repository some other
+# way. Both assert the later worktree is named `WORKTREE=other` and keeps its
+# untracked file.
+#
+# THE RECORD IS EMPTIED AND NEVER DELETED, and that is load-bearing rather than
+# lazy. Its EXISTENCE is what the `inside-worktree` guard reads, so a sweep that
+# unlinked an emptied ledger would make a checkout that has recorded worktrees
+# look like one that never has -- see the guard paragraph below.
+#
 # THE LEDGER LIVES UNDER THE GIT DIRECTORY, NOT AT THE TOP LEVEL, and one fixture
 # exists solely for that. revloop runs against somebody else's repository, where
 # this project's .gitignore has no reach, so a record in the working tree is an
@@ -42,17 +58,52 @@
 # `git worktree remove --force` one recorded line away from a developer's own
 # tree.
 #
-# EIGHT REPOSITORIES, BECAUSE THE OUTCOMES CANNOT SHARE ONE. The ordinary sweep
+# THIRTEEN REPOSITORIES, BECAUSE THE OUTCOMES CANNOT SHARE ONE. The ordinary sweep
 # must print no `stuck` at all, so the worktree that produces one cannot stand in
 # the same repository as that assertion; the no-prune case must hold a stale
 # registration and NO worktree of the run's own, since the claim is about what
 # the fence does when it owns nothing; the guards need a repository that is not
 # one, and a cwd inside a worktree the fence would otherwise delete; the
 # two-checkout case needs a repository with two of them; the fail-open case
-# needs a family-named worktree with no ledger anywhere; and the clean-tree case
+# needs a family-named worktree with no ledger anywhere; the clean-tree case
 # needs the one repository whose worktree is placed where step 3 actually says to
 # put it -- outside the checkout -- because a worktree inside the checkout is
-# itself untracked and would mask the assertion.
+# itself untracked and would mask the assertion; the two retirement cases each
+# need a repository they can sweep twice; the write-failure case needs one whose
+# ledger directory can be made read-only without disturbing anything else; and
+# the two guard false positives need repositories whose own NAMES are in the
+# family, which no other fixture can be without changing what it measures.
+#
+# THE DIRECTORY IS WHAT IS MADE READ-ONLY, NOT THE FILE. The rewrite creates a
+# sibling and renames over the target, and rename(2) needs write permission on
+# the parent and none at all on the target -- so a read-only `worktrees.txt`
+# would be replaced happily and the fixture would measure nothing. The EXIT trap
+# chmods $TMP back before rm -rf, which is what makes leaving one behind safe.
+#
+# `reason=inside-worktree` IS THREE CONDITIONS AND USED TO BE ONE. The old guard
+# read the invoking checkout's basename alone, which reserved `revloop-wt-*` for
+# every possible checkout anybody might run a loop from: a clone at
+# `~/src/revloop-wt-client`, or a developer's linked checkout named
+# `revloop-wt-fix`, aborted the WHOLE sweep and leaked every worktree the run had
+# recorded. A real measurement worktree is family-named, is LINKED, and has no
+# ledger of its own -- step 3 records into the creating checkout's git directory,
+# never into the new worktree's. So `revloop-wt-client` and `linked-family` below
+# are the two false positives, one per conjunct, and `cwd` is still the true one.
+# `[ -f "$G/gitdir" ]` is the linked test: measured at git 2.34.1, a linked
+# worktree's git directory holds a `gitdir` file and a main `.git` does not, and
+# gitrepository-layout(5) documents it as part of the multiple-worktree layout --
+# below the 2.17 that `worktree remove` already assumes, so the floor did not
+# move. The third conjunct asks whether the ledger FILE exists, not whether it has
+# content, because after the first clean sweep a real checkout's ledger is empty
+# and still present.
+#
+# THE SELF-SKIP IS A SEPARATE LINE FROM THAT GUARD, and narrowing the guard is why
+# it had to become one. Measured at git 2.34.1, `remove --force` deletes the
+# worktree the shell is standing in, takes the working directory with it and exits
+# 0 -- so the loop refuses `"$p" = "$HERE"` on its own and calls it `stuck`, which
+# is exactly what it is: still on disk, still registered. `linked-family` plants a
+# ledger line claiming the checkout the fence is standing in and asserts it
+# survives.
 #
 # lib.sh's run_fence IS DELIBERATELY NOT USED. It builds its own throwaway
 # repository, which this file has to pre-populate with worktrees, and it puts
@@ -204,6 +255,18 @@ expect "and left on disk, dirty"               "$(test -f "$A/wt/revloop-wt-thei
 expect "its stale registration is named too"   "$OUT_A"  "WORKTREE=other path=$A/wt/revloop-wt-theirs-gone"
 expect "and survives, which no prune would allow" "$LIST_A" "$A/wt/revloop-wt-theirs-gone"
 expect "the repository's own checkout survives" "$(test -d "$A/.git" && echo PRESENT)" "PRESENT"
+# THE ASSERTION THAT PICKS THE RETIREMENT RULE. Two lines were consumed by a
+# removal and one -- `wt/mine` -- was refused by the name, and the record keeps
+# none of them: what survives a sweep is the STUCK SET, not "everything the sweep
+# did not remove". A `wt/mine` left behind would be an authorization nothing can
+# ever consume and anything can inherit.
+LEDGER_A="$(git -C "$A" rev-parse --absolute-git-dir)/revloop/worktrees.txt"
+same   "the sweep leaves only the stuck set"   "$(cat "$LEDGER_A")" ""
+expect "and the record is still there to read" "$(test -f "$LEDGER_A" && echo PRESENT)" "PRESENT"
+# THE ONE ASSERTION THAT PINS FIELD ORDER AND END OF LINE. lib.sh's expect is a
+# substring test, so every terminal-line assertion in this file would stay green
+# if a field were appended, renamed or reordered. This one would not.
+same   "the terminal line reads exactly this"  "$(printf '%s\n' "$OUT_A" | tail -1)" "WORKTREE=swept removed=2 other=2 ledger=ok"
 
 # --- a removal that fails ---------------------------------------------------
 B=$(new_repo stuck)
@@ -224,6 +287,14 @@ refute "a failed sweep never claims success"   "$OUT_B"  "WORKTREE=swept"
 same   "and still exits zero"                  "$RC_B"   "0"
 expect "the stuck worktree is still there"     "$LIST_B" "revloop-wt-locked"
 expect "and the bystander is untouched"        "$LIST_B" "$B/wt/keep"
+# THE RETENTION HALF OF THE SAME RULE. A path the sweep could not remove keeps
+# its line, so the next run in this checkout still has a claim on it -- which is
+# the whole reason the rewrite is the stuck set rather than "drop everything".
+LEDGER_B="$(git -C "$B" rev-parse --absolute-git-dir)/revloop/worktrees.txt"
+same   "a stuck worktree keeps its ledger line" "$(cat "$LEDGER_B")" "$B/wt/revloop-wt-locked"
+expect "and the rewrite is still reported ok"   "$OUT_B"  "ledger=ok"
+OUT_B2=$( run_in "$B" )
+expect "so a second sweep still finds it"       "$OUT_B2" "WORKTREE=stuck path=$B/wt/revloop-wt-locked"
 
 # --- the fence owns nothing, and touches nothing ----------------------------
 # The no-prune claim, which is the one thing a `git worktree prune` in this fence
@@ -321,6 +392,11 @@ OUT_G=$( run_in "$G" )
 expect "an unrecorded worktree is only named"  "$OUT_G"  "WORKTREE=other path=$G/wt/revloop-wt-orphan"
 expect "and the sweep removes nothing"         "$OUT_G"  "WORKTREE=swept removed=0 other=1"
 expect "and it is still on disk"               "$(test -d "$G/wt/revloop-wt-orphan" && echo PRESENT)" "PRESENT"
+# THE INVARIANT THE inside-worktree GUARD RESTS ON: only step 3 creates a ledger.
+# The rewrite is skipped wholesale when there was nothing to read, so a checkout
+# that has never recorded anything still has no record afterwards -- and the
+# guard's third conjunct can therefore keep asking whether the file exists.
+same "a sweep with no ledger creates none"     "$(test -e "$(git -C "$G" rev-parse --absolute-git-dir)/revloop/worktrees.txt" && echo PRESENT)" ""
 
 # --- the ledger is not a file in the tree -----------------------------------
 # THE FINDING THIS LOCATION ANSWERS. revloop runs against somebody else's
@@ -348,6 +424,142 @@ same "and cannot be staged at all"             "$(git -C "$H" diff --cached --na
 OUT_H=$( run_in "$H" )
 expect "the hidden ledger is still the fence's" "$OUT_H" "WORKTREE=removed path=$TMP/h-scratch/revloop-wt-x"
 expect "and the sweep says so"                  "$OUT_H" "WORKTREE=swept removed=1 other=0"
+# AND THE REWRITE IS UNDER THE GIT DIRECTORY TOO, temp file included. The clean
+# tree was asserted above the sweep; it has to hold below it as well, or the
+# ledger's whole reason for moving would survive only until the first teardown.
+same "the rewrite leaves the tree clean too"    "$(git -C "$H" status --porcelain -uall)" ""
+same "and leaves nothing for the secret scan"   "$(git -C "$H" ls-files -o --exclude-standard)" ""
+
+# --- a path is authorized once, not forever ---------------------------------
+# THE HAZARD AN APPEND-ONLY LEDGER CARRIED. A line survived the worktree it was
+# written for, so the path stayed authorized for that unconditional `--force`
+# forever -- and the family name is no second bound here at all, because whatever
+# turns up at that path next is family-named by construction. The sweep now
+# rewrites the record, so the same path has to be earned again.
+I=$(new_repo reuse)
+git -C "$I" worktree add -q --detach "$I/wt/revloop-wt-r1" HEAD
+record "$I" "$I/wt/revloop-wt-r1"
+LEDGER_I="$(git -C "$I" rev-parse --absolute-git-dir)/revloop/worktrees.txt"
+
+OUT_I1=$( run_in "$I" )
+expect "the first sweep removes what it owns" "$OUT_I1" "WORKTREE=removed path=$I/wt/revloop-wt-r1"
+expect "and says the record was rewritten"    "$OUT_I1" "ledger=ok"
+same   "the consumed line is retired"         "$(cat "$LEDGER_I")" ""
+# Somebody else's worktree at a path this checkout once owned -- a later round,
+# another checkout, a person -- with its work still in it.
+git -C "$I" worktree add -q --detach "$I/wt/revloop-wt-r1" HEAD
+echo measuring > "$I/wt/revloop-wt-r1/artifact.txt"
+
+OUT_I2=$( run_in "$I" )
+refute "the second sweep removes nothing"     "$OUT_I2" "WORKTREE=removed"
+expect "and names it as another's instead"    "$OUT_I2" "WORKTREE=other path=$I/wt/revloop-wt-r1"
+expect "it keeps its untracked file"          "$(test -f "$I/wt/revloop-wt-r1/artifact.txt" && echo PRESENT)" "PRESENT"
+expect "and its registration"                 "$(git -C "$I" worktree list)" "$I/wt/revloop-wt-r1"
+expect "and the run owns nothing"             "$OUT_I2" "WORKTREE=swept removed=0 other=1 ledger=ok"
+
+# --- a record outlives its worktree without outliving its authority ---------
+# THE CASE "RETIRE ONLY WHAT WAS REMOVED" LEAVES OPEN, and the reason the rewrite
+# is the stuck set instead. A worktree can leave the repository without this fence
+# touching it -- an operator ran `git worktree remove` by hand, or a `gc` pruned it
+# after the directory was cleared -- and the loop walks `worktree list`, so it
+# never reaches that line to retire it. The line would then authorize the path
+# forever without the fence ever having removed anything.
+J=$(new_repo hand-removed)
+git -C "$J" worktree add -q --detach "$J/wt/revloop-wt-h" HEAD
+record "$J" "$J/wt/revloop-wt-h"
+LEDGER_J="$(git -C "$J" rev-parse --absolute-git-dir)/revloop/worktrees.txt"
+git -C "$J" worktree remove "$J/wt/revloop-wt-h"
+
+OUT_J1=$( run_in "$J" )
+expect "a sweep with nothing to do still rewrites" "$OUT_J1" "WORKTREE=swept removed=0 other=0 ledger=ok"
+same   "and the dead line goes with it"            "$(cat "$LEDGER_J")" ""
+git -C "$J" worktree add -q --detach "$J/wt/revloop-wt-h" HEAD
+
+OUT_J2=$( run_in "$J" )
+expect "so a later worktree there is another's"    "$OUT_J2" "WORKTREE=other path=$J/wt/revloop-wt-h"
+refute "and is not removed"                        "$OUT_J2" "WORKTREE=removed"
+expect "and is still on disk"                      "$(test -d "$J/wt/revloop-wt-h" && echo PRESENT)" "PRESENT"
+
+# --- the record cannot be written -------------------------------------------
+# THE FAIL-SAFE DIRECTION. The rewrite writes a sibling and renames over the
+# target, so a failure leaves the OLD record whole: nothing is lost, and what
+# persists is an over-broad authorization the terminal line has just named. The
+# alternative -- truncating in place -- would lose the stuck entries on a failed
+# write, which is the leak this fence exists to prevent, produced by the fence.
+K=$(new_repo readonly-ledger)
+git -C "$K" worktree add -q --detach "$K/wt/revloop-wt-w" HEAD
+record "$K" "$K/wt/revloop-wt-w"
+LEDGER_K_DIR="$(git -C "$K" rev-parse --absolute-git-dir)/revloop"
+if [ "$(id -u)" = 0 ]; then
+  printf '  note a read-only directory does not stop root; ledger=error unmeasured here\n'
+else
+  chmod a-w "$LEDGER_K_DIR"
+  OUT_K=$( run_in "$K" ); RC_K=$?
+  chmod u+w "$LEDGER_K_DIR"
+  expect "the removal happens even so"        "$OUT_K" "WORKTREE=removed path=$K/wt/revloop-wt-w"
+  expect "and the verdict names the failure"  "$OUT_K" "ledger=error"
+  refute "and never calls the record ok"      "$OUT_K" "ledger=ok"
+  same   "and still exits zero"               "$RC_K"  "0"
+  same   "the record is left exactly as it was" "$(cat "$LEDGER_K_DIR/worktrees.txt")" "$K/wt/revloop-wt-w"
+fi
+
+# --- a clone of this project is not a measurement worktree ------------------
+# THE FIRST OF THE TWO FALSE POSITIVES THE OLD GUARD HAD. `~/src/revloop-wt-client`
+# is a plausible clone of a project called revloop. Reading the basename alone,
+# the fence called it a measurement worktree, refused the WHOLE sweep and left
+# behind every worktree the run had recorded -- the exact leak it exists to close.
+# What separates it from a measurement worktree is that it is a MAIN worktree:
+# measured at git 2.34.1, a linked worktree's git directory holds a `gitdir` file
+# and a main `.git` does not.
+L=$(new_repo revloop-wt-client)
+git -C "$L" worktree add -q --detach "$L/wt/revloop-wt-a" HEAD
+
+OUT_L1=$( run_in "$L" )
+refute "a main checkout of the family name is not one" "$OUT_L1" "reason=inside-worktree"
+expect "and it sweeps, owning nothing"                 "$OUT_L1" "WORKTREE=swept removed=0 other=2 ledger=ok"
+# It names ITSELF, and that is correct rather than a wart: `worktree list` returns
+# the checkout too, its last component is in the family, and no ledger claims it.
+expect "naming the checkout it stands in as another's" "$OUT_L1" "WORKTREE=other path=$L"
+same   "and creating no ledger on the way"             "$(test -e "$(git -C "$L" rev-parse --absolute-git-dir)/revloop/worktrees.txt" && echo PRESENT)" ""
+record "$L" "$L/wt/revloop-wt-a"
+
+OUT_L2=$( run_in "$L" )
+expect "and then removes what it recorded"             "$OUT_L2" "WORKTREE=removed path=$L/wt/revloop-wt-a"
+expect "with the checkout still only named"            "$OUT_L2" "WORKTREE=swept removed=1 other=1 ledger=ok"
+expect "and still on disk"                             "$(test -d "$L/.git" && echo PRESENT)" "PRESENT"
+
+# --- a linked checkout that is somebody's working tree ----------------------
+# THE SECOND FALSE POSITIVE, and the one the `gitdir` test alone does not clear:
+# a developer's branch checkout at `revloop-wt-fix` IS linked. What separates it
+# is that it has recorded worktrees of its own, which no measurement worktree
+# ever has -- step 3 records into the git directory of the checkout it is run
+# from, never into the worktree it just created.
+M=$(new_repo linked-family)
+git -C "$M" worktree add -q --detach "$M/revloop-wt-fix" HEAD
+git -C "$M" worktree add -q --detach "$M/wt/revloop-wt-m" HEAD
+echo built > "$M/wt/revloop-wt-m/artifact.txt"
+record "$M/revloop-wt-fix" "$M/wt/revloop-wt-m"
+LEDGER_M="$(git -C "$M/revloop-wt-fix" rev-parse --absolute-git-dir)/revloop/worktrees.txt"
+
+OUT_M1=$( run_in "$M/revloop-wt-fix" )
+refute "a linked checkout with a record of its own sweeps" "$OUT_M1" "reason=inside-worktree"
+expect "and removes what it recorded"                      "$OUT_M1" "WORKTREE=removed path=$M/wt/revloop-wt-m"
+expect "naming the checkout it stands in"                  "$OUT_M1" "WORKTREE=other path=$M/revloop-wt-fix"
+expect "and says so once"                                  "$OUT_M1" "WORKTREE=swept removed=1 other=1 ledger=ok"
+expect "and the checkout survives"                         "$(test -d "$M/revloop-wt-fix" && echo PRESENT)" "PRESENT"
+# THE LEDGER'S WORST DAY: a line claiming the checkout the fence is standing in.
+# Measured at git 2.34.1, `remove --force` deletes the worktree the shell is in,
+# takes the working directory with it and exits 0. The old basename guard used to
+# refuse this case on the way past; now that the guard no longer fires here, the
+# loop has to refuse it itself.
+record "$M/revloop-wt-fix" "$M/revloop-wt-fix"
+
+OUT_M2=$( run_in "$M/revloop-wt-fix" )
+expect "the fence never removes what it stands in" "$OUT_M2" "WORKTREE=stuck path=$M/revloop-wt-fix"
+expect "and the verdict says so"                   "$OUT_M2" "WORKTREE=partial removed=0 stuck=1 other=0 ledger=ok"
+expect "and it is still on disk"                   "$(test -d "$M/revloop-wt-fix" && echo PRESENT)" "PRESENT"
+expect "and still registered"                      "$(git -C "$M" worktree list)" "$M/revloop-wt-fix"
+same   "and its line is kept, not retired"         "$(cat "$LEDGER_M")" "$M/revloop-wt-fix"
 
 # --- the rule is written in both procedures ---------------------------------
 #

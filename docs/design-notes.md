@@ -102,10 +102,13 @@ prefix**, and that single fact shapes three decisions:
   appends it to `revloop/worktrees.txt` inside the checkout's own git directory, and the fence
   resolves that location from `git rev-parse --absolute-git-dir`. The bytes are identical every
   session and resolve to a different checkout's record in a different checkout, which is the same
-  trick `wait-verdict` plays on the branch and the pull request. **`--absolute-git-dir` and not
-  `--git-common-dir`**: the common dir is shared by every linked worktree of a repository, so it
-  would put two concurrently running loops back in one ledger — the failure the run id was replaced
-  to fix. **And the git directory rather than the working tree**, because revloop runs against
+  trick `wait-verdict` plays on the branch and the pull request. **The fence writes that file back as
+  well as reading it**, which is what keeps a command string that can never change from accumulating
+  authority as the file behind it grows: each sweep leaves only the paths it could not remove.
+  **`--absolute-git-dir` and not `--git-common-dir`**: the common dir is shared by every linked
+  worktree of a repository, so it would put two concurrently running loops back in one ledger — the
+  failure the run id was replaced to fix. **And the git directory rather than the working tree**,
+  because revloop runs against
   somebody else's repository, where a top-level record is an untracked file this project's
   `.gitignore` cannot reach and the loop's own clean-tree check would return. **The identity could
   not be derived instead of recorded**, and the attempt is worth keeping: `revloop-wt-$PPID-` in the
@@ -404,8 +407,9 @@ input would break the rule field notes live under — never read a local file as
 classification — and it would break it at the one place that decides whether the run passes. A
 resumed run re-reviews and re-derives instead, which is also the more correct answer: an acceptance
 is a judgement about the tree in front of you, and the tree may have moved. **The worktree ledger is
-the one local file a later step reads**, and it stays inside the rule because what it records is a
-directory this run created rather than a conclusion it reached.
+the one local file a later step reads and writes back**, and it stays inside the rule because what it
+records is a directory this run created rather than a conclusion it reached — and because the write
+only ever narrows it, retiring each path the sweep consumed.
 
 ## Field notes
 
@@ -418,8 +422,10 @@ explicit-staging rule keeps it out of commits anyway); and cap them at 500 lines
 **The worktree ledger is not in that directory, and the difference is the audience.** A run records
 each git worktree it creates in `revloop/worktrees.txt` inside the checkout's own git directory —
 `.git/revloop/` in an ordinary checkout, `.git/worktrees/<name>/revloop/` in a linked one — which is
-how the teardown fence knows which worktrees are its own. Field notes are for a person to find and
-upstream, so they live in the tree and pay for it; the ledger is read by a fence and by nothing else,
+how the teardown fence knows which worktrees are its own — and **the same fence retires each entry it
+consumes**, so a record buys one removal rather than authorizing that path for good. Field notes are
+for a person to find and upstream, so they live in the tree and pay for it; the ledger is read and
+rewritten by a fence and touched by nothing else,
 so it lives where **no `git status`, `git ls-files -o`, `git add -A` or `git clean -xdf` can reach
 it** and needs no ignore rule in the repository the loop is running against. The third rule still
 holds and is the only one that had to be argued: it is never read as input to a classification — the

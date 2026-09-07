@@ -23,6 +23,14 @@ before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so 
 changed line and three unchanged hashes; if any of the three moved, an existing fence was edited by
 accident and this paragraph is wrong.
 
+**The new fence was then amended twice before release, and that is still not a re-approval.** An
+approval is keyed to the exact command string, and nobody has ever been prompted for the earlier
+bytes: `worktree-teardown` has not appeared in a tagged release, so there is nothing granted to
+invalidate. Against the release boundary this remains **one added fence and one first approval**, and
+`tests/fence-hashes.txt`'s `worktree-teardown` line moving again while the other three stay
+byte-identical is what says so. `CONTRIBUTING.md` carries the distinction: adding a fence and editing
+one are different events, and only the second costs anybody a re-approval.
+
 **If you granted git subcommands individually rather than `Bash(git:*)`, add `Bash(git worktree:*)`
 before your next run.** That is a hard failure rather than a prompt: the teardown cannot run without
 it. The blanket rule in `README.md` and `docs/permissions.md` already covers it.
@@ -90,16 +98,42 @@ remove and asserts it survives with its **directory**, and sweeps from both chec
 every exit: every abort in both files reports and finishes, so one rule covers all of them, including
 the next abort somebody adds.
 
-**Two terminal lines, and only one is success.** `WORKTREE=swept removed=N other=K` when nothing of
-this run's was left behind, `WORKTREE=partial removed=N stuck=M other=K` when something was — **the
-failure token does not contain the success token**, for the reason `CHECKS_FAILED` is not called
-`NOT_ALL_PASS`, and `other=` rides on both because `swept` is a claim about this run rather than
-about the repository. Two guards name themselves rather than passing silently:
-`WORKTREE=error reason=not-a-repo`, because a failed `git worktree list` prints no rows and would
-otherwise be read as a clean sweep, and `WORKTREE=error reason=inside-worktree`, because a fence run
-from inside a measurement worktree would read that worktree's own git directory, find no ledger, and
-print a clean sweep over a record it never opened. The second guard also disarms a measured hazard: at
-`git 2.34.1`, `remove --force` deletes the worktree the shell is standing in and exits 0.
+**Two terminal lines, and only one is success.** `WORKTREE=swept removed=N other=K ledger=S` when
+nothing of this run's was left behind, `WORKTREE=partial removed=N stuck=M other=K ledger=S` when
+something was — **the failure token does not contain the success token**, for the reason
+`CHECKS_FAILED` is not called `NOT_ALL_PASS`, and `other=` rides on both because `swept` is a claim
+about this run rather than about the repository. Two guards name themselves rather than passing
+silently: `WORKTREE=error reason=not-a-repo`, because a failed `git worktree list` prints no rows and
+would otherwise be read as a clean sweep, and `WORKTREE=error reason=inside-worktree`, because a
+fence run from inside a measurement worktree would read that worktree's own git directory, find no
+ledger, and print a clean sweep over a record it never opened.
+
+**A swept path stops being authorized, and it used not to.** The record was append-only, so a line
+outlived the worktree it was written for and kept that path authorized for the fence's unconditional
+`--force` **forever** — and the family name is no second bound in that case, because whatever appears
+at that path next is family-named by construction. A later round, another checkout, or a person
+creating a worktree where one of the loop's used to be would have had it deleted with its untracked
+work in it. The sweep now rewrites the record to **exactly the paths it could not remove**: a removal
+spends its line, so does a name refusal, and so does a worktree that left the repository by a route
+the loop never walks. Only a `stuck` path keeps one. `ledger=ok` on the terminal line means the
+record now holds exactly what that line calls `stuck`; `ledger=error` means the removals happened and
+the record did not shrink, so those paths are authorized for one more sweep — nothing is lost, since
+the rewrite renames a sibling over the target and a failure leaves the previous record whole.
+
+**And a checkout of your own named `revloop-wt-something` no longer refuses the sweep.**
+`reason=inside-worktree` used to read the invoking checkout's last path component alone, which
+reserved that name for every checkout anybody might run a loop from — a clone at
+`~/src/revloop-wt-client`, or a branch checkout named `revloop-wt-fix`, aborted the whole teardown
+and left behind every worktree the run had recorded, which is the leak the fence exists to close. A
+measurement worktree is not a name: it is family-named, **linked**, and has **no record of its own**,
+because step 3 writes into the git directory of the checkout it runs from and never into the worktree
+it just created. The guard asks all three, and `[ -f "$G/gitdir" ]` is the linked test — measured at
+`git 2.34.1`, a linked worktree's git directory holds a `gitdir` file and an ordinary checkout's
+`.git` does not. **The floor did not move**: that layout arrived with worktrees in 2.5, below the 2.17
+`worktree remove` already assumed. The hazard the old guard disarmed on its way past — at
+`git 2.34.1`, `remove --force` deletes the worktree the shell is standing in and exits 0 — is now
+refused by the loop itself, which never calls `remove` on the path it is standing in and reports it
+`stuck`.
 
 **The fence carries no `git worktree prune`, and that is a measurement rather than an omission.**
 `remove --force` already deregisters a worktree whose directory is gone (`git 2.34.1`, exit 0), so a
@@ -122,7 +156,17 @@ run against one repository at the same time either** — the separation is measu
 real repository with two checkouts, and by fixture, but not by the situation it exists for. And the
 guard on `git rev-parse --absolute-git-dir` joins the guard on `git worktree list` as a line **no
 fixture can turn red**, since `--show-toplevel` has already succeeded above it; both are recorded in
-`## Unexercised paths` rather than counted as coverage.
+`## Unexercised paths` rather than counted as coverage — and re-measuring the whole suite over **108**
+assertions across **thirteen** throwaway repositories did not change that.
+
+**Three more things the sweep's rewrite does not cover, all written down rather than argued away.**
+The retirement is measured by hand against a real repository — a path recorded, swept, retired, then
+re-occupied and correctly named `WORKTREE=other` with its untracked file intact — but **no round has
+ever recorded a path, spent it, and re-used it**. `ledger=error` is produced by a read-only directory,
+which stands in for the full disk or lost permission a run would actually hit, and that fixture skips
+itself as root. And the record is read once at the top of the fence and written once at the bottom,
+so a line appended in between is discarded — which needs **two runs in one checkout**, a
+configuration that already could not work, since they would share HEAD, the index and the branch.
 
 ## [0.8.0] - 2026-09-04
 
