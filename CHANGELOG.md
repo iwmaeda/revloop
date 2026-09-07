@@ -23,7 +23,7 @@ before. `tests/fence-hashes.txt` is regenerated wholesale in document order, so 
 changed line and three unchanged hashes; if any of the three moved, an existing fence was edited by
 accident and this paragraph is wrong.
 
-**The new fence was then amended six times before release, and that is still not a re-approval.**
+**The new fence was then amended seven times before release, and that is still not a re-approval.**
 An approval is keyed to the exact command string, and nobody has ever been prompted for the earlier
 bytes: `worktree-teardown` has not appeared in a tagged release, so there is nothing granted to
 invalidate. Against the release boundary this remains **one added fence and one first approval**, and
@@ -31,6 +31,43 @@ invalidate. Against the release boundary this remains **one added fence and one 
 byte-identical is what says so — the count above is read from those hashes rather than from memory,
 and it was wrong here by three until it was. `CONTRIBUTING.md` carries the distinction: adding a
 fence and editing one are different events, and only the second costs anybody a re-approval.
+
+**The seventh amendment closed a hang, and the review that found it is the reason the guard's name
+is now true.** `reason=ledger-not-regular` was written for a symbolic link and named for the
+category, and those are not the same set: a **named pipe** is not a link, so it passed `[ -L ]`
+untouched and reached `cat`, which blocks on opening a FIFO with no writer. Measured against the
+unwidened guard, the fence ran to `timeout` and printed **no `WORKTREE=` line at all** — step 12
+never finished, so the report every exit of that procedure owes never happened. Every other route to
+"no terminal line" is an interruption from outside; this one was an input the guard was believed to
+exclude, and `mkfifo` needs no privilege, so it sat inside the threat model the link already had.
+The test is now the file's type, with `[ -L ]` kept as the first half because `[ -e ]` follows a
+link and a **dangling** one would otherwise be reported as the wrong refusal. `docs/permissions.md`
+already claimed a record that is not a regular file was refused outright; this is what makes that
+sentence true rather than aspirational. **The fixture runs under a cap**, because a regression here
+wedges the suite instead of reddening it.
+
+**The same round moved one bound from the reader to the writer, which is where it turns out to
+belong.** `>>` onto a record whose last line lost its newline glues two absolute paths into a third
+that is syntactically valid and matches no worktree — measured, both entries came back
+`WORKTREE=other` under `WORKTREE=swept removed=0 other=2 ledger=ok`, with both directories still on
+disk: **the run's own worktrees, leaked, under the success token**. The obvious fix is a reading
+guard and it is worse than the bug. `M=$(cat "$F")` strips trailing newlines, so an unterminated
+record already reads back and sweeps **correctly**, and a fence that refused it would convert a
+working state into a refusal that leaks every worktree the run recorded — the exact shape
+`reason=inside-worktree` was narrowed to stop producing. Nothing distinguishes the glued record
+afterwards either. So step 3 restores the newline **before** it appends, while the two lines are
+still two; the fence is unchanged by this half, and `glued-ledger` keeps the unrepaired append as a
+fixture so the clause's absence stays measured. **Two fixtures and one prose assertion** hold it,
+because the test helper carries a copy of the clause and a copy can drift from what it copies.
+
+**And the membership read lost its pipeline, which is a hardening no fixture can kill.** Under
+`set -o pipefail` a record larger than the pipe buffer lets `grep -q` exit on an early match before
+`printf` has finished writing; `printf` takes `SIGPIPE` and the pipeline's non-zero status reads as
+"not ours", so a path this checkout owns comes back `WORKTREE=other` and is left behind. It needs
+roughly 2300 unretired lines in one checkout, which the retirement puts out of reach — so the
+here-string is kept for removing the only pipeline in this fence whose status is tested, and because
+it costs fewer bytes than what it replaces. It is the **fourth** line recorded in
+`## Unexercised paths` as deletable with the suite green rather than counted as coverage.
 
 **If you granted git subcommands individually rather than `Bash(git:*)`, add `Bash(git worktree:*)`
 before your next run.** That is a hard failure rather than a prompt: the teardown cannot run without
@@ -201,14 +238,15 @@ leftovers that motivated this was ever written down anywhere. **It fails open.**
 without its ledger line is left behind exactly as it is today, under a procedure that now says it
 cleans up, and the report cannot mention it because the fence never saw it. **Two loops have never
 run against one repository at the same time either** — the separation is measured by hand against a
-real repository with two checkouts, and by fixture, but not by the situation it exists for. And **three**
+real repository with two checkouts, and by fixture, but not by the situation it exists for. And **four**
 lines in the fence can be deleted with the suite green: the guard on `git worktree list`, the guard
-on `git rev-parse --absolute-git-dir` — since `--show-toplevel` has already succeeded above it — and
+on `git rev-parse --absolute-git-dir` — since `--show-toplevel` has already succeeded above it —
 the rewrite's `set -C`, whose subject is a second process replanting a link between the unlink and
-the write, which no fixture races. The fixture that looks as though it should kill the third does
+the write, which no fixture races, and the membership read's here-string, whose subject is a record
+larger than the pipe buffer. The fixture that looks as though it should kill the third does
 not: a read-only ledger directory makes the unlink fail, and the unlink is the first link of the
-chain, so noclobber is never reached. All three are recorded in `## Unexercised paths` rather than
-counted as coverage — and re-measuring the whole suite over **161** assertions across **nineteen**
+chain, so noclobber is never reached. All four are recorded in `## Unexercised paths` rather than
+counted as coverage — and re-measuring the whole suite over **184** assertions across **twenty-two**
 throwaway repositories did not change that.
 
 **Three more things the sweep's rewrite does not cover, all written down rather than argued away.**

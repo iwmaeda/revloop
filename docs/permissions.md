@@ -99,7 +99,12 @@ symbolic link would be read as the list of paths this `--force` may take, and a 
 path would have the write follow it — truncating a file elsewhere and then leaving the record itself
 pointing at it. So a record that is not a regular file is refused outright
 (`WORKTREE=error reason=ledger-not-regular`, and nothing is removed), and the temp path is unlinked
-before it is written and opened `O_EXCL` when it is. **Neither is a permission the system enforces
+before it is written and opened `O_EXCL` when it is. **That refusal asks the file's type and not
+only whether it is a link**, because the two are different sets and the gap between them was not a
+wrong answer but a **hang**: a named pipe is not a link, so it reached the read, and opening a FIFO
+with no writer blocks forever — measured, the fence printed no line at all and the step never
+finished. Anyone who can plant a link there can run `mkfifo`, which needs no privilege.
+**Neither is a permission the system enforces
 for you**, which is the same sentence as the one above it: the bound is in the fence's bytes and in
 `tests/fence-worktree.test.sh`, which plants a link at each of the two paths and asserts the file it
 pointed at keeps its bytes.

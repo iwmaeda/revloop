@@ -58,7 +58,7 @@
 # `git worktree remove --force` one recorded line away from a developer's own
 # tree.
 #
-# FOURTEEN REPOSITORIES, BECAUSE THE OUTCOMES CANNOT SHARE ONE. The ordinary sweep
+# TWENTY-TWO REPOSITORIES, BECAUSE THE OUTCOMES CANNOT SHARE ONE. The ordinary sweep
 # must print no `stuck` at all, so the worktree that produces one cannot stand in
 # the same repository as that assertion; the no-prune case must hold a stale
 # registration and NO worktree of the run's own, since the claim is about what
@@ -73,9 +73,26 @@
 # ledger directory can be made read-only without disturbing anything else; the
 # unreadable case needs its own again, because it takes READ off where the
 # other takes WRITE off and the two cannot be staged in one repository without
-# each measuring the other's state; and the two guard false positives need
+# each measuring the other's state; the two guard false positives need
 # repositories whose own NAMES are in the family, which no other fixture can be
-# without changing what it measures.
+# without changing what it measures; the four plant-and-residue cases each need
+# a link or a leftover at a path no other fixture touches; the FIFO needs its
+# own because a regression there HANGS rather than reddens, so it is the one
+# fixture run under a cap; and the two newline cases need a repository each,
+# since the glued record is a state the repaired one can no longer produce.
+#
+# THE NEWLINE IS THE ONE BOUND HELD BY THE WRITER RATHER THAN THE READER, and
+# `record()` below carries step 3's clause for that reason. `M=$(cat "$F")`
+# strips trailing newlines, so a record missing its last one reads back and
+# sweeps correctly -- a guard refusing it would turn a working state into a
+# refusal, and a refusal leaks EVERY worktree the run recorded, which is the
+# shape the `inside-worktree` false positives were narrowed to remove. What no
+# reader can undo is the next append: `>>` onto an unterminated line glues two
+# absolute paths into a third that is valid, matches nothing, and is
+# indistinguishable from a path somebody meant. Measured against the unrepaired
+# writer: `WORKTREE=other` for both, `WORKTREE=swept removed=0 other=2
+# ledger=ok`, both directories still on disk. `glued-ledger` keeps that outcome
+# as a fixture so the clause's absence is a measurement rather than an argument.
 #
 # THE DIRECTORY IS WHAT IS MADE READ-ONLY, NOT THE FILE. The rewrite creates a
 # sibling and renames over the target, and rename(2) needs write permission on
@@ -206,16 +223,36 @@ new_repo() { # new_repo <name> -> path
 # be right for a main checkout and wrong for a linked one -- which is exactly the
 # case that fixture exists for -- so it would plant both ledgers in one file and
 # the fixture would pass while measuring nothing.
+#
+# AND IT CARRIES STEP 3'S NEWLINE CLAUSE, because a helper that appends more
+# simply than the procedure does is a helper that cannot witness the procedure's
+# bug. A record whose last line lost its newline glues the next append onto it,
+# and the result is one syntactically valid path that matches no worktree -- so
+# BOTH entries fall out as WORKTREE=other and leak, while the terminal line says
+# `swept`. Nothing in the record can detect that afterwards, which is why the
+# repair belongs to the writer and there is no reading guard for it.
 record() { # record <checkout> <worktree>... -- claim them in <checkout>'s ledger
   d=$(git -C "$1" rev-parse --absolute-git-dir)/revloop
   mkdir -p "$d"
   for w in "${@:2}"; do
+    { [ ! -s "$d/worktrees.txt" ] || [ -z "$(tail -c1 "$d/worktrees.txt")" ] || printf '\n' >> "$d/worktrees.txt"; }
     git -C "$w" rev-parse --show-toplevel >> "$d/worktrees.txt"
   done
 }
 
 run_in() { # run_in <dir> -> the fence's output, run with <dir> as the cwd
   ( cd "$1" && bash "$FENCE" 2>&1 )
+}
+
+# THE ONE FIXTURE WHOSE FAILURE MODE IS A HANG NEEDS ITS OWN RUNNER. A FIFO at
+# the record blocks `cat` forever, so a fence that stopped refusing it would not
+# fail this suite -- it would wedge it, with no output and no exit status, on a
+# developer's machine and in CI alike. That is worse than a red line, and it is
+# reachable by anyone editing the guard the `## Unexercised paths` table invites
+# them to delete. The cap turns the hang back into an assertion: `timeout`
+# exits 124, and the exit-status check below is what reads it.
+run_capped() { # run_capped <dir> -> like run_in, but a hang becomes exit 124
+  ( cd "$1" && timeout 10 bash "$FENCE" 2>&1 )
 }
 
 # --- the ordinary sweep -----------------------------------------------------
@@ -748,6 +785,46 @@ same   "the file it pointed at keeps its bytes"       "$(cat "$Q/victim.txt")" "
 expect "and the worktree keeps its directory"         "$(test -f "$Q/wt/revloop-wt-q/artifact.txt" && echo PRESENT)" "PRESENT"
 same   "and the fence exits zero"                     "$RC_Q" "0"
 
+# --- a FIFO planted at the record -------------------------------------------
+# THE GUARD'S NAME PROMISED MORE THAN `[ -L ]` DELIVERED, and this is the shape
+# that collected the difference. A named pipe is not a symbolic link, so it
+# passed the guard untouched and reached `cat`, which blocks on opening a FIFO
+# with no writer. Measured against the unfixed fence: the run reached `timeout`
+# and printed NO `WORKTREE=` line at all, so step 12 never finished and the
+# report every exit of this procedure owes never happened. That is worse than
+# any failure the fence names for itself -- the prose reads "no terminal line"
+# as an interruption from outside, not as an input the guard was believed to
+# exclude -- and `mkfifo` needs no privilege, which puts it inside the same
+# threat model the symbolic-link guard already accepts.
+#
+# THIS IS THE ONE FIXTURE THAT USES run_capped, and the reason is the bug: a
+# fence that stopped refusing this would wedge the suite rather than redden it.
+V=$(new_repo fifo-ledger)
+git -C "$V" worktree add -q --detach "$V/wt/revloop-wt-v" HEAD
+echo built > "$V/wt/revloop-wt-v/artifact.txt"
+record "$V" "$V/wt/revloop-wt-v"
+LEDGER_V="$(git -C "$V" rev-parse --absolute-git-dir)/revloop/worktrees.txt"
+cp "$LEDGER_V" "$V/ledger.bak"
+rm -f "$LEDGER_V"
+mkfifo "$LEDGER_V"
+
+OUT_V=$( run_capped "$V" ); RC_V=$?
+expect "a record that is a FIFO refuses the sweep" "$OUT_V" "WORKTREE=error reason=ledger-not-regular path=$LEDGER_V"
+same   "and the fence terminates at all"           "$RC_V"  "0"
+refute "never claiming a clean sweep"              "$OUT_V" "WORKTREE=swept"
+refute "nor a partial one"                         "$OUT_V" "WORKTREE=partial"
+refute "and removing nothing"                      "$OUT_V" "WORKTREE=removed"
+refute "and calling nothing another's"             "$OUT_V" "WORKTREE=other"
+expect "the worktree keeps its directory"          "$(test -d "$V/wt/revloop-wt-v" && echo PRESENT)" "PRESENT"
+expect "and its untracked file"                    "$(cat "$V/wt/revloop-wt-v/artifact.txt")" "built"
+
+# AND THE REFUSAL IS THE PLANT, NOT THE FIXTURE. Without this the block above is
+# satisfied by a repository the fence could never have swept at all.
+rm -f "$LEDGER_V"; mv "$V/ledger.bak" "$LEDGER_V"
+OUT_V2=$( run_capped "$V" )
+expect "and the same repository sweeps once the record is regular" "$OUT_V2" "WORKTREE=removed path=$V/wt/revloop-wt-v"
+expect "saying so on its terminal line"                            "$OUT_V2" "WORKTREE=swept removed=1 other=0 ledger=ok"
+
 # --- a stale temp file from an earlier run ----------------------------------
 # `set -C` refuses an existing REGULAR file too -- measured at bash 5.1.16 -- so
 # on its own it would wedge the rewrite into `ledger=error` for good the first
@@ -788,6 +865,60 @@ refute "the name without the hyphen is untouched" "$OUT_T"  "path=$T/wt/revloop-
 expect "and keeps its registration"               "$LIST_T" "$T/wt/revloop-wt "
 expect "and its directory"                        "$(test -d "$T/wt/revloop-wt" && echo PRESENT)" "PRESENT"
 
+# --- a record whose last line lost its newline ------------------------------
+# THE REPAIR BELONGS TO THE WRITER AND THERE IS NO READING GUARD FOR IT, which
+# is the whole finding these two repositories carry. `M=$(cat "$F")` strips
+# trailing newlines, so a record missing its final one reads back correctly and
+# sweeps correctly -- the first repository asserts exactly that. A guard that
+# refused it would convert a WORKING state into a refusal, and a refusal leaks
+# every worktree the run recorded, which is the shape the `inside-worktree`
+# false positives were narrowed to remove. So the reading side is left alone.
+#
+# What no reader can recover is the NEXT append. `>>` onto an unterminated line
+# glues two absolute paths into a third that is syntactically valid, matches no
+# worktree, and is indistinguishable from a path somebody meant to write. Step 3
+# restores the newline before it appends and `record()` carries the same clause;
+# the second repository below is the unrepaired append, kept as a fixture so the
+# cost of dropping that clause is a measurement rather than an argument.
+W=$(new_repo unterminated-ledger)
+git -C "$W" worktree add -q --detach "$W/wt/revloop-wt-w1" HEAD
+git -C "$W" worktree add -q --detach "$W/wt/revloop-wt-w2" HEAD
+LEDGER_W_DIR="$(git -C "$W" rev-parse --absolute-git-dir)/revloop"
+mkdir -p "$LEDGER_W_DIR"
+LEDGER_W="$LEDGER_W_DIR/worktrees.txt"
+# a hand edit, or an editor that drops the final newline
+printf '%s' "$(git -C "$W/wt/revloop-wt-w1" rev-parse --show-toplevel)" > "$LEDGER_W"
+same   "the record starts with no final newline" "$(wc -l < "$LEDGER_W" | tr -d ' ')" "0"
+record "$W" "$W/wt/revloop-wt-w2"
+same   "and step 3's clause restores it"         "$(wc -l < "$LEDGER_W" | tr -d ' ')" "2"
+
+OUT_W=$( run_in "$W" ); RC_W=$?
+expect "so the first entry is still this run's"  "$OUT_W" "WORKTREE=removed path=$W/wt/revloop-wt-w1"
+expect "and so is the second"                    "$OUT_W" "WORKTREE=removed path=$W/wt/revloop-wt-w2"
+expect "with nothing handed to another checkout" "$OUT_W" "WORKTREE=swept removed=2 other=0 ledger=ok"
+same   "and the fence exits zero"                "$RC_W"  "0"
+
+# THE UNREPAIRED APPEND, WHICH IS WHAT THE CLAUSE BUYS. Both paths leak, both
+# are named as somebody else's, and the terminal line still reads `swept` --
+# the one outcome every other guard in this fence exists to prevent.
+X=$(new_repo glued-ledger)
+git -C "$X" worktree add -q --detach "$X/wt/revloop-wt-x1" HEAD
+git -C "$X" worktree add -q --detach "$X/wt/revloop-wt-x2" HEAD
+echo built > "$X/wt/revloop-wt-x1/artifact.txt"
+LEDGER_X_DIR="$(git -C "$X" rev-parse --absolute-git-dir)/revloop"
+mkdir -p "$LEDGER_X_DIR"
+LEDGER_X="$LEDGER_X_DIR/worktrees.txt"
+printf '%s' "$(git -C "$X/wt/revloop-wt-x1" rev-parse --show-toplevel)" > "$LEDGER_X"
+git -C "$X/wt/revloop-wt-x2" rev-parse --show-toplevel >> "$LEDGER_X"
+same   "the unrepaired append leaves one line"  "$(wc -l < "$LEDGER_X" | tr -d ' ')" "1"
+
+OUT_X=$( run_in "$X" )
+expect "and the first entry leaks as another's" "$OUT_X" "WORKTREE=other path=$X/wt/revloop-wt-x1"
+expect "and so does the second"                 "$OUT_X" "WORKTREE=other path=$X/wt/revloop-wt-x2"
+expect "under a line that still says swept"     "$OUT_X" "WORKTREE=swept removed=0 other=2 ledger=ok"
+expect "with the worktree still on disk"        "$(test -d "$X/wt/revloop-wt-x1" && echo PRESENT)" "PRESENT"
+expect "and its untracked file"                 "$(cat "$X/wt/revloop-wt-x1/artifact.txt")" "built"
+
 # --- the rule is written in both procedures ---------------------------------
 #
 # A tripwire, not a proof: it asks whether each file still says a run sweeps what
@@ -807,10 +938,15 @@ FENCE_ID='revloop:fence id=worktree-teardown'
 PREFIX_RULE='`revloop-wt-`'
 # shellcheck disable=SC2016
 LEDGER_RULE='`revloop/worktrees.txt`'
+# The newline clause is asserted on the procedure and not only on record(),
+# because the helper above is a COPY of it: if step 3 loses the clause and this
+# file keeps it, every fixture still passes while the real writer glues.
+NEWLINE_RULE='tail -c1'
 
 expect "remote-loop holds the fence"        "$(found "$FENCE_ID" "$REMOTE")"        "$FENCE_ID"
 expect "remote-loop states the name rule"   "$(found "$PREFIX_RULE" "$REMOTE")"     "$PREFIX_RULE"
 expect "remote-loop names the ledger"       "$(foundf "$LEDGER_RULE" "$REMOTE")"    "$LEDGER_RULE"
+expect "remote-loop restores the newline"   "$(foundf "$NEWLINE_RULE" "$REMOTE")"   "$NEWLINE_RULE"
 expect "local-loop cites the teardown"      "$(found 'worktree-teardown' "$LOCAL")" "worktree-teardown"
 expect "local-loop cites the creation rule" "$(found 'step 3 gives' "$LOCAL")"      "step 3 gives"
 expect "local-loop names the ledger too"    "$(foundf "$LEDGER_RULE" "$LOCAL")"     "$LEDGER_RULE"
