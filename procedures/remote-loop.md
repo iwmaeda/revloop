@@ -368,7 +368,7 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    N=revloop-wt-<slug>
    { case $N in revloop-wt-*[!A-Za-z0-9._-]*|revloop-wt-) false ;; revloop-wt-*) true ;; *) false ;; esac \
        && P=$(cd "<scratch>" && pwd -P && printf x) && [ "$(printf '%s' "$P" | wc -l)" -eq 1 ] \
-       && P=$(cd "<scratch>" && pwd -P) && W="$P/$N" && [ ! -L "$W" ] \
+       && P=$(cd "<scratch>" && pwd -P) && W="${P%/}/$N" && [ ! -L "$W" ] \
        && [ ! -L "$D" ] && { [ ! -e "$D" ] || [ -d "$D" ]; } \
        && [ ! -L "$D/worktrees.txt" ] && { [ ! -e "$D/worktrees.txt" ] || [ -f "$D/worktrees.txt" ]; } \
        && mkdir -p "$D" && { [ -e "$D/worktrees.txt" ] || : > "$D/worktrees.txt"; } \
@@ -440,6 +440,14 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    the leaf can redirect; and `[ ! -L "$W" ]` now runs on a string this step composed rather than on
    one it was given, which is the only form in which that test means what it says. **Three rounds of
    closing spellings is the evidence for the shape**, not an argument against having tried.
+
+   **`${P%/}` is part of building it, and it is there because composing can produce a spelling too.**
+   With `<scratch>` at `/`, `pwd -P` returns `/` and a plain join gives `//revloop-wt-<slug>` while
+   git normalises and records `/revloop-wt-<slug>` — the built value and the recorded value apart
+   again, one round after this shape was adopted to stop exactly that, and on some systems a leading
+   `//` names a different namespace rather than the same one. Stripping the parent's own root
+   separator before joining is what makes "the value built is the value recorded" true rather than
+   nearly true.
 
    **The parent is canonicalised because `git -C "$W" rev-parse --show-toplevel` resolves symbolic
    links.** A `<scratch>` that is a link whose **target** contains a newline yields a recorded value
@@ -2503,7 +2511,7 @@ takes one of these should say so in the report:
   into one. **What it does not reach is the post-removal `ledger=error` path**: the write probe now
   refuses an unwritable record before the loop, so every fixture that used to arrive at a failed
   rewrite stops at `reason=ledger-unwritable` instead, and the bullets below say so. Each of the
-  fence's loadbearing behaviours has been shown to fail the suite when removed, **except the six
+  fence's loadbearing behaviours has been shown to fail the suite when removed, **except the seven
   lines listed at 0** — which is a different claim from covering every branch, and is the one this
   paragraph makes.
   **Re-measured across 261 assertions**, since both the fence and the fixture count moved:
@@ -2577,12 +2585,13 @@ takes one of these should say so in the report:
   measured instead by `glued-ledger`, a fixture that hardcodes the unrepaired append and pins the
   leak it produces, so the clause and its consequence are checked from opposite sides and neither
   check moves when the other is deleted. **Step 3's ledger usability test turns 10**, and each of its
-  nine clauses is listed on its own because each closes a different measured failure — a split
-  ledger line, a worktree path that is itself a symbolic link and so records its target, a canonical
-  parent that splits although the typed path does not, a substituted ledger directory, a substituted
-  or blocking leaf, a record the run cannot use, a record the _fence_ cannot rewrite, a temp path the
-  fence cannot clear, and a ledger directory with no leaf in it. A single row for the test would let
-  nine of them go missing behind one number.
+  ten clauses is listed on its own because each closes a different measured failure — a slug that is
+  not a single ordinary component, a worktree path that is itself a symbolic link and so records its
+  target, a canonical parent that splits although the typed path does not, a substituted ledger
+  directory, a substituted or blocking leaf, a record the run cannot use, a record the _fence_ cannot
+  rewrite, a temp path the fence cannot clear, a ledger directory with no leaf in it, and the final
+  newline the next append depends on. A single row for the test would let nine of them go missing
+  behind one number.
 
   **The literal an assertion matches has to be one only the command carries, and the first version of
   the directory row's was not.** It matched `[ ! -L "$D" ]`, which also appears three times in the

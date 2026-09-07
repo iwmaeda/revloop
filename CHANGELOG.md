@@ -275,13 +275,17 @@ the next abort somebody adds.
 nothing of this run's was left behind, `WORKTREE=partial removed=N stuck=M other=K ledger=S` when
 something was — **the failure token does not contain the success token**, for the reason
 `CHECKS_FAILED` is not called `NOT_ALL_PASS`, and `other=` rides on both because `swept` is a claim
-about this run rather than about the repository. Three guards name themselves rather than passing
+about this run rather than about the repository. Six guards name themselves rather than passing
 silently: `WORKTREE=error reason=not-a-repo`, because a failed `git worktree list` prints no rows and
 would otherwise be read as a clean sweep; `WORKTREE=error reason=inside-worktree`, because a
 fence run from inside a measurement worktree would read that worktree's own git directory, find no
-ledger, and print a clean sweep over a record it never opened; and
+ledger, and print a clean sweep over a record it never opened;
 `WORKTREE=error reason=ledger-unreadable`, because a record that exists and cannot be read is not an
-empty one.
+empty one; `WORKTREE=error reason=ledger-not-regular` and
+`WORKTREE=error reason=ledger-dir-not-regular`, because a record — or the directory holding it —
+whose location somebody else chose is not one this unconditional `--force` may take its list from;
+and `WORKTREE=error reason=ledger-unwritable`, because a record that cannot be rewritten would leave
+every path it just removed still authorized.
 
 **An unreadable ledger is refused rather than treated as an absent one.** The read fell back to an
 empty value on any failure, and an empty value is not neutral here: every recorded worktree then

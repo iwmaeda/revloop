@@ -1251,7 +1251,11 @@ LEAFTYPE_RULE='[ ! -L "$D/worktrees.txt" ]'
 # registered. Patching spellings lost three times, so step 3 no longer accepts a
 # path at all: it accepts a NAME, checks it is one component from a fixed
 # character set, and BUILDS the path from a canonical parent. There is no
-# spelling left for a caller to choose.
+# spelling left for a caller to choose. `${P%/}` IS PART OF THAT: with `<scratch>`
+# at `/`, `pwd -P` returns `/` and a plain join builds `//revloop-wt-<slug>`
+# while git normalises and records `/revloop-wt-<slug>` -- the built value and
+# the recorded value apart again, one round after the shape was adopted to stop
+# exactly that, and on some systems a leading `//` is a distinct namespace.
 # shellcheck disable=SC2016
 NEWLINE_PATH_RULE='case $N in revloop-wt-*[!A-Za-z0-9._-]*|revloop-wt-) false ;; revloop-wt-*) true ;; *) false ;; esac'
 # shellcheck disable=SC2016
@@ -1296,7 +1300,7 @@ DIRWRITE_RULE='[ -w "$D/worktrees.txt" ] && [ -w "$D" ]'
 # `other` is never printed for it either. The canonical-parent rule below cannot
 # see this: the parent is clean and it is the LEAF that redirects.
 # shellcheck disable=SC2016
-LEAFLINK_RULE='P=$(cd "<scratch>" && pwd -P) && W="$P/$N" && [ ! -L "$W" ]'
+LEAFLINK_RULE='P=$(cd "<scratch>" && pwd -P) && W="${P%/}/$N" && [ ! -L "$W" ]'
 # shellcheck disable=SC2016
 CANONICAL_RULE='P=$(cd "<scratch>" && pwd -P && printf x) && [ "$(printf '"'"'%s'"'"' "$P" | wc -l)" -eq 1 ]'
 # The temp-path probe, which BOTH sides now run because both depend on it: the
