@@ -137,6 +137,15 @@ handled.
 granted list, which is why the local-state line is a flag on a command already there rather than a
 `git rev-list`. Step 11's read is the endpoint and prefix that step already used.
 
+**Both halves are unexercised, and `## Unexercised paths` now carries them.** No run has been
+refused a trigger and then waited on the standing one, and no run has resumed into a round whose
+findings were partly answered — which is the only state step 11's read is for. The entries say
+which direction each fails in, and for step 11 the two directions are not alike: a read that finds
+nothing posts the duplicate this change exists to stop, loudly and on the pull request, while a
+match that is wrong the other way skips a finding this loop never answered and says it was handled.
+The author comparison is what separates them, and it has not been read back from a live pull
+request on either of the two paths that produce the name.
+
 **Two resume gaps are named and not closed.** The per-round bucket-and-rung record step 10 mandates
 and `rigor-levels.md` consumes has no anchor on the pull request and is lost with the session, which
 is also why the rising-ceiling re-open cannot fire on a resumed run. Closing that needs a decision

@@ -2735,6 +2735,29 @@ takes one of these should say so in the report:
   in full. **What is not covered by anything is the tree somebody else pushed** — the skip trusts that
   whatever pushed the commit verified it, which is the same trust every ordinary round already places
   in the push that preceded its trigger, and no path in this procedure reads CI before triggering.
+- **Step 11's read-before-post, and the account it matches on.** The step now reads the replies under
+  a finding before writing one and skips a finding that already carries a reply of this run's, which
+  is a behavioural change no fixture reaches: `tests/` holds fence tests, and this is prose no fence
+  executes. **Nor has a run taken it** — the resumed round it exists for, where an earlier session
+  answered some of a review's findings and died, has not been driven. **The two directions fail
+  differently, and only one of them is visible.** A read that returns nothing, or a login that never
+  matches, posts the duplicate reply that existed before this change — noisy, on the pull request,
+  and obvious to a human. A match that is wrong in the other direction **skips a finding this loop
+  never answered** while the report says it was already handled, and nothing outside the pull request
+  would show it. **The author comparison is the only thing standing between the two**, and it rests
+  on an account carried out of whichever call step 7 made — `AS=` on a run that fired, the newest
+  marker's login on a run the invariant blocked. Neither spelling has been read back from a live
+  pull request, and the two paths have never been shown to produce the same name.
+- **Step 7's rule that a blocked invariant still reads the pull request.** The failure it answers is
+  measured — `iwmaeda/revloop#13` (2026-08), a re-invocation refused a trigger that reported the
+  invariant as the blocker and stopped there — but **no run has taken the path it opens**: being
+  refused a trigger, carrying the standing marker's `SINCE` into step 8, and waiting on a comment it
+  did not post. **It is the precondition of the re-take above rather than a part of it**, and listing
+  it there would have hidden that: the re-take is reached only through step 9, and step 9 is reached
+  only if this rule sent the blocked run into the wait. **What it can cost is wall clock rather than
+  a round** — a run that waits on a standing trigger nothing will ever answer spends its `timeout`
+  where the old reading stopped at once — and step 9's two `pending`-exceeding rows are what end it,
+  neither of which has been reached from this path either.
 - **Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor**, and its own
   `## Not measured` section says which parts and why: the eight round caps are `builtin` guesses, of
   which only `thorough`'s pair is a number this file carried before and none of which is the
