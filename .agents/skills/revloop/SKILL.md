@@ -89,12 +89,18 @@ not apply.
 
 The procedure's `## Notes` section states them; these are the ones most often lost in adaptation:
 
-- **Never re-fire a trigger without new commits**, except in the two cases the procedure names — and
+- **Never re-fire a trigger without new commits**, except in the three cases the procedure names — and
   they belong to different runs. Compare `marker_head=` against current HEAD; the in-run exception is
   silence, and its conditions and its budget of one live in the procedure, counted from the markers on
-  the pull request rather than from this session. **A lost baseline is not that exception**: it aborts,
-  and a later run re-takes the baseline with an ordinary trigger at an unchanged HEAD, once it can
-  establish the baseline is foreign.
+  the pull request rather than from this session. **Neither of the other two is that exception**: a
+  lost baseline aborts, and a later run re-takes the baseline with an ordinary trigger at an unchanged
+  HEAD once it can establish the baseline is foreign; **a rate-limited round aborts too, and a later
+  run re-takes it** from the procedure's step-9 re-take row when the run reading the reply is not the
+  run that posted the trigger. Both open a new round rather than re-posting one.
+- **A run the invariant blocks still reads the pull request.** It posts nothing and then waits on the
+  trigger already standing there, carrying that marker's timestamp as its baseline. Ending the run at
+  the invariant instead is how a rate-limited round became unrecoverable, and it is also how a
+  standing answer goes unread.
 - **A round that fired twice can have two reviews on the same commit.** The wait names one of them.
   Read the findings from every review **by the configured reviewer** at HEAD submitted at or after the
   round's first trigger, or the other one's are silently dropped — and without that lower bound a round reopened on an unchanged

@@ -628,12 +628,12 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    `commit.bodyLanguage`) — they are detected from the repository's own history, not imposed.
 
 7. Trigger the review. **Do not fire if HEAD has not changed since the last trigger** (the runaway
-   invariant, below) — **two states below carve exceptions out of that, one recovered in this run and
-   one only in a later one, and "the last trigger" means the newest one on the pull request, not your
-   newest marker**, so when the read below shows a non-bot comment newer than your marker you have to
-   establish which it is before the invariant can tell you anything. The invariant's premise is that a
-   trigger of yours can still bind this round's verdict, and **two states end that premise — but only
-   one of them is recovered inside the run.**
+   invariant, below) — **three states below carve exceptions out of that, one recovered in this run
+   and two only in a later one, and "the last trigger" means the newest one on the pull request, not
+   your newest marker**, so when the read below shows a non-bot comment newer than your marker you
+   have to establish which it is before the invariant can tell you anything. The invariant's premise
+   is that a trigger of yours can still bind this round's verdict, and **three states end that
+   premise — but only one of them is recovered inside the run.**
    Your trigger produced no verdict this run classified: this run re-posts it once, under "Re-posting
    a trigger that went unanswered" below, same `round=` and `attempt=2`. **That is not the same as
    nothing having been sent** — a signal can be orphaned in the gap `## Notes` describes — which is
@@ -646,8 +646,37 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    recovery does not arrive on its own and the loop keeps handing the same abort to a human. The asymmetry
    is not tidiness: a lost baseline usually means somebody is driving the pull request by hand, and
    racing a person for the newest comment is the runaway itself, so the loop stops and lets them
-   decide. **Neither state is a licence to fire again on a trigger that was answered**, which is the
-   thing the invariant exists to stop. Compose the
+   decide. Or the reviewer answered the standing trigger by declining to review it: a comment matching
+   the resolved reviewer's `rateLimitPatterns` is the reviewer saying it will not read that diff, so
+   **nothing of yours can bind a verdict any more and the premise is over** — the same ending as a
+   lost baseline, reached without anybody taking the baseline away. **That state is reached only from
+   step 9's `rate-limit-retake` row, never from this step's own reading of the comments.** The fence
+   is the only thing that decides which trigger a signal answers, and a bot body classified here would
+   be a second implementation of that decision — the same reasoning that forbids replaying the
+   compatibility pattern here, and the same reasoning that refuses to let a `pending` line establish a
+   foreign baseline. When that row sends you back, open a **new** round with an **ordinary** trigger —
+   no `attempt=`, the round number advances, `head=` is current HEAD — because the round it replaces
+   is dead. **Keeping this round's `round=` is not the cheaper version of that**: a second marker
+   carrying no `attempt` key is counted by the count-plus-one rule below, so it inflates the next
+   round's number and breaks the rule that finds a round's first trigger. **`--max-rounds` is checked
+   here as usual**, and that is what bounds a series of futile re-takes — each one writes a marker, so
+   the count rises whether or not the quota came back, and a pull request that keeps answering
+   rate-limited runs out of rounds and aborts with `reason=max-rounds` rather than re-taking forever.
+   **None of the three is a licence to fire again on a trigger that was answered with a review**,
+   which is the thing the invariant exists to stop.
+
+   **When the invariant blocks, this step posts nothing and the run does not end here.** Carry the
+   standing marker's `SINCE` into step 8 and wait on the trigger that is already on the pull request:
+   the invariant governs what may be **posted**, never whether the pull request is **read**.
+   **Measured** on `iwmaeda/revloop#13` (2026-08): a run re-invoked twenty minutes after a
+   rate-limited round, at unchanged HEAD, was refused a trigger here and spent no round, and the
+   report it produced named the invariant as the blocker and nothing else. **Derived from that, and
+   the reason this is stated rather than left for the `SINCE` rule below to imply:** a run that reads
+   the refusal as the end of the run never reaches step 9, which is where the answer to the standing
+   trigger is classified and where the only recovery from a rate limit lives — so the block becomes
+   permanent by construction, whatever the reviewer has since said.
+
+   Compose the
    trigger as the reviewer's trigger text, a blank line, and a **revloop marker** — an HTML comment,
    which GitHub does not render:
 
@@ -848,9 +877,9 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    because the round's problem is that nothing of yours is being watched rather than that something of
    yours drew no classified verdict.
    (c) No marker on this PR carries **this round's `round=`** together with an `attempt=`. Scope it to
-   the round rather than to `head=`: the lost-baseline state can open a **new** round on an unchanged
-   HEAD, so a `head=`-only search would let a previous round's re-post spend this round's budget and
-   report `attempts=2` for a round that only ever sent one trigger.
+   the round rather than to `head=`: the lost-baseline state and the rate-limit re-take both open a
+   **new** round on an unchanged HEAD, so a `head=`-only search would let a previous round's re-post
+   spend this round's budget and report `attempts=2` for a round that only ever sent one trigger.
 
    **Split the marker payload on whitespace and compare whole `key=value` tokens. Never search it as
    a substring.** `round=1` is a prefix of `round=10`, so a substring search for this round's number
@@ -864,8 +893,14 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    budget kept in the session is a budget a restart refunds. **A marker you cannot parse counts as a
    match** — discarding a row is not the same as pretending it was never there, and the direction that
    fails safe here is the one that withholds a second trigger rather than the one that sends it.
-   (d) The round produced no classified verdict at all. A rate-limit reply has its own row in step 9
-   and that row says **do not retry**; silence is the only signal this exception answers.
+   (d) The round produced no classified verdict at all. A rate-limit reply is a classified verdict and
+   is not silence: it has **two** rows of its own in step 9 and **neither of them is this exception**.
+   A reviewer that declined this trigger declines a second copy of it in the same run, in about ten
+   seconds (`reviewers/codex.md`), so the re-post would buy a comment on the pull request and nothing
+   else. **The recovery for a rate limit is a later run's re-take, not this run's re-post**, and the
+   two differ in what they write: the re-post keeps this round's `round=` and adds `attempt=2`, while
+   the re-take opens the next round with an ordinary trigger. Silence is the only signal this
+   exception answers.
    (e) `git rev-parse --short=8 HEAD` still equals the `head=` you are about to write. "Never push
    while a wait is armed" is a rule, not an enforcement, and the re-post doubles the window it has to
    hold for. A re-post carrying a stale `head=` is a trigger that step 9's check (c) will abort on —
@@ -900,9 +935,11 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    recoverable and the half that only costs wall clock is not — which is the right way round.
 
    **A re-post is also a diagnosis.** If the silence came from a quota state, the second trigger
-   frequently draws codex's rate-limit reply in about ten seconds (`reviewers/codex.md`), and step 9's
-   rate-limit row then aborts with a real reason instead of `no-verdict`. That is the second-best
-   outcome after the reviewer simply answering.
+   frequently draws codex's rate-limit reply in about ten seconds (`reviewers/codex.md`), and step 9
+   then aborts with `reason=reviewer-rate-limited` instead of `no-verdict`. **It is the abort row it
+   reaches and not the re-take row**, because this run posted that trigger — which is what stops a
+   re-post from turning into a third trigger. That is the second-best outcome after the reviewer
+   simply answering, and the recovery is the same as for any rate limit: a later run.
 
    **The marker is what makes step 8 reviewer-agnostic without widening its matching.** The fence
    never matches a reviewer's name; it matches a string revloop itself wrote, and reads the reviewer's
@@ -1166,33 +1203,58 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    own saying "follow the above — rate limit takes precedence", which is a rule about precedence
    placed where first-match reading never reaches it: the fence emits `EXTRA=` only alongside a
    `review`, and the `review` rows are above. So: **if `EXTRA=` carries the reviewer's rate-limit
-   pattern, the round aborts on that whatever the primary line said** — the findings in the review
-   are real but the quota is gone, and continuing spends rounds against a reviewer that cannot
-   answer. Any other `EXTRA=` body is context for the report and changes no verdict.
+   pattern on a trigger this run posted, the round aborts on that whatever the primary line said**,
+   with `reason=reviewer-rate-limited` — the findings in the review are real but the quota is gone,
+   and continuing spends rounds against a reviewer that cannot answer. **On a trigger an earlier run
+   posted it aborts nothing.** That quota block is the standing round's history, the run that met it
+   has already stopped for it, and aborting again strands a real review unread on a pull request whose
+   HEAD cannot move until somebody reads it — the same permanent block the re-take row below exists to
+   end, reached by the one path the re-take cannot take. Decide from the primary line, and say in the
+   report that the reviewer was out of quota when this round was answered. **The re-take never reaches
+   here**, and the reason is the premise: a `review` on the primary line is the reviewer having
+   answered that trigger, so nothing about the invariant's premise is in question. The re-take exists
+   for a trigger that drew no review at all. Any other `EXTRA=` body is context for the report and
+   changes no verdict.
 
-   | Signal                                                                | Verdict                    | Next action                                                                                                                                                                                                                                                                                                                                                                    |
-   | --------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-   | `review` + `commit` equals HEAD                                       | continue                   | Go to 10                                                                                                                                                                                                                                                                                                                                                                       |
-   | `review` + `commit` is an ancestor of HEAD                            | continue (once)            | **Discard** the findings and re-fire step 8 only. A second time aborts                                                                                                                                                                                                                                                                                                         |
-   | `review` + `commit` absent locally (`128`)                            | **abort**                  | `git fetch`; if still absent, someone else pushed. Stop                                                                                                                                                                                                                                                                                                                        |
-   | `review` + `commit` not an ancestor (`1`)                             | **abort**                  | History diverged (reset / force push). Stop                                                                                                                                                                                                                                                                                                                                    |
-   | `review` with zero inline comments                                    | **not clean by itself**    | **Decide after fetching in 10** — step 8 does not count them, and **the body can carry the whole finding** (measured). Read the body before concluding clean                                                                                                                                                                                                                   |
-   | `comment` whose body **starts with** the reviewer's clean phrase      | **finish (clean)**         | Go to 12 — but **on a two-trigger round run step 10's review sweep first**, or a review orphaned before the re-post is never read                                                                                                                                                                                                                                              |
-   | `comment` matching the reviewer's rate-limit pattern                  | **abort**                  | **Do not retry.** The quota recovers with time; retrying only burns rounds                                                                                                                                                                                                                                                                                                     |
-   | `comment` whose `cid=` you already classified as non-terminal         | **abort** (`interim-loop`) | The reviewer emits an interim comment this fence does not know. Report `cid=` and the body. Recovering means adding its pattern to the fence's drop list — a fence edit, so one re-approval for every user                                                                                                                                                                     |
-   | `comment` with any other bot body                                     | **abort**                  | Print the body in full and hand it to a human. Do not guess                                                                                                                                                                                                                                                                                                                    |
-   | `reaction`                                                            | **finish (clean)**         | An unexercised path — say so in the report. **On a two-trigger round run step 10's review sweep first**, same as the clean comment                                                                                                                                                                                                                                             |
-   | `pending` (within `--timeout`)                                        | continue                   | Re-fire **step 8 only**, never step 7                                                                                                                                                                                                                                                                                                                                          |
-   | any output whose `trigger=` is not your `SINCE`                       | continue (twice)           | Not this round's verdict, whatever form it took. Re-fire step 8; **the third consecutive mismatch aborts** with `reason=foreign-baseline`. It never counts toward step 7's floor and can never authorise a re-post; against `--timeout` it costs what it spent — **nothing for a mismatched verdict, which exits on the first poll, and one chunk for a mismatched `pending`** |
-   | `pending` (exceeding `--timeout`) + step 7's five conditions all hold | **re-post (once)**         | The trigger was delivered and drew no verdict this run classified — which is not proof that none was sent, so the report says a signal may have been orphaned. Post it again in step 7 — same `head=` and `round=`, plus `attempt=2` — then re-fire step 8. Record it in the report and in the field notes                                                                     |
-   | `pending` (exceeding `--timeout`) + anything else                     | **abort**                  | Name which condition failed: `no-verdict attempts=2`, `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is silence _from the filtered bot_, so read the PR — a wrong `botLogin` looks identical                                                                                                                                       |
-   | `login=` not the configured reviewer                                  | **abort**                  | Do not read another bot's verdict as this round's. Report the login. **Check `marker_head=` first**: on a compatibility baseline the bot filter is empty and admits any bot, so a foreign login is the lost-baseline row below, not this one                                                                                                                                   |
-   | `marker_head=none` (a hand-typed trigger won the baseline)            | **abort**                  | The compatibility class anchors a baseline; it cannot bind a verdict to a commit. **Report and finish.** A later run re-takes the baseline with an ordinary trigger in step 7 — the lost-baseline state, never a re-post                                                                                                                                                       |
-   | `error reason=untriggered-verdict`                                    | **abort**                  | **A verdict exists but no trigger does.** Read `bot=` for the reason                                                                                                                                                                                                                                                                                                           |
-   | `error reason=no-pr` / `no-trigger`                                   | **abort**                  | Report verbatim. Suspect step 6 and whether a PR exists                                                                                                                                                                                                                                                                                                                        |
-   | `error reason=no-branch`                                              | **abort**                  | Detached HEAD, so the fence refused to resolve a PR. **Report and finish**; check out the topic branch before re-running                                                                                                                                                                                                                                                       |
-   | `error reason=api` (no `stage=setup`)                                 | **abort**                  | Five consecutive fetch failures inside the loop. Suspect `gh` connectivity                                                                                                                                                                                                                                                                                                     |
-   | `error reason=api stage=setup`                                        | **abort**                  | **Failed before resolving the PR.** Suspect auth or network, not a missing PR                                                                                                                                                                                                                                                                                                  |
+   **"This run posted it" means step 7 of this run returned a `TRIGGER=` id for the round the fence is
+   watching.** Not "this session", and not "somebody posted it recently": the question is whether the
+   trigger the fence names is one this run put on the pull request, and the only evidence of that is
+   having done it. **A session that resumed into this round did not post it either, and this rule
+   deliberately does not try to tell the two apart.** A run re-invoked after a quota abort and a run
+   resuming a wait that died arrive here with the same marker, the same head binding and the same
+   round number; the second left nothing on disk and nothing on the pull request to separate them. So
+   the rule has to be right for both, and it is chosen for the one that has no other recovery: a
+   resumed session that re-takes spends one round and one comment and then meets the abort on the
+   reviewer's second reply, about ten seconds later (`reviewers/codex.md`), while a rule that declined
+   to re-take leaves the deliberate re-invocation blocked forever — the defect measured on
+   `iwmaeda/revloop#13` (2026-08). **A spent round is bounded by `--max-rounds`, visible on the pull
+   request and recorded in the field notes; the block is silent and permanent.** That is why the
+   report names a re-take round as one.
+
+   | Signal                                                                | Verdict                             | Next action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+   | --------------------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `review` + `commit` equals HEAD                                       | continue                            | Go to 10                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+   | `review` + `commit` is an ancestor of HEAD                            | continue (once)                     | **Discard** the findings and re-fire step 8 only. A second time aborts                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+   | `review` + `commit` absent locally (`128`)                            | **abort**                           | `git fetch`; if still absent, someone else pushed. Stop                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+   | `review` + `commit` not an ancestor (`1`)                             | **abort**                           | History diverged (reset / force push). Stop                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+   | `review` with zero inline comments                                    | **not clean by itself**             | **Decide after fetching in 10** — step 8 does not count them, and **the body can carry the whole finding** (measured). Read the body before concluding clean                                                                                                                                                                                                                                                                                                                                                                                                               |
+   | `comment` whose body **starts with** the reviewer's clean phrase      | **finish (clean)**                  | Go to 12 — but **on a two-trigger round run step 10's review sweep first**, or a review orphaned before the re-post is never read                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+   | `comment` matching the rate-limit pattern + **your own trigger**      | **abort** (`reviewer-rate-limited`) | **Do not retry in this run.** The quota recovers with time and a second trigger draws the same reply in about ten seconds, so retrying only burns rounds. Print the body in full, including any reset time it names. **The recovery is a later invocation**, and the row below is what it reaches                                                                                                                                                                                                                                                                          |
+   | `comment` matching the rate-limit pattern + **a standing trigger**    | **re-take** (`rate-limit-retake`)   | The reviewer declined that trigger, so nothing of this run's can bind a verdict and the invariant's premise is over. Go back to step 7 and open a **new** round with an **ordinary** trigger — no `attempt=`, the round advances, `head=` is current HEAD — subject to `--max-rounds` as any round is. **The bound needs no counter**: after this the trigger is one this run posted, so a second rate limit takes the row above. Say in the report that the round was opened by a rate-limit re-take, naming the `cid=`, and append one line to `.revloop/field-notes.md` |
+   | `comment` whose `cid=` you already classified as non-terminal         | **abort** (`interim-loop`)          | The reviewer emits an interim comment this fence does not know. Report `cid=` and the body. Recovering means adding its pattern to the fence's drop list — a fence edit, so one re-approval for every user                                                                                                                                                                                                                                                                                                                                                                 |
+   | `comment` with any other bot body                                     | **abort**                           | Print the body in full and hand it to a human. Do not guess                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+   | `reaction`                                                            | **finish (clean)**                  | An unexercised path — say so in the report. **On a two-trigger round run step 10's review sweep first**, same as the clean comment                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+   | `pending` (within `--timeout`)                                        | continue                            | Re-fire **step 8 only**, never step 7                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+   | any output whose `trigger=` is not your `SINCE`                       | continue (twice)                    | Not this round's verdict, whatever form it took. Re-fire step 8; **the third consecutive mismatch aborts** with `reason=foreign-baseline`. It never counts toward step 7's floor and can never authorise a re-post; against `--timeout` it costs what it spent — **nothing for a mismatched verdict, which exits on the first poll, and one chunk for a mismatched `pending`**                                                                                                                                                                                             |
+   | `pending` (exceeding `--timeout`) + step 7's five conditions all hold | **re-post (once)**                  | The trigger was delivered and drew no verdict this run classified — which is not proof that none was sent, so the report says a signal may have been orphaned. Post it again in step 7 — same `head=` and `round=`, plus `attempt=2` — then re-fire step 8. Record it in the report and in the field notes                                                                                                                                                                                                                                                                 |
+   | `pending` (exceeding `--timeout`) + anything else                     | **abort**                           | Name which condition failed: `no-verdict attempts=2`, `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is silence _from the filtered bot_, so read the PR — a wrong `botLogin` looks identical                                                                                                                                                                                                                                                                                                                                   |
+   | `login=` not the configured reviewer                                  | **abort**                           | Do not read another bot's verdict as this round's. Report the login. **Check `marker_head=` first**: on a compatibility baseline the bot filter is empty and admits any bot, so a foreign login is the lost-baseline row below, not this one                                                                                                                                                                                                                                                                                                                               |
+   | `marker_head=none` (a hand-typed trigger won the baseline)            | **abort**                           | The compatibility class anchors a baseline; it cannot bind a verdict to a commit. **Report and finish.** A later run re-takes the baseline with an ordinary trigger in step 7 — the lost-baseline state, never a re-post                                                                                                                                                                                                                                                                                                                                                   |
+   | `error reason=untriggered-verdict`                                    | **abort**                           | **A verdict exists but no trigger does.** Read `bot=` for the reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+   | `error reason=no-pr` / `no-trigger`                                   | **abort**                           | Report verbatim. Suspect step 6 and whether a PR exists                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+   | `error reason=no-branch`                                              | **abort**                           | Detached HEAD, so the fence refused to resolve a PR. **Report and finish**; check out the topic branch before re-running                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+   | `error reason=api` (no `stage=setup`)                                 | **abort**                           | Five consecutive fetch failures inside the loop. Suspect `gh` connectivity                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+   | `error reason=api stage=setup`                                        | **abort**                           | **Failed before resolving the PR.** Suspect auth or network, not a missing PR                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 10. Read the findings — **from the inline comments and from the review body, because either can
     carry them.** Findings are normally inline review comments and the body is normally boilerplate,
@@ -2125,26 +2187,44 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
 - **Never re-fire the trigger without new commits — unless nothing of yours can still bind a verdict.**
   Reviewers look at the diff, not at your replies, so firing again on the same HEAD **after a
   verdict** returns the same findings and spends the reviewer's budget for nothing. **Fire only when
-  `git rev-parse HEAD` differs from the last trigger's HEAD, unless one of the two exceptions below
+  `git rev-parse HEAD` differs from the last trigger's HEAD, unless one of the three exceptions below
   applies** — which is exactly what `marker_head=` records, so the invariant survives a session
   restart with no local state and no timezone
   arithmetic. **Two firings at an unchanged HEAD are nonetheless correct, and they belong to different
   runs.** The in-run exception answers the opposite failure: a trigger for which this run classified
   **no verdict at all** is, so far as this run can tell, a comment that went nowhere, and refusing to
-  send it again ends a round whose pull request, diff and CI are all healthy. The other is the
-  lost-baseline re-take below, which no run performs for itself. **The premise is what the invariant
-  actually protects**: it bars a second trigger while one of yours can still bind a verdict. Two
-  states end that premise — no verdict of yours classified, and a newer trigger taking the baseline —
+  send it again ends a round whose pull request, diff and CI are all healthy. The other two are the
+  lost-baseline re-take and the rate-limit re-take below, neither of which a run performs for itself.
+  **The premise is what the invariant
+  actually protects**: it bars a second trigger while one of yours can still bind a verdict. Three
+  states end that premise — no verdict of yours classified, a newer trigger taking the baseline, and
+  the reviewer declining to review the trigger at all —
   and **only the first is recovered inside the run**. The second aborts, because an abort is a stop
   and because a lost baseline usually means a
   person is driving the pull request by hand; a later run re-takes it with an ordinary trigger once it
-  can establish the baseline is foreign, which a `pending` line alone cannot. Step 7
+  can establish the baseline is foreign, which a `pending` line alone cannot. **The third is the one
+  where the premise ends by the reviewer's own answer** rather than by silence or by somebody else's
+  comment, which is why it needs no evidence beyond the fence's own classification: a rate-limit reply
+  under checks (b), (c) and (d) is the reviewer saying it will not read this diff. Step 7
   states the five conditions. The bound is **one re-post
   per round**, and it is stored where the invariant already lives — a marker on the pull request
   carrying **this round's `round=`** and a whitespace-separated token whose key is exactly `attempt` —
   so a session that dies mid-wait cannot come back and re-post a second time. Keyed by `head=` it
   would be one re-post per commit, which the lost-baseline state can reopen; read as a number rather
-  than a key it would match `notattempt=2`.
+  than a key it would match `notattempt=2`. **The re-take carries no marker key and needs none**: it
+  opens a round, so the round number is its bound, counted from the pull request like every other.
+- **The rate-limit re-take is decided from within-run state, and it is the one rule here that a
+  restart is supposed to forget.** Everything else the invariant depends on is anchored to the pull
+  request so that a restart cannot refund it — the round number, the re-post budget, the head binding.
+  This is the opposite case: what it needs to know is whether a **person** decided to run the loop
+  again after a quota abort, and the invocation is the only evidence of that decision the loop ever
+  gets. A clock is not available either — `rateLimitPatterns` may not carry a reset time, and the
+  measured remote reply names none — and anchoring the licence to the pull request would make it
+  permanent, so one rate-limit comment would authorise a re-take on every future run for the life of
+  the branch. **The bound that does survive is the round number**, because a re-take opens a round: a
+  loop re-run on a timer spends `--max-rounds` and stops with `reason=max-rounds` rather than running
+  forever. The `interim-loop` row already decides from within-run state — a `cid=` this run
+  classified — so this is the second member of a class rather than a new idea.
 - **A re-post moves the baseline forward, never backward, and that is why it is allowed at all.**
   `docs/design-notes.md` tabulates the two directions: a baseline that is too old adopts a **previous**
   round's verdict, which is always a safety failure, and one that is too new drops a verdict that
@@ -2520,6 +2600,17 @@ takes one of these should say so in the report:
   answered — is reported but not yet recorded with a citation, and the path has not been run against
   a live reviewer. The fixtures pin what the fence does with an `attempt=` marker and which trigger
   wins the baseline; they cannot show that a reviewer answers the second one.
+- **The rate-limit re-take in steps 7 and 9.** The failure it answers is recorded twice with a
+  citation — `iwmaeda/revloop#13` (2026-08), a rate-limited round and, twenty minutes later, a
+  re-invocation the runaway invariant blocked at unchanged HEAD — but **no run has performed the
+  re-take against a live reviewer**, so nothing has measured whether a recovered quota answers the new
+  trigger, or how many rounds a still-exhausted one costs before `--max-rounds` stops it. The fixtures
+  pin that the fence surfaces a rate limit as a primary `VERDICT=comment`, and that a re-take marker
+  at the same `head=` with a higher `round=` takes the baseline while the older rate-limit comment is
+  not re-adopted; **they cannot pin which of the two rate-limit rows step 9 takes**, because the
+  discriminator is within-run state the fence never sees and the fence's output is byte-identical
+  either way. **It fails closed**: a re-take opens a round rather than finishing one, so its worst
+  outcome is a spent round and a comment, never a merge.
 - **Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor**, and its own
   `## Not measured` section says which parts and why: the eight round caps are `builtin` guesses, of
   which only `thorough`'s pair is a number this file carried before and none of which is the

@@ -45,6 +45,12 @@ sweep; a comment-only signal has no such recovery, and for the two abort-class c
 widening, which is why a two-trigger round says so in its report. The conditions, the budget, and the
 recovery are in the procedure's step 7 and step 10.
 
+**The rate-limit re-take moves the baseline forward too, and it is the one forward move that drops
+nothing.** The signal it steps past is the rate-limit reply the run has already classified, so the
+too-new row above has nothing to lose to it. A round that carried a review **as well** never reaches
+the re-take at all — it reaches the `EXTRA=` ruling, whose whole point is that the trigger was
+answered — so no recoverable finding is ever in that gap.
+
 **"Newest" is a computation, not a row position.** Trigger rows are sorted before the newest is taken,
 because the fence builds its array from several generators and generator order is not time order —
 taking the last row selected the newest _hand-typed_ trigger whenever one existed, which is the
@@ -77,6 +83,12 @@ arrived and presents as "the reviewer never responded". So the fence matches a s
   restart cannot refund them. Adding `attempt=` cost no fence edit, because the fence reads marker
   keys by name and skips one it does not know — **a marker key can be added without changing any
   fence's bytes**, and so without costing any user a re-approval.
+- **One bound is deliberately not on GitHub, and it is the exception that proves the rule above**:
+  whether this run posted the trigger it is looking at. It decides the rate-limit re-take, and a
+  restart is supposed to refund it — the operator's re-invocation is the only signal the loop ever
+  gets that a quota may have recovered, and a marker recording it would authorise a re-take on every
+  future run for the life of the branch. What keeps it bounded is that a re-take **opens a round**, so
+  the round number counts it like any other and `--max-rounds` stops a series.
 - **Config never reaches the fence.** Reviewer identity arrives via a comment revloop posted, not a
   file the fence parses, so a hostile `.revloop.json` has no path into a shell command or jq program.
 

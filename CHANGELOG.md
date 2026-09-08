@@ -13,6 +13,65 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### A rate-limited round is recoverable by a later run
+
+**The bug was an enumeration gap, not a wrong rule.** `## Notes` has always stated the runaway
+invariant as "never re-fire the trigger without new commits — **unless nothing of yours can still bind
+a verdict**", and a reviewer answering with its quota notice is exactly that: the trigger was
+answered, and answered by declining to read the diff. But step 7 enumerated only **two** states that
+end the premise — no verdict this run classified, and a newer trigger taking the baseline — and step
+9's rate-limit row said "do not retry" with no recovery beside it. Because the remote invariant is
+anchored to a marker on the pull request rather than to the session, that left a rate-limited round
+**permanently unrecoverable**: re-running after the quota came back aborted again, at an unchanged
+HEAD, forever. The only exits were pushing a commit or hand-typing the trigger.
+
+Recorded twice against this repository before it was fixed (`iwmaeda/revloop#13`, 2026-08): a
+`rate-limit-abort` at round 21, then, twenty minutes later, "step 7's runaway invariant forbade a
+round-22 trigger, so no round was spent". `local-loop.md` had closed the same hole on its side by
+declaring its invariant within-run only; the pull-request loop never got the equivalent.
+
+**Now: the run that meets the reply still aborts, and a later run re-takes the trigger.** The
+discriminator is who posted the trigger the fence is watching — a run that arrived on a standing
+baseline it did not create opens a **new** round with an **ordinary** trigger, no `attempt=`, at the
+same HEAD, exactly as the lost-baseline re-take already did. **The bound needs no counter**: after the
+re-take the trigger is one this run posted, so a second rate limit takes the abort row. And because a
+re-take opens a round, `--max-rounds` already bounds a series of them — a pull request that keeps
+answering rate-limited stops at `reason=max-rounds` instead of re-taking forever.
+
+**Two names, and the split between them is deliberate.** The abort is `reviewer-rate-limited`, which
+is the token `local-loop.md` already used for the same event — one event, one spelling, one grep
+across both loops. The re-take is `rate-limit-retake`, a row name rather than a `reason=`, because it
+is not an abort. **The abort names the state the reviewer is in; the re-take names the act this run
+took** — the same split as `foreign-baseline` against the lost-baseline re-take.
+
+**One prose fix underneath all of this is worth reading on its own.** Step 7 never said what a run
+does when the invariant blocks it, and the measured failure is an agent treating it as a stop: the run
+above was refused a trigger, spent no round, and reported the invariant as the blocker and nothing
+else. A run that ends there never reaches step 9, which is where the answer to the standing trigger is
+classified and where the only recovery from a rate limit lives — so the block is permanent by
+construction, whatever the reviewer has since said. The step now says outright that the invariant
+governs what may be **posted**, never whether the pull request is **read**. That is a rule the
+resumed-run `SINCE` paragraph already assumed rather than a new licence, and it is the load-bearing
+half of this change: without it the new row is unreachable and the bug survives its own fix.
+
+**The `EXTRA=` ruling splits the same way and for the opposite reason.** A rate limit riding alongside
+a `review` still aborts the run that posted the trigger, but on a standing one it aborts nothing:
+that quota block is the round's history, and aborting again strands a real review unread on a pull
+request whose HEAD cannot move until somebody reads it. **The re-take never reaches that case** — a
+review on the primary line is the reviewer having answered, so the premise was never in question.
+
+**No fence changed and no re-approval is owed.** `tests/fence-hashes.txt` is byte-identical, all four
+hashes unmoved, which is the evidence for that sentence rather than memory. Everything here is prose,
+three new fixtures, and their assertions.
+
+**Still unexercised**, and `## Unexercised paths` says so: no run has performed the re-take against a
+live reviewer. The fixtures pin that a rate limit reaches step 9 as a primary `VERDICT=comment` — a
+shape nothing pinned before, since the pattern had only ever appeared on an `EXTRA=` — and that a
+re-take marker at an unchanged `head=` with a higher `round=` takes the baseline while the older
+rate-limit comment is not re-adopted. **They cannot pin which of the two rate-limit rows step 9
+takes**, because the discriminator is within-run state the fence never sees and its output is
+byte-identical either way. The test file says that where somebody will read it.
+
 ## [0.9.0] - 2026-09-07
 
 ### A fourth fence: the loop now removes the worktrees it created
