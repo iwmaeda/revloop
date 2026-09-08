@@ -76,7 +76,11 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
 
 - Work has reached a stopping point and you want it reviewed on a PR
 - You fixed review findings and want the next round on the same PR
-- You want to resume an interrupted loop (the command decides which step to resume from)
+- You want to resume an interrupted loop. **Re-run the same command; nothing selects a step to start
+  at.** Steps 2 and 6 decline work already done, step 3 declines a pass with nothing to gate, step 7
+  reads the round back off the pull request, and step 11 declines a finding it has already answered —
+  so the run walks the same twelve steps and each one asks whether it is needed. This sentence used to
+  say the command decides which step to resume from, which named no step and no decider
 - **When not to use it**: authoring the change itself, or committing without triggering a review
 
 ## Steps
@@ -87,7 +91,7 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
 
    ```bash
    git branch --show-current
-   git status --porcelain -uall
+   git status --porcelain -uall -b              # -b adds the "## branch...upstream [ahead N, behind M]" header
    git log -20 --format='%s'                    # subject language and scope vocabulary
    git log -20 --format='%b'                    # body language and shape, unfiltered
    git log -20 --format='%b' | grep -E '^[A-Za-z0-9][A-Za-z0-9-]*: '   # lines shaped like a trailer
@@ -99,6 +103,29 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
      --jq '.required_status_checks.contexts' 2>/dev/null || echo 'protection=none (404)'
    gh pr list --head "$(git branch --show-current)" --state open --json number,url
    ```
+
+   **Print one line of local state, because three of its facts decide whether step 3 has anything to
+   do.** The probe already measures all three — `-b` makes `git status` print
+   `## <branch>...<upstream> [ahead N, behind M]` as its first line, and the pull request comes from
+   the last call in the block:
+
+   ```text
+   local: tree clean | 0 ahead, 0 behind origin/docs/trade-suitability-design | PR #106 open
+   ```
+
+   **`-b` belongs to this step and not to the two others that run the same command.** Steps 3 and 4
+   read `git status --porcelain -uall` **for paths**, and step 4 stages what it reads; a `##` header
+   there is a line that is not a path, and the flag is left off in both places for that reason.
+
+   **The line says nothing about the round, the reviewer, or whether an answer is waiting**, and that
+   is a rule rather than an omission. The wait fence is the only thing that decides which trigger a
+   signal answers, and a bot body classified here would be the second implementation step 7 forbids in
+   as many words. What this step may print is what `git` and `gh pr list` told it.
+
+   **It is printed because something reads it**, which is the same rule as the `source` column below:
+   step 3's first-arrival check turns on exactly these three facts, so a run that prints them has
+   already done the measuring that check needs. A line nobody reads would be the row wearing a
+   `detected` label that the next paragraph forbids.
 
    Print a resolved-configuration table with a `source` column whose value is one of
    `flag` / `config` / `detected` / `rigor` / `builtin`, covering at least: reviewer, base branch,
@@ -294,9 +321,49 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    git switch <base> && git pull && git checkout -b fix/<slug>
    ```
 
-3. Run the verify commands from the resolved table, closest-to-the-change first. **Run them exactly as
-   CI invokes them** — a different invocation locally than in CI is how local green becomes remote red.
-   **A red CI wastes a whole review round**, so pay for it before pushing, not after:
+3. **First, whether this step has anything to do.** The preamble promises that every step checks
+   whether it is already done; step 2 does it in a clause and step 6 does it in four words, and this
+   step carried no such check at all. **On this run's first arrival here, skip this step, step 4 and
+   step 5 and go to 6** when all three facts on step 1's local-state line hold: the branch has an
+   upstream, the tree is clean, and HEAD is neither ahead of nor behind it.
+
+   **Every part of the pass is aimed at a change, and there is not one.** Nothing is uncommitted, so
+   step 4 has nothing to stage and no split to propose — and on a run without `--auto`, no
+   confirmation to stop for over an empty proposal. Nothing is unpushed, so step 5's push is
+   `Everything up-to-date`. The verify commands are a **pre-push gate** — the sentence below says to
+   pay for a red CI "before pushing, not after" — and they would be gating a push that is not
+   happening. The self-review pass reads `git diff HEAD` and `git status --porcelain -uall`, which on
+   a clean tree are both empty, so its three sweeps have no change to sweep;
+   [`rigor-levels.md`](rigor-levels.md) charges sweeps to "every class **this run fixed**", so
+   skipping them leaves the sufficiency test owed nothing. **The failure this prevents is a resumed
+   run paying the whole verify list, the untracked-file preflight and a repository-wide definition
+   sweep before step 8 makes the one call that would have told it a verdict was already waiting** —
+   and then reporting that "the pass ran", which is required here and which such a pass cannot
+   honestly say, because it changed nothing.
+
+   **The condition is which edge you arrived on, not what the tree looks like.** Step 11 sends a round
+   back here **to make the fixes**, and at that moment the tree is clean and HEAD is its upstream too,
+   because the previous round committed and pushed. A check written on tree state alone would skip the
+   fix pass and the round would converge having changed nothing. **A pass entered from step 11 never
+   skips**, however clean the tree is.
+
+   **What the skip gives up is caught in step 7, not accepted here.** A first run on a branch somebody
+   pushed by hand also arrives clean and level with its upstream, and there the pre-trigger sweeps are
+   the whole of this loop's "fire with fewer defects" argument. This step cannot tell that case from a
+   resume, because telling them apart means reading the pull request and step 7 is the first step
+   allowed to. So step 7 decides it from the number it already counts: **if this step has not run at
+   all this run and the pull request carries no marker, it sends you back here before composing a
+   trigger** — and the return is an ordinary arrival, so this step then runs in full and the condition
+   it was sent back by is false the next time step 7 asks.
+   Round 1 has never been swept; every later round was swept by the pass that produced its change.
+
+   **Say in the report that the verify did not run and why**, in place of this step's ordinary "the
+   pass ran and what it changed". A skipped gate nobody mentions reads as a gate that passed.
+
+   Otherwise — which includes every arrival after the first — run the verify commands from the
+   resolved table, closest-to-the-change first. **Run them exactly as CI invokes them** — a different
+   invocation locally than in CI is how local green becomes remote red. **A red CI wastes a whole
+   review round**, so pay for it before pushing, not after:
 
    ```bash
    git diff --check HEAD           # vs HEAD, so staged edits count; bare --check reads only unstaged
@@ -683,7 +750,7 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    ```bash
    git rev-parse --short=8 HEAD
    gh api "repos/{owner}/{repo}/issues/<n>/comments" -F body=@<scratch>/trigger.md \
-     --jq '"TRIGGER=\(.id) SINCE=\(.created_at)"'
+     --jq '"TRIGGER=\(.id) SINCE=\(.created_at) AS=\(.user.login)"'
    ```
 
    `<scratch>/trigger.md` holds exactly:
@@ -760,7 +827,7 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
 
    ```bash
    gh api --paginate "repos/{owner}/{repo}/issues/<n>/comments?per_page=100" \
-     --jq '.[]|select(.user.type!="Bot")|"\(.created_at) \(.id) \(if (.body|contains("revloop:trigger ")) then (.body|split("revloop:trigger ")[1]|split(" -->")[0]) else "no-marker" end)"'
+     --jq '.[]|select(.user.type!="Bot")|"\(.created_at) \(.id) \(.user.login) \(if (.body|contains("revloop:trigger ")) then (.body|split("revloop:trigger ")[1]|split(" -->")[0]) else "no-marker" end)"'
    ```
 
    **A non-zero exit is "the read failed", never "there are no markers."** Decide that from `gh`'s
@@ -832,6 +899,18 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    this repository (`iwmaeda/revloop#11`, 2026-08): `chatgpt-codex-connector[bot]` is `type=Bot` and
    `iwmaeda` is `type=User`.
 
+   **`.user.login` is in the output — third, between the id and the marker payload — and `AS=` is on
+   the post above, because step 11 needs to know which replies on this pull request are its own.** A
+   login carries no whitespace, so the payload is still everything after the third field, and it is
+   still read as whole `key=value` tokens rather than searched. That step skips a finding that already carries a
+   reply of yours, and "yours" has to be a name the run can compare against rather than one it assumes
+   — nothing here may call an endpoint outside `repos/{owner}/{repo}/`, so the account cannot be asked
+   for directly. **Between them these two calls always answer it**: a run that fired a trigger reads
+   `AS=` off its own post, and a run the invariant blocked reads the login of the newest marker, which
+   is the account that opened the round in flight. They are the same account on any ordinary
+   pull request, and taking it from whichever call this run actually made means neither path has to
+   carry a value the other one produced.
+
    **`SINCE` on a resumed run is the `created_at` of the newest marker this read returns.** Steps 8
    and 9 both say "the `SINCE` you recorded in step 7", and a session that died recorded nothing —
    which would leave the reconciliation, and with it the re-post condition below, with no left-hand
@@ -851,6 +930,19 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    and with it whether this is the **two-trigger round** step 9 gates every clean finish on, are both
    that marker carrying an `attempt` key. The round's **first** trigger, whose id and body the re-post
    reads back below, is the oldest marker carrying this `round=` and no `attempt`.
+
+   **If step 3 has not run at all this run and this read returns no marker, go back to 3 before
+   composing anything.** Read the condition as "has not run", not as "skipped itself at some point":
+   after the return, step 3 has run, so the condition is false and this cannot fire twice.
+   A pull request with no marker has had no round, so nothing has ever run this loop's
+   pre-trigger sweeps over the change you are about to have reviewed — and step 3 skipped them because
+   a branch somebody pushed by hand is indistinguishable, from there, from a branch this loop pushed
+   itself. **The count is the discriminator and it is already in hand**: it is zero here and nowhere
+   else, because every later round's change was swept by the pass that produced it. The path
+   terminates and cannot loop — the return is not a first arrival, so step 3 runs in full — and if the
+   sweep finds something it becomes a commit and a push before this step fires, which is the order the
+   sweeps exist for. **The rate-limit re-take does not reach this**: it opens a round on a pull
+   request whose marker count is not zero.
 
    **Re-posting a trigger that went unanswered.** The runaway invariant forbids firing again on an
    unchanged HEAD, and **this run has exactly one exception to it**: a trigger for which this run
@@ -1453,17 +1545,41 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
       **put the reason in the code or the docs** — a reason in a PR comment leaves the next reader
       unable to tell "looked and kept" from "never looked".
 
-11. Reply to every finding. **Keep reply drafts in the session scratchpad, not the work tree**, or
-    they end up in a commit. Read bodies from files — **`-F` treats a leading `@` as a file read**, so
-    it passes backticks, newlines, and `**` through unharmed. **A single GET returns 404 even for a
-    reply you just created**, so verify from the list endpoint:
+11. Reply to every finding you have not already replied to. **Keep reply drafts in the session
+    scratchpad, not the work tree**, or they end up in a commit. Read bodies from files — **`-F`
+    treats a leading `@` as a file read**, so it passes backticks, newlines, and `**` through
+    unharmed. **A single GET returns 404 even for a reply you just created**, so the list endpoint is
+    what answers both questions here — whether a reply already exists, and whether the one you just
+    posted took:
 
     ```bash
+    gh api --paginate "repos/{owner}/{repo}/pulls/<n>/comments?per_page=100" \
+      --jq '.[]|select(.in_reply_to_id==<commentId>)|"\(.id) \(.user.login) \(.body|length)"'
     gh api -X POST "repos/{owner}/{repo}/pulls/<n>/comments/<commentId>/replies" \
       -F body=@<scratch>/reply.md
-    gh api --paginate "repos/{owner}/{repo}/pulls/<n>/comments?per_page=100" \
-      --jq '.[]|select(.in_reply_to_id==<commentId>)|"\(.id) \(.body|length)"'
     ```
+
+    **Read before you post, and skip a finding that already carries a reply of yours.** This step used
+    to run that read only afterwards, which made it a receipt and not a check — and a round is not one
+    run. A session that answered five of eight findings and died leaves the next invocation reading
+    the same review, from the same `review_id=`, and posting five duplicates: the reply text is
+    near-identical, because it opens `Fixed in round <N> (<sha>).` and neither the round nor the sha
+    has moved, so a human sees it at once and nothing in this procedure does. **This is the argument
+    step 7 makes for triggers, applied to the other thing this loop writes on a pull request** — a
+    budget kept in the session is a budget a restart refunds — and the trigger side answers it with
+    `attempt=` on the marker while this side had no answer at all. It needs no marker: a reply is
+    already anchored to the finding by `in_reply_to_id`, so the pull request can be asked directly.
+    **Match on the author as well as the id, and "yours" is a name rather than an assumption.** The
+    reviewer and a human colleague can both reply under the same finding, and a reply that is not
+    yours is not this step's obligation discharged — skipping on one would leave the finding answered
+    by somebody else and unanswered by this loop, while the report claimed it was already handled. The
+    account is the one step 7 carries out of whichever call this run made: `AS=` from its own post on
+    a run that fired, and the newest marker's login on a run the invariant blocked.
+    **Run the read again after the POST.** That is what it was here for originally and the reason is
+    unchanged — a direct GET 404s on a reply that exists — so the same call decides beforehand and
+    confirms afterwards.
+    **Say in the report how many findings were already answered**, or a resumed round that posts
+    nothing new reads as a round that did nothing.
 
     Open with `Fixed in round <N> (<sha>).`, then state whether the finding was right, whether the
     reading was right but the premise stale, or whether you are declining the suggestion. **Always
@@ -2611,6 +2727,14 @@ takes one of these should say so in the report:
   discriminator is within-run state the fence never sees and the fence's output is byte-identical
   either way. **It fails closed**: a re-take opens a round rather than finishing one, so its worst
   outcome is a spent round and a comment, never a merge.
+- **Step 3's first-arrival skip and step 7's backstop for it.** The waste it removes is arithmetic on
+  what the step runs rather than a measurement of a run that took it, and **no run has yet reached
+  step 7 with step 3 skipped and a marker count of zero** — the branch-adopted-by-hand case, and the
+  only path either rule can get wrong in a direction that costs a round. The skip itself fails closed:
+  it can only decline a gate on a tree that has nothing to gate, and every later arrival runs the step
+  in full. **What is not covered by anything is the tree somebody else pushed** — the skip trusts that
+  whatever pushed the commit verified it, which is the same trust every ordinary round already places
+  in the push that preceded its trigger, and no path in this procedure reads CI before triggering.
 - **Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor**, and its own
   `## Not measured` section says which parts and why: the eight round caps are `builtin` guesses, of
   which only `thorough`'s pair is a number this file carried before and none of which is the

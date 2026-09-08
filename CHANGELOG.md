@@ -72,6 +72,76 @@ rate-limit comment is not re-adopted. **They cannot pin which of the two rate-li
 takes**, because the discriminator is within-run state the fence never sees and its output is
 byte-identical either way. The test file says that where somebody will read it.
 
+### A re-run now resumes at the standing review instead of re-doing the round
+
+**The preamble already promised this.** "**Every step checks whether it is already done**, so an
+interrupted run resumes with the same command" was true of step 2, true of step 6, emergent for steps
+4 and 5, and **false of step 3**, which carried no such check at all — while `## When to run it` said
+"the command decides which step to resume from" and the command file handed the sentence straight back
+to the procedure. Nobody decided. So a run re-invoked on a pull request whose review was already
+waiting paid the entire resolved `verify` list, the untracked-file whitespace preflight and a
+repository-wide definition sweep — over a `git diff HEAD` and a `git status` that were both empty —
+before step 8 made the one call that would have told it a verdict was already there. It then had to
+report that "the pass ran and what it changed", which such a pass cannot honestly say.
+
+**Step 3 now checks, on this run's first arrival only.** When the branch has an upstream, the tree is
+clean, and HEAD is neither ahead of nor behind that upstream, it skips itself, step 4 and step 5 and
+goes to 6. Nothing is uncommitted, so step 4 has nothing to stage; nothing is unpushed, so step 5 is
+`Everything up-to-date`; and the verify commands are a pre-push gate over a push that is not
+happening. `rigor-levels.md` charges sweeps to "every class **this run fixed**", so the sufficiency
+test is owed nothing either. **The condition is which edge you arrived on, not what the tree looks
+like** — step 11 sends a round back to step 3 _to make the fixes_, and at that moment the tree is
+clean and level with its upstream too, so a check written on tree state alone would have skipped the
+fix pass and converged having changed nothing.
+
+**What the skip gives up, step 7 takes back.** A first run on a branch pushed by hand arrives in the
+same state, and there the pre-trigger sweeps are the whole of this loop's "fire with fewer defects"
+argument. Step 3 cannot tell that case from a resume — telling them apart means reading the pull
+request, and step 7 is the first step allowed to — so step 7 decides it from the number it already
+counts: **if step 3 skipped itself and the pull request carries no marker at all, it goes back to 3
+before composing a trigger.** The count is zero there and nowhere else, so the rate-limit re-take
+never drags the sweeps back in, and the path cannot loop because the return is not a first arrival.
+
+**Step 11 reads before it writes, which closes the one real idempotency gap.** "Reply to every
+finding" had no guard: the list read with `select(.in_reply_to_id==<commentId>)` ran only _after_ the
+POST, as a receipt for GitHub returning 404 on a freshly created reply. **A round is not one run.** A
+session that answered five of eight findings and died left the next invocation reading the same review
+from the same `review_id=` and posting five duplicates — near-identical duplicates, since the reply
+opens `Fixed in round <N> (<sha>).` and neither the round nor the sha had moved. That is the argument
+step 7 spends a paragraph on for triggers — a budget kept in the session is a budget a restart refunds
+— applied to the other thing this loop writes on a pull request, where it had never been made. It
+needs no marker: a reply is already anchored by `in_reply_to_id`, so the pull request can be asked
+directly. The read now runs first and matches on the author as well as the id, because the reviewer
+and a colleague can both reply under one finding.
+
+**Step 1 says where the run stands.** One line — tree clean or dirty, ahead/behind the upstream, the
+open pull request — from `-b` added to the `git status` it already ran. **It is printed because
+something reads it**: step 3's check turns on exactly those three facts. It deliberately says nothing
+about the round or whether an answer is waiting, because classifying a bot body outside the wait fence
+is the second implementation step 7 forbids in as many words. The `-b` is scoped to step 1; steps 3
+and 4 read the same command for **paths**, and a `##` header there is a line that is not a path.
+
+**"Yours" had to become a name the run can compare against.** A reply guard that skips "a reply of
+yours" is unimplementable if the run cannot say which account that is, and nothing here may call an
+endpoint outside `repos/{owner}/{repo}/`, so the account cannot be asked for directly. Step 7's two
+calls now carry it: `AS=` on the trigger post, and `.user.login` as a third column on the marker read.
+Between them they always answer it — a run that fired reads its own post, a run the invariant blocked
+reads the account that opened the round in flight — so neither path has to carry a value the other
+produced. Without it the guard would have had to match on the comment id alone, and a colleague's
+reply under a finding would have suppressed this loop's, while the report said the finding was already
+handled.
+
+**No fence changed, no re-approval is owed, and no permission moved.** `tests/fence-hashes.txt` and
+`docs/permissions.md` are both byte-identical — the latter matters because
+`tests/permissions.test.sh` compares every git subcommand in a fenced block against an individually
+granted list, which is why the local-state line is a flag on a command already there rather than a
+`git rev-list`. Step 11's read is the endpoint and prefix that step already used.
+
+**Two resume gaps are named and not closed.** The per-round bucket-and-rung record step 10 mandates
+and `rigor-levels.md` consumes has no anchor on the pull request and is lost with the session, which
+is also why the rising-ceiling re-open cannot fire on a resumed run. Closing that needs a decision
+about where a run's per-round record lives, which is larger than this.
+
 ## [0.9.0] - 2026-09-07
 
 ### A fourth fence: the loop now removes the worktrees it created

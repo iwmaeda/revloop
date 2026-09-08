@@ -423,6 +423,18 @@ the one local file a later step reads and writes back**, and it stays inside the
 records is a directory this run created rather than a conclusion it reached — and because the write
 only ever narrows it, retiring each path the sweep consumed.
 
+**"The tree may have moved" is the boundary of that argument, and the remote loop has a case on the
+other side of it.** A resumed pull-request run can prove the tree has _not_ moved: the branch has an
+upstream, the work tree is clean, and HEAD is neither ahead of nor behind that upstream — three facts
+step 1 of [`remote-loop.md`](../procedures/remote-loop.md) measures with git alone. Re-deriving there
+buys nothing and costs the whole verify list plus a repository-wide sweep, before the run has made
+the one call that would tell it a verdict is already waiting, so **its step 3 skips itself on a first
+arrival in that state**. This is not the rejected findings ledger wearing different clothes: nothing
+is read back as input to a classification, and no conclusion is remembered — the skip turns on git
+state re-measured this run, exactly as the worktree ledger stays inside the rule by recording a
+directory rather than a judgement. What the skip does give up on a pull request the loop is
+**adopting** rather than resuming, step 7 takes back, from the one number that separates the two.
+
 ## Field notes
 
 When a round takes an unexercised path, aborts, or sees a latency outside the range on the reviewer's
