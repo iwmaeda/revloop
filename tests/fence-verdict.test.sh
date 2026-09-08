@@ -148,13 +148,22 @@ expect "  the baseline is the re-post"          "$o" "trigger=2026-08-19T10:31:0
 # which the fence imposes and neither of which is obvious from the schema: the
 # body's first line has every `=` rewritten to `-`, and it is cut at 110
 # characters. A pattern carrying either would match nothing, forever, silently.
+#
+# THE TWO CONSTRAINTS INTERACT, AND THE OBVIOUS ASSERTION FOR THE FIRST IS
+# VACUOUS. This body's `=` sits at `?tab=code-review`, which the 110-character
+# cut lands inside: the output ends `?tab-co`. So a refute on `tab=code-review`
+# passes whether the gsub is present, correct or deleted -- truncation removes
+# the needle before the rewrite could matter, and the assertion pins nothing.
+# The pair below is inside the window instead, so deleting the gsub fails it.
+# `body-keys` further down does not have this problem: its whole body fits.
 o=$(r rate-limit-comment)
 expect "a rate limit is a primary comment"      "$o" "VERDICT=comment"
 expect "  it carries the comment id"            "$o" "cid=444"
 expect "  the pattern's prefix survives"        "$o" "body=You have reached your Codex usage limits"
 expect "  the marker still binds a head"        "$o" "marker_head=65d73ddd"
 expect "  and the round it was posted for"      "$o" "round=21"
-refute "  the body's = did not survive"         "$o" "tab=code-review"
+expect "  the body's = became a -"              "$o" "tab-co"
+refute "  and the = itself did not survive"     "$o" "tab=co"
 refute "  and the body is cut at 110"           "$o" "for details."
 
 # The re-take: a second marker at the SAME head= with a HIGHER round=, opened
