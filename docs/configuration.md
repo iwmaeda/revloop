@@ -121,19 +121,20 @@ markers, a retry budget — and are listed here rather than in a per-loop sectio
 they are fixed is the same in each case. `--merge`, `--auto` and `--rigor` are the rows that bind
 both procedures, and `--model`, `--no-publish` and `--config` are the local family's:
 
-| Not a key                                  | Why                                                                                                                                                                                                                                                                           |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--merge` / `--auto` defaults              | This file comes from the repository you are in, including one you just cloned. It must not grant its own merge or delete your confirmation points. **The flag is the approval**                                                                                               |
-| `--rigor`, anywhere                        | Same class. A repository that could set its own review standard would lower its own bar on a checkout you just cloned. **A key holding only the two strict levels is worse, not safer**: it grants nothing, so it is a promise rather than a setting                          |
-| `--config`, anywhere                       | The reviewer itself. A `subprocess` definition holds a shell command line, so a repository that could choose it would choose a string the procedure runs. **This file no longer defines reviewers at all** — the `reviewers` map was removed in 0.7.0                         |
-| `--model`, anywhere                        | **A different reason, and the sharper one.** Its value is expanded into a command line at `{reviewModel}`, so a key here would be the first thing this project interpolates into a shell command out of a repository-supplied file                                            |
-| `--no-publish`, anywhere                   | Publishing is the local loop's default, so a key could only turn it off, and a key that removes an action grants nothing. Absent because nothing measured says a project wants it — a _not yet_, not a _never_                                                                |
-| Merge method                               | The merge fence sends `merge_method=merge` and takes no arguments, so its command string never changes                                                                                                                                                                        |
-| "Require clean CI before merge"            | The gate re-runs its own check inside the merge step and cannot be loosened from a file                                                                                                                                                                                       |
-| Which endpoints carry a verdict            | The wait fence pulls comments, reviews and reactions in one call, always. Watching one is how a poll waits forever                                                                                                                                                            |
-| Interim-comment patterns                   | The drop list lives **inside** the wait fence, because config never reaches a fence. Teaching it a new preamble is a fence edit — one re-approval for every user                                                                                                              |
-| The round number                           | Counted from the trigger markers already on the pull request. The pull request is the memory, so a resumed run needs no local state                                                                                                                                           |
-| The retry budget and the silence threshold | One re-post per round, and not before a fixed floor of silence. Raising either spends the reviewer's quota — the same class as `--merge`. The floor is fixed rather than derived from `timeout`, so that lowering a flag cannot push it under the reviewer's measured latency |
+| Not a key                                   | Why                                                                                                                                                                                                                                                                           |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--merge` / `--auto` defaults               | This file comes from the repository you are in, including one you just cloned. It must not grant its own merge or delete your confirmation points. **The flag is the approval**                                                                                               |
+| `--rigor`, anywhere                         | Same class. A repository that could set its own review standard would lower its own bar on a checkout you just cloned. **A key holding only the two strict levels is worse, not safer**: it grants nothing, so it is a promise rather than a setting                          |
+| `--config`, anywhere                        | The reviewer itself. A `subprocess` definition holds a shell command line, so a repository that could choose it would choose a string the procedure runs. **This file no longer defines reviewers at all** — the `reviewers` map was removed in 0.7.0                         |
+| `--model`, anywhere                         | **A different reason, and the sharper one.** Its value is expanded into a command line at `{reviewModel}`, so a key here would be the first thing this project interpolates into a shell command out of a repository-supplied file                                            |
+| `--no-publish`, anywhere                    | Publishing is the local loop's default, so a key could only turn it off, and a key that removes an action grants nothing. Absent because nothing measured says a project wants it — a _not yet_, not a _never_                                                                |
+| Merge method                                | The merge fence sends `merge_method=merge` and takes no arguments, so its command string never changes                                                                                                                                                                        |
+| "Require clean CI before merge"             | The gate re-runs its own check inside the merge step and cannot be loosened from a file                                                                                                                                                                                       |
+| Which endpoints carry a verdict             | The wait fence pulls comments, reviews and reactions in one call, always. Watching one is how a poll waits forever                                                                                                                                                            |
+| Interim-comment patterns                    | The drop list lives **inside** the wait fence, because config never reaches a fence. Teaching it a new preamble is a fence edit — one re-approval for every user                                                                                                              |
+| The round number                            | Counted from the trigger markers already on the pull request. The pull request is the memory, so a resumed run needs no local state                                                                                                                                           |
+| The retry budget and the silence threshold  | One re-post per round, and not before a fixed floor of silence. Raising either spends the reviewer's quota — the same class as `--merge`. The floor is fixed rather than derived from `timeout`, so that lowering a flag cannot push it under the reviewer's measured latency |
+| Whether a rate-limited round may be retried | Not a key, and not a cooldown either. The run that meets the reply aborts; the recovery is a later invocation, and because each re-take opens a round, `maxRounds` is already the dial that bounds a series of them                                                           |
 
 **`timeout` caps one trigger, not one round**, so a round that re-posts waits about twice it. That is
 the wall-clock cost of the re-post path, and `timeout` is the one number to change if the wall clock
@@ -321,11 +322,19 @@ reads is a setting that appears to work and does nothing.
 **`rateLimitPatterns` belongs to both kinds and is read from a different surface in each** — a bot
 comment's body on the pull-request loop, **the review's output** on the local one, whichever way that
 loop reads it: its stdout under `invoke: subprocess`, what it reports under `invoke: skill` — and
-both abort on a match **without retrying**: the quota recovers with time, and another round spends the
-loop against a reviewer that cannot answer. Match the fixed part of the message and never a reset time
-or a count, which differ every round. A pattern that is too loose **fails closed** — it can only turn
-one abort into another, because the row that reads it sits above the other aborts and far above the
-clean row — and one that is too tight leaves the reply falling to `unparsed-review-output`, which is
+both abort on a match **without retrying inside the run that hit it**: the quota recovers with time,
+and another round spends the loop against a reviewer that cannot answer. **The recovery in both loops
+is a later invocation** — the local loop's runaway invariant is a within-run rule, so a fresh session
+simply reviews again, while the pull-request loop re-takes a standing rate-limited trigger with a new
+round when the run reading the reply is not the run that posted it, bounded by `maxRounds`.
+Match the fixed part of the message and never a reset time
+or a count, which differ every round. A pattern that is too loose **fails closed in both loops, by two
+different orderings**. Locally it can only turn one abort into another, because the row that reads it
+sits above the other aborts and far above the clean row. On the pull-request loop the clean-comment
+row sits **above** the two rate-limit rows, so a loose pattern cannot reach a clean finish there
+either; what it can reach is an abort-class bot comment, which it turns into a re-take that spends one
+round. Neither ordering lets a run finish clean over a review that did not happen. One that is too
+tight leaves the reply falling to `unparsed-review-output`, which is
 where it fell before the key was read here at all. **`cleanPatterns` did not cross with it**: the
 local loop's clean signal is that no finding was parsed, so there is no phrase for it to match.
 

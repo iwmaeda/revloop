@@ -65,8 +65,10 @@ the sweeps each owes, and the sufficiency test that ends a run.
 - **This reviewer emits its own rungs**, so nothing on this command ever starts a grading subprocess.
   It is the cheapest of the remote family in permission prompts for that reason.
 - **The rate-limit reply arrives in about ten seconds**, two orders of magnitude faster than a real
-  verdict. The procedure aborts on it and never retries: the quota recovers with time, and another
-  round spends the loop against a reviewer that cannot answer.
+  verdict. The round aborts on it and **this run** never retries: the quota recovers with time, and
+  another round spends the loop against a reviewer that cannot answer. **Re-running this command once
+  the quota is back is the recovery, and it works at an unchanged HEAD** — steps 7 and 9 of the
+  procedure state the conditions.
 
 ## Run the procedure
 

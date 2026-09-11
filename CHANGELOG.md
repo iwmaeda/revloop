@@ -13,6 +13,311 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### A rate-limited round is recoverable by a later run
+
+**The bug was an enumeration gap, not a wrong rule.** `## Notes` has always stated the runaway
+invariant as "never re-fire the trigger without new commits — **unless nothing of yours can still bind
+a verdict**", and a reviewer answering with its quota notice is exactly that: the trigger was
+answered, and answered by declining to read the diff. But step 7 enumerated only **two** states that
+end the premise — no verdict this run classified, and a newer trigger taking the baseline — and step
+9's rate-limit row said "do not retry" with no recovery beside it. Because the remote invariant is
+anchored to a marker on the pull request rather than to the session, that left a rate-limited round
+**permanently unrecoverable**: re-running after the quota came back aborted again, at an unchanged
+HEAD, forever. The only exits were pushing a commit or hand-typing the trigger.
+
+Recorded twice against this repository before it was fixed (`iwmaeda/revloop#13`, 2026-08): a
+`rate-limit-abort` at round 21, then, twenty minutes later, "step 7's runaway invariant forbade a
+round-22 trigger, so no round was spent". `local-loop.md` had closed the same hole on its side by
+declaring its invariant within-run only; the pull-request loop never got the equivalent.
+
+**Now: the run that meets the reply still aborts, and a later run re-takes the trigger.** The
+discriminator is who posted the trigger the fence is watching — a run that arrived on a standing
+baseline it did not create opens a **new** round with an **ordinary** trigger, no `attempt=`, at the
+same HEAD, exactly as the lost-baseline re-take already did. **The bound needs no counter**: after the
+re-take the trigger is one this run posted, so a second rate limit takes the abort row. And because a
+re-take opens a round, `--max-rounds` already bounds a series of them — a pull request that keeps
+answering rate-limited stops at `reason=max-rounds` instead of re-taking forever.
+
+**Two names, and the split between them is deliberate.** The abort is `reviewer-rate-limited`, which
+is the token `local-loop.md` already used for the same event — one event, one spelling, one grep
+across both loops. The re-take is `rate-limit-retake`, a row name rather than a `reason=`, because it
+is not an abort. **The abort names the state the reviewer is in; the re-take names the act this run
+took** — the same split as `foreign-baseline` against the lost-baseline re-take.
+
+**One prose fix underneath all of this is worth reading on its own.** Step 7 never said what a run
+does when the invariant blocks it, and the measured failure is an agent treating it as a stop: the run
+above was refused a trigger, spent no round, and reported the invariant as the blocker and nothing
+else. A run that ends there never reaches step 9, which is where the answer to the standing trigger is
+classified and where the only recovery from a rate limit lives — so the block is permanent by
+construction, whatever the reviewer has since said. The step now says outright that the invariant
+governs what may be **posted**, never whether the pull request is **read**. That is a rule the
+resumed-run `SINCE` paragraph already assumed rather than a new licence, and it is the load-bearing
+half of this change: without it the new row is unreachable and the bug survives its own fix.
+
+**The `EXTRA=` ruling splits the same way and for the opposite reason.** A rate limit riding alongside
+a `review` still aborts the run that posted the trigger, but on a standing one it aborts nothing:
+that quota block is the round's history, and aborting again strands a real review unread on a pull
+request whose HEAD cannot move until somebody reads it. **The re-take never reaches that case** — a
+review on the primary line is the reviewer having answered, so the premise was never in question.
+
+**Both READMEs described the recovery as picking the same round back up, and it does not.** The
+re-take opens a **new** round: `round=` advances and `--max-rounds` is spent, which is the bound
+`docs/design-notes.md` already rested the re-take's safety on — so the two files disagreed about the
+same fact from the day this shipped, and the one a user reads first was the one that was wrong.
+Returned as a P2 on `iwmaeda/revloop#29` (2026-09) and corrected in both.
+
+**No fence changed and no re-approval is owed.** `tests/fence-hashes.txt` is byte-identical, all four
+hashes unmoved, which is the evidence for that sentence rather than memory. Everything here is prose,
+three new fixtures, and their assertions.
+
+**Still unexercised**, and `## Unexercised paths` says so: no run has performed the re-take against a
+live reviewer. The fixtures pin that a rate limit reaches step 9 as a primary `VERDICT=comment` — a
+shape nothing pinned before, since the pattern had only ever appeared on an `EXTRA=` — and that a
+re-take marker at an unchanged `head=` with a higher `round=` takes the baseline while the older
+rate-limit comment is not re-adopted. **They cannot pin which of the two rate-limit rows step 9
+takes**, because the discriminator is within-run state the fence never sees and its output is
+byte-identical either way. The test file says that where somebody will read it.
+
+### A re-run now resumes at the standing review instead of re-doing the round
+
+**The preamble already promised this.** "**Every step checks whether it is already done**, so an
+interrupted run resumes with the same command" was true of step 2, true of step 6, emergent for steps
+4 and 5, and **false of step 3**, which carried no such check at all — while `## When to run it` said
+"the command decides which step to resume from" and the command file handed the sentence straight back
+to the procedure. Nobody decided. So a run re-invoked on a pull request whose review was already
+waiting paid the entire resolved `verify` list, the untracked-file whitespace preflight and a
+repository-wide definition sweep — over a `git diff HEAD` and a `git status` that were both empty —
+before step 8 made the one call that would have told it a verdict was already there. It then had to
+report that "the pass ran and what it changed", which such a pass cannot honestly say.
+
+**Step 3 now checks, on this run's first arrival only.** When the branch has an upstream, the tree is
+clean, and **local HEAD equal to the pull request's own head sha** — all three read off step 1's
+local-state line — it skips itself, step 4 and step 5 and goes to 6. Nothing is uncommitted, so
+step 4 has nothing to stage; nothing is unpushed, so step 5 is `Everything up-to-date`; and the
+verify commands are a pre-push gate over a push that is not
+happening. `rigor-levels.md` charges sweeps to "every class **this run fixed**", so the sufficiency
+test is owed nothing either. **The condition is which edge you arrived on, not what the tree looks
+like** — step 11 sends a round back to step 3 _to make the fixes_, and at that moment the tree is
+clean and level with its upstream too, so a check written on tree state alone would have skipped the
+fix pass and converged having changed nothing.
+
+**What the skip gives up, step 7 takes back.** A first run on a branch pushed by hand arrives in the
+same state, and so does a run whose HEAD was pushed from outside the loop onto a branch this loop
+already drove; in both, the pre-trigger sweeps are the whole of this loop's "fire with fewer defects"
+argument. Step 3 cannot tell either case from a resume — telling them apart means reading the pull
+request, and step 7 is the first step allowed to — so step 7 decides it from the marker it already
+reads: **if step 3 skipped itself and no marker on the pull request carries a `head=` equal to the
+current HEAD, it goes back to 3 before composing a trigger.** A marker naming this commit is the
+record that this loop swept it, so neither re-take drags the sweeps back in — both open a round at a
+HEAD an earlier marker already names — and the path cannot loop because the return is not a first
+arrival.
+
+**That condition was a marker _count_ first, and a count was too narrow.** Zero markers means a pull
+request that has had no round at all, so it caught the branch adopted by hand and missed the commit
+pushed from outside the loop onto a pull request that already carries markers: clean and level on
+first arrival, so step 3 skips; a count that is not zero, so the backstop stays silent; a HEAD no
+marker names, so the invariant permits the trigger — and the reviewer reads a commit no verify command
+and no sweep has touched. **The justification is what gave it away**: "every later round's change was
+swept by the pass that produced it" is true only of a commit this loop produced, which is exactly what
+an outside push is not. Returned as a P2 on `iwmaeda/revloop#29` (2026-09), and with it the
+concession in `## Unexercised paths` that called the unswept outside push "the same trust every
+ordinary round already places in the push that preceded its trigger" — an ordinary round's push is
+preceded by step 3, so it was not the same trust.
+
+**Step 11 reads before it writes, which closes the one real idempotency gap.** "Reply to every
+finding" had no guard: the list read with `select(.in_reply_to_id==<commentId>)` ran only _after_ the
+POST, as a receipt for GitHub returning 404 on a freshly created reply. **A round is not one run.** A
+session that answered five of eight findings and died left the next invocation reading the same review
+from the same `review_id=` and posting five duplicates — near-identical duplicates, since the reply
+opens `Fixed in round <N> (<sha>).` and neither the round nor the sha had moved. That is the argument
+step 7 spends a paragraph on for triggers — a budget kept in the session is a budget a restart refunds
+— applied to the other thing this loop writes on a pull request, where it had never been made. It
+runs first now, and it matches two things: the finding id, and a `revloop:reply` marker carrying this
+round's `round=`. **Two drafts of the identity were wrong in the same way before that.** The first
+matched id and author, on the argument that `in_reply_to_id` already anchors a reply so no marker was
+needed — which answers the wrong half: `in_reply_to_id` says **which finding** a reply is under and
+nothing about **what kind of reply it is**, and authorship cannot close that gap because the account
+driving this loop is a person who also comments by hand, whose own "I'll look into this" matched both
+tests. The second kept the author as a second bound beside the new marker, and that failed the case
+the marker was introduced for: the account a run carries is whoever posted the trigger, so a round
+Alice opened and Bob resumed compares Bob's own marked replies against Alice, matches nothing, and
+posts them again on every resume. Both returned as P2 on `iwmaeda/revloop#29` (2026-09).
+
+**A marked reply is a revloop reply whoever posted it**, which is the right answer for two people
+driving one pull request, and it is the trigger side's rule applied to the other artifact: identify
+what this loop wrote by a string it wrote, never by who wrote it. The round scope is the second
+bound, so a rising-ceiling re-open still gets the reply it is owed. **`AS=` goes with it** — step 7
+carried the posting account for exactly one consumer, and with that consumer gone it would be a key
+with no consumer.
+
+**That rule was then broken in the commit that stated it**, and it is recorded rather than quietly
+repaired: the same change added `pr_ref=` to step 1's new read with nothing anywhere consuming it, and
+it could never have had a consumer, since `gh pr list --head` selects on the head ref and the returned
+pull request's `.head.ref` is the current branch by construction. Reported as a P2 on
+`iwmaeda/revloop#29` (2026-09) and removed.
+
+**Step 1 says where the run stands, and asks GitHub for the half that is GitHub's.** One line — tree
+clean or dirty, ahead/behind the upstream, the open pull request — from `-b` added to the `git status`
+it already ran, plus a second line comparing local HEAD against `pr_head=`, read from
+`repos/{owner}/{repo}/pulls/<n>`. A `git fetch` runs ahead of both. **The object ids are compared in
+full and shortened only to print** — every other head comparison here is short-8 because it compares
+a value this loop wrote against another it wrote, and this one compares against GitHub's answer.
+**Step 11 re-reads `pr_head=` before it may report a convergence**, because step 1 measured it before
+a wait that runs to `--timeout` or twice it, and nothing else on the clean path looks at the pull
+request's head again: a third party pushing inside that window leaves every later check agreeing, and
+the round reports a convergence over a review of the commit it started on. That is
+`reason=pr-head-advanced`, and it aborts rather than opening another round — the same ruling a lost
+baseline gets, because a loop that answers somebody else's push by triggering again is racing a
+person. The matching re-read before the trigger is **declined** and says so: that window ends in step
+9's `128` or `1` row, both of which abort already — **on a corrected reason**: only a `review` carries
+`commit=`, which the step's own signal table says outright, so a clean `comment` or `reaction` is
+covered by the gate rather than by that check.
+
+**The gate is reached by every convergence and was not, for one round.** Step 11 described itself as
+the only edge into step 12 while step 9's clean-comment and `reaction` rows said finish and went
+straight there — so on the path most likely to report a convergence, neither the new `pr_head=`
+re-read nor `rigor-levels.md`'s sufficiency test ran at all. The test had been unreachable on that
+path since it was written, despite that page requiring it "at every edge into the report step"; the
+re-read inherited the same hole on the day it was added. Both rows now route through the gate.
+
+**Two head comparisons were still truncating GitHub's answer.** The rule that step 1 keeps
+`pr_head=` whole was published with a justification that was false of two of the three places it
+described — step 9's `commit=` and step 10's two-trigger sweep compare values GitHub produced, not
+values this loop wrote, and both had been cut to eight characters first. Step 9 now resolves the
+fence's short oid with `git rev-parse --verify <commit>^{commit}`, which widens it **and refuses an
+ambiguous prefix instead of choosing between two objects**; step 10 keeps `commit_id` whole. **No
+fence byte changed for this**: the fence still emits eight characters, and the caller widens them for
+the price of one `git` call rather than costing every user a re-approval.
+
+**And step 11's reply read searched for the marker's literal instead of matching its envelope.** The
+step says never to search the body and its own query said `contains("revloop:reply ")`, so an ordinary
+reply reading `revloop:reply round=3 is missing` matched, split to a payload with no `-->` to cut at,
+produced a whole `round=3` token, and silently suppressed the answer the step owed. It now matches
+`<!-- revloop:reply` through a marker-shaped payload to a closing `-->`. A forged envelope is still
+indistinguishable from a real one, which is the bound step 7 already accepts for its own marker; prose
+quoting the literal no longer is.
+
+All four returned as one P2 on `iwmaeda/revloop#29` (2026-09).
+
+**The next round found that the widening did not widen.** `git rev-parse --verify <short>^{commit}`
+resolves a prefix **against the objects this checkout holds**, so on the only case that matters — a
+reviewed commit never fetched here, sharing HEAD's eight characters — there is one local match and it
+is HEAD: the resolve succeeds and the comparison passes. **A prefix cannot be un-truncated by the side
+that did not shorten it.** Step 9 now fetches the full `commit_id` by the `review_id=` the fence
+already hands it, which is the same read step 10 performs per review.
+
+**Two more of the same shape came with it.** Step 9's clean-comment and `reaction` rows still read
+`finish (clean)` although their next action is a gate that can send the round back or abort it, which
+is the reading that let them bypass the gate to begin with; they now say `clean — pending the gate`.
+And **every `comment` row was matching patterns against a preview rather than a body**: the fence
+emits the first line, `=` rewritten to `-`, cut at 110 characters, while the rows ask to print the
+body in full "including any reset time it names" and to match `rateLimitPatterns` against it. A notice
+that is long, multi-line, or carries an `=` cannot match, and drops to the generic bot-body abort —
+which is not merely the wrong reason but the row **the standing-round re-take is never reached from**,
+so the quota recovery becomes unreachable for exactly those reviewers. Codex's own notice fits the
+preview, which is why this survived measurement; that is a property of one string, not of the design.
+Step 9 now fetches the body by `cid=` and classifies that. All three on `iwmaeda/revloop#29` (2026-09).
+
+**And the last truncated value was the marker's own.** `head=` is eight characters, and four decisions
+rested on it: step 7's backstop, the runaway invariant, the re-post's condition (e) and step 9's check
+(c). An externally pushed commit sharing an earlier marker's eight characters satisfies all four at
+once — the backstop stays silent so the skipped verification is never restored, the invariant reads
+HEAD as unchanged so no new trigger is required, check (c) passes, and **the convergence gate cannot
+catch it either**, because that gate compares the checkout against the pull request and both are the
+new commit. What is stale is the signal's binding, which the gate never looks at.
+
+The marker now carries `oid=`, the full object id, and those four decisions compare it. **`v` stays at
+`1`**: `oid=` is an _added_ key, which the marker's own rule says does not move the version — the
+fence's `case` skips a key it does not know and the payload filter passes hex through — and `head=`
+keeps its meaning exactly, so no reader of the old format misreads the new one. Widening `head=`
+instead **would** have moved `v`, and would have made every older install compare a short HEAD against
+a forty-character value and abort. A marker written before this change carries no `oid=` and falls
+back to `head=`, which is the guarantee those decisions had until now. **It is
+printed because
+something reads it**: step 3's check turns on exactly those three facts.
+
+**That third fact took three rounds and two false starts, all three returned as P2 on
+`iwmaeda/revloop#29` (2026-09), one per round.** The first asked whether a marker named the current
+HEAD — a fact about what this loop had swept. The second compared HEAD to its upstream after a fetch,
+which a stale ref had been satisfying against the commit already in hand. The third finding killed
+that one too: **the upstream is whatever `@{upstream}` names and nothing ties it to the ref backing
+the pull request**, so a branch tracking another name or another remote reports `0 ahead, 0 behind`
+while the pull request's head is a commit this checkout has never seen. Each time, step 3 skips and
+the HEAD comparisons in steps 7, 9 and 10 converge on an old review. **Three spellings of one shape —
+a local fact standing in for a fact about the pull request — and what ended it was the direct
+question rather than a fourth proxy.**
+
+**The measurement that made the second detour look final was a measurement of the wrong command.**
+`headRefOid` genuinely does not exist on `gh pr list` at the 2.4.0 floor — `Unknown JSON field` — and
+that was quoted as though the API could not answer, when REST answers at the same floor:
+`repos/{owner}/{repo}/pulls/<n>` returns `.head.sha`, inside a prefix this procedure is already
+granted. A measurement of one command was read as a fact about the API.
+
+**The fetch stays for the reason left once the skip no longer rests on it**: the printed
+`ahead/behind` is how a reader tells "the same commit" from "behind by three", and step 9's
+`--is-ancestor` rows need the objects locally to tell a diverged history from an unfetched one. It deliberately says nothing
+about the round or whether an answer is waiting, because classifying a bot body outside the wait fence
+is the second implementation step 7 forbids in as many words. The `-b` is scoped to step 1; steps 3
+and 4 read the same command for **paths**, and a `##` header there is a line that is not a path.
+
+**"Yours" had to become a name the run can compare against.** A reply guard that skips "a reply of
+yours" is unimplementable if the run cannot say which account that is, and nothing here may call an
+endpoint outside `repos/{owner}/{repo}/`, so the account cannot be asked for directly. Step 7's two
+calls now carry it: `AS=` on the trigger post, and `.user.login` as a third column on the marker read.
+Between them they always answer it — a run that fired reads its own post, a run the invariant blocked
+reads the account that opened the round in flight — so neither path has to carry a value the other
+produced. Without it the guard would have had to match on the comment id alone, and a colleague's
+reply under a finding would have suppressed this loop's, while the report said the finding was already
+handled.
+
+**No fence changed, no re-approval is owed, and no permission moved.** `tests/fence-hashes.txt` and
+`docs/permissions.md` are both byte-identical — the latter matters because
+`tests/permissions.test.sh` compares every git subcommand in a fenced block against an individually
+granted list, which is why the local-state line is a flag on a command already there rather than a
+`git rev-list`. Step 11's read is the endpoint and prefix that step already used.
+
+**Both halves are unexercised, and `## Unexercised paths` now carries them.** No run has been
+refused a trigger and then waited on the standing one, and no run has resumed into a round whose
+findings were partly answered — which is the only state step 11's read is for. The entries say
+which direction each fails in, and for step 11 the two directions are not alike: a read that finds
+nothing posts the duplicate this change exists to stop, loudly and on the pull request, while a
+match that is wrong the other way skips a finding this loop never answered and says it was handled.
+The author comparison is what separates them, and it has not been read back from a live pull
+request on either of the two paths that produce the name.
+
+**Two resume gaps are named and not closed.** The per-round bucket-and-rung record step 10 mandates
+and `rigor-levels.md` consumes has no anchor on the pull request and is lost with the session, which
+is also why the rising-ceiling re-open cannot fire on a resumed run. Closing that needs a decision
+about where a run's per-round record lives, which is larger than this.
+
+### `smol-toml` is overridden, because the advisory has no upgrade path through `markdownlint-cli2`
+
+**`npm audit fix` could not fix this, and `--force` proposed a downgrade.** GHSA-7w5x-hrqm-74c2 is a
+denial of service in `smol-toml` at `<=1.7.0`, reached through `markdownlint-cli2`, which is the only
+thing in this tree that depends on it. Patched releases exist — 1.7.1, 1.7.2, 1.8.0 — but
+`markdownlint-cli2` pins its dependency to the **exact** string `1.7.0`, and has in every release
+from 0.22.0 through the current 0.23.2. So there is no version of `markdownlint-cli2` npm can move to
+that satisfies the advisory, and the only remedy it finds is `markdownlint-cli2@0.21.0`: the last
+release before TOML config support existed, three minors back, and `isSemVerMajor` against the
+declared `^0.23.2`. `npm audit fix` alone therefore changes nothing and reports the advisory again.
+
+**A root `overrides` entry pins `smol-toml` to `^1.7.1` instead.** This is the second advisory in
+this repository that `npm audit fix --force` proposed to answer by downgrading — `ajv-cli` and
+GHSA-8gh8-hqwg-xf34 was the first — and the same reasoning applies: the pin is the problem, not the
+version we are on. `markdownlint-cli2` stays at 0.23.2 and `smol-toml` resolves to 1.8.0, which
+declares the same `engines` (`node >= 18`) and the same `exports` shape as 1.7.0, so it is a drop-in
+for the one call site — `parsers/toml-parse.mjs`, forty characters around `parse`.
+
+**Both TOML paths were exercised against the override, not assumed.** A `--config cfg.toml` run
+applied its rules (`MD013`/`MD041` off, 0 issues on a file that violates both), and a malformed
+document — the advisory's own input class — failed fast with a located parse error and exit 2 rather
+than hanging. `npm ci` reproduces 1.8.0 from the lockfile, which is what the CI `npm audit` job
+installs from; that job is now green again, and `npm run check:all` is unchanged.
+
+**`overrides` is a floor, not a ceiling, and it outlives the fix.** When `markdownlint-cli2` moves
+its pin past 1.7.0 the entry becomes redundant rather than wrong, and `^1.7.1` keeps taking later
+1.x patches until then. It is worth removing at that point, but nothing breaks if it is not.
+
 ## [0.9.0] - 2026-09-07
 
 ### A fourth fence: the loop now removes the worktrees it created

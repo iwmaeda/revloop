@@ -132,3 +132,8 @@ for code reviews.` followed by a dashboard link (same comment). **Derived:** a r
   block and that do not — before the first round runs.
 - The documented "👍 reaction when there are no findings" path. Every measured trigger carried zero
   reactions.
+- **Whether a trigger posted after a rate limit, at an unchanged HEAD, draws a review once the quota
+  is back.** The one occurrence recorded here (`iwmaeda/revloop#13`, 2026-08) was blocked by the loop
+  rather than by the reviewer — the runaway invariant refused the second trigger, so it was never
+  sent — which means the reviewer's side of it has not been observed at all. The rate-limit reply's
+  own latency and text are measured above; what happens after the quota resets is not.

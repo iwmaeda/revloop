@@ -141,6 +141,64 @@ expect "a signal inside the gap is not adopted" "$o" "VERDICT=pending"
 refute "  the clean comment is not read"        "$o" "VERDICT=comment"
 expect "  the baseline is the re-post"          "$o" "trigger=2026-08-19T10:31:00Z"
 
+# The rate limit, as a PRIMARY line rather than as EXTRA=. Until this fixture
+# the pattern only ever appeared on the EXTRA= of review-and-comment, so the
+# shape step 9's two rate-limit rows actually read was pinned nowhere. It also
+# pins two constraints on what a rateLimitPatterns entry may contain, both of
+# which the fence imposes and neither of which is obvious from the schema: the
+# body's first line has every `=` rewritten to `-`, and it is cut at 110
+# characters. A pattern carrying either would match nothing, forever, silently.
+#
+# THE TWO CONSTRAINTS INTERACT, AND THE OBVIOUS ASSERTION FOR THE FIRST IS
+# VACUOUS. This body's `=` sits at `?tab=code-review`, which the 110-character
+# cut lands inside: the output ends `?tab-co`. So a refute on `tab=code-review`
+# passes whether the gsub is present, correct or deleted -- truncation removes
+# the needle before the rewrite could matter, and the assertion pins nothing.
+# The pair below is inside the window instead, so deleting the gsub fails it.
+# `body-keys` further down does not have this problem: its whole body fits.
+o=$(r rate-limit-comment)
+expect "a rate limit is a primary comment"      "$o" "VERDICT=comment"
+expect "  it carries the comment id"            "$o" "cid=444"
+expect "  the pattern's prefix survives"        "$o" "body=You have reached your Codex usage limits"
+expect "  the marker still binds a head"        "$o" "marker_head=65d73ddd"
+expect "  and the round it was posted for"      "$o" "round=21"
+expect "  the body's = became a -"              "$o" "tab-co"
+refute "  and the = itself did not survive"     "$o" "tab=co"
+refute "  and the body is cut at 110"           "$o" "for details."
+
+# The re-take: a second marker at the SAME head= with a HIGHER round=, opened
+# because the reviewer declined the first one. It must take the baseline, and
+# the rate-limit comment it steps past must not be re-adopted as the new
+# round's verdict — which is the too-old row of design-notes' table, reached
+# here by a path no other fixture takes.
+#
+# WHAT THESE THREE CANNOT SHOW. Step 9's two rate-limit rows read the SAME
+# BYTES: the fence's output for a rate limit is identical whether this run
+# posted the trigger or inherited it, because the fence has no idea which run
+# is reading it. The discriminator is within-run state — did step 7 of this run
+# return a TRIGGER= id — and this harness executes no step-9 prose, so nothing
+# here can catch a run that takes the wrong row. Nor can anything here catch a
+# re-take that fails to advance the round, that skips --max-rounds, or that
+# re-takes twice: the two markers below carry round=21 and round=22 because the
+# fixture was hand-written that way, and the fence has no round-counting logic
+# to get wrong. Those rules live in step 7 and step 9's prose. Saying so is
+# worth more than a comment that implies otherwise.
+o=$(r rate-limit-retake)
+expect "the re-take becomes the baseline"       "$o" "trigger=2026-08-31T10:20:00Z"
+refute "  not the trigger it re-takes"          "$o" "trigger=2026-08-31T10:00:00Z"
+expect "  and nothing has answered it yet"      "$o" "VERDICT=pending"
+refute "  the older rate limit is not adopted"  "$o" "VERDICT=comment"
+refute "  and its body is not reported"         "$o" "You have reached"
+
+# The same pull request one answer later. Only a verdict line carries round=,
+# so this is the only fixture that can show the number comes off the RE-TAKE's
+# marker rather than off the round it re-took.
+o=$(r rate-limit-retake-answered)
+expect "a verdict carries the re-take's round"  "$o" "round=22"
+refute "  not the round it re-took"             "$o" "round=21"
+expect "  the head binding is unchanged"        "$o" "marker_head=65d73ddd"
+expect "  and the review after it is adopted"   "$o" "review_id=950"
+
 # Two answers to one round, both naming the current commit. The fence returns
 # the newer review and says nothing at all about the older one — there is no
 # EXTRA= for a second review, only for a comment. That is measured here rather

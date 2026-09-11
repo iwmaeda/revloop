@@ -903,13 +903,21 @@ the level, and a repository that wants the old number writes it.
    ruling is spelled here. **Print the output in full** so that any findings which did arrive are in
    the report — they are real, and they are not this round's verdict.
 
-   **Do not retry, and do not wait.** The remote row gives the reason — the quota recovers with time
-   and retrying only burns rounds — and this loop has less room than that one: it has no waiting phase
-   at all, and its round cap is the only brake it has, so a round spent on a reviewer that cannot
-   answer is taken from one that can. **The recovery is a fresh invocation after the reset, and it is
-   available the moment the quota is back**: step 6's runaway invariant is a within-run rule, so a new
-   session may review the same unchanged `HEAD`. **Print the reset time the message names**, if it
-   names one, because the operator's next decision is _when_ rather than _whether_.
+   **Do not retry, and do not wait.** The remote abort row gives the reason — the quota recovers with
+   time and retrying only burns rounds — and this loop has less room than that one: it has no waiting
+   phase at all, and its round cap is the only brake it has, so a round spent on a reviewer that
+   cannot answer is taken from one that can. **The recovery is a fresh invocation after the reset, and
+   it is available the moment the quota is back**: step 6's runaway invariant is a within-run rule, so
+   a new session may review the same unchanged `HEAD`. **Print the reset time the message names**, if
+   it names one, because the operator's next decision is _when_ rather than _whether_.
+
+   **Both loops say this now, and they say it for different mechanisms.** There the invariant is
+   anchored to a marker on the pull request and survives the restart, so a later run does not simply
+   become free to re-trigger — it re-takes the standing trigger with a **new round**, from step 9's
+   `rate-limit-retake` row, and `--max-rounds` bounds a series of them. Here nothing survives, so
+   there is nothing to re-take and the next invocation is an ordinary round. **The abort is spelled
+   the same in both** — `reviewer-rate-limited` — because it is one event, and a second spelling for
+   it would be the drift this pair of files is written to avoid.
 
    **`unparsed-review-output` is a row of its own because the alternative is the failure this whole
    family of loops is built to avoid.** An unreadable result and "the reviewer found nothing" are

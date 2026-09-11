@@ -1,0 +1,58 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "comments": {
+          "nodes": [
+            {
+              "createdAt": "2026-08-31T10:00:00Z",
+              "databaseId": 111,
+              "body": "@codex review\n\n<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=65d73ddd round=21 -->",
+              "author": {
+                "login": "iwmaeda",
+                "__typename": "User"
+              },
+              "reactionGroups": []
+            },
+            {
+              "createdAt": "2026-08-31T10:00:08Z",
+              "databaseId": 444,
+              "body": "You have reached your Codex usage limits for code reviews.",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "reactionGroups": []
+            },
+            {
+              "createdAt": "2026-08-31T10:20:00Z",
+              "databaseId": 112,
+              "body": "@codex review\n\n<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=65d73ddd round=22 -->",
+              "author": {
+                "login": "iwmaeda",
+                "__typename": "User"
+              },
+              "reactionGroups": []
+            }
+          ]
+        },
+        "reviews": {
+          "nodes": [
+            {
+              "submittedAt": "2026-08-31T10:24:00Z",
+              "databaseId": 950,
+              "state": "COMMENTED",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "commit": {
+                "oid": "65d73ddd4f1c9e"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
