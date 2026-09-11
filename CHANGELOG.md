@@ -150,10 +150,26 @@ bound, so a rising-ceiling re-open still gets the reply it is owed. **`AS=` goes
 carried the posting account for exactly one consumer, and with that consumer gone it would be a key
 with no consumer.
 
+**That rule was then broken in the commit that stated it**, and it is recorded rather than quietly
+repaired: the same change added `pr_ref=` to step 1's new read with nothing anywhere consuming it, and
+it could never have had a consumer, since `gh pr list --head` selects on the head ref and the returned
+pull request's `.head.ref` is the current branch by construction. Reported as a P2 on
+`iwmaeda/revloop#29` (2026-09) and removed.
+
 **Step 1 says where the run stands, and asks GitHub for the half that is GitHub's.** One line — tree
 clean or dirty, ahead/behind the upstream, the open pull request — from `-b` added to the `git status`
 it already ran, plus a second line comparing local HEAD against `pr_head=`, read from
-`repos/{owner}/{repo}/pulls/<n>`. A `git fetch` runs ahead of both. **It is printed because
+`repos/{owner}/{repo}/pulls/<n>`. A `git fetch` runs ahead of both. **The object ids are compared in
+full and shortened only to print** — every other head comparison here is short-8 because it compares
+a value this loop wrote against another it wrote, and this one compares against GitHub's answer.
+**Step 11 re-reads `pr_head=` before it may report a convergence**, because step 1 measured it before
+a wait that runs to `--timeout` or twice it, and nothing else on the clean path looks at the pull
+request's head again: a third party pushing inside that window leaves every later check agreeing, and
+the round reports a convergence over a review of the commit it started on. That is
+`reason=pr-head-advanced`, and it aborts rather than opening another round — the same ruling a lost
+baseline gets, because a loop that answers somebody else's push by triggering again is racing a
+person. The matching re-read before the trigger is **declined** and says so: that window ends in step
+9's `128` or `1` row, both of which abort already. **It is printed because
 something reads it**: step 3's check turns on exactly those three facts.
 
 **That third fact took three rounds and two false starts, all three returned as P2 on

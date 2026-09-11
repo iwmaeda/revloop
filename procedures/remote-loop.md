@@ -103,7 +103,7 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    gh api "repos/{owner}/{repo}/branches/$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)/protection" \
      --jq '.required_status_checks.contexts' 2>/dev/null || echo 'protection=none (404)'
    gh pr list --head "$(git branch --show-current)" --state open --json number,url
-   gh api "repos/{owner}/{repo}/pulls/<n>" --jq '"pr_head=\(.head.sha[0:8]) pr_ref=\(.head.ref)"'
+   gh api "repos/{owner}/{repo}/pulls/<n>" --jq '"pr_head=\(.head.sha)"'   # full OID: this is the one compared
    ```
 
    **`pr_head=` is the pull request's own head and it is what step 3's check compares against.** The
@@ -154,6 +154,22 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    values** — a reader who has to hold two shas side by side and diff them by eye is the reader who
    agrees that they match. When they differ it says so in the same shape,
    `HEAD 1a2b3c4d != pr_head 9f8e7d6c`, which is also what the report carries.
+
+   **The short form is for the line and never for the comparison, and the two are different claims.**
+   Every other head comparison in this procedure is short-8 — `marker_head=`, the fence's
+   `.commit.oid[0:8]`, step 9's `commit=` — because each of those compares a value this loop wrote
+   against another it wrote, and the short form is what it wrote. **This one compares against
+   GitHub's own answer**, so it keeps the full object id it was given and truncates only to print.
+   Shortening an authoritative value before comparing it discards bits for a display convention, and
+   the reviewer returned it as such (`iwmaeda/revloop#29`, 2026-09).
+
+   **`pr_ref=` was emitted here for one round with nothing reading it, and is gone.** It could only
+   ever have restated the filter that selected the pull request — `gh pr list --head` matches on the
+   head ref, so the returned pull request's `.head.ref` **is** the current branch by construction —
+   which makes it a key with no consumer, the defect this procedure had just finished removing one
+   step down in the same change, where `AS=` went for the same reason. Reported as part of the same
+   P2. **Naming it here rather than deleting it silently** is the point: the rule was stated and then
+   broken in the commit that stated it.
 
    **`-b` belongs to this step and not to the two others that run the same command.** Steps 3 and 4
    read `git status --porcelain -uall` **for paths**, and step 4 stages what it reads; a `##` header
@@ -367,7 +383,8 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    whether it is already done; step 2 does it in a clause and step 6 does it in four words, and this
    step carried no such check at all. **On this run's first arrival here, skip this step, step 4 and
    step 5 and go to 6** when all three facts on step 1's local-state line hold: the branch has an
-   upstream, the tree is clean, and **`git rev-parse --short=8 HEAD` equals step 1's `pr_head=`**.
+   upstream, the tree is clean, and **`git rev-parse HEAD` equals step 1's `pr_head=`, compared as
+   full object ids**.
    **The third fact is the pull request's own head and not a statement about the upstream**, which is
    what two earlier spellings of it were: step 1 says what each proxy let through and why this one is
    asked of GitHub directly. The upstream fact stays because step 5 is what sets it, not because the
@@ -1714,10 +1731,36 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
     decline without a citation, which this step already forbids.
 
     If even one item needs fixing, go back to 3. **If every item is fixed, declined, or accepted,
-    run the sufficiency test in [`rigor-levels.md`](rigor-levels.md) and fall through to 12 when it
-    passes.** This is the only edge into 12, so it is the only place the test has to stand — but it
-    stands there rather than inside 12, because a test that ran after the report step had begun would
-    be reporting a convergence it had not yet agreed to. **It cannot refuse with nothing to ask for**:
+    re-read step 1's `pr_head=`, run the sufficiency test in
+    [`rigor-levels.md`](rigor-levels.md), and fall through to 12 when both pass.** This is the only
+    edge into 12, so it is the only place either has to stand — but they
+    stand there rather than inside 12, because a test that ran after the report step had begun would
+    be reporting a convergence it had not yet agreed to.
+
+    **The re-read is one call and it answers the one question step 1's answer has gone stale on.**
+    Step 1 measured `pr_head=` before a wait that runs to `--timeout` and may run to twice it, and
+    **nothing on the clean path looks at the pull request's head again**: a third party pushing during
+    that window leaves every later check agreeing, because they all compare values bound to the commit
+    the round started on. The round then reports a convergence over a review of that commit while the
+    pull request holds one nobody reviewed. **If `pr_head=` is no longer `git rev-parse HEAD`, this is
+    not a convergence**: abort with `reason=pr-head-advanced`, name both object ids, and say in the
+    report that the pull request advanced during the round and what was reviewed is not its head.
+    Reported as a P2 (`iwmaeda/revloop#29`, 2026-09).
+
+    **It aborts rather than opening another round, which is the same ruling the lost baseline gets.**
+    Somebody else is pushing to this branch, and a loop that answers by triggering again is racing a
+    person — the runaway this procedure stops for elsewhere in as many words. A later run re-enters at
+    step 1, measures the new head, and proceeds normally; step 7's backstop sends it through step 3
+    first, because no marker names that commit.
+
+    **The same re-read is deliberately not added before the trigger, and that half of the finding is
+    declined.** The window there is between step 5's push and step 7's post, and it does not reach a
+    wrong result: whatever the reviewer answers carries `commit=`, and step 9 reconciles that against
+    HEAD — a third party's commit is either absent locally and takes the `128` row, which says
+    "someone else pushed" in those words, or present and not an ancestor and takes the `1` row. **Both
+    abort.** A second re-read there would replace one fail-closed abort with another and spend a call
+    every round to do it; the convergence edge is added because it is the one place where the
+    alternative is not an abort but a wrong report. **It cannot refuse with nothing to ask for**:
     by this point every item is answered and the floor is settled, so the one thing left for it to
     find is a sweep this level owed and this round did not run — and it answers that by running it,
     which either produces a fix and sends you back to 3 as the line above already does, or produces
@@ -2839,11 +2882,16 @@ takes one of these should say so in the report:
   discriminator is within-run state the fence never sees and the fence's output is byte-identical
   either way. **It fails closed**: a re-take opens a round rather than finishing one, so its worst
   outcome is a spent round and a comment, never a merge.
-- **Step 1's `pr_head=` read.** The comparison it feeds is measured — `repos/{owner}/{repo}/pulls/<n>`
+- **Step 1's `pr_head=` read and step 11's re-read of it.** The call is measured —
+  `repos/{owner}/{repo}/pulls/<n>`
   returns `.head.sha` at the `gh 2.4.0` floor, read back on `iwmaeda/revloop#29` — but **no run has
-  reached step 3 with `HEAD != pr_head`**, which is the state the check exists for and the one that
-  decides whether the refusal below is loud or silent. The three proxies it replaced were each found
-  by a reviewer rather than by a run, one per round, and nothing has yet exercised the direct form.
+  reached step 3 or step 11 with `HEAD != pr_head`**, which is the state both checks exist for and the
+  one that decides whether the refusal is loud or silent. The three proxies the step-1 read replaced
+  were each found by a reviewer rather than by a run, one per round, and nothing has yet exercised the
+  direct form. **`reason=pr-head-advanced` has therefore never fired**, and the push it answers — a
+  third party's, landing inside a round's own wait — has not been observed either; what is known is
+  only that nothing else on the clean path would have seen it. It fails closed, in the sense that it
+  can only refuse a convergence and never grant one.
 - **Step 3's first-arrival skip and step 7's backstop for it.** The waste it removes is arithmetic on
   what the step runs rather than a measurement of a run that took it, and **no run has yet reached
   step 7 with step 3 skipped and no marker naming the current HEAD** — the branch-adopted-by-hand
