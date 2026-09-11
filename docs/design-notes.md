@@ -426,7 +426,12 @@ only ever narrows it, retiring each path the sweep consumed.
 **"The tree may have moved" is the boundary of that argument, and the remote loop has a case on the
 other side of it.** A resumed pull-request run can prove the tree has _not_ moved: the branch has an
 upstream, the work tree is clean, and HEAD is neither ahead of nor behind that upstream — three facts
-step 1 of [`remote-loop.md`](../procedures/remote-loop.md) measures with git alone. Re-deriving there
+step 1 of [`remote-loop.md`](../procedures/remote-loop.md) measures with git alone, **after a
+`git fetch` that the third one is worthless without**. A remote-tracking ref nobody refreshed reports
+`0 behind` against the commit this checkout already has, which is a proof about the checkout wearing
+the words of a proof about the pull request; it was returned as a P2 on `iwmaeda/revloop#29`
+(2026-09), and it is the same defect as the marker count one round earlier — a local fact standing in
+for a fact about the pull request — one level further down, where every consumer reads it. Re-deriving there
 buys nothing and costs the whole verify list plus a repository-wide sweep, before the run has made
 the one call that would tell it a verdict is already waiting, so **its step 3 skips itself on a first
 arrival in that state**. This is not the rejected findings ledger wearing different clothes: nothing

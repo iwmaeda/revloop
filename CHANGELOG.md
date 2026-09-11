@@ -91,8 +91,9 @@ before step 8 made the one call that would have told it a verdict was already th
 report that "the pass ran and what it changed", which such a pass cannot honestly say.
 
 **Step 3 now checks, on this run's first arrival only.** When the branch has an upstream, the tree is
-clean, and HEAD is neither ahead of nor behind that upstream, it skips itself, step 4 and step 5 and
-goes to 6. Nothing is uncommitted, so step 4 has nothing to stage; nothing is unpushed, so step 5 is
+clean, and HEAD is neither ahead of nor behind that upstream — all three read off step 1's
+local-state line, **which step 1 now measures after a `git fetch`** — it skips itself, step 4 and
+step 5 and goes to 6. Nothing is uncommitted, so step 4 has nothing to stage; nothing is unpushed, so step 5 is
 `Everything up-to-date`; and the verify commands are a pre-push gate over a push that is not
 happening. `rigor-levels.md` charges sweeps to "every class **this run fixed**", so the sufficiency
 test is owed nothing either. **The condition is which edge you arrived on, not what the tree looks
@@ -131,13 +132,32 @@ from the same `review_id=` and posting five duplicates — near-identical duplic
 opens `Fixed in round <N> (<sha>).` and neither the round nor the sha had moved. That is the argument
 step 7 spends a paragraph on for triggers — a budget kept in the session is a budget a restart refunds
 — applied to the other thing this loop writes on a pull request, where it had never been made. It
-needs no marker: a reply is already anchored by `in_reply_to_id`, so the pull request can be asked
-directly. The read now runs first and matches on the author as well as the id, because the reviewer
-and a colleague can both reply under one finding.
+runs first now, and it matches three things: the finding id, the author, and a `revloop:reply`
+marker carrying this round's `round=`. The first draft matched id and author alone, on the argument
+that `in_reply_to_id` already anchors a reply so no marker was needed — which answers the wrong half.
+`in_reply_to_id` says **which finding** a reply is under and nothing about **what kind of reply it
+is**, and authorship cannot close that gap because the account driving this loop is a person who also
+comments by hand: their own "I'll look into this" under a finding matched both tests, so the step
+skipped the finding, posted nothing, and the report called it handled. Returned as a P2 on
+`iwmaeda/revloop#29` (2026-09). **The trigger side had the right shape all along** — it identifies
+revloop's own comment by a string revloop wrote, never by who wrote it — and the reply marker is that
+rule applied to the other artifact. The round scope is the third bound, so a rising-ceiling re-open
+still gets the reply it is owed.
 
-**Step 1 says where the run stands.** One line — tree clean or dirty, ahead/behind the upstream, the
-open pull request — from `-b` added to the `git status` it already ran. **It is printed because
-something reads it**: step 3's check turns on exactly those three facts. It deliberately says nothing
+**Step 1 says where the run stands, and fetches first so that it can.** One line — tree clean or
+dirty, ahead/behind the upstream, the open pull request — from `-b` added to the `git status` it
+already ran, with a `git fetch` ahead of it. **It is printed because
+something reads it**: step 3's check turns on exactly those three facts. **The fetch is what makes
+the third one true of the pull request rather than of this checkout**, and its absence was returned
+as a P2 on `iwmaeda/revloop#29` (2026-09): `git status -b` counts against a remote-tracking ref only
+as fresh as the last fetch, so on a branch the remote has moved and this checkout has not it reports
+`0 ahead, 0 behind` against the commit already in hand — after which step 3 skips, step 7's invariant
+blocks the trigger against a marker written for that same commit, and step 9 finds the standing
+review's `commit=` equal to HEAD. A round then converges over a review of the commit this checkout
+knows while the pull request's head is one nobody reviewed. `headRefOid` would answer it directly and
+does not exist on `gh pr list` at the 2.4.0 floor — measured, `Unknown JSON field` — so the refresh is
+the portable answer rather than the fallback. It is the marker-count defect one level down: **a local
+fact standing in for a fact about the pull request**, at the source every consumer reads. It deliberately says nothing
 about the round or whether an answer is waiting, because classifying a bot body outside the wait fence
 is the second implementation step 7 forbids in as many words. The `-b` is scoped to step 1; steps 3
 and 4 read the same command for **paths**, and a `##` header there is a line that is not a path.
