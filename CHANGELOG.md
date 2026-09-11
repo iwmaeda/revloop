@@ -169,7 +169,35 @@ the round reports a convergence over a review of the commit it started on. That 
 `reason=pr-head-advanced`, and it aborts rather than opening another round — the same ruling a lost
 baseline gets, because a loop that answers somebody else's push by triggering again is racing a
 person. The matching re-read before the trigger is **declined** and says so: that window ends in step
-9's `128` or `1` row, both of which abort already. **It is printed because
+9's `128` or `1` row, both of which abort already — **on a corrected reason**: only a `review` carries
+`commit=`, which the step's own signal table says outright, so a clean `comment` or `reaction` is
+covered by the gate rather than by that check.
+
+**The gate is reached by every convergence and was not, for one round.** Step 11 described itself as
+the only edge into step 12 while step 9's clean-comment and `reaction` rows said finish and went
+straight there — so on the path most likely to report a convergence, neither the new `pr_head=`
+re-read nor `rigor-levels.md`'s sufficiency test ran at all. The test had been unreachable on that
+path since it was written, despite that page requiring it "at every edge into the report step"; the
+re-read inherited the same hole on the day it was added. Both rows now route through the gate.
+
+**Two head comparisons were still truncating GitHub's answer.** The rule that step 1 keeps
+`pr_head=` whole was published with a justification that was false of two of the three places it
+described — step 9's `commit=` and step 10's two-trigger sweep compare values GitHub produced, not
+values this loop wrote, and both had been cut to eight characters first. Step 9 now resolves the
+fence's short oid with `git rev-parse --verify <commit>^{commit}`, which widens it **and refuses an
+ambiguous prefix instead of choosing between two objects**; step 10 keeps `commit_id` whole. **No
+fence byte changed for this**: the fence still emits eight characters, and the caller widens them for
+the price of one `git` call rather than costing every user a re-approval.
+
+**And step 11's reply read searched for the marker's literal instead of matching its envelope.** The
+step says never to search the body and its own query said `contains("revloop:reply ")`, so an ordinary
+reply reading `revloop:reply round=3 is missing` matched, split to a payload with no `-->` to cut at,
+produced a whole `round=3` token, and silently suppressed the answer the step owed. It now matches
+`<!-- revloop:reply` through a marker-shaped payload to a closing `-->`. A forged envelope is still
+indistinguishable from a real one, which is the bound step 7 already accepts for its own marker; prose
+quoting the literal no longer is.
+
+All four returned as one P2 on `iwmaeda/revloop#29` (2026-09). **It is printed because
 something reads it**: step 3's check turns on exactly those three facts.
 
 **That third fact took three rounds and two false starts, all three returned as P2 on
