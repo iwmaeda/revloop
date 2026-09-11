@@ -86,9 +86,8 @@ If even one finding was fixed, step 11 goes back to step 3 and the next round be
 the loop running through both stop points instead of halting at them.
 
 How long a wait runs is recorded, as a measurement, on the [card](reviewers/) of the reviewer you
-chose. If the review fails because of a rate limit or a similar API restriction, the loop aborts — and
-re-running it once the limit clears re-takes the same commit in a **new** round, with no new commit
-needed, which spends one more of `--max-rounds`.
+chose. If the review fails because of a rate limit or a similar API restriction, the loop aborts, and
+re-running it once the limit clears resumes it.
 
 If the wait reaches its budget with no verdict the loop can classify, it posts the trigger once more
 before giving up — so a pull request can legitimately carry two review-request comments for one
