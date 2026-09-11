@@ -197,7 +197,27 @@ produced a whole `round=3` token, and silently suppressed the answer the step ow
 indistinguishable from a real one, which is the bound step 7 already accepts for its own marker; prose
 quoting the literal no longer is.
 
-All four returned as one P2 on `iwmaeda/revloop#29` (2026-09). **It is printed because
+All four returned as one P2 on `iwmaeda/revloop#29` (2026-09).
+
+**The next round found that the widening did not widen.** `git rev-parse --verify <short>^{commit}`
+resolves a prefix **against the objects this checkout holds**, so on the only case that matters — a
+reviewed commit never fetched here, sharing HEAD's eight characters — there is one local match and it
+is HEAD: the resolve succeeds and the comparison passes. **A prefix cannot be un-truncated by the side
+that did not shorten it.** Step 9 now fetches the full `commit_id` by the `review_id=` the fence
+already hands it, which is the same read step 10 performs per review.
+
+**Two more of the same shape came with it.** Step 9's clean-comment and `reaction` rows still read
+`finish (clean)` although their next action is a gate that can send the round back or abort it, which
+is the reading that let them bypass the gate to begin with; they now say `clean — pending the gate`.
+And **every `comment` row was matching patterns against a preview rather than a body**: the fence
+emits the first line, `=` rewritten to `-`, cut at 110 characters, while the rows ask to print the
+body in full "including any reset time it names" and to match `rateLimitPatterns` against it. A notice
+that is long, multi-line, or carries an `=` cannot match, and drops to the generic bot-body abort —
+which is not merely the wrong reason but the row **the standing-round re-take is never reached from**,
+so the quota recovery becomes unreachable for exactly those reviewers. Codex's own notice fits the
+preview, which is why this survived measurement; that is a property of one string, not of the design.
+Step 9 now fetches the body by `cid=` and classifies that. All three on `iwmaeda/revloop#29` (2026-09). **It is
+printed because
 something reads it**: step 3's check turns on exactly those three facts.
 
 **That third fact took three rounds and two false starts, all three returned as P2 on
