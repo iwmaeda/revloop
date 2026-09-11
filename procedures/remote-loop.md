@@ -348,14 +348,17 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    skips**, however clean the tree is.
 
    **What the skip gives up is caught in step 7, not accepted here.** A first run on a branch somebody
-   pushed by hand also arrives clean and level with its upstream, and there the pre-trigger sweeps are
-   the whole of this loop's "fire with fewer defects" argument. This step cannot tell that case from a
-   resume, because telling them apart means reading the pull request and step 7 is the first step
-   allowed to. So step 7 decides it from the number it already counts: **if this step has not run at
-   all this run and the pull request carries no marker, it sends you back here before composing a
+   pushed by hand arrives clean and level with its upstream, and so does a run whose HEAD was pushed
+   from outside the loop onto a branch this loop already drove; in both the pre-trigger sweeps are
+   the whole of this loop's "fire with fewer defects" argument. This step cannot tell either case from
+   a resume, because telling them apart means reading the pull request and step 7 is the first step
+   allowed to. So step 7 decides it from the marker it already reads: **if this step has not run at
+   all this run and no marker on the pull request carries a `head=` equal to the current HEAD, it
+   sends you back here before composing a
    trigger** — and the return is an ordinary arrival, so this step then runs in full and the condition
    it was sent back by is false the next time step 7 asks.
-   Round 1 has never been swept; every later round was swept by the pass that produced its change.
+   A commit this loop triggered on was swept by the pass that produced it; a commit no marker
+   names — round 1's, or one pushed from outside the loop — was not.
 
    **Say in the report that the verify did not run and why**, in place of this step's ordinary "the
    pass ran and what it changed". A skipped gate nobody mentions reads as a gate that passed.
@@ -931,18 +934,36 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    that marker carrying an `attempt` key. The round's **first** trigger, whose id and body the re-post
    reads back below, is the oldest marker carrying this `round=` and no `attempt`.
 
-   **If step 3 has not run at all this run and this read returns no marker, go back to 3 before
-   composing anything.** Read the condition as "has not run", not as "skipped itself at some point":
-   after the return, step 3 has run, so the condition is false and this cannot fire twice.
-   A pull request with no marker has had no round, so nothing has ever run this loop's
+   **If step 3 has not run at all this run and no marker this read returns carries a `head=` equal to
+   the current HEAD, go back to 3 before composing anything.** Read the first condition as "has not
+   run", not as "skipped itself at some point": after the return, step 3 has run, so the condition is
+   false and this cannot fire twice.
+   A commit no marker names has never been triggered on, so nothing has ever run this loop's
    pre-trigger sweeps over the change you are about to have reviewed — and step 3 skipped them because
-   a branch somebody pushed by hand is indistinguishable, from there, from a branch this loop pushed
-   itself. **The count is the discriminator and it is already in hand**: it is zero here and nowhere
-   else, because every later round's change was swept by the pass that produced it. The path
+   a commit somebody else pushed is indistinguishable, from there, from one this loop pushed
+   itself. **The marker's `head=` is the discriminator and it is already in hand**: a marker carrying
+   this commit is the record that this loop swept it, because the trigger that wrote it was composed
+   after the pass that produced the commit. The path
    terminates and cannot loop — the return is not a first arrival, so step 3 runs in full — and if the
    sweep finds something it becomes a commit and a push before this step fires, which is the order the
-   sweeps exist for. **The rate-limit re-take does not reach this**: it opens a round on a pull
-   request whose marker count is not zero.
+   sweeps exist for.
+
+   **The marker count was the first spelling of this and it was too narrow**, which is the shape the
+   reviewer returned as a P2 (`iwmaeda/revloop#29`, 2026-09). A count is zero only on a pull request
+   that has had no round at all, so it caught the branch adopted by hand and missed **a commit pushed
+   from outside the loop onto a pull request that already carries markers**: the tree is clean and
+   level on this run's first arrival, so step 3 skips; the count is not zero, so this backstop stays
+   silent; and HEAD differs from every marker's, so the invariant permits the trigger. The reviewer
+   then reads a commit no verify command and no sweep has touched. **The reason the count was given
+   for it is what that push falsifies** — "every later round's change was swept by the pass that
+   produced it" is true only of a commit this loop produced — so the fix is to ask the question that
+   reason was standing in for, which the marker already answers per commit.
+
+   **Neither re-take reaches this, and the `head=` reading is why.** Both open a round at an unchanged
+   HEAD that an earlier round's marker already names, so the commit they re-trigger on was swept when
+   that marker's trigger was composed. What the wider reading costs is one redundant pass on a session
+   that died between step 5 and this step: that commit was swept before it was pushed and this run
+   cannot see that. **It is the direction that fails safe**, because it can only add a pass.
 
    **Re-posting a trigger that went unanswered.** The runaway invariant forbids firing again on an
    unchanged HEAD, and **this run has exactly one exception to it**: a trigger for which this run
@@ -2729,12 +2750,19 @@ takes one of these should say so in the report:
   outcome is a spent round and a comment, never a merge.
 - **Step 3's first-arrival skip and step 7's backstop for it.** The waste it removes is arithmetic on
   what the step runs rather than a measurement of a run that took it, and **no run has yet reached
-  step 7 with step 3 skipped and a marker count of zero** — the branch-adopted-by-hand case, and the
+  step 7 with step 3 skipped and no marker naming the current HEAD** — the branch-adopted-by-hand
+  case and the commit pushed from outside the loop, and the
   only path either rule can get wrong in a direction that costs a round. The skip itself fails closed:
   it can only decline a gate on a tree that has nothing to gate, and every later arrival runs the step
-  in full. **What is not covered by anything is the tree somebody else pushed** — the skip trusts that
-  whatever pushed the commit verified it, which is the same trust every ordinary round already places
-  in the push that preceded its trigger, and no path in this procedure reads CI before triggering.
+  in full. **The backstop's first spelling did not fail closed, and that is recorded here rather than
+  only in the step.** Keyed to a marker _count_, it was silent on a pull request that already carried
+  markers, so a commit pushed from outside the loop reached the reviewer with no verify command and no
+  sweep over it — the entry above this one used to concede that case as "the same trust every ordinary
+  round places in the push that preceded its trigger", which it is not: an ordinary round's push was
+  preceded by this step. Returned as a P2 on `iwmaeda/revloop#29` (2026-09) and keyed to `head=`
+  instead. **What is still not covered is CI**: no path in this procedure reads it before triggering,
+  so a commit this loop verified locally and one whose remote checks are red are the same input to
+  step 7.
 - **Step 11's read-before-post, and the account it matches on.** The step now reads the replies under
   a finding before writing one and skips a finding that already carries a reply of this run's, which
   is a behavioural change no fixture reaches: `tests/` holds fence tests, and this is prose no fence

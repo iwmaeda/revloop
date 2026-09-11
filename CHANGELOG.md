@@ -60,6 +60,12 @@ that quota block is the round's history, and aborting again strands a real revie
 request whose HEAD cannot move until somebody reads it. **The re-take never reaches that case** — a
 review on the primary line is the reviewer having answered, so the premise was never in question.
 
+**Both READMEs described the recovery as picking the same round back up, and it does not.** The
+re-take opens a **new** round: `round=` advances and `--max-rounds` is spent, which is the bound
+`docs/design-notes.md` already rested the re-take's safety on — so the two files disagreed about the
+same fact from the day this shipped, and the one a user reads first was the one that was wrong.
+Returned as a P2 on `iwmaeda/revloop#29` (2026-09) and corrected in both.
+
 **No fence changed and no re-approval is owed.** `tests/fence-hashes.txt` is byte-identical, all four
 hashes unmoved, which is the evidence for that sentence rather than memory. Everything here is prose,
 three new fixtures, and their assertions.
@@ -95,12 +101,27 @@ clean and level with its upstream too, so a check written on tree state alone wo
 fix pass and converged having changed nothing.
 
 **What the skip gives up, step 7 takes back.** A first run on a branch pushed by hand arrives in the
-same state, and there the pre-trigger sweeps are the whole of this loop's "fire with fewer defects"
-argument. Step 3 cannot tell that case from a resume — telling them apart means reading the pull
-request, and step 7 is the first step allowed to — so step 7 decides it from the number it already
-counts: **if step 3 skipped itself and the pull request carries no marker at all, it goes back to 3
-before composing a trigger.** The count is zero there and nowhere else, so the rate-limit re-take
-never drags the sweeps back in, and the path cannot loop because the return is not a first arrival.
+same state, and so does a run whose HEAD was pushed from outside the loop onto a branch this loop
+already drove; in both, the pre-trigger sweeps are the whole of this loop's "fire with fewer defects"
+argument. Step 3 cannot tell either case from a resume — telling them apart means reading the pull
+request, and step 7 is the first step allowed to — so step 7 decides it from the marker it already
+reads: **if step 3 skipped itself and no marker on the pull request carries a `head=` equal to the
+current HEAD, it goes back to 3 before composing a trigger.** A marker naming this commit is the
+record that this loop swept it, so neither re-take drags the sweeps back in — both open a round at a
+HEAD an earlier marker already names — and the path cannot loop because the return is not a first
+arrival.
+
+**That condition was a marker _count_ first, and a count was too narrow.** Zero markers means a pull
+request that has had no round at all, so it caught the branch adopted by hand and missed the commit
+pushed from outside the loop onto a pull request that already carries markers: clean and level on
+first arrival, so step 3 skips; a count that is not zero, so the backstop stays silent; a HEAD no
+marker names, so the invariant permits the trigger — and the reviewer reads a commit no verify command
+and no sweep has touched. **The justification is what gave it away**: "every later round's change was
+swept by the pass that produced it" is true only of a commit this loop produced, which is exactly what
+an outside push is not. Returned as a P2 on `iwmaeda/revloop#29` (2026-09), and with it the
+concession in `## Unexercised paths` that called the unswept outside push "the same trust every
+ordinary round already places in the push that preceded its trigger" — an ordinary round's push is
+preceded by step 3, so it was not the same trust.
 
 **Step 11 reads before it writes, which closes the one real idempotency gap.** "Reply to every
 finding" had no guard: the list read with `select(.in_reply_to_id==<commentId>)` ran only _after_ the

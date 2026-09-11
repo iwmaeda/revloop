@@ -432,8 +432,12 @@ the one call that would tell it a verdict is already waiting, so **its step 3 sk
 arrival in that state**. This is not the rejected findings ledger wearing different clothes: nothing
 is read back as input to a classification, and no conclusion is remembered — the skip turns on git
 state re-measured this run, exactly as the worktree ledger stays inside the rule by recording a
-directory rather than a judgement. What the skip does give up on a pull request the loop is
-**adopting** rather than resuming, step 7 takes back, from the one number that separates the two.
+directory rather than a judgement. What the skip does give up — a pull request the loop is
+**adopting** rather than resuming, and a commit pushed onto one it already drove — step 7 takes back,
+from the marker that names the commit rather than from the count of them. **A count separates only
+the first of those two**, which is the narrowing that shipped first and was returned as a P2
+(`iwmaeda/revloop#29`, 2026-09): a pull request already carrying markers has a count that is not zero
+whatever HEAD it is sitting on.
 
 ## Field notes
 
