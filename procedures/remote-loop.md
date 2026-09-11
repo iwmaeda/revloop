@@ -103,39 +103,57 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    gh api "repos/{owner}/{repo}/branches/$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)/protection" \
      --jq '.required_status_checks.contexts' 2>/dev/null || echo 'protection=none (404)'
    gh pr list --head "$(git branch --show-current)" --state open --json number,url
+   gh api "repos/{owner}/{repo}/pulls/<n>" --jq '"pr_head=\(.head.sha[0:8]) pr_ref=\(.head.ref)"'
    ```
 
-   **The fetch is what makes the next line's "behind" mean anything, and it is the whole of that
-   line's claim to be about the pull request.** `git status -b` counts against
-   `refs/remotes/origin/<branch>`, which is only as fresh as the last fetch — so on a branch the
-   remote has moved and this checkout has not, it reports a clean, `0 ahead, 0 behind` tree against a
-   ref pointing at the commit **this checkout already has**. Every later reader then agrees with it:
-   step 3 skips on three facts that are all true of a stale ref, step 7's invariant compares a local
-   HEAD against a marker written for that same stale commit and blocks the trigger, and step 9's
-   `commit=` check compares the standing review against that HEAD and finds them equal — so a round
-   converges over a review of the commit this checkout knows while the pull request's head is one
-   nobody reviewed. **Reported as a P2** (`iwmaeda/revloop#29`, 2026-09), and reported as the widened
-   form of the marker-count defect one round earlier: both are a local fact standing in for a fact
-   about the pull request, and this one is the root, because every consumer above measures against
-   `git rev-parse HEAD` or this line. **Fixing the source fixes all of them**, which is why nothing
-   below re-asks the question per consumer.
+   **`pr_head=` is the pull request's own head and it is what step 3's check compares against.** The
+   question every later step is really asking is whether the commit in hand is the one the pull
+   request will have reviewed, and **that has exactly one authoritative answer, which is GitHub's.**
+   Ask it directly rather than proving something about a ref and hoping the two agree.
 
-   **What a refreshed ref turns the stale case into is an ordinary refusal, and no new abort is
-   owed.** Behind by one makes step 3's third fact false, so the skip does not fire and the step runs
-   in full; a run that then reaches step 5 has its push rejected as a non-fast-forward, and
-   `--force` is forbidden, so it stops loudly rather than triggering on a commit that is not the pull
-   request's head. **The `gh pr list` fields cannot answer this instead**: `headRefOid` does not
-   exist on that command at the `gh 2.4.0` floor — measured, `Unknown JSON field: "headRefOid"` — so
-   the refresh is the portable answer rather than the second choice.
+   **Two rounds were spent reaching that, and both detours are recorded rather than tidied away.**
+   The first asked whether any marker named the current HEAD — a fact about what this loop had swept,
+   not about what the pull request holds. The second refreshed the upstream and compared HEAD to it,
+   which is closer and still a proxy: **the upstream is whatever `@{upstream}` names, and nothing ties
+   it to the ref backing the pull request.** A branch whose upstream was set to another name, or to a
+   second remote, makes `git status -b` report `0 ahead, 0 behind` while `pr_head=` is a commit this
+   checkout has never seen — after which step 3 skips, and the HEAD comparisons in steps 7, 9 and 10
+   converge on an old review. **Each of the three is the same shape**, which is why the third is
+   written as a direct question and not as a better proxy: **a local fact standing in for a fact about
+   the pull request.** All three were reported as P2 on `iwmaeda/revloop#29` (2026-09), one per round.
+
+   **`gh pr list --json headRefOid` is what does not exist at the `gh 2.4.0` floor** — measured,
+   `Unknown JSON field: "headRefOid"`, and it is absent from that command's whole field list. **REST
+   answers it at the same floor**, measured on the same run: `repos/{owner}/{repo}/pulls/<n>` returns
+   `.head.sha` and `.head.ref`, and the call sits inside the `repos/{owner}/{repo}/` prefix this
+   procedure is already granted. An earlier version of this paragraph read the first measurement as
+   though it settled the second and concluded that a refresh was "the portable answer"; it was a
+   measurement of one command quoted as a fact about the API.
+
+   **The fetch above stays, for the reason that is left once the skip no longer rests on it.** The
+   printed line's `ahead/behind` is how a reader tells "the same commit" from "behind by three", and
+   step 9's `--is-ancestor` rows need the objects locally to tell a diverged history from one this
+   checkout has simply not fetched — the difference between its `1` and its `128`.
+
+   **What a mismatch turns into is an ordinary refusal, and no new abort is owed.** `pr_head=` other
+   than HEAD makes step 3's check false, so the skip does not fire and the step runs in full; a run
+   that then reaches step 5 has its push rejected as a non-fast-forward, and `--force` is forbidden,
+   so it stops loudly rather than triggering on a commit that is not the pull request's head.
 
    **Print one line of local state, because three of its facts decide whether step 3 has anything to
    do.** The probe already measures all three — `-b` makes `git status` print
-   `## <branch>...<upstream> [ahead N, behind M]` as its first line, and the pull request comes from
-   the last call in the block:
+   `## <branch>...<upstream> [ahead N, behind M]` as its first line, and the pull request and its head
+   come from the last two calls in the block:
 
    ```text
    local: tree clean | 0 ahead, 0 behind origin/docs/trade-suitability-design | PR #106 open
+          HEAD 1a2b3c4d = pr_head 1a2b3c4d
    ```
+
+   **The second line is the one step 3 reads, and it is printed as a comparison rather than as two
+   values** — a reader who has to hold two shas side by side and diff them by eye is the reader who
+   agrees that they match. When they differ it says so in the same shape,
+   `HEAD 1a2b3c4d != pr_head 9f8e7d6c`, which is also what the report carries.
 
    **`-b` belongs to this step and not to the two others that run the same command.** Steps 3 and 4
    read `git status --porcelain -uall` **for paths**, and step 4 stages what it reads; a `##` header
@@ -349,10 +367,11 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    whether it is already done; step 2 does it in a clause and step 6 does it in four words, and this
    step carried no such check at all. **On this run's first arrival here, skip this step, step 4 and
    step 5 and go to 6** when all three facts on step 1's local-state line hold: the branch has an
-   upstream, the tree is clean, and HEAD is neither ahead of nor behind it. **All three are read off
-   that line and the line is measured after step 1's fetch**, which is what makes the third one a
-   statement about the pull request rather than about this checkout's last refresh — step 1 says what
-   a stale ref does to every reader of it, including this one.
+   upstream, the tree is clean, and **`git rev-parse --short=8 HEAD` equals step 1's `pr_head=`**.
+   **The third fact is the pull request's own head and not a statement about the upstream**, which is
+   what two earlier spellings of it were: step 1 says what each proxy let through and why this one is
+   asked of GitHub directly. The upstream fact stays because step 5 is what sets it, not because the
+   comparison rests on it.
 
    **Every part of the pass is aimed at a change, and there is not one.** Nothing is uncommitted, so
    step 4 has nothing to stage and no split to propose — and on a run without `--auto`, no
@@ -780,7 +799,7 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    ```bash
    git rev-parse --short=8 HEAD
    gh api "repos/{owner}/{repo}/issues/<n>/comments" -F body=@<scratch>/trigger.md \
-     --jq '"TRIGGER=\(.id) SINCE=\(.created_at) AS=\(.user.login)"'
+     --jq '"TRIGGER=\(.id) SINCE=\(.created_at)"'
    ```
 
    `<scratch>/trigger.md` holds exactly:
@@ -929,17 +948,20 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    this repository (`iwmaeda/revloop#11`, 2026-08): `chatgpt-codex-connector[bot]` is `type=Bot` and
    `iwmaeda` is `type=User`.
 
-   **`.user.login` is in the output — third, between the id and the marker payload — and `AS=` is on
-   the post above, because step 11 needs to know which replies on this pull request are its own.** A
-   login carries no whitespace, so the payload is still everything after the third field, and it is
-   still read as whole `key=value` tokens rather than searched. That step skips a finding that already carries a
-   reply of yours, and "yours" has to be a name the run can compare against rather than one it assumes
-   — nothing here may call an endpoint outside `repos/{owner}/{repo}/`, so the account cannot be asked
-   for directly. **Between them these two calls always answer it**: a run that fired a trigger reads
-   `AS=` off its own post, and a run the invariant blocked reads the login of the newest marker, which
-   is the account that opened the round in flight. They are the same account on any ordinary
-   pull request, and taking it from whichever call this run actually made means neither path has to
-   carry a value the other one produced.
+   **`.user.login` is in the output — third, between the id and the marker payload — and it is there
+   to be read rather than to be compared.** A login carries no whitespace, so the payload is still
+   everything after the third field, and it is still read as whole `key=value` tokens rather than
+   searched. **Who opened the round in flight is what a resumed run's operator wants to know**,
+   because a marker somebody else posted is the ordinary sign that two people are driving one pull
+   request; the report says it, and no step decides anything on it.
+
+   **`AS=` was on the post above for one round and is gone, because its only consumer stopped asking.**
+   Step 11 identified this loop's own replies by the account that posted the trigger, which needed a
+   name this run could compare against; that bound was itself an identity proxy and is now replaced by
+   the reply's own marker, so the account is not needed and carrying it would be a key with no
+   consumer — the thing `schema/reviewer.schema.json` calls a promise the procedure does not keep.
+   **The apparatus outlived the rule it was built for by exactly one round**, which is recorded here
+   rather than quietly deleted.
 
    **`SINCE` on a resumed run is the `created_at` of the newest marker this read returns.** Steps 8
    and 9 both say "the `SINCE` you recorded in step 7", and a session that died recorded nothing —
@@ -1624,15 +1646,26 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
     <!-- revloop:reply v=1 round=3 -->
     ```
 
-    **Skip a finding that already carries a reply by this run's account whose body holds a
-    `revloop:reply` marker with a whitespace-separated token `round=` equal to this round's number.**
-    Both bounds are load-bearing and the round scope is the third: the account keeps another
-    participant's reply from discharging this loop's obligation, the marker keeps **this account's own
-    hand-written comment** from doing so, and the round keeps a reply written for an earlier round
-    from suppressing the one a re-opened finding is owed —
-    [`rigor-levels.md`](rigor-levels.md)'s rising-ceiling re-open puts a finding back in a later round
-    that already carries a round-`N` reply. **Compare whole `key=value` tokens and never search the
-    body**, for the reason step 7 gives about its own marker: `round=1` is a prefix of `round=10`.
+    **Skip a finding that already carries a reply whose body holds a `revloop:reply` marker with a
+    whitespace-separated token `round=` equal to this round's number.** The marker is the whole
+    identity and the round is its scope: the marker is what separates a reply this loop wrote from a
+    hand-written comment, and the round keeps a reply written for an earlier round from suppressing
+    the one a re-opened finding is owed — [`rigor-levels.md`](rigor-levels.md)'s rising-ceiling
+    re-open puts a finding back in a later round that already carries a round-`N` reply. **Compare
+    whole `key=value` tokens and never search the body**, for the reason step 7 gives about its own
+    marker: `round=1` is a prefix of `round=10`.
+
+    **The author is deliberately not part of it, and a first version of this guard made it the second
+    bound.** The reasoning was that another participant's reply should not discharge this loop's
+    obligation — which the marker already settles, because a participant's hand-written reply carries
+    none. What the author bound added instead was a **second** identity proxy of exactly the kind the
+    marker replaced, and it failed on the case the marker was introduced for: the account a run
+    carries is whoever posted the trigger, so a round Alice opened and Bob resumed makes the run
+    compare Bob's newly marked replies against Alice's login, match nothing, and post them again on
+    every resume — the duplicate this whole read exists to stop, reintroduced by the bound meant to
+    sharpen it. **A marked reply is a revloop reply whoever's account posted it**, which is the right
+    answer for two people driving one pull request and the reason the loop needs no name here at all.
+    Reported as a P2 on `iwmaeda/revloop#29` (2026-09).
 
     **"It needs no marker" was this step's first answer and the reviewer returned it as a P2**
     (`iwmaeda/revloop#29`, 2026-09). The argument was that `in_reply_to_id` already anchors a reply to
@@ -1649,10 +1682,9 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
     The two markers cannot be confused: the wait fence reads `revloop:trigger` on **issue** comments,
     and a reply lives in `pulls/<n>/comments`, which the fence never reads for triggers.
 
-    **The author bound stays as the second of the two.** The reviewer and a human colleague can both
-    reply under the same finding, and a reply that is not yours is not this step's obligation
-    discharged. The account is the one step 7 carries out of whichever call this run made: `AS=` from
-    its own post on a run that fired, and the newest marker's login on a run the invariant blocked.
+    **`.user.login` is still in the read's output and nothing decides on it.** It is there for the
+    reader of a resumed round — "who answered this finding, and was it a person" is the first
+    question a human asks of a reply that is already there — and it is printed rather than compared.
     **Run the read again after the POST.** That is what it was here for originally and the reason is
     unchanged — a direct GET 404s on a reply that exists — so the same call decides beforehand and
     confirms afterwards.
@@ -2807,6 +2839,11 @@ takes one of these should say so in the report:
   discriminator is within-run state the fence never sees and the fence's output is byte-identical
   either way. **It fails closed**: a re-take opens a round rather than finishing one, so its worst
   outcome is a spent round and a comment, never a merge.
+- **Step 1's `pr_head=` read.** The comparison it feeds is measured — `repos/{owner}/{repo}/pulls/<n>`
+  returns `.head.sha` at the `gh 2.4.0` floor, read back on `iwmaeda/revloop#29` — but **no run has
+  reached step 3 with `HEAD != pr_head`**, which is the state the check exists for and the one that
+  decides whether the refusal below is loud or silent. The three proxies it replaced were each found
+  by a reviewer rather than by a run, one per round, and nothing has yet exercised the direct form.
 - **Step 3's first-arrival skip and step 7's backstop for it.** The waste it removes is arithmetic on
   what the step runs rather than a measurement of a run that took it, and **no run has yet reached
   step 7 with step 3 skipped and no marker naming the current HEAD** — the branch-adopted-by-hand
@@ -2832,16 +2869,16 @@ takes one of these should say so in the report:
   matches, posts the duplicate reply that existed before this change — noisy, on the pull request,
   and obvious to a human. A match that is wrong in the other direction **skips a finding this loop
   never answered** while the report says it was already handled, and nothing outside the pull request
-  would show it. **The author comparison was the only thing standing between the two and it was not
-  enough**, which the reviewer returned as a P2 (`iwmaeda/revloop#29`, 2026-09): the account that
-  drives this loop is a person who also comments by hand, so their own "I'll look into this" under a
-  finding matched on id and author alike and took the silent direction. The `revloop:reply` marker is
-  what separates them now, with the account as a second bound and the round as a third — but **the
-  marker is as unexercised as the read it guards**, and a reply posted by an older revloop carries
+  would show it. **The author comparison stood between the two for one round and was not
+  enough**, returned as a P2 twice over (`iwmaeda/revloop#29`, 2026-09): first because the account
+  driving this loop is a person who also comments by hand, so their own "I'll look into this" under a
+  finding matched on id and author alike and took the silent direction; then because the account a run
+  carries is whoever posted the trigger, so a round Alice opened and Bob resumed compares Bob's own
+  marked replies against Alice and posts them again on every resume. The `revloop:reply` marker plus
+  the round is the whole identity now, and no account is compared. **The marker is as unexercised as
+  the read it guards**, and a reply posted by an older revloop carries
   none, so on a pull request answered by a previous version every finding reads as unanswered and is
-  replied to twice. That is the visible direction, which is the one to be on. Neither spelling of the
-  account has been read back from a live
-  pull request, and the two paths have never been shown to produce the same name.
+  replied to twice. That is the visible direction, which is the one to be on.
 - **Step 7's rule that a blocked invariant still reads the pull request.** The failure it answers is
   measured — `iwmaeda/revloop#13` (2026-08), a re-invocation refused a trigger that reported the
   invariant as the blocker and stopped there — but **no run has taken the path it opens**: being
