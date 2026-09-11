@@ -216,7 +216,23 @@ that is long, multi-line, or carries an `=` cannot match, and drops to the gener
 which is not merely the wrong reason but the row **the standing-round re-take is never reached from**,
 so the quota recovery becomes unreachable for exactly those reviewers. Codex's own notice fits the
 preview, which is why this survived measurement; that is a property of one string, not of the design.
-Step 9 now fetches the body by `cid=` and classifies that. All three on `iwmaeda/revloop#29` (2026-09). **It is
+Step 9 now fetches the body by `cid=` and classifies that. All three on `iwmaeda/revloop#29` (2026-09).
+
+**And the last truncated value was the marker's own.** `head=` is eight characters, and four decisions
+rested on it: step 7's backstop, the runaway invariant, the re-post's condition (e) and step 9's check
+(c). An externally pushed commit sharing an earlier marker's eight characters satisfies all four at
+once — the backstop stays silent so the skipped verification is never restored, the invariant reads
+HEAD as unchanged so no new trigger is required, check (c) passes, and **the convergence gate cannot
+catch it either**, because that gate compares the checkout against the pull request and both are the
+new commit. What is stale is the signal's binding, which the gate never looks at.
+
+The marker now carries `oid=`, the full object id, and those four decisions compare it. **`v` stays at
+`1`**: `oid=` is an _added_ key, which the marker's own rule says does not move the version — the
+fence's `case` skips a key it does not know and the payload filter passes hex through — and `head=`
+keeps its meaning exactly, so no reader of the old format misreads the new one. Widening `head=`
+instead **would** have moved `v`, and would have made every older install compare a short HEAD against
+a forty-character value and abort. A marker written before this change carries no `oid=` and falls
+back to `head=`, which is the guarantee those decisions had until now. **It is
 printed because
 something reads it**: step 3's check turns on exactly those three facts.
 

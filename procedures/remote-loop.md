@@ -423,7 +423,7 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    the whole of this loop's "fire with fewer defects" argument. This step cannot tell either case from
    a resume, because telling them apart means reading the pull request and step 7 is the first step
    allowed to. So step 7 decides it from the marker it already reads: **if this step has not run at
-   all this run and no marker on the pull request carries a `head=` equal to the current HEAD, it
+   all this run and no marker on the pull request carries an `oid=` equal to `git rev-parse HEAD`, it
    sends you back here before composing a
    trigger** — and the return is an ordinary arrival, so this step then runs in full and the condition
    it was sent back by is false the next time step 7 asks.
@@ -821,7 +821,8 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    which GitHub does not render:
 
    ```bash
-   git rev-parse --short=8 HEAD
+   git rev-parse --short=8 HEAD        # head=, for the fence and for reading
+   git rev-parse HEAD                  # oid=, the value every comparison uses
    gh api "repos/{owner}/{repo}/issues/<n>/comments" -F body=@<scratch>/trigger.md \
      --jq '"TRIGGER=\(.id) SINCE=\(.created_at)"'
    ```
@@ -831,17 +832,41 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    ```text
    @codex review
 
-   <!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=1a2b3c4d round=3 -->
+   <!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=1a2b3c4d oid=1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b round=3 -->
    ```
 
-   | Marker key | Value                                                                 |
-   | ---------- | --------------------------------------------------------------------- |
-   | `v`        | `1`. Marker format version                                            |
-   | `reviewer` | The resolved reviewer name                                            |
-   | `bot`      | The reviewer's login **with any `[bot]` suffix stripped** (see Notes) |
-   | `head`     | `git rev-parse --short=8 HEAD` at trigger time                        |
-   | `round`    | The round number — see below                                          |
-   | `attempt`  | **Absent** on a round's first trigger; `2` on the one re-post allowed |
+   | Marker key | Value                                                                                 |
+   | ---------- | ------------------------------------------------------------------------------------- |
+   | `v`        | `1`. Marker format version                                                            |
+   | `reviewer` | The resolved reviewer name                                                            |
+   | `bot`      | The reviewer's login **with any `[bot]` suffix stripped** (see Notes)                 |
+   | `head`     | `git rev-parse --short=8 HEAD` at trigger time. **Display and the fence only**        |
+   | `oid`      | `git rev-parse HEAD` at trigger time. **The commit identity every decision compares** |
+   | `round`    | The round number — see below                                                          |
+   | `attempt`  | **Absent** on a round's first trigger; `2` on the one re-post allowed                 |
+
+   **`oid=` carries the commit and `head=` no longer decides anything, which is the last of the
+   truncated values this procedure used to compare.** `head=` is eight characters, and four decisions
+   rested on it: the backstop above, the runaway invariant, the re-post's condition (e), and step 9's
+   check (c). An externally pushed commit sharing an earlier marker's eight characters satisfied all
+   four at once — the backstop stays silent so the skipped verification is never restored, the
+   invariant reads HEAD as unchanged so no new trigger is required, check (c) passes, and **the
+   convergence gate cannot catch it either**, because that gate compares the checkout against the pull
+   request and both are the new commit; what is stale is the signal's binding, which the gate never
+   looks at. Reported as a P2 (`iwmaeda/revloop#29`, 2026-09).
+
+   **`v` stays at `1`, and that is the rule rather than an exception to it.** `oid=` is an **added**
+   key, which the paragraph below says explicitly does not move the version: the fence's `case` has no
+   default branch, so a key it does not know is skipped, and the payload filter passes hex through
+   untouched. **`head=` keeps its meaning exactly** — eight characters, at trigger time — so no reader
+   of the old format misreads the new one. That is why the fix is an added key rather than a widened
+   `head=`: widening it would change an existing key's meaning, which **would** move `v`, and it would
+   make every older install compare its short HEAD against a forty-character value and abort.
+
+   **A marker written before this change carries no `oid=`, and the fallback is the old behaviour
+   named as such.** Compare on `head=` for those, which is exactly what this procedure did until now —
+   so a pull request part-way through a loop keeps working, at the weaker guarantee it already had,
+   rather than being failed closed for a key it could not have written.
 
    **`attempt=` is written only on a re-post, and that is not tidiness.** `reviewers/codex.md` records
    the marker being tolerated end to end against the five-key body, ten consecutive times. Writing a
@@ -1087,10 +1112,12 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    two differ in what they write: the re-post keeps this round's `round=` and adds `attempt=2`, while
    the re-take opens the next round with an ordinary trigger. Silence is the only signal this
    exception answers.
-   (e) `git rev-parse --short=8 HEAD` still equals the `head=` you are about to write. "Never push
+   (e) `git rev-parse HEAD` still equals the `oid=` you are about to write, **compared in full**.
+   "Never push
    while a wait is armed" is a rule, not an enforcement, and the re-post doubles the window it has to
-   hold for. A re-post carrying a stale `head=` is a trigger that step 9's check (c) will abort on —
-   one more wait spent, and a comment on the PR bound to a commit that is not HEAD.
+   hold for. A re-post carrying a stale binding is a trigger that step 9's check (c) will abort on —
+   one more wait spent, and a comment on the PR bound to a commit that is not HEAD. The short `head=`
+   is written beside it and decides nothing here, for the reason step 7's marker table gives.
 
    The re-post is **the first trigger's body verbatim** — the same trigger text and the same focus, if
    you added one — with `head=` and `round=` unchanged and `attempt=2` added. **Compose it from that
@@ -1146,7 +1173,7 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    @codex review the previous round fixed <class>. List every occurrence of that same shape you can
    find, in this one comment, rather than the first one.
 
-   <!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=9f8e7d6c round=4 -->
+   <!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=9f8e7d6c oid=9f8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c round=4 -->
    ```
 
    **That the focus raises findings per round is derived, not measured** — what is measured is only
@@ -1317,8 +1344,15 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    7, **and** no non-bot comment shares that second with a larger id than your marker's. The second
    half is not pedantry — the fence's tie-break is `databaseId`, and this repository's fixtures pin a
    same-second collision as its own input class.
-   (c) **`review`, `comment` and `reaction` only** — the three forms carrying a marker. `marker_head=`
-   equals `head=` **and `round=` is this round's number**. The `round=` half is the
+   (c) **`review`, `comment` and `reaction` only** — the three forms carrying a marker. **The winning
+   marker's `oid=` equals `git rev-parse HEAD`, compared in full, and `round=` is this round's
+   number.** The fence's `marker_head=` and `head=` are both eight characters and are **the screen
+   rather than the test**: they agree whenever the full ids do, and they also agree on a commit that
+   merely shares eight characters with the marker's. Read `oid=` off the winning marker in step 7's
+   marker read — the one whose `created_at` is the `trigger=` on this line, which check (b) has
+   already identified — and compare that. **On a marker that carries no `oid=`**, written before that
+   key existed, `marker_head=` equals `head=` is the whole test, which is the guarantee this check had
+   until now. The `round=` half is the
    cheap half of check (b): a verdict line carries the winning marker's own fields, so it says outright
    which trigger won rather than leaving you to infer it from a second-resolution timestamp.
    **A `pending` line carries none of these three keys**, so this check cannot be its abort; what a
@@ -2554,9 +2588,13 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   Reviewers look at the diff, not at your replies, so firing again on the same HEAD **after a
   verdict** returns the same findings and spends the reviewer's budget for nothing. **Fire only when
   `git rev-parse HEAD` differs from the last trigger's HEAD, unless one of the three exceptions below
-  applies** — which is exactly what `marker_head=` records, so the invariant survives a session
+  applies** — which is exactly what the marker's `oid=` records, so the invariant survives a session
   restart with no local state and no timezone
-  arithmetic. **Two firings at an unchanged HEAD are nonetheless correct, and they belong to different
+  arithmetic. **Compare `oid=` and not `head=`**: the short form agrees on a commit that merely shares
+  eight characters, which reads an externally pushed commit as "unchanged" and blocks the trigger it
+  is owed. A marker predating `oid=` leaves `head=` as the only binding it has, at the weaker
+  guarantee that was the only one available when it was written. **Two firings at an unchanged HEAD are nonetheless
+  correct, and they belong to different
   runs.** The in-run exception answers the opposite failure: a trigger for which this run classified
   **no verdict at all** is, so far as this run can tell, a comment that went nowhere, and refusing to
   send it again ends a round whose pull request, diff and CI are all healthy. The other two are the
@@ -2991,6 +3029,14 @@ takes one of these should say so in the report:
   called itself the only edge into it — so the check added for the convergence case skipped the
   commonest convergence. Both rows now route through the gate, which is **also the first time the
   sufficiency test runs on a clean round**; no run has taken either row since.
+- **The marker's `oid=`.** No marker on any pull request carries it yet, so **every decision it
+  governs is still running on `head=`'s fallback path** — the backstop, the runaway invariant, the
+  re-post's condition (e) and step 9's check (c) all take the "marker predating `oid=`" branch until a
+  trigger written by this version exists. That branch is the behaviour those four had before this
+  change, so nothing regresses; what is unmeasured is the branch that is supposed to be the rule. **The
+  fallback also has no expiry**, and nothing warns when it is taken: a pull request part-way through a
+  loop keeps the weaker guarantee silently, which is the trade for not failing it closed over a key it
+  could not have written.
 - **Step 9's two fetched values.** The full `commit_id` read by `review_id=`, and the full comment body
   read by `cid=`, both replace a value the fence had truncated, and **neither has been exercised on
   the case that motivated it**: no run has met a reviewed commit sharing HEAD's eight characters, and
