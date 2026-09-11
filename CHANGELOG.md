@@ -290,6 +290,34 @@ and `rigor-levels.md` consumes has no anchor on the pull request and is lost wit
 is also why the rising-ceiling re-open cannot fire on a resumed run. Closing that needs a decision
 about where a run's per-round record lives, which is larger than this.
 
+### `smol-toml` is overridden, because the advisory has no upgrade path through `markdownlint-cli2`
+
+**`npm audit fix` could not fix this, and `--force` proposed a downgrade.** GHSA-7w5x-hrqm-74c2 is a
+denial of service in `smol-toml` at `<=1.7.0`, reached through `markdownlint-cli2`, which is the only
+thing in this tree that depends on it. Patched releases exist — 1.7.1, 1.7.2, 1.8.0 — but
+`markdownlint-cli2` pins its dependency to the **exact** string `1.7.0`, and has in every release
+from 0.22.0 through the current 0.23.2. So there is no version of `markdownlint-cli2` npm can move to
+that satisfies the advisory, and the only remedy it finds is `markdownlint-cli2@0.21.0`: the last
+release before TOML config support existed, three minors back, and `isSemVerMajor` against the
+declared `^0.23.2`. `npm audit fix` alone therefore changes nothing and reports the advisory again.
+
+**A root `overrides` entry pins `smol-toml` to `^1.7.1` instead.** This is the second advisory in
+this repository that `npm audit fix --force` proposed to answer by downgrading — `ajv-cli` and
+GHSA-8gh8-hqwg-xf34 was the first — and the same reasoning applies: the pin is the problem, not the
+version we are on. `markdownlint-cli2` stays at 0.23.2 and `smol-toml` resolves to 1.8.0, which
+declares the same `engines` (`node >= 18`) and the same `exports` shape as 1.7.0, so it is a drop-in
+for the one call site — `parsers/toml-parse.mjs`, forty characters around `parse`.
+
+**Both TOML paths were exercised against the override, not assumed.** A `--config cfg.toml` run
+applied its rules (`MD013`/`MD041` off, 0 issues on a file that violates both), and a malformed
+document — the advisory's own input class — failed fast with a located parse error and exit 2 rather
+than hanging. `npm ci` reproduces 1.8.0 from the lockfile, which is what the CI `npm audit` job
+installs from; that job is now green again, and `npm run check:all` is unchanged.
+
+**`overrides` is a floor, not a ceiling, and it outlives the fix.** When `markdownlint-cli2` moves
+its pin past 1.7.0 the entry becomes redundant rather than wrong, and `^1.7.1` keeps taking later
+1.x patches until then. It is worth removing at that point, but nothing breaks if it is not.
+
 ## [0.9.0] - 2026-09-07
 
 ### A fourth fence: the loop now removes the worktrees it created
