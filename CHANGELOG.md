@@ -34,9 +34,11 @@ review is unread by this loop and I did not read it"; and `MIRock-jp/hippoblogs#
 answered, at the commit in hand, and the loop threw the answer away.
 
 **Now: step 9 adopts the review instead of discarding it**, under a new `foreign-baseline-adopt` row
-and on four conditions, all required — `marker_head=none`; `login=` equal to the resolved reviewer
-with a trailing `[bot]` stripped from both sides; the **fetched** forty-character `commit_id` equal to
-`git rev-parse HEAD`; and a review `state` that passes step 10's table. It is a row name rather than a
+and on three conditions, all required — a `review` line carrying `marker_head=none`; `login=` equal to
+the resolved reviewer with a trailing `[bot]` stripped from both sides; and the **fetched**
+forty-character `commit_id` equal to `git rev-parse HEAD`. The review's `state` is deliberately not a
+fourth: the fence drops it from the output, so this step cannot read one, and the check stays step
+10's where it already was. It is a row name rather than a
 `reason=`, because it is not an abort — the split 0.10.0 drew between `reviewer-rate-limited` and
 `rate-limit-retake`, applied again.
 

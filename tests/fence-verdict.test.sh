@@ -210,7 +210,12 @@ expect "  and the review after it is adopted"   "$o" "review_id=950"
 o=$(r retry-both-answered)
 expect "two answers -> the newer review wins"   "$o" "review_id=820"
 refute "  the older answer is never mentioned"  "$o" "810"
-refute "  and there is no EXTRA= to carry it"   "$o" "EXTRA="
+# No EXTRA= refute here either, and for the same reason as the one below: this
+# fixture carries no comment row, EXTRA= is only ever sourced from one, and a
+# refute on an unreachable branch passes whatever the fence does. What the label
+# used to gesture at -- that the older review does not come back as EXTRA -- is
+# not a thing the fence can do at all: EXTRA= carries a comment and never a
+# review. The refute above, on the older review_id, is the one that pins it.
 
 # The marker's bot= discards every other bot on the PR at fetch time.
 o=$(r foreign-bot)
@@ -283,7 +288,13 @@ expect "  and a commit that is not HEAD's"      "$o" "commit=a5eb3169"
 o=$(r foreign-baseline-two-reviews)
 expect "the newest review wins"                 "$o" "review_id=5155000000"
 refute "  the older one is not named"           "$o" "review_id=5153256704"
-refute "  and does not arrive as EXTRA="        "$o" "EXTRA="
+# No EXTRA= refute here, and its absence is the point. This fixture carries no
+# comment row, so the fence's EXTRA= branch is unreachable for this input and a
+# refute on it would pass whatever the fence did -- including if the behaviour it
+# named broke. The distinction worth keeping: a refute is a guard when the input
+# reaches the branch and the branch declines to emit the token, and it is vacuous
+# when the input cannot reach the branch at all. The EXTRA=/adoption interaction
+# is pinned by `foreign-baseline-review-extra`, which has the comment row.
 
 # A thumbs-up on the hand-typed trigger. The compat generator emits a reaction
 # count like any other TRIG row, so this line is producible -- and it carries
