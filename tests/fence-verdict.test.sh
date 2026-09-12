@@ -283,8 +283,8 @@ expect "  unbound baseline, as before"          "$o" "marker_head=none"
 expect "  and a commit that is not HEAD's"      "$o" "commit=a5eb3169"
 
 # Two reviews drawn by one hand-typed trigger, a day apart. The fence names only
-# the newest, which is why step 10 sweeps an adopted round rather than trusting
-# review_id= alone -- the older one is on the pull request and unnamed here.
+# the newest, which is why step 10 sweeps an adopted round instead of reading
+# review_id= -- the older one is on the pull request and unnamed here.
 o=$(r foreign-baseline-two-reviews)
 expect "the newest review wins"                 "$o" "review_id=5155000000"
 refute "  the older one is not named"           "$o" "review_id=5153256704"
@@ -295,6 +295,35 @@ refute "  the older one is not named"           "$o" "review_id=5153256704"
 # reaches the branch and the branch declines to emit the token, and it is vacuous
 # when the input cannot reach the branch at all. The EXTRA=/adoption interaction
 # is pinned by `foreign-baseline-review-extra`, which has the comment row.
+
+# Two bots, and the configured one spoke FIRST. A compat baseline empties bot=,
+# so the fence's review filter admits every bot and `tail -1` keeps the newest --
+# which is the other bot's. The reviewer's review of this very commit is on the
+# pull request and is not on this line, so a step-9 gate that tested the primary
+# line's login refused the adoption and aborted, on this run and on every rerun
+# after it: the abort never reaches step 7's re-take, so the compat trigger stays
+# newest and so does the foreign review. The refute below IS the finding.
+o=$(r foreign-baseline-reviewer-then-foreign-bot)
+expect "the newest review wins, not the reviewer's" "$o" "VERDICT=review"
+expect "  still an unbound baseline"                "$o" "marker_head=none"
+expect "  the line is the other bot's"              "$o" "login=copilot-pull-request-reviewer"
+expect "  and names the other bot's review"         "$o" "review_id=5153299999"
+refute "  the reviewer's review is not named"       "$o" "review_id=5153256704"
+
+# The lower bound, from the side that shows it. The review shares the compat
+# trigger's own second, and the fence selects with `$2>t` -- strictly -- so it
+# is not selected at all and the comment behind it becomes the primary line.
+# Step 9's adoption selection keeps that same strict bound deliberately: at the
+# measured latency nothing answers a trigger in the second it was posted, so a
+# same-second review was drawn by an EARLIER trigger, and admitting it would
+# adopt a previous round's review at an unchanged HEAD. This fixture is what
+# pins the bound the selection mirrors.
+o=$(r foreign-baseline-same-second-review)
+expect "a same-second review is not selected"      "$o" "VERDICT=comment"
+expect "  the comment behind it is primary"        "$o" "cid=5600599999"
+expect "  under the same unbound baseline"         "$o" "marker_head=none"
+refute "  the review never reaches the line"       "$o" "VERDICT=review"
+refute "  and its id is nowhere on it"             "$o" "5153256704"
 
 # A thumbs-up on the hand-typed trigger. The compat generator emits a reaction
 # count like any other TRIG row, so this line is producible -- and it carries
@@ -310,8 +339,10 @@ refute "  and no commit binding"               "$o" "commit="
 # The adoptable shape with a second bot talking on the same pull request. The
 # compat baseline empties bot=, so the comment filter admits ANY bot -- and the
 # EXTRA= that results is authored by one nobody configured. The primary line is
-# still the reviewer's, which is what the adoption tests; the EXTRA is not, and
-# step 9 says what that costs.
+# the reviewer's here; the EXTRA is not, and step 9 says what that costs --
+# nothing, because it decides no verdict. What the step does with it is compare
+# login= FIRST and only then match the fetched body, which is an ordering this
+# line cannot show either.
 o=$(r foreign-baseline-review-extra)
 expect "the primary line is still adoptable"   "$o" "VERDICT=review"
 expect "  by the configured reviewer"          "$o" "login=chatgpt-codex-connector"
@@ -319,19 +350,28 @@ expect "  at the commit in hand"               "$o" "commit=000cac73"
 expect "  and a second bot rides along"        "$o" "EXTRA=comment"
 expect "  authored by nobody configured"       "$o" "login=cloudflare-workers-and-pages"
 
-# WHAT THESE SEVEN CANNOT SHOW. The fence's output is IDENTICAL for an adoptable
+# WHAT THESE NINE CANNOT SHOW. The fence's output is IDENTICAL for an adoptable
 # and a non-adoptable review whenever the short commit= agrees, because the
-# discriminator is the FETCHED forty-character commit_id and the configured
-# login -- and the fence emits the first truncated to eight characters and does
-# not fetch the second. `foreign-baseline-stale-review` differs from
+# discriminator is the forty-character commit_id and the configured login -- and
+# the fence emits the first truncated to eight characters and does not read the
+# second at all. `foreign-baseline-stale-review` differs from
 # `foreign-baseline-review` only because the fixture was written with eight
 # different characters; a commit sharing HEAD's prefix produces the same line as
 # the adoptable case, and step 9's check (e) is what separates them.
 #
+# Nor can any of them show the adoption GATE, and that is now structural rather
+# than incidental. The gate is a selection over the REST review list -- a call
+# this fence never makes -- so no fixture here can make an adoption fire or
+# refuse one. What these nine pin is the line that reaches step 9, which is the
+# input the gate is written against and the whole of what this harness owns.
+# `foreign-baseline-reviewer-then-foreign-bot` is the sharpest of them: it shows
+# that the reviewer's review can be absent from the line while present on the
+# pull request, which is exactly why the gate may not be a test on the line.
+#
 # Nor can `foreign-baseline-review-extra` show what step 9 does with that EXTRA=.
 # The fence emits it either way; whether a foreign bot's body is matched against
-# the configured reviewer's rateLimitPatterns, and what that match may decide, is
-# prose in step 9 and not a field on this line.
+# the configured reviewer's rateLimitPatterns, in which order, and what that match
+# may decide, is prose in step 9 and not a field on this line.
 #
 # Nor can anything here catch an adoption that spends --max-rounds, that numbers
 # its replies with an integer instead of adopted-<review_id>, that converges the

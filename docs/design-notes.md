@@ -54,8 +54,13 @@ answered — so no recoverable finding is ever in that gap.
 **Adopting a review under a foreign baseline is off that table entirely, because it moves no
 baseline.** The two rows above are about which trigger the wait filters against; an adoption changes
 neither the trigger nor the filter, and posts nothing. What it rests on instead is a **different and
-stronger binding**: GitHub's own `commit_id` for the review, fetched in full and compared against
-`git rev-parse HEAD`. A marker's `oid=` records what revloop **asked about**; `commit_id` records what
+stronger binding**: GitHub's own `commit_id` for the review, read in full and compared against
+`git rev-parse HEAD`. **Which review that is comes from the review list rather than from the wait
+fence's line**: with a hand-typed trigger holding the baseline the fence has no `bot=` to filter on,
+so its line names the newest review by any bot and the reviewer's own may be behind it. The
+procedure's step 9 states the selection; its lower bound is the fence's own, strictly after the
+winning trigger, which is what keeps the too-old row below closed rather than merely narrow.
+A marker's `oid=` records what revloop **asked about**; `commit_id` records what
 the reviewer **looked at**, and when a hand-typed trigger holds the baseline the first does not exist
 while the second still does. That is why only a `review` may be adopted — a comment or a reaction
 carries no commit binding at all, so for those the too-old row is the whole risk and stays closed.
@@ -112,7 +117,10 @@ arrived and presents as "the reviewer never responded". So the fence matches a s
 - **An adopted round's identity goes the other way, and the two opposite choices are both right.**
   It is scoped by `round=adopted-<review_id>` on its replies — derived from the pull request, so a
   session that dies half-way through answering the review is resumed by a run that computes the same
-  scope and posts no duplicates. The rate-limit re-take's licence must be refundable by a restart
+  scope and posts no duplicates. **The id is the review each finding came from**, not the round's
+  newest, because an adopted round can read several: the newest is a value the pull request can
+  change between two runs, and scoping by it would make a later arrival re-post every reply the
+  scope exists to suppress. The rate-limit re-take's licence must be refundable by a restart
   because a restart is the only evidence a quota recovered; an adopted round's scope must **not** be,
   because a restart is not evidence that a reply is owed twice. Same file, opposite rules, one
   question each.
