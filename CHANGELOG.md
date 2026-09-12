@@ -13,6 +13,8 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-12
+
 ### A rate-limited round is recoverable by a later run
 
 **The bug was an enumeration gap, not a wrong rule.** `## Notes` has always stated the runaway
@@ -3026,6 +3028,7 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.10.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.10.0
 [0.9.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.9.0
 [0.8.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.8.0
 [0.7.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.7.0
