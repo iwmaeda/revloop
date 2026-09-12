@@ -34,13 +34,15 @@ review is unread by this loop and I did not read it"; and `MIRock-jp/hippoblogs#
 answered, at the commit in hand, and the loop threw the answer away.
 
 **Now: step 9 adopts the review instead of discarding it**, under a new `foreign-baseline-adopt` row.
-A `review` line carrying `marker_head=none` opens the question; what answers it is a **selection over
-the review list** — step 10's existing read, kept to the reviews submitted strictly after that line's
-`trigger=`, by the resolved reviewer with a trailing `[bot]` stripped from both sides, whose `state`
-is not `DISMISSED`, and whose forty-character `commit_id` equals `git rev-parse HEAD`. Adopt if the
-selection is non-empty. **The `state` narrows that selection and does not decide the round**: the
-fence drops it from the line, but the list read returns one for every review it names, so the
-selection makes the one exclusion step 10's sweep also makes — `DISMISSED`, whose author withdrew
+A verdict line carrying `marker_head=none` opens the question — the **state** opens it and not the
+`review` **line**, as the round below records; what answers it is a **selection over the review
+list** — step 10's existing read, kept to the reviews submitted strictly after that line's
+`trigger=`, whose `login` is the resolved reviewer's configured login with a trailing `[bot]`
+stripped from both sides, whose `state` is not `DISMISSED`, and whose forty-character `commit_id`
+equals `git rev-parse HEAD`. Adopt if the selection is non-empty. **The `state` narrows that
+selection and does not decide the round**: the fence drops it from the line, but the list read
+returns one for every review it names, so the selection makes the one exclusion step 10's sweep
+also makes — `DISMISSED`, whose author withdrew
 it — and everything else a state can say stays step 10's, where its table already fails closed.
 It is a row name rather than a `reason=`, because it is not an abort — the split 0.10.0
 drew between `reviewer-rate-limited` and `rate-limit-retake`, applied again.
@@ -328,6 +330,59 @@ so the run cannot learn the baseline is foreign at all.
 `foreign-baseline-stale-review` now stands for three rulings rather than one — an ancestor, a
 diverged commit and one absent locally produce the same line — and `tests/fence-verdict.test.sh` says
 that where somebody will read it, alongside a vacuous `refute` removed rather than added.
+
+### The adoption's own predicate named an object where it meant a login
+
+**The rule was right and its predicate could not be executed.** The head of
+[`procedures/remote-loop.md`](procedures/remote-loop.md) binds a term once, for the whole file: "where
+a step below says _the resolved reviewer_, it means that definition" — the reviewer's definition
+object, the file `schema/reviewer.schema.json` describes. Step 9's adoption selection then used that
+exact term as the right-hand side of a **string equality**, asking for reviews "whose `login` equals
+the resolved reviewer". A login is not a definition. Followed literally the condition matches **no
+review**, however right the review is, so every verdict by the configured reviewer falls into the
+empty selection and out through the `marker_head=none` abort — an abort that never reaches step 7's
+re-take, so the hand-typed trigger stays newest and every later run reproduces it. That is the
+self-sustaining no-op this whole entry exists to end, reached through the row written to end it, for
+the **third** time on this branch. Returned as a P2 on `iwmaeda/revloop#31` (2026-09), against the
+commit that last touched the row.
+
+**It was drift and never a convention.** At 0.10.0 every one of the nine uses of "the resolved
+reviewer" was the binding sentence, a possessive naming a field — `kind`, `trigger`,
+`markerTolerated`, `status`, `severityLevels`, `rateLimitPatterns` — or "the resolved reviewer
+**name**"; **not one was a login operand**. The three that were arrived together with the
+`foreign-baseline-adopt` row and survived six rounds of review. The file's own house style was
+already right in every other place the same comparison appears: step 9's check (d) says "the
+reviewer's **configured login** after stripping a trailing `[bot]` from the configured value", the
+`bot` marker-field row says "the reviewer's **login** with any `[bot]` suffix stripped" — directly
+under "the resolved reviewer **name**", so the file distinguishes _name_ from _login_ in adjacent
+rows — and step 10 **restates this very selection correctly**, as "the selection step 9 already
+computed, read a second time rather than defined a second time". One predicate, written twice, one
+right and one wrong.
+
+**Now: all three sites name a login**, and the schema key is named **once**. The defining sentence
+reads "the resolved reviewer's **configured login** (`botLogin`)"; the two `EXTRA=` paragraphs that
+derive from it read "the resolved reviewer's configured login". `botLogin` appears at the defining
+site and nowhere else in the file, and the step says why — every other sentence says _the configured
+login_, because a second copy of a key name is a second place for it to go stale. This is the
+project's standing rule against a second copy of a convention, the one that keeps
+`.agents/skills/revloop/SKILL.md` citing step 9 rather than restating it.
+
+**What did not move.** "Stripped from **both** sides" is correct and does not contradict check (d):
+check (d) governs the fence's **GraphQL** line, which already omits the suffix, so only the
+configured value is stripped, while this selection reads **REST**, whose `user.login` carries it —
+which is what step 10's read already does with `rtrimstr("[bot]")`. No condition of any row changed:
+not the `state`, not the forty-character `commit_id`, not the strict `> trigger=` bound.
+
+**One site of the class is named and declined**: step 9's decision-table row labelled
+`` `login=` not the configured reviewer ``. It does not use the term the file's head binds, and a
+table row _label_ naming a signal is not a predicate sentence — so it is recorded here rather than
+edited, which also keeps the diff out of a table prettier would re-pad.
+
+**No fence changed and no re-approval is owed.** `tests/fence-hashes.txt` is byte-identical, all four
+hashes unmoved, and [`docs/permissions.md`](docs/permissions.md) is untouched. No fixture is owed
+either: `## Unexercised paths` already records that no fixture in `tests/` can reach these rows,
+because the discriminators are a forty-character `commit_id`, a configured login, and a REST review
+list the fence never calls.
 
 ## [0.10.0] - 2026-09-12
 

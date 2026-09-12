@@ -1770,13 +1770,25 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    `trigger=` off the line. The paragraph below states that separately from what may be **adopted**,
    which is narrower. What answers it is step 10's list read, the same call on the same endpoint,
    kept to the reviews submitted **strictly after** this line's `trigger=`, whose `login` equals the
-   resolved reviewer with a trailing `[bot]` stripped from **both** sides, whose `state` is not
-   `DISMISSED`, and whose `commit_id` equals `git rev-parse HEAD` in all forty characters. **Adopt if
-   that selection is non-empty; when it is empty the next question is the ancestor-relaxed selection
-   below, and the abort row stands only once that one is empty too.** The login condition is not a
-   formality — on a compatibility baseline the fence's `bot=` is empty and its filter admits any bot,
-   so it is the only thing between the adoption and another reviewer's opinion of the same commit. It
-   is the same comparison as before and it is made against the list rather than against one line.
+   resolved reviewer's **configured login** (`botLogin`) with a trailing `[bot]` stripped from
+   **both** sides, whose `state` is not `DISMISSED`, and whose `commit_id` equals
+   `git rev-parse HEAD` in all forty characters. **Adopt if that selection is non-empty; when it is
+   empty the next question is the ancestor-relaxed selection below, and the abort row stands only
+   once that one is empty too.** The login condition is not a formality — on a compatibility
+   baseline the fence's `bot=` is empty and its filter admits any bot, so it is the only thing
+   between the adoption and another reviewer's opinion of the same commit. It is the same comparison
+   as before and it is made against the list rather than against one line.
+
+   **What is compared is a login and not the definition that carries it, and this file said
+   otherwise for six rounds.** The head of this procedure binds "the resolved reviewer" to the
+   reviewer's **definition** — the object — so a condition reading `login` equal to _the resolved
+   reviewer_ equates a string to a file, matches no review however right the review is, and drops
+   every configured-reviewer verdict into the empty selection and its abort. That is this change's
+   own failure reached through the row that ends it, for the third time on this branch. Returned as
+   a P2 (`iwmaeda/revloop#31`, 2026-09). **The schema key is named here and nowhere else**:
+   `botLogin` is what a reviewer's definition calls that value, and every other sentence in this
+   file says _the configured login_, because a second copy of a key name is a second place for it to
+   go stale.
 
    **Testing the fence's primary line instead was the defect, and it was this file's own defect twice
    over.** With `bot=` empty the fence keeps the newest review by **any** bot, so a second bot that
@@ -1980,23 +1992,25 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    one change after `iwmaeda/revloop#29` spent three rounds getting it to answer exactly one.
 
    **What the notice does change is the report, and the order of the comparisons is what makes that
-   line worth printing.** Compare `EXTRA=`'s `login=` against the resolved reviewer **first**, then
-   match the **fetched** body by `cid=` against `rateLimitPatterns`, then compare its `at=` against
-   the review's `at=` on the same line. Report all three: whose notice it is, whether it is newer than
-   the review this round adopted, and — when it is both — that the re-take this round is about to fire
-   may draw an immediate rate limit, which the next round classifies as `reviewer-rate-limited`.
+   line worth printing.** Compare `EXTRA=`'s `login=` against the resolved reviewer's configured
+   login **first**, then match the **fetched** body by `cid=` against `rateLimitPatterns`, then
+   compare its `at=` against the review's `at=` on the same line. Report all three: whose notice it
+   is, whether it is newer than the review this round adopted, and — when it is both — that the
+   re-take this round is about to fire may draw an immediate rate limit, which the next round
+   classifies as `reviewer-rate-limited`.
    **An adopted round still has the configured reviewer's review of this very commit in hand**, so
    nothing on that line is this round's verdict; what the reader gets from it is the reason the next
    round may be short.
 
    **What cannot be established about an `EXTRA=` here is which trigger it answers, not who wrote
    it.** The author is on the line — `login=` is the value GraphQL returned, and comparing it against
-   the resolved reviewer is check (d)'s comparison made against a second line. What no line can say
-   under `marker_head=none` is whether a notice answers the hand-typed trigger, an earlier one, or
-   nothing at all. **The compatibility class carries no `bot=`, so the fence's comment filter admits
-   any bot** — measured: an adoptable review by the configured reviewer arrives beside an `EXTRA=`
-   authored by a deploy bot nobody configured. That is why the login comparison comes first: matching
-   the reviewer's `rateLimitPatterns` against another party's body is matching one party's patterns
+   the resolved reviewer's configured login is check (d)'s comparison made against a second line.
+   What no line can say under `marker_head=none` is whether a notice answers the hand-typed trigger,
+   an earlier one, or nothing at all. **The compatibility class carries no `bot=`, so the fence's
+   comment filter admits any bot** — measured: an adoptable review by the configured reviewer
+   arrives beside an `EXTRA=` authored by a deploy bot nobody configured. That is why the login
+   comparison comes first: matching the reviewer's `rateLimitPatterns` against another party's body
+   is matching one party's patterns
    against another party's text. **The ruling above is what keeps the cost bounded either way**: the
    `EXTRA=` decides no verdict here, so a wrong match costs a line in the report and never a round.
 
