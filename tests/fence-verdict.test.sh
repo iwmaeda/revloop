@@ -269,6 +269,18 @@ expect "  and the login is the discriminator"   "$o" "login=copilot-pull-request
 # A clean comment under the same baseline. It carries a login and a cid and NO
 # commit= at all, which is why only a review may be adopted: there is nothing
 # here to compare against HEAD, and adopting it is design-notes' too-old row.
+#
+# THIS LINE NOW OPENS THE SELECTION, and it did not when the fixture was
+# written. Step 9 declined a wider gate on the arithmetic that a comment is
+# printed only when the fence's review set came back empty, so nothing could be
+# hiding behind it -- which ignores that `reviews(last:15)` truncates BEFORE the
+# Bot and non-DISMISSED filters run. `jq/window-full-of-humans` is the input
+# that falsifies it: fifteen human and dismissed reviews empty the review set
+# and produce exactly the rows below, with an adoptable review sitting on the
+# pull request outside the window. Returned as a P2 (iwmaeda/revloop#31,
+# 2026-09). What the gate keys on is now the marker_head=none STATE, not the
+# form of the line -- so this fixture's line and the reaction below are the two
+# that changed meaning without changing a byte.
 o=$(r foreign-baseline-comment)
 expect "a comment under a lost baseline"        "$o" "VERDICT=comment"
 expect "  binds no head either"                 "$o" "marker_head=none"
@@ -277,6 +289,15 @@ refute "  but carries no commit binding"        "$o" "commit="
 
 # The stale half: the same shape, a review of some other commit. The fence's
 # output differs from the adoptable case in exactly one field.
+#
+# TWO step-9 rows are now written against this one line, and the fence cannot
+# tell them apart. `commit=a5eb3169` is eight characters of a commit whose
+# RELATION to HEAD this line does not carry: an ancestor of HEAD takes the
+# foreign-baseline-retake row, and a commit that is absent locally or has
+# diverged keeps the abort. The discriminator is `git merge-base --is-ancestor`
+# against the REST review list -- a call and a comparison this fence makes
+# neither of -- so no assertion here can reach either row. What this fixture
+# owns is the input both are written against.
 o=$(r foreign-baseline-stale-review)
 expect "a stale review under the same baseline" "$o" "VERDICT=review"
 expect "  unbound baseline, as before"          "$o" "marker_head=none"
@@ -329,6 +350,12 @@ refute "  and its id is nowhere on it"             "$o" "5153256704"
 # count like any other TRIG row, so this line is producible -- and it carries
 # neither login= nor commit=, which is the whole reason a reaction cannot be
 # adopted however clean it looks.
+#
+# It still opens the selection, and the two facts are not in tension: what is
+# adopted comes out of the REST review list, and all the line has to supply is
+# the trigger= every verdict form carries. A reaction is printed only when both
+# of the fence's sets came back empty, and BOTH can be emptied by the window
+# rather than by the pull request -- see `jq/window-full-of-humans`.
 o=$(r foreign-baseline-reaction)
 expect "a reaction under a lost baseline"      "$o" "VERDICT=reaction"
 expect "  binds no head"                       "$o" "marker_head=none"
@@ -373,10 +400,19 @@ expect "  authored by nobody configured"       "$o" "login=cloudflare-workers-an
 # the configured reviewer's rateLimitPatterns, in which order, and what that match
 # may decide, is prose in step 9 and not a field on this line.
 #
+# Nor can any of them reach the foreign-baseline-retake row, and the reason is
+# the same one enlarged. That row fires when the selection at HEAD is empty but
+# the same selection relaxed to a STRICT ANCESTOR of HEAD is not, so its two
+# discriminators are `git merge-base --is-ancestor` and the REST review list --
+# neither of which this fence runs. `foreign-baseline-stale-review` is the line
+# it is written against, and that line is byte-identical for an ancestor, a
+# diverged commit and one absent locally, which are three different rulings.
+#
 # Nor can anything here catch an adoption that spends --max-rounds, that numbers
 # its replies with an integer instead of adopted-<review_id>, that converges the
-# loop, or that merges. Those rules live in steps 7, 9, 10 and 11, and this
-# harness executes no prose.
+# loop, or that merges -- nor a re-take that reads a review instead of
+# discarding it, nor a report that omits the discarded review_id=. Those rules
+# live in steps 7, 9, 10 and 11, and this harness executes no prose.
 
 o=$(r reaction)
 expect "thumbs-up -> VERDICT=reaction"          "$o" "VERDICT=reaction"

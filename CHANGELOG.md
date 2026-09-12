@@ -247,6 +247,67 @@ selection mirrors.
 structural: the discriminators are a forty-character `commit_id` and a configured login taken from a
 **REST call the fence never makes**, so no fixture can make an adoption fire or refuse one. What they
 pin is the line that reaches step 9. The test file says that where somebody will read it.
+**Three rows now**, since the round below added one, and the sentence is corrected in place rather
+than left to read as a count the file no longer keeps.
+
+### The adoption's own recovery could be interrupted, and the window's own filter could hide it
+
+**Both are the same no-op, one layer down inside the rows that remove it**, returned as P2s on
+`iwmaeda/revloop#31` (2026-09) against the commit that introduced them. **No fence byte moves for
+either**: `tests/fence-hashes.txt` is byte-identical, all four hashes unmoved, `docs/permissions.md`
+is untouched, and both reads either fix needs are calls the procedure already makes.
+
+**An adopted round that finds something to fix pushes the fixes before it re-takes the baseline.**
+The order is step 11 to step 3 to the push, and step 7 posts the re-take after that — so a run that
+dies in the gap leaves HEAD on the fix commit while the adopted review is bound to its parent. The
+selection requires `commit_id` equal to `git rev-parse HEAD` in full, so it comes back empty, the
+`marker_head=none` abort fires, and **an abort never reaches step 7** — the hand-typed trigger stays
+newest, that review stays newest, and every later run reproduces the same abort. The fixes are
+pushed and the loop can never open a round again.
+
+Step 9 now carries a **`foreign-baseline-retake`** row, decided by the **ancestor-relaxed
+selection**: the adoption selection with exactly one condition changed, `commit_id` a **strict
+ancestor** of HEAD rather than equal to it. Non-empty and the re-take happens in this run with **no
+read in front of it** — the ancestor review's findings are discarded unread and named in the report,
+which is the ruling the ancestor row already makes for this loop's own baseline. **What licenses the
+trigger is that nothing standing can bind a verdict to HEAD**, so the commit it fires on is one no
+trigger has ever asked about; that is the adoption row's own sentence, and it is what keeps the
+racing-a-person argument intact. Whether this loop's replies already sit under that review is
+**printed and never compared** — a gate on them would make the `revloop:reply` marker answer a second
+question about run state, one change after `iwmaeda/revloop#29` spent three rounds getting it to
+answer exactly one, and it would rest on an ordering this procedure nowhere states.
+
+**The invariant's exceptions go from four to five**, three of them recovered inside the run, and the
+count is corrected in step 7, in `## Notes`, and in `.agents/skills/revloop/SKILL.md`. Only the first
+two of the three fire at an unchanged HEAD: the ancestor re-take fires precisely **because** HEAD
+moved.
+
+**The second defect is one wrong step in an arithmetic.** Step 9 declined to open its selection on
+the `comment` and `reaction` lines, reasoning that the fence prints those only when its review set
+came back empty, so the `reviews(last:15)` window could not be hiding a review — a review that falls
+out of it needs fifteen newer ones, and all fifteen would be newer than the trigger too. **That
+assumes the fifteen are reviews the fence would have kept.** `reviews(last:15)` truncates on the
+**server** and `select(.author.__typename=="Bot")` and `select(.state!="DISMISSED")` run **after**
+it, so fifteen newer **human or dismissed** reviews fill the window with rows the filters then drop.
+The review set is empty, the fence prints a `comment` or a `reaction`, and the adoptable review is
+the sixteenth — on the pull request, inside the REST list the selection reads, outside the window the
+fence looked in. The gate is now keyed to the `marker_head=none` **state** rather than to the
+`review` **line**, so all three verdict forms open it. **What may be adopted has not widened**: only
+a review can be, because only a review carries a commit binding.
+
+New fixture `tests/fixtures/jq/window-full-of-humans` puts fifteen human and dismissed reviews
+through the fence's own jq program and gets **no `review` row**; its output is byte-identical to
+`foreign-baseline-comment`, which is the point — the fence cannot tell such a pull request from one
+with no review on it at all. **It cannot show the truncation itself**, because a payload cannot hold
+the node the query never fetched, and the test file says so. Widening the window instead was declined
+with the cost: it moves fence bytes, so every install owes a re-approval, and it buys a boundary
+rather than a proof. **One sub-case stays unrecoverable** and is disclosed in `## Unexercised paths`:
+a full window with no bot comment and no reaction returns `pending`, which carries no marker fields,
+so the run cannot learn the baseline is foreign at all.
+
+`foreign-baseline-stale-review` now stands for three rulings rather than one — an ancestor, a
+diverged commit and one absent locally produce the same line — and `tests/fence-verdict.test.sh` says
+that where somebody will read it, alongside a vacuous `refute` removed rather than added.
 
 ## [0.10.0] - 2026-09-12
 

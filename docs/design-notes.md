@@ -62,8 +62,23 @@ procedure's step 9 states the selection; its lower bound is the fence's own, str
 winning trigger, which is what keeps the too-old row below closed rather than merely narrow.
 A marker's `oid=` records what revloop **asked about**; `commit_id` records what
 the reviewer **looked at**, and when a hand-typed trigger holds the baseline the first does not exist
-while the second still does. That is why only a `review` may be adopted — a comment or a reaction
+while the second still does. That is why only a `review` may be **adopted** — a comment or a reaction
 carries no commit binding at all, so for those the too-old row is the whole risk and stays closed.
+**What may be adopted and what may open the question are two different things**, and conflating them
+cost a round: the selection reads the review list and needs only the `trigger=` every verdict form
+carries, so a `comment` or a `reaction` line opens it too. It has to, because the fence's
+`reviews(last:15)` window truncates before its Bot and non-`DISMISSED` filters run — fifteen newer
+human or dismissed reviews empty its review set while an adoptable review sits outside the window.
+The gate is keyed to the `marker_head=none` state for that reason, and nothing about what it may
+adopt moved.
+
+**A review the branch has already moved past is discarded rather than adopted, and that is also off
+the table above.** When the reviewer's answer is bound to a strict **ancestor** of HEAD, nothing
+standing can bind a verdict to the commit in hand, so the procedure's `foreign-baseline-retake` row
+opens an ordinary round without reading it. That is the too-old row honoured rather than bent: the
+review is not adopted at a commit it never looked at. It is also the only way home for a run
+interrupted between an adopted round's push and its re-take, where the fixes have advanced HEAD past
+the very review that licensed them.
 
 **The abort it narrows was protecting the trigger's binding, not the review's.** "The compatibility
 class anchors a baseline; it cannot bind a verdict to a commit" is true of the trigger and false of
