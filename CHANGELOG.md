@@ -13,6 +13,8 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-13
+
 ### The lost-baseline recovery was promised by three places and reachable from none
 
 **The rule was right and the graph was missing an edge.** Step 7 says it twice and step 9's
@@ -3399,6 +3401,7 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.11.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.11.0
 [0.10.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.10.0
 [0.9.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.9.0
 [0.8.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.8.0
