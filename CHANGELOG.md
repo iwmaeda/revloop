@@ -117,6 +117,17 @@ either; the report named the cap and nothing else.
 standing `SINCE` into step 8. `reason=max-rounds` — same spelling, one event, one grep — fires when
 step 7 is asked to post and the wait produced nothing to read.
 
+**What "one chunk" bounds is a chunk of silence and not a poll, which is the one thing the first
+draft of this rule left unsaid.** Two of step 9's rows send a **verdict** back to step 8 — the
+mismatched-`trigger=` row, which allows two consecutive re-fires, and the ancestor row, which allows
+one — and neither is suspended at the cap. A mismatched or ancestral verdict **exits the fence on its
+first poll**, so it burns no wall clock and accrues no chunk; the cap is bounding the wait, and those
+re-fires do not wait. Written the other way the rule would have been worse in both directions: it
+would abort a capped run on the first foreign comment that happened to land during its poll — a
+stranger's timing deciding this run's outcome — while claiming to save a cost the re-fire does not
+incur. What the cap still forecloses is reaching `pending` by that path, and the re-post row with it:
+at the cap there is no second trigger of any kind.
+
 **The wait is bounded at one chunk, and the bound comes from what the question is.** A capped run is
 not waiting for an answer to a trigger of its own; it is asking whether an answer is **already there**,
 and step 8 answers that on its first poll — a verdict that exists exits the fence at once, and only

@@ -844,8 +844,10 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    here as usual**, and that is what bounds a series of futile re-takes — each one writes a marker, so
    the count rises whether or not the quota came back, and a pull request that keeps answering
    rate-limited runs out of rounds and aborts with `reason=max-rounds` rather than re-taking forever.
-   **None of the three is a licence to fire again on a trigger that was answered with a review**,
-   which is the thing the invariant exists to stop.
+   **None of the four is a licence to fire again on a trigger that was answered with a review**,
+   which is the thing the invariant exists to stop. **The adoption is not that licence either**: what
+   it re-takes is a baseline whose review has been read, so the trigger it fires answers a question
+   the reviewer has not been asked — which is the distinction the whole enumeration turns on.
 
    **When the invariant blocks, this step posts nothing and the run does not end here.** Carry the
    standing marker's `SINCE` into step 8 and wait on the trigger that is already on the pull request:
@@ -954,11 +956,29 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    invocations four days apart produced the same abort over an unread review — an idempotent
    no-op, against a command that promises re-running it resumes.
 
-   **Fire step 8 once, and once only.** A verdict goes to step 9 and is classified as any other is,
-   including by the adoption row. **A `pending` in any flavour — matched or mismatched, inside the
-   budget or past it — aborts with `reason=max-rounds` immediately**: do not re-fire, do not re-post,
-   do not charge it against `--timeout`, and do not count it toward the three chunks condition (a)
-   below requires of a re-post.
+   **Fire step 8 once, and what "once" bounds is a chunk of silence rather than a poll.** A verdict
+   goes to step 9 and is classified as any other is, including by the adoption row. **A `pending` in
+   any flavour — matched or mismatched, inside the budget or past it — aborts with
+   `reason=max-rounds` immediately**: do not re-fire, do not re-post, do not charge it against
+   `--timeout`, and do not count it toward the three chunks condition (a) below requires of a
+   re-post. **The re-post row is reached by a `pending`, so the cap forecloses it too**: at the cap
+   there is no second trigger of any kind.
+
+   **Two of step 9's rows send a _verdict_ back to step 8, and the cap does not override them.** The
+   mismatched-`trigger=` row allows two consecutive re-fires before `reason=foreign-baseline`, and
+   the ancestor row allows one before it aborts; both were written for this table and neither is
+   suspended here. **The reason is the asymmetry step 8 already measures**: a mismatched or ancestral
+   verdict **exits the fence on its first poll**, so it burns no wall clock and accrues no chunk,
+   while a `pending` polls out the full 480 seconds. The cap is bounding the wait, and those re-fires
+   do not wait. **Stated the other way this rule would be worse in both directions**: it would abort a
+   capped run on the first foreign comment that happened to land during its poll — which is a stranger's
+   timing deciding this run's outcome — and it would do so while claiming to save a cost the re-fire
+   does not incur. **What the cap still forbids is reaching `pending` by that path**: a re-fire that
+   comes back silent is a chunk, and the `pending` rule above takes it.
+
+   **Neither bound is spent twice.** Step 9's counters are consecutive-result counters and they run
+   here exactly as they run on an uncapped round; the cap adds no counter of its own, because the one
+   thing it bounds — a chunk — is the one thing those rows never produce.
    **One chunk is the right bound because of what the question is.** A capped run is not waiting for
    an answer to a trigger of its own; it is asking whether an answer is **already there**, and step 8
    answers that on its first poll — a verdict that exists exits the fence at once, and only silence
@@ -2838,30 +2858,32 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
 - **Never re-fire the trigger without new commits — unless nothing of yours can still bind a verdict.**
   Reviewers look at the diff, not at your replies, so firing again on the same HEAD **after a
   verdict** returns the same findings and spends the reviewer's budget for nothing. **Fire only when
-  `git rev-parse HEAD` differs from the last trigger's HEAD, unless one of the three exceptions below
+  `git rev-parse HEAD` differs from the last trigger's HEAD, unless one of the four exceptions below
   applies** — which is exactly what the marker's `oid=` records, so the invariant survives a session
   restart with no local state and no timezone
   arithmetic. **Compare `oid=` and not `head=`**: the short form agrees on a commit that merely shares
   eight characters, which reads an externally pushed commit as "unchanged" and blocks the trigger it
   is owed. A marker predating `oid=` leaves `head=` as the only binding it has, at the weaker
-  guarantee that was the only one available when it was written. **Two firings at an unchanged HEAD are nonetheless
-  correct, and they belong to different
+  guarantee that was the only one available when it was written. **Three firings at an unchanged HEAD are nonetheless
+  correct, and they no longer all belong to different
   runs.** The in-run exception answers the opposite failure: a trigger for which this run classified
   **no verdict at all** is, so far as this run can tell, a comment that went nowhere, and refusing to
   send it again ends a round whose pull request, diff and CI are all healthy. The other two are the
-  lost-baseline re-take and the rate-limit re-take below, neither of which a run performs for itself.
+  lost-baseline re-take and the rate-limit re-take below. **The rate-limit one is never performed by
+  the run that met the reply; the lost-baseline one is, but only when step 9 adopted the review the
+  foreign trigger drew** — without that, it too waits for a later run.
   **The premise is what the invariant
   actually protects**: it bars a second trigger while one of yours can still bind a verdict. Four
   states end that premise — no verdict of yours classified, a newer trigger taking the baseline with
   no review this loop may read, that same baseline **with** one, and the reviewer declining to review
   the trigger at all —
-  and **two of them are recovered inside the run**. The first is the re-post. The second aborts,
-  because an abort is a stop and because a lost baseline usually means a
+  and **two of them are recovered inside the run**. **The first** is the re-post. **The second**
+  aborts, because an abort is a stop and because a lost baseline usually means a
   person is driving the pull request by hand; a later run re-takes it with an ordinary trigger once it
   can establish the baseline is foreign, which a `pending` line alone cannot. **The third is that same
   state with the one narrowing step 9 makes**: when the foreign trigger drew a review by the
   configured reviewer at the commit in hand, step 9 adopts it, and the re-take then happens in this
-  run — the person's request has been answered and read, so nothing is being raced. **The third is the one
+  run — the person's request has been answered and read, so nothing is being raced. **The fourth is the one
   where the premise ends by the reviewer's own answer** rather than by silence or by somebody else's
   comment, which is why it needs no evidence beyond the fence's own classification: a rate-limit reply
   under checks (b), (c) and (d) is the reviewer saying it will not read this diff. Step 7
@@ -3375,6 +3397,10 @@ takes one of these should say so in the report:
   standing at its own HEAD — but no run has fired step 8's single chunk at the cap. **What it can cost
   is wall clock rather than a round**, and only on a pull request that is at the cap with nothing
   standing: the entry above names the same cost with no bound, and this one is bounded at one chunk.
+  **Its second half is unobserved separately**: a capped run that meets a mismatched or ancestral
+  verdict re-fires step 8 under step 9's own counters, which the cap does not suspend because those
+  re-fires exit on the first poll and accrue no chunk. Nothing has produced that shape, and reaching
+  it needs a second marker-bearing trigger to land during a capped run's single poll.
   **The immediate-abort condition beside it is unpinnable by construction** — whether this run has
   already classified a verdict for the newest marker is within-run state the fence never sees, the
   same class as the discriminator the rate-limit rows turn on.
