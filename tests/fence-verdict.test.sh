@@ -408,11 +408,20 @@ expect "  authored by nobody configured"       "$o" "login=cloudflare-workers-an
 # it is written against, and that line is byte-identical for an ancestor, a
 # diverged commit and one absent locally, which are three different rulings.
 #
+# Nor can any of them show WHOSE REQUEST a review answers, which is the newest
+# ruling these rows carry. A marked request of revloop's own can be outstanding
+# at the same commit when a hand-typed trigger lands, so the review the adoption
+# reads may be the answer to that one -- and the only evidence of it is a marker
+# in step 7's REST comment read, a second call this fence never makes. Step 9
+# prints that possibility and gates nothing on it, so there is no branch here to
+# pin: the line is identical whether the ownership is ambiguous or not.
+#
 # Nor can anything here catch an adoption that spends --max-rounds, that numbers
 # its replies with an integer instead of adopted-<review_id>, that converges the
 # loop, or that merges -- nor a re-take that reads a review instead of
-# discarding it, nor a report that omits the discarded review_id=. Those rules
-# live in steps 7, 9, 10 and 11, and this harness executes no prose.
+# discarding it, nor a report that omits the discarded review_id=, nor a re-take
+# round that skips step 10's review sweep. Those rules live in steps 7, 9, 10
+# and 11, and this harness executes no prose.
 
 o=$(r reaction)
 expect "thumbs-up -> VERDICT=reaction"          "$o" "VERDICT=reaction"

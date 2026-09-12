@@ -103,22 +103,40 @@ as always.
 **An adopted round can never converge the loop and never merges.** It has no edge into step 12, so
 `rigor-levels.md`'s sufficiency test does not run on it — which is that page's "at every edge into the
 report step, **and nowhere else**" honoured rather than bent, because there is no such edge here. The
-reason is not bookkeeping: a convergence there would rest on a review answering a request **nobody in
-this loop composed**, whose focus is unknown and may be arbitrarily narrow, and under `--auto --merge`
-that is a merge on a stranger's question. The round ends by returning to step 7 — through step 3 when
-there are fixes, straight there when every item was declined or accepted — to post the ordinary
+reason is not bookkeeping: a convergence there would rest on a review that **may be answering a
+request nobody in this loop composed**, whose focus is unknown and may be arbitrarily narrow, and
+under `--auto --merge` that is a merge on a stranger's question. The round ends by returning to step
+7 — through step 3 when there are fixes, straight there when every item was declined or accepted — to post the ordinary
 re-take.
 
 **That re-take is the point, and it is what closes the missing edge.** The adoption supplies the
 positive evidence step 7 requires **and** consumes the verdict instead of discarding it, so the "later
 run" becomes this run. **The narrowing that keeps the racing-a-person argument intact** is that a
-same-run re-take is licensed **only** by an adopted review — only once the person's request has been
-answered and read. Every other shape of lost baseline keeps today's abort: a `comment`, a `reaction`,
+same-run re-take is licensed **only** by an adopted review — only once a verdict **bound to the commit
+in hand** has been read. Every other shape of lost baseline keeps today's abort: a `comment`, a `reaction`,
 a `pending`, and a `review` line whose selection comes back empty — no review of this commit, by this
 reviewer, after this trigger. A foreign bot's review on the line is **not** one of those shapes on its
 own, which is the whole of the correction above: what decides is what the list holds behind it. So a
 run arriving while somebody is still driving the pull request by hand still stops and hands it to
 them, and a run whose reviewer has already answered no longer stops beside the answer.
+
+**What the re-take is _not_ licensed by is a claim about whose request drew that review**, and an
+earlier spelling of these rows made one. "Submitted after the hand-typed trigger" orders two events;
+it does not make the trigger the cause. A marked request of revloop's own can still be outstanding at
+the commit in hand when a person's trigger lands, so the adopted review may be the answer to **that**
+one while the person's request is still in flight — returned as a P2 on `iwmaeda/revloop#31`
+(2026-09), and the same thing step 9 already said about a rate-limit notice arriving as `EXTRA=`.
+**The ownership is now printed and never compared.** The report names a `revloop:trigger` marker bound
+to the adopted `commit_id` that predates the winning trigger, says the hand-typed request may still be
+in flight, and says the re-take may draw a second review of that commit. **Gating on it is declined,
+because the gate never clears**: a comment already posted is immutable, so the refusal would repeat on
+every later run, and on an adopted round with nothing to fix nothing in the loop can move HEAD to make
+the question a different one — the permanent block these rows exist to remove, re-entered by the guard
+meant to prevent a race. What pays for that instead is bounded and doubled up: the adopted round may
+neither converge nor merge **whoever** asked, and **the round a same-run re-take opens now runs step
+10's review sweep** on its single trigger, so a second answer at the same commit is read rather than
+dropped for the life of the pull request. The residue is one round, which `--max-rounds` bounds and
+the pull request shows.
 
 **Step 10 sweeps an adopted round _instead of_ reading its `review_id=`, bounded by the winning
 trigger rather than by a marker.** There is no marker to read a lower bound off, and a hand-typed
@@ -270,9 +288,11 @@ selection**: the adoption selection with exactly one condition changed, `commit_
 ancestor** of HEAD rather than equal to it. Non-empty and the re-take happens in this run with **no
 read in front of it** — the ancestor review's findings are discarded unread and named in the report,
 which is the ruling the ancestor row already makes for this loop's own baseline. **What licenses the
-trigger is that nothing standing can bind a verdict to HEAD**, so the commit it fires on is one no
-trigger has ever asked about; that is the adoption row's own sentence, and it is what keeps the
-racing-a-person argument intact. Whether this loop's replies already sit under that review is
+trigger is that nothing standing can bind a verdict to HEAD**; that is the adoption row's own
+sentence, and it is what keeps the racing-a-person argument intact. It is deliberately **not** the
+claim that nobody asked about that commit — a hand-typed trigger binds no commit, so it can never be
+said to have asked about one rather than another, and this row carries the same in-flight cost the
+adoption row prices. Whether this loop's replies already sit under that review is
 **printed and never compared** — a gate on them would make the `revloop:reply` marker answer a second
 question about run state, one change after `iwmaeda/revloop#29` spent three rounds getting it to
 answer exactly one, and it would rest on an ordering this procedure nowhere states.

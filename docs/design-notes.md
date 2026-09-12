@@ -85,8 +85,20 @@ class anchors a baseline; it cannot bind a verdict to a commit" is true of the t
 the review, and reading the review is not racing the person who posted the trigger — the same
 read/post line the runaway invariant already draws. The narrowing is deliberately small: adoption
 requires the configured reviewer's login **and** a full `commit_id` equal to HEAD, and an adopted
-round can neither converge the loop nor merge, because the request it answers is not one this loop
-composed.
+round can neither converge the loop nor merge, because **which** request it answers cannot be
+established — it may be a stranger's, whose focus is unknown and may be arbitrarily narrow.
+
+**That last uncertainty is the one thing a timestamp cannot remove, and the re-take is priced against
+it rather than excused from it.** "Submitted after the hand-typed trigger" orders two events; it does
+not make the trigger the cause. A marked request of revloop's own can be outstanding at the same
+commit, so the review the loop adopts may be the answer to that — and the person's request may still
+be in flight when the re-take fires. The procedure **prints** that possibility and gates nothing on
+it: a gate would key on a comment already posted, which never stops being there, so the refusal would
+repeat on every later run and restore the permanent block this chapter's adoption row exists to
+remove. What the gate would buy is instead bought twice over elsewhere: the adopted round may not
+converge or merge whoever asked, and the round the re-take opens runs step 10's review sweep, so a
+second answer at the same commit is read rather than dropped. The cost that remains is one round,
+which `--max-rounds` bounds and the pull request shows.
 
 **"Newest" is a computation, not a row position.** Trigger rows are sorted before the newest is taken,
 because the fence builds its array from several generators and generator order is not time order —
