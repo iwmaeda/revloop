@@ -51,6 +51,55 @@ too-new row above has nothing to lose to it. A round that carried a review **as 
 the re-take at all — it reaches the `EXTRA=` ruling, whose whole point is that the trigger was
 answered — so no recoverable finding is ever in that gap.
 
+**Adopting a review under a foreign baseline is off that table entirely, because it moves no
+baseline.** The two rows above are about which trigger the wait filters against; an adoption changes
+neither the trigger nor the filter, and posts nothing. What it rests on instead is a **different and
+stronger binding**: GitHub's own `commit_id` for the review, read in full and compared against
+`git rev-parse HEAD`. **Which review that is comes from the review list rather than from the wait
+fence's line**: with a hand-typed trigger holding the baseline the fence has no `bot=` to filter on,
+so its line names the newest review by any bot and the reviewer's own may be behind it. The
+procedure's step 9 states the selection; its lower bound is the fence's own, strictly after the
+winning trigger, which is what keeps the too-old row below closed rather than merely narrow.
+A marker's `oid=` records what revloop **asked about**; `commit_id` records what
+the reviewer **looked at**, and when a hand-typed trigger holds the baseline the first does not exist
+while the second still does. That is why only a `review` may be **adopted** — a comment or a reaction
+carries no commit binding at all, so for those the too-old row is the whole risk and stays closed.
+**What may be adopted and what may open the question are two different things**, and conflating them
+cost a round: the selection reads the review list and needs only the `trigger=` every verdict form
+carries, so a `comment` or a `reaction` line opens it too. It has to, because the fence's
+`reviews(last:15)` window truncates before its Bot and non-`DISMISSED` filters run — fifteen newer
+human or dismissed reviews empty its review set while an adoptable review sits outside the window.
+The gate is keyed to the `marker_head=none` state for that reason, and nothing about what it may
+adopt moved.
+
+**A review the branch has already moved past is discarded rather than adopted, and that is also off
+the table above.** When the reviewer's answer is bound to a strict **ancestor** of HEAD, nothing
+standing can bind a verdict to the commit in hand, so the procedure's `foreign-baseline-retake` row
+opens an ordinary round without reading it. That is the too-old row honoured rather than bent: the
+review is not adopted at a commit it never looked at. It is also the only way home for a run
+interrupted between an adopted round's push and its re-take, where the fixes have advanced HEAD past
+the very review that licensed them.
+
+**The abort it narrows was protecting the trigger's binding, not the review's.** "The compatibility
+class anchors a baseline; it cannot bind a verdict to a commit" is true of the trigger and false of
+the review, and reading the review is not racing the person who posted the trigger — the same
+read/post line the runaway invariant already draws. The narrowing is deliberately small: adoption
+requires the configured reviewer's login **and** a full `commit_id` equal to HEAD, and an adopted
+round can neither converge the loop nor merge, because **which** request it answers cannot be
+established — it may be a stranger's, whose focus is unknown and may be arbitrarily narrow.
+
+**That last uncertainty is the one thing a timestamp cannot remove, and the re-take is priced against
+it rather than excused from it.** "Submitted after the hand-typed trigger" orders two events; it does
+not make the trigger the cause. A marked request of revloop's own can be outstanding at the same
+commit, so the review the loop adopts may be the answer to that — and the person's request may still
+be in flight when the re-take fires. The procedure **prints** that possibility and gates nothing on
+it: a gate would key on a comment already posted, which never stops being there, so the refusal would
+repeat on every later run and restore the permanent block this chapter's adoption row exists to
+remove. What the gate would buy is instead bought twice over elsewhere: the adopted round may not
+converge or merge whoever asked, and the round the re-take opens runs step 10's review sweep, so a
+second answer at the same commit is read rather than dropped. The cost that remains is one round,
+which `--max-rounds` bounds and the pull request shows.
+
 **"Newest" is a computation, not a row position.** Trigger rows are sorted before the newest is taken,
 because the fence builds its array from several generators and generator order is not time order —
 taking the last row selected the newest _hand-typed_ trigger whenever one existed, which is the
@@ -71,7 +120,10 @@ arrived and presents as "the reviewer never responded". So the fence matches a s
 - **Reviewer-agnostic without widening.** A reviewer you invented gets the same exact matching the
   presets get. A preset alternation survives as a compatibility class so a hand-typed `@codex review`
   still anchors a baseline — anchoring is all it does. Such a trigger carries no `head=`, so the fence
-  reports `marker_head=none` and step 9 aborts rather than adopting the verdict.
+  reports `marker_head=none`, and step 9 aborts on it **except** when the review it drew is the
+  configured reviewer's and GitHub says it was submitted against the commit in hand. That exception
+  reads the review and then re-takes the baseline with an ordinary trigger; everything else still
+  aborts.
 - **`bot=` filters every other bot at fetch time.** Deploy-preview, coverage, a second reviewer — all
   discarded before classification. A bot that comments on every push satisfies the wait's exit
   condition immediately, so the wait never waits; that was a real failure. **Measured on
@@ -89,6 +141,16 @@ arrived and presents as "the reviewer never responded". So the fence matches a s
   gets that a quota may have recovered, and a marker recording it would authorise a re-take on every
   future run for the life of the branch. What keeps it bounded is that a re-take **opens a round**, so
   the round number counts it like any other and `--max-rounds` stops a series.
+- **An adopted round's identity goes the other way, and the two opposite choices are both right.**
+  It is scoped by `round=adopted-<review_id>` on its replies — derived from the pull request, so a
+  session that dies half-way through answering the review is resumed by a run that computes the same
+  scope and posts no duplicates. **The id is the review each finding came from**, not the round's
+  newest, because an adopted round can read several: the newest is a value the pull request can
+  change between two runs, and scoping by it would make a later arrival re-post every reply the
+  scope exists to suppress. The rate-limit re-take's licence must be refundable by a restart
+  because a restart is the only evidence a quota recovered; an adopted round's scope must **not** be,
+  because a restart is not evidence that a reply is owed twice. Same file, opposite rules, one
+  question each.
 - **Config never reaches the fence.** Reviewer identity arrives via a comment revloop posted, not a
   file the fence parses, so a hostile `.revloop.json` has no path into a shell command or jq program.
 

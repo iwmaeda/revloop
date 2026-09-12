@@ -87,6 +87,32 @@ refute "a DISMISSED review is not a verdict"  "$o" "review "
 expect "  a multi-line body collapses to one" "$o" "800 first line of the body"
 refute "  the second line is dropped"         "$o" "second line should not appear"
 
+# The window and the filters, in the order the query actually applies them.
+# `reviews(last:15)` truncates on the SERVER; the Bot and non-DISMISSED selects
+# run here, on whatever survived. So a window filled with rows the filters drop
+# leaves the review set empty without a single adoptable review being newer than
+# the trigger -- which is the arithmetic step 9 used to decline a wider gate
+# with, and it is wrong. Returned as a P2 (iwmaeda/revloop#31, 2026-09).
+#
+# MEASURED HERE: fifteen review nodes -- eleven humans and four of the
+# reviewer's own, DISMISSED -- yield ZERO review rows, and the bot comment
+# behind them becomes the only verdict candidate. That output is byte-identical
+# to `verdict/foreign-baseline-comment`, which is the point: the fence cannot
+# tell this pull request from one with no review on it at all.
+#
+# NOT MEASURED HERE, and the reason the fixture stops where it does: the
+# adoptable review is the SIXTEENTH, and it is absent from this payload because
+# `last:15` never returned it. No fixture can hold a node the query did not
+# fetch, so what this pins is the filter order and never the truncation. Step
+# 9's gate is what closes the gap, by opening its selection on the
+# marker_head=none STATE rather than on the review LINE.
+o=$(run jq/window-full-of-humans)
+expect "a full window still yields the trigger"   "$(printf '%s\n' "$o" | grep -c '^TRIG ')" "2"
+expect "  no review row survives the filters"     "$(printf '%s\n' "$o" | grep -c '^review ')" "0"
+expect "  the comment behind them is emitted"     "$o" "comment 2026-09-09T10:52:52Z chatgpt-codex-connector 5600599999"
+refute "  no human review leaked through"         "$o" "reviewer-0"
+refute "  and no DISMISSED one either"            "$o" "5154100000"
+
 # MEASURED HERE: the four generators are emitted in program order, not in time
 # order. jq array construction preserves generator order, so a compat row lands
 # after every marker row however much older it is. This is the fact the shell's

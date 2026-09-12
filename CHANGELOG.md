@@ -13,6 +13,377 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### The lost-baseline recovery was promised by three places and reachable from none
+
+**The rule was right and the graph was missing an edge.** Step 7 says it twice and step 9's
+`marker_head=none` row says it again: when a hand-typed trigger takes the baseline, this run aborts
+and **a later run re-takes it with an ordinary trigger in step 7**. Step 7 also says how that later
+run may know the baseline is foreign — "**ask the fence**: fire step 8 once and read what it reports",
+because a verdict line is the only positive evidence and a `pending` line carries none. But step 8's
+answer goes to **step 9**, and step 9's row was an abort with no way back to 7. So the run that
+**learns** the baseline is foreign was the run that **had to stop**, and the later run that would act
+on it was every run, forever.
+
+**Measured three times, and the third pair is what made it undeniable.** `iwmaeda/revloop#13`
+(2026-08) recorded it in this repository's own field notes — "the documented recovery (fire in step 7,
+re-run step 8) is unreachable without raising the cap". Then on 2026-09-12, two projects running
+`remote-codex-loop` at 0.10.0 aborted without opening a round: `iwmaeda/schoolpath#115`, where review
+`5153256704` sat on commit `000cac73` — the commit checked out — and the run's own report said "this
+review is unread by this loop and I did not read it"; and `MIRock-jp/hippoblogs#106`, where review
+`5153219587` sat on `6d1f8eb0` and the run never even reached step 8. In both, the reviewer had
+answered, at the commit in hand, and the loop threw the answer away.
+
+**Now: step 9 adopts the review instead of discarding it**, under a new `foreign-baseline-adopt` row.
+A verdict line carrying `marker_head=none` opens the question — the **state** opens it and not the
+`review` **line**, as the round below records; what answers it is a **selection over the review
+list** — step 10's existing read, kept to the reviews submitted strictly after that line's
+`trigger=`, whose `login` is the resolved reviewer's configured login with a trailing `[bot]`
+stripped from both sides, whose `state` is not `DISMISSED`, and whose forty-character `commit_id`
+equals `git rev-parse HEAD`. Adopt if the selection is non-empty. **The `state` narrows that
+selection and does not decide the round**: the fence drops it from the line, but the list read
+returns one for every review it names, so the selection makes the one exclusion step 10's sweep
+also makes — `DISMISSED`, whose author withdrew
+it — and everything else a state can say stays step 10's, where its table already fails closed.
+It is a row name rather than a `reason=`, because it is not an abort — the split 0.10.0
+drew between `reviewer-rate-limited` and `rate-limit-retake`, applied again.
+
+**The gate is a selection and not a test on the fence's line, because a test on the line reintroduced
+the defect this section is about.** With a hand-typed trigger holding the baseline the marker carries
+no `bot=`, so the fence's filter admits **any** bot and its line names the newest review by anyone. A
+second bot that reviews after the configured reviewer therefore takes the line, the login test fails
+on it, and the round aborts — **and an abort never reaches step 7's re-take**, so the compatibility
+trigger stays newest, that bot's review stays newest, and every later run reproduces the same line and
+the same abort. The self-sustaining no-op, one layer down, inside the row written to end it. Returned
+as a P2 on `iwmaeda/revloop#31` (2026-09) against the commit that introduced the row.
+
+**Reading is not racing, which is the whole of the safety argument.** The abort is justified by "a
+lost baseline usually means somebody is driving the pull request by hand, and racing a person for the
+newest comment is the runaway itself" — a rule about what may be **posted**. An adoption posts
+nothing, opens no round and spends none of the reviewer's budget. **And what the abort protects is the
+trigger's binding, which the adoption does not use**: "the compatibility class anchors a baseline; it
+cannot bind a verdict to a commit" is true of the trigger and false of the review. A marker's `oid=`
+is what this loop **asked about**; `commit_id` is what the reviewer **looked at**, and the second is
+the better of the two whenever only one exists.
+
+**The lower bound is the fence's, and the selection states it rather than inheriting it.** The fence
+selects reviews with `$2>t` against the winning trigger; the winning trigger is the compatibility row,
+so it is newer than every marker, or a marker would have won — and the `databaseId` tie-break can only
+move a same-second marker **below** it. So `review` > winning trigger ≥ newest marker, strictly, and a
+previous round's review cannot be adopted **by construction** rather than by a comparison somebody has
+to get right. That is the too-old row of `docs/design-notes.md`, closed without a timestamp test. A
+selection reading REST rather than the fence's line has to carry that bound itself, so it does:
+**strictly after `trigger=`**, the same comparison spelled against a second API. **It is inclusive in
+step 10's sweep and strict here, and the difference is whose trigger bounds each.** That sweep is
+bounded by a round's own first trigger, where a review sharing its second is a review this loop asked
+for; this one is bounded by somebody else's, and at the latency `reviewers/codex.md` measures — 2:46
+at the fastest of twenty-seven rounds — a review sharing **its** second was drawn by an earlier
+trigger. Admitting it would adopt a previous round's review at an unchanged HEAD, which is the row
+above, reopened by the fix meant to respect it.
+
+**The adopted round's scope is `adopted-<review_id>` and deliberately not a number.** An adoption
+writes no trigger marker, so step 7's count-plus-one is untouched and the next ordinary trigger takes
+the number it would have taken anyway; and a token outside the integer sequence cannot collide with
+one. Both numbers that were available are wrong in ways this file has already paid for: reusing the
+**newest marker's** `round=` lets an earlier round's reply satisfy step 11's guard and **silently
+suppress** the answer this round owes — the invisible direction, and the reason the round is part of
+the reply identity at all — while **count-plus-one** gives two different rounds the same scope. It is
+also PR-derived, so a session that dies part-way through answering is resumed by a run that computes
+the same token and posts no duplicates, which is step 7's own argument about budgets a restart refunds.
+**The id is the review each finding came from**, not the round's newest: an adopted round can read
+several reviews, and the newest is a value the pull request can change between two runs — a third
+review arriving makes a different id newest, the resumed run computes a different token, and every
+reply is posted again. A finding's own review never changes.
+
+**An adoption does not spend `--max-rounds`, and charging it would have shipped the fix broken.**
+The cap's own justification is that step 7 "is the only place a round is opened" and that when it
+fires "the wait, the trigger and the reviewer's budget are all still unspent" — an adoption uses none
+of the three. And `MIRock-jp/hippoblogs#106` is precisely a pull request **at** the cap with a standing
+unread review, so a charged adoption is refused exactly where it is needed. It stays bounded anyway:
+the work an adoption produces has to pass through step 7 to become a new review, and step 7 is capped
+as always.
+
+**An adopted round can never converge the loop and never merges.** It has no edge into step 12, so
+`rigor-levels.md`'s sufficiency test does not run on it — which is that page's "at every edge into the
+report step, **and nowhere else**" honoured rather than bent, because there is no such edge here. The
+reason is not bookkeeping: a convergence there would rest on a review that **may be answering a
+request nobody in this loop composed**, whose focus is unknown and may be arbitrarily narrow, and
+under `--auto --merge` that is a merge on a stranger's question. The round ends by returning to step
+7 — through step 3 when there are fixes, straight there when every item was declined or accepted — to post the ordinary
+re-take.
+
+**That re-take is the point, and it is what closes the missing edge.** The adoption supplies the
+positive evidence step 7 requires **and** consumes the verdict instead of discarding it, so the "later
+run" becomes this run. **The narrowing that keeps the racing-a-person argument intact** is that a
+same-run re-take is licensed **only** by an adopted review — only once a verdict **bound to the commit
+in hand** has been read. Every other shape of lost baseline keeps today's abort: a `comment`, a `reaction`,
+a `pending`, and a `review` line whose selection comes back empty — no review of this commit, by this
+reviewer, after this trigger. A foreign bot's review on the line is **not** one of those shapes on its
+own, which is the whole of the correction above: what decides is what the list holds behind it. So a
+run arriving while somebody is still driving the pull request by hand still stops and hands it to
+them, and a run whose reviewer has already answered no longer stops beside the answer.
+
+**What the re-take is _not_ licensed by is a claim about whose request drew that review**, and an
+earlier spelling of these rows made one. "Submitted after the hand-typed trigger" orders two events;
+it does not make the trigger the cause. A marked request of revloop's own can still be outstanding at
+the commit in hand when a person's trigger lands, so the adopted review may be the answer to **that**
+one while the person's request is still in flight — returned as a P2 on `iwmaeda/revloop#31`
+(2026-09), and the same thing step 9 already said about a rate-limit notice arriving as `EXTRA=`.
+**The ownership is now printed and never compared.** The report names a `revloop:trigger` marker bound
+to the adopted `commit_id` that predates the winning trigger, says the hand-typed request may still be
+in flight, and says the re-take may draw a second review of that commit. **Gating on it is declined,
+because the gate never clears**: a comment already posted is immutable, so the refusal would repeat on
+every later run, and on an adopted round with nothing to fix nothing in the loop can move HEAD to make
+the question a different one — the permanent block these rows exist to remove, re-entered by the guard
+meant to prevent a race. What pays for that instead is bounded and doubled up: the adopted round may
+neither converge nor merge **whoever** asked, and **the round a same-run re-take opens now runs step
+10's review sweep** on its single trigger, so a second answer at the same commit is read rather than
+dropped for the life of the pull request. The residue is one round, which `--max-rounds` bounds and
+the pull request shows.
+
+**Step 10 sweeps an adopted round _instead of_ reading its `review_id=`, bounded by the winning
+trigger rather than by a marker.** There is no marker to read a lower bound off, and a hand-typed
+trigger can draw more than one review over hours or days while the fence names only the newest — so a
+round trusting `review_id=` alone would answer the last of them and leave the rest unread. That is the
+orphaned-review shape with somebody else's trigger in place of the re-post. **"Instead" is the word
+that was missing, and doing both was a defect.** An adopted review satisfies every filter of that
+sweep by construction, so a round that ran the direct read **and** the sweep read one review twice —
+and while the fixes are idempotent and step 11's guard stops the replies duplicating, **the findings
+reach the grader twice and nothing makes two rungs for one finding agree**: one copy can land above
+the acceptance floor and one below, after which the bucket a finding goes into depends on which copy
+was read. The bucket record `rigor-levels.md` re-opens under a risen ceiling doubles with it, and so
+does every count in the report. Returned as a P2 on `iwmaeda/revloop#31` (2026-09).
+
+### A run at the round cap can still read the pull request
+
+**0.10.0 drew the read/post line for the runaway invariant and drew it nowhere else.** That release
+established that the invariant "governs what may be **posted**, never whether the pull request is
+**read**", and called the opposite reading a block that "becomes permanent by construction".
+`--max-rounds` is the other thing that can refuse a trigger at step 7, and it was still ending the
+run: the cap fired before step 8, so a pull request whose marker count had reached the cap could not
+read a verdict standing at its own HEAD, could not answer findings already on it, and could not report
+a round that was already clean. **Re-running the command was an idempotent no-op abort**, against a
+command file that promises re-running it resumes.
+
+**Measured on `MIRock-jp/hippoblogs#106`**: five markers, `--max-rounds` resolving to 5, and two
+invocations four days apart producing the same `reason=max-rounds` with nothing posted — while a
+review of the checked-out commit sat unread. The run also skipped step 3, so no verify command ran
+either; the report named the cap and nothing else.
+
+**Now the cap refuses the trigger, not the run.** At the cap this step posts nothing and carries the
+standing `SINCE` into step 8. `reason=max-rounds` — same spelling, one event, one grep — fires when
+step 7 is asked to post and the wait produced nothing to read.
+
+**What "one chunk" bounds is a chunk of silence and not a poll, which is the one thing the first
+draft of this rule left unsaid.** Two of step 9's rows send a **verdict** back to step 8 — the
+mismatched-`trigger=` row, which allows two consecutive re-fires, and the ancestor row, which allows
+one — and neither is suspended at the cap. A mismatched or ancestral verdict **exits the fence on its
+first poll**, so it burns no wall clock and accrues no chunk; the cap is bounding the wait, and those
+re-fires do not wait. Written the other way the rule would have been worse in both directions: it
+would abort a capped run on the first foreign comment that happened to land during its poll — a
+stranger's timing deciding this run's outcome — while claiming to save a cost the re-fire does not
+incur. What the cap still forecloses is reaching `pending` by that path, and the re-post row with it:
+at the cap there is no second trigger of any kind.
+
+**The wait is bounded at one chunk, and the bound comes from what the question is.** A capped run is
+not waiting for an answer to a trigger of its own; it is asking whether an answer is **already there**,
+and step 8 answers that on its first poll — a verdict that exists exits the fence at once, and only
+silence costs the full 480 seconds. A `pending` in any flavour aborts immediately: no re-fire, no
+re-post, nothing charged against `--timeout`, nothing counted toward the floor of three. **Teaching
+the fence a poll-once mode was the alternative and costs every user a re-approval**, which is not
+worth eight minutes — and the eight minutes are recoverable, because a slow verdict landing after the
+run gave up exits the next invocation's first poll immediately.
+
+**Two states still abort with no wait at all.** When this run has already classified a verdict on the
+baseline standing now — whether that baseline is the newest marker or a hand-typed trigger an
+adoption read — because nothing new is standing and waiting would re-read the verdict just acted on,
+which is the too-old direction. That covers every arrival from step 11 and from the
+`rate-limit-retake` row, so both series this step already bounds still stop at the cap rather than
+buying a chunk each. **That one is within-run state the fence never sees**, the same class as the
+discriminator the rate-limit rows turn on, so no test can pin it and the procedure says so where a
+reader will look. And when step 7's marker read exited non-zero, which the existing rule already
+covers: an unanswered question is not a licence.
+
+**The abort that does fire now carries a diagnosis**, because `reason=max-rounds` on its own is not
+actionable on a pull request that can never gain a round: the cap, its `source`, the marker count it
+was measured against, the remedy, and — under this change — what the run did before it met the cap,
+since a capped run may now have read, replied and pushed.
+
+**And the cap that fired had been halved without anybody being told.** `thorough` carries the numbers
+the two procedures held as builtins and is no longer the default, so a repository that configured no
+cap went from 10 to 5 on the pull-request loop at the release that gave the level the number. **The
+default is not changed back** — the level owns the cap, and a level that leaves `medium` acceptable
+has less left to converge over — but three things now say so: step 1 prints a line naming
+`defaults.maxRounds` whenever the cap's `source` is `rigor`, the abort names the same key, and
+`docs/configuration.md`'s `Built-in` column no longer prints `10` and `5` with a paragraph underneath
+taking them back. **revloop's own `.revloop.json` pins `maxRounds: 10`**, which is why the repository
+that shipped the halving is the one that could not see it.
+
+**A rate limit riding beside an adopted review still aborts nothing, and both reasons 0.10.0 gave for
+that are now repaired rather than repeated.** The first said the trigger is by definition not one this
+run posted, which a garbled own marker falsifies. The second said a reviewer that answered was not out
+of quota when it answered, so a notice beside its review is **stale** — but the fence takes the newest
+bot comment after the trigger exactly as it takes the newest review, so the notice can be **newer**:
+the reviewer answered, and then ran out. Returned as a P2 on `iwmaeda/revloop#31` (2026-09), asking
+that the re-take be suppressed on such a notice. **Declined, because the suppression would be keyed to
+a comment that never expires**: it stays the newest bot comment, the review stays the primary line, and
+the compatibility trigger stays newest **because** the re-take was suppressed — so every later run
+suppresses it too and no marker of this loop's reaches the pull request again. Firing the re-take is
+what ends the foreign baseline; the reviewer's reply then lands on a trigger this run posted, step 9
+aborts `reviewer-rate-limited`, and a later invocation reaches `rate-limit-retake` like any other
+rate-limited round. A spent round is bounded, visible and recorded; the block would be silent and
+permanent. **The bounded version — suppress once, license the re-take later by looking for this loop's
+replies under the adopted review — is named in the step and declined there too**: an adopted review
+with no findings posts no replies, so the permanent block survives inside it, and it would make the
+reply marker answer a second question about run state one change after `iwmaeda/revloop#29` spent
+three rounds getting it to answer exactly one. **What the notice does change is the report**, which now
+prints whose notice it is and whether it is newer than the review adopted, comparing `login=` before
+matching `rateLimitPatterns` against the fetched body.
+
+**No fence changed and no re-approval is owed.** `tests/fence-hashes.txt` is byte-identical, all four
+hashes unmoved, which is the evidence for that sentence rather than memory. `docs/permissions.md` is
+unchanged too: the adoption's review list read and the sweep are both step 10's existing call, the
+`commit_id` fetch is step 9's own, and the reply POST is step 11's, so no new command string exists to
+grant.
+
+**Still unexercised**, and `## Unexercised paths` carries all of it: no run has taken the adoption row
+under the procedure, none has adopted a review the fence did not name, none has performed the same-run
+re-take, none has fired step 8's single chunk at the cap, and none has reached the adoption row from a
+**garbled own marker** rather than from a foreign baseline — the shape a focus carrying the literal
+`revloop:trigger` produces, where the repair is right and only the report's wording could be wrong.
+
+**Nine new fixtures pin the fence lines these rows are written against** — including the one
+`iwmaeda/schoolpath#115` actually produced — plus a foreign bot's review under the same baseline, a
+comment carrying no commit binding, a review of another commit, two reviews drawn by one hand-typed
+trigger, a thumbs-up on the hand-typed trigger, an adoptable review riding beside an `EXTRA=`, **the
+reviewer's review followed by a foreign bot's**, and **a review sharing the compatibility trigger's
+own second**. **Two of them pin shapes nothing had predicted.** The compatibility baseline empties the
+fence's `bot=`, so its comment filter admits any bot and the `EXTRA=` beside an adoptable review can
+be a deploy bot's — which costs nothing, because that line decides nothing. And its **review** filter
+is empty for the same reason, so the primary line can name a second bot's review while the reviewer's
+own sits behind it; that fixture's `refute` on the reviewer's `review_id=` is the defect the selection
+answers. The last of the nine shows the fence declining a same-second review, which is the bound the
+selection mirrors.
+**The fixtures cannot pin which of the two `marker_head=none` rows step 9 takes**, and that is now
+structural: the discriminators are a forty-character `commit_id` and a configured login taken from a
+**REST call the fence never makes**, so no fixture can make an adoption fire or refuse one. What they
+pin is the line that reaches step 9. The test file says that where somebody will read it.
+**Three rows now**, since the round below added one, and the sentence is corrected in place rather
+than left to read as a count the file no longer keeps.
+
+### The adoption's own recovery could be interrupted, and the window's own filter could hide it
+
+**Both are the same no-op, one layer down inside the rows that remove it**, returned as P2s on
+`iwmaeda/revloop#31` (2026-09) against the commit that introduced them. **No fence byte moves for
+either**: `tests/fence-hashes.txt` is byte-identical, all four hashes unmoved, `docs/permissions.md`
+is untouched, and both reads either fix needs are calls the procedure already makes.
+
+**An adopted round that finds something to fix pushes the fixes before it re-takes the baseline.**
+The order is step 11 to step 3 to the push, and step 7 posts the re-take after that — so a run that
+dies in the gap leaves HEAD on the fix commit while the adopted review is bound to its parent. The
+selection requires `commit_id` equal to `git rev-parse HEAD` in full, so it comes back empty, the
+`marker_head=none` abort fires, and **an abort never reaches step 7** — the hand-typed trigger stays
+newest, that review stays newest, and every later run reproduces the same abort. The fixes are
+pushed and the loop can never open a round again.
+
+Step 9 now carries a **`foreign-baseline-retake`** row, decided by the **ancestor-relaxed
+selection**: the adoption selection with exactly one condition changed, `commit_id` a **strict
+ancestor** of HEAD rather than equal to it. Non-empty and the re-take happens in this run with **no
+read in front of it** — the ancestor review's findings are discarded unread and named in the report,
+which is the ruling the ancestor row already makes for this loop's own baseline. **What licenses the
+trigger is that nothing standing can bind a verdict to HEAD**; that is the adoption row's own
+sentence, and it is what keeps the racing-a-person argument intact. It is deliberately **not** the
+claim that nobody asked about that commit — a hand-typed trigger binds no commit, so it can never be
+said to have asked about one rather than another, and this row carries the same in-flight cost the
+adoption row prices. Whether this loop's replies already sit under that review is
+**printed and never compared** — a gate on them would make the `revloop:reply` marker answer a second
+question about run state, one change after `iwmaeda/revloop#29` spent three rounds getting it to
+answer exactly one, and it would rest on an ordering this procedure nowhere states.
+
+**The invariant's exceptions go from four to five**, three of them recovered inside the run, and the
+count is corrected in step 7, in `## Notes`, and in `.agents/skills/revloop/SKILL.md`. Only the first
+two of the three fire at an unchanged HEAD: the ancestor re-take fires precisely **because** HEAD
+moved.
+
+**The second defect is one wrong step in an arithmetic.** Step 9 declined to open its selection on
+the `comment` and `reaction` lines, reasoning that the fence prints those only when its review set
+came back empty, so the `reviews(last:15)` window could not be hiding a review — a review that falls
+out of it needs fifteen newer ones, and all fifteen would be newer than the trigger too. **That
+assumes the fifteen are reviews the fence would have kept.** `reviews(last:15)` truncates on the
+**server** and `select(.author.__typename=="Bot")` and `select(.state!="DISMISSED")` run **after**
+it, so fifteen newer **human or dismissed** reviews fill the window with rows the filters then drop.
+The review set is empty, the fence prints a `comment` or a `reaction`, and the adoptable review is
+the sixteenth — on the pull request, inside the REST list the selection reads, outside the window the
+fence looked in. The gate is now keyed to the `marker_head=none` **state** rather than to the
+`review` **line**, so all three verdict forms open it. **What may be adopted has not widened**: only
+a review can be, because only a review carries a commit binding.
+
+New fixture `tests/fixtures/jq/window-full-of-humans` puts fifteen human and dismissed reviews
+through the fence's own jq program and gets **no `review` row**; its output is byte-identical to
+`foreign-baseline-comment`, which is the point — the fence cannot tell such a pull request from one
+with no review on it at all. **It cannot show the truncation itself**, because a payload cannot hold
+the node the query never fetched, and the test file says so. Widening the window instead was declined
+with the cost: it moves fence bytes, so every install owes a re-approval, and it buys a boundary
+rather than a proof. **One sub-case stays unrecoverable** and is disclosed in `## Unexercised paths`:
+a full window with no bot comment and no reaction returns `pending`, which carries no marker fields,
+so the run cannot learn the baseline is foreign at all.
+
+`foreign-baseline-stale-review` now stands for three rulings rather than one — an ancestor, a
+diverged commit and one absent locally produce the same line — and `tests/fence-verdict.test.sh` says
+that where somebody will read it, alongside a vacuous `refute` removed rather than added.
+
+### The adoption's own predicate named an object where it meant a login
+
+**The rule was right and its predicate could not be executed.** The head of
+[`procedures/remote-loop.md`](procedures/remote-loop.md) binds a term once, for the whole file: "where
+a step below says _the resolved reviewer_, it means that definition" — the reviewer's definition
+object, the file `schema/reviewer.schema.json` describes. Step 9's adoption selection then used that
+exact term as the right-hand side of a **string equality**, asking for reviews "whose `login` equals
+the resolved reviewer". A login is not a definition. Followed literally the condition matches **no
+review**, however right the review is, so every verdict by the configured reviewer falls into the
+empty selection and out through the `marker_head=none` abort — an abort that never reaches step 7's
+re-take, so the hand-typed trigger stays newest and every later run reproduces it. That is the
+self-sustaining no-op this whole entry exists to end, reached through the row written to end it, for
+the **third** time on this branch. Returned as a P2 on `iwmaeda/revloop#31` (2026-09), against the
+commit that last touched the row.
+
+**It was drift and never a convention.** At 0.10.0 every one of the nine uses of "the resolved
+reviewer" was the binding sentence, a possessive naming a field — `kind`, `trigger`,
+`markerTolerated`, `status`, `severityLevels`, `rateLimitPatterns` — or "the resolved reviewer
+**name**"; **not one was a login operand**. The three that were arrived together with the
+`foreign-baseline-adopt` row and survived six rounds of review. The file's own house style was
+already right in every other place the same comparison appears: step 9's check (d) says "the
+reviewer's **configured login** after stripping a trailing `[bot]` from the configured value", the
+`bot` marker-field row says "the reviewer's **login** with any `[bot]` suffix stripped" — directly
+under "the resolved reviewer **name**", so the file distinguishes _name_ from _login_ in adjacent
+rows — and step 10 **restates this very selection correctly**, as "the selection step 9 already
+computed, read a second time rather than defined a second time". One predicate, written twice, one
+right and one wrong.
+
+**Now: all three sites name a login**, and the schema key is named **once**. The defining sentence
+reads "the resolved reviewer's **configured login** (`botLogin`)"; the two `EXTRA=` paragraphs that
+derive from it read "the resolved reviewer's configured login". `botLogin` appears at the defining
+site and nowhere else in the file, and the step says why — every other sentence says _the configured
+login_, because a second copy of a key name is a second place for it to go stale. This is the
+project's standing rule against a second copy of a convention, the one that keeps
+`.agents/skills/revloop/SKILL.md` citing step 9 rather than restating it.
+
+**What did not move.** "Stripped from **both** sides" is correct and does not contradict check (d):
+check (d) governs the fence's **GraphQL** line, which already omits the suffix, so only the
+configured value is stripped, while this selection reads **REST**, whose `user.login` carries it —
+which is what step 10's read already does with `rtrimstr("[bot]")`. No condition of any row changed:
+not the `state`, not the forty-character `commit_id`, not the strict `> trigger=` bound.
+
+**One site of the class is named and declined**: step 9's decision-table row labelled
+`` `login=` not the configured reviewer ``. It does not use the term the file's head binds, and a
+table row _label_ naming a signal is not a predicate sentence — so it is recorded here rather than
+edited, which also keeps the diff out of a table prettier would re-pad.
+
+**No fence changed and no re-approval is owed.** `tests/fence-hashes.txt` is byte-identical, all four
+hashes unmoved, and [`docs/permissions.md`](docs/permissions.md) is untouched. No fixture is owed
+either: `## Unexercised paths` already records that no fixture in `tests/` can reach these rows,
+because the discriminators are a forty-character `commit_id`, a configured login, and a REST review
+list the fence never calls.
+
 ## [0.10.0] - 2026-09-12
 
 ### A rate-limited round is recoverable by a later run

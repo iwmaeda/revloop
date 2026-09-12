@@ -1,0 +1,226 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "comments": {
+          "nodes": [
+            {
+              "createdAt": "2026-09-08T12:51:09Z",
+              "databaseId": 5585414270,
+              "body": "@codex review\n\n<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=deadbeef round=8 -->",
+              "author": {
+                "login": "iwmaeda",
+                "__typename": "User"
+              },
+              "reactionGroups": []
+            },
+            {
+              "createdAt": "2026-09-09T10:44:51Z",
+              "databaseId": 5600570017,
+              "body": "@codex review",
+              "author": {
+                "login": "iwmaeda",
+                "__typename": "User"
+              },
+              "reactionGroups": []
+            },
+            {
+              "createdAt": "2026-09-09T10:52:52Z",
+              "databaseId": 5600599999,
+              "body": "Codex Review: Didn't find any major issues. Keep it up!",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "reactionGroups": []
+            }
+          ]
+        },
+        "reviews": {
+          "nodes": [
+            {
+              "submittedAt": "2026-09-09T11:01:00Z",
+              "databaseId": 5154000000,
+              "state": "APPROVED",
+              "author": {
+                "login": "reviewer-0",
+                "__typename": "User"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:02:00Z",
+              "databaseId": 5154000001,
+              "state": "COMMENTED",
+              "author": {
+                "login": "reviewer-1",
+                "__typename": "User"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:03:00Z",
+              "databaseId": 5154000002,
+              "state": "APPROVED",
+              "author": {
+                "login": "reviewer-2",
+                "__typename": "User"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:04:00Z",
+              "databaseId": 5154000003,
+              "state": "COMMENTED",
+              "author": {
+                "login": "reviewer-3",
+                "__typename": "User"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:05:00Z",
+              "databaseId": 5154000004,
+              "state": "APPROVED",
+              "author": {
+                "login": "reviewer-4",
+                "__typename": "User"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:06:00Z",
+              "databaseId": 5154000005,
+              "state": "COMMENTED",
+              "author": {
+                "login": "reviewer-5",
+                "__typename": "User"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:07:00Z",
+              "databaseId": 5154000006,
+              "state": "APPROVED",
+              "author": {
+                "login": "reviewer-6",
+                "__typename": "User"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:08:00Z",
+              "databaseId": 5154000007,
+              "state": "COMMENTED",
+              "author": {
+                "login": "reviewer-7",
+                "__typename": "User"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:09:00Z",
+              "databaseId": 5154000008,
+              "state": "APPROVED",
+              "author": {
+                "login": "reviewer-8",
+                "__typename": "User"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:10:00Z",
+              "databaseId": 5154000009,
+              "state": "COMMENTED",
+              "author": {
+                "login": "reviewer-9",
+                "__typename": "User"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:11:00Z",
+              "databaseId": 5154000010,
+              "state": "APPROVED",
+              "author": {
+                "login": "reviewer-10",
+                "__typename": "User"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:12:00Z",
+              "databaseId": 5154100000,
+              "state": "DISMISSED",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:13:00Z",
+              "databaseId": 5154100001,
+              "state": "DISMISSED",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:14:00Z",
+              "databaseId": 5154100002,
+              "state": "DISMISSED",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            },
+            {
+              "submittedAt": "2026-09-09T11:15:00Z",
+              "databaseId": 5154100003,
+              "state": "DISMISSED",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "commit": {
+                "oid": "000cac73f1e2d3c4b5a697887766554433221100"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

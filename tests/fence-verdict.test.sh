@@ -210,7 +210,12 @@ expect "  and the review after it is adopted"   "$o" "review_id=950"
 o=$(r retry-both-answered)
 expect "two answers -> the newer review wins"   "$o" "review_id=820"
 refute "  the older answer is never mentioned"  "$o" "810"
-refute "  and there is no EXTRA= to carry it"   "$o" "EXTRA="
+# No EXTRA= refute here either, and for the same reason as the one below: this
+# fixture carries no comment row, EXTRA= is only ever sourced from one, and a
+# refute on an unreachable branch passes whatever the fence does. What the label
+# used to gesture at -- that the older review does not come back as EXTRA -- is
+# not a thing the fence can do at all: EXTRA= carries a comment and never a
+# review. The refute above, on the older review_id, is the one that pins it.
 
 # The marker's bot= discards every other bot on the PR at fetch time.
 o=$(r foreign-bot)
@@ -231,6 +236,192 @@ expect "  carries the bot line"                 "$o" "bot=comment"
 o=$(r untriggered-verdict-review)
 expect "the newest untriggered signal wins"     "$o" "bot=review 2026-08-19T10:09:00Z"
 refute "  not the older comment"                "$o" "bot=comment"
+
+# The lost baseline, in the shape step 9's two marker_head=none rows are written
+# against. This first fixture is the line iwmaeda/schoolpath#115 actually
+# produced on 2026-09-12, with the ids kept and the marker's head= changed to a
+# value HEAD cannot share -- the refute below is the point of that change.
+#
+# A hand-typed `@codex review` newer than the round-8 marker takes the baseline,
+# the compat row carries no marker payload, and the parser's defaults survive:
+# reviewer=unknown, round=unknown, marker_head=none. The reviewer then answered
+# that trigger with a review of the checked-out commit, which is the input the
+# adoption row exists for.
+o=$(r foreign-baseline-review)
+expect "hand-typed trigger takes the baseline"  "$o" "VERDICT=review"
+expect "  the baseline is the compat comment"   "$o" "trigger=2026-09-09T10:44:51Z"
+expect "  it binds no head"                     "$o" "marker_head=none"
+expect "  and names no reviewer"                "$o" "reviewer=unknown"
+expect "  and no round"                         "$o" "round=unknown"
+expect "  the review is the reviewer's"         "$o" "login=chatgpt-codex-connector"
+expect "  and is addressable by id"             "$o" "review_id=5153256704"
+expect "  and names the commit it read"         "$o" "commit=000cac73"
+refute "  the marker's head did not leak in"    "$o" "marker_head=deadbeef"
+
+# The same line with a bot nobody configured. A compat baseline carries no bot=,
+# and an empty bot= disables the fence's filter -- so this line is producible,
+# and the configured-login test is the only thing between it and the adoption.
+o=$(r foreign-baseline-foreign-bot)
+expect "a foreign bot answers the same way"     "$o" "VERDICT=review"
+expect "  still an unbound baseline"            "$o" "marker_head=none"
+expect "  and the login is the discriminator"   "$o" "login=copilot-pull-request-reviewer"
+
+# A clean comment under the same baseline. It carries a login and a cid and NO
+# commit= at all, which is why only a review may be adopted: there is nothing
+# here to compare against HEAD, and adopting it is design-notes' too-old row.
+#
+# THIS LINE NOW OPENS THE SELECTION, and it did not when the fixture was
+# written. Step 9 declined a wider gate on the arithmetic that a comment is
+# printed only when the fence's review set came back empty, so nothing could be
+# hiding behind it -- which ignores that `reviews(last:15)` truncates BEFORE the
+# Bot and non-DISMISSED filters run. `jq/window-full-of-humans` is the input
+# that falsifies it: fifteen human and dismissed reviews empty the review set
+# and produce exactly the rows below, with an adoptable review sitting on the
+# pull request outside the window. Returned as a P2 (iwmaeda/revloop#31,
+# 2026-09). What the gate keys on is now the marker_head=none STATE, not the
+# form of the line -- so this fixture's line and the reaction below are the two
+# that changed meaning without changing a byte.
+o=$(r foreign-baseline-comment)
+expect "a comment under a lost baseline"        "$o" "VERDICT=comment"
+expect "  binds no head either"                 "$o" "marker_head=none"
+expect "  and is addressable by id"             "$o" "cid=5600599999"
+refute "  but carries no commit binding"        "$o" "commit="
+
+# The stale half: the same shape, a review of some other commit. The fence's
+# output differs from the adoptable case in exactly one field.
+#
+# TWO step-9 rows are now written against this one line, and the fence cannot
+# tell them apart. `commit=a5eb3169` is eight characters of a commit whose
+# RELATION to HEAD this line does not carry: an ancestor of HEAD takes the
+# foreign-baseline-retake row, and a commit that is absent locally or has
+# diverged keeps the abort. The discriminator is `git merge-base --is-ancestor`
+# against the REST review list -- a call and a comparison this fence makes
+# neither of -- so no assertion here can reach either row. What this fixture
+# owns is the input both are written against.
+o=$(r foreign-baseline-stale-review)
+expect "a stale review under the same baseline" "$o" "VERDICT=review"
+expect "  unbound baseline, as before"          "$o" "marker_head=none"
+expect "  and a commit that is not HEAD's"      "$o" "commit=a5eb3169"
+
+# Two reviews drawn by one hand-typed trigger, a day apart. The fence names only
+# the newest, which is why step 10 sweeps an adopted round instead of reading
+# review_id= -- the older one is on the pull request and unnamed here.
+o=$(r foreign-baseline-two-reviews)
+expect "the newest review wins"                 "$o" "review_id=5155000000"
+refute "  the older one is not named"           "$o" "review_id=5153256704"
+# No EXTRA= refute here, and its absence is the point. This fixture carries no
+# comment row, so the fence's EXTRA= branch is unreachable for this input and a
+# refute on it would pass whatever the fence did -- including if the behaviour it
+# named broke. The distinction worth keeping: a refute is a guard when the input
+# reaches the branch and the branch declines to emit the token, and it is vacuous
+# when the input cannot reach the branch at all. The EXTRA=/adoption interaction
+# is pinned by `foreign-baseline-review-extra`, which has the comment row.
+
+# Two bots, and the configured one spoke FIRST. A compat baseline empties bot=,
+# so the fence's review filter admits every bot and `tail -1` keeps the newest --
+# which is the other bot's. The reviewer's review of this very commit is on the
+# pull request and is not on this line, so a step-9 gate that tested the primary
+# line's login refused the adoption and aborted, on this run and on every rerun
+# after it: the abort never reaches step 7's re-take, so the compat trigger stays
+# newest and so does the foreign review. The refute below IS the finding.
+o=$(r foreign-baseline-reviewer-then-foreign-bot)
+expect "the newest review wins, not the reviewer's" "$o" "VERDICT=review"
+expect "  still an unbound baseline"                "$o" "marker_head=none"
+expect "  the line is the other bot's"              "$o" "login=copilot-pull-request-reviewer"
+expect "  and names the other bot's review"         "$o" "review_id=5153299999"
+refute "  the reviewer's review is not named"       "$o" "review_id=5153256704"
+
+# The lower bound, from the side that shows it. The review shares the compat
+# trigger's own second, and the fence selects with `$2>t` -- strictly -- so it
+# is not selected at all and the comment behind it becomes the primary line.
+# Step 9's adoption selection keeps that same strict bound deliberately: at the
+# measured latency nothing answers a trigger in the second it was posted, so a
+# same-second review was drawn by an EARLIER trigger, and admitting it would
+# adopt a previous round's review at an unchanged HEAD. This fixture is what
+# pins the bound the selection mirrors.
+o=$(r foreign-baseline-same-second-review)
+expect "a same-second review is not selected"      "$o" "VERDICT=comment"
+expect "  the comment behind it is primary"        "$o" "cid=5600599999"
+expect "  under the same unbound baseline"         "$o" "marker_head=none"
+refute "  the review never reaches the line"       "$o" "VERDICT=review"
+refute "  and its id is nowhere on it"             "$o" "5153256704"
+
+# A thumbs-up on the hand-typed trigger. The compat generator emits a reaction
+# count like any other TRIG row, so this line is producible -- and it carries
+# neither login= nor commit=, which is the whole reason a reaction cannot be
+# adopted however clean it looks.
+#
+# It still opens the selection, and the two facts are not in tension: what is
+# adopted comes out of the REST review list, and all the line has to supply is
+# the trigger= every verdict form carries. A reaction is printed only when both
+# of the fence's sets came back empty, and BOTH can be emptied by the window
+# rather than by the pull request -- see `jq/window-full-of-humans`.
+o=$(r foreign-baseline-reaction)
+expect "a reaction under a lost baseline"      "$o" "VERDICT=reaction"
+expect "  binds no head"                       "$o" "marker_head=none"
+expect "  and names the trigger it answers"    "$o" "id=5600570017"
+refute "  it carries no login"                 "$o" "login="
+refute "  and no commit binding"               "$o" "commit="
+
+# The adoptable shape with a second bot talking on the same pull request. The
+# compat baseline empties bot=, so the comment filter admits ANY bot -- and the
+# EXTRA= that results is authored by one nobody configured. The primary line is
+# the reviewer's here; the EXTRA is not, and step 9 says what that costs --
+# nothing, because it decides no verdict. What the step does with it is compare
+# login= FIRST and only then match the fetched body, which is an ordering this
+# line cannot show either.
+o=$(r foreign-baseline-review-extra)
+expect "the primary line is still adoptable"   "$o" "VERDICT=review"
+expect "  by the configured reviewer"          "$o" "login=chatgpt-codex-connector"
+expect "  at the commit in hand"               "$o" "commit=000cac73"
+expect "  and a second bot rides along"        "$o" "EXTRA=comment"
+expect "  authored by nobody configured"       "$o" "login=cloudflare-workers-and-pages"
+
+# WHAT THESE NINE CANNOT SHOW. The fence's output is IDENTICAL for an adoptable
+# and a non-adoptable review whenever the short commit= agrees, because the
+# discriminator is the forty-character commit_id and the configured login -- and
+# the fence emits the first truncated to eight characters and does not read the
+# second at all. `foreign-baseline-stale-review` differs from
+# `foreign-baseline-review` only because the fixture was written with eight
+# different characters; a commit sharing HEAD's prefix produces the same line as
+# the adoptable case, and step 9's check (e) is what separates them.
+#
+# Nor can any of them show the adoption GATE, and that is now structural rather
+# than incidental. The gate is a selection over the REST review list -- a call
+# this fence never makes -- so no fixture here can make an adoption fire or
+# refuse one. What these nine pin is the line that reaches step 9, which is the
+# input the gate is written against and the whole of what this harness owns.
+# `foreign-baseline-reviewer-then-foreign-bot` is the sharpest of them: it shows
+# that the reviewer's review can be absent from the line while present on the
+# pull request, which is exactly why the gate may not be a test on the line.
+#
+# Nor can `foreign-baseline-review-extra` show what step 9 does with that EXTRA=.
+# The fence emits it either way; whether a foreign bot's body is matched against
+# the configured reviewer's rateLimitPatterns, in which order, and what that match
+# may decide, is prose in step 9 and not a field on this line.
+#
+# Nor can any of them reach the foreign-baseline-retake row, and the reason is
+# the same one enlarged. That row fires when the selection at HEAD is empty but
+# the same selection relaxed to a STRICT ANCESTOR of HEAD is not, so its two
+# discriminators are `git merge-base --is-ancestor` and the REST review list --
+# neither of which this fence runs. `foreign-baseline-stale-review` is the line
+# it is written against, and that line is byte-identical for an ancestor, a
+# diverged commit and one absent locally, which are three different rulings.
+#
+# Nor can any of them show WHOSE REQUEST a review answers, which is the newest
+# ruling these rows carry. A marked request of revloop's own can be outstanding
+# at the same commit when a hand-typed trigger lands, so the review the adoption
+# reads may be the answer to that one -- and the only evidence of it is a marker
+# in step 7's REST comment read, a second call this fence never makes. Step 9
+# prints that possibility and gates nothing on it, so there is no branch here to
+# pin: the line is identical whether the ownership is ambiguous or not.
+#
+# Nor can anything here catch an adoption that spends --max-rounds, that numbers
+# its replies with an integer instead of adopted-<review_id>, that converges the
+# loop, or that merges -- nor a re-take that reads a review instead of
+# discarding it, nor a report that omits the discarded review_id=, nor a re-take
+# round that skips step 10's review sweep. Those rules live in steps 7, 9, 10
+# and 11, and this harness executes no prose.
 
 o=$(r reaction)
 expect "thumbs-up -> VERDICT=reaction"          "$o" "VERDICT=reaction"
