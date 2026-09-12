@@ -1441,21 +1441,25 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    as `pending` and let step 9's `pending` rows decide what happens next.
 
    **One exception, and without it the lost-baseline recovery this procedure promises cannot be
-   reached at all: a verdict line carrying `marker_head=none` goes to step 9's two `marker_head=none`
-   rows, not to `pending`.** Step 7 states that a verdict line is the **only** positive evidence that
-   the baseline is foreign, precisely because it carries `marker_head=` where a `pending` line carries
-   nothing — so demoting it to `pending` destroys the one signal the recovery is defined in terms of.
-   The ordinary way to lose a baseline is a newer hand-typed trigger, and that produces exactly this
-   shape: `trigger=` is not your `SINCE` **and** `marker_head=none`. Reconciled without the carve-out
-   it became three mismatches and `reason=foreign-baseline`, which promises no recovery, while the
-   `marker_head=none` rows — which promise a later run re-takes the baseline — were unreachable for
-   their own commonest cause, despite both this step and step 9 saying they take precedence.
+   reached at all: a verdict line carrying `marker_head=none` goes to step 9's three
+   `marker_head=none` rows, not to `pending`.** Step 7 states that a verdict line is the **only**
+   positive evidence that the baseline is foreign, precisely because it carries `marker_head=` where
+   a `pending` line carries nothing — so demoting it to `pending` destroys the one signal the
+   recovery is defined in terms of. The ordinary way to lose a baseline is a newer hand-typed
+   trigger, and that produces exactly this shape: `trigger=` is not your `SINCE` **and**
+   `marker_head=none`. Reconciled without the carve-out it became three mismatches and
+   `reason=foreign-baseline`, which promises no recovery, while the `marker_head=none` rows — which
+   promise a later run re-takes the baseline — were unreachable for their own commonest cause,
+   despite both this step and step 9 saying they take precedence.
 
-   **The first of those two rows does not abort, and the carve-out is what carries a round to it.**
-   A review by the configured reviewer at the commit in hand is **adopted** there rather than
-   discarded, which is the difference between a run that reads a verdict already on the pull request
-   and a run that reports it unread. Demoting the line to `pending` loses that as well as the
-   recovery — the same signal, spent twice.
+   **Two of those three rows do not abort, and the carve-out is what carries a round to either.**
+   They divide by where the reviewer's answer sits. A review by the configured reviewer **at the
+   commit in hand** is **adopted** there rather than discarded, which is the difference between a run
+   that reads a verdict already on the pull request and a run that reports it unread. One bound to a
+   **strict ancestor** of HEAD is read by nobody, and it is still not an abort: the
+   `foreign-baseline-retake` row discards its findings and fires an ordinary trigger, which is the
+   only way home for a run interrupted between an adopted round's push and its re-take. Demoting the
+   line to `pending` loses both as well as the recovery — the same signal, spent twice.
 
    **The re-fire is bounded at two, and the bound counts consecutive results rather than the clock.**
    The two shapes of mismatch cost different things, and the bound is written to hold for both. A
@@ -1503,8 +1507,9 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    **A verdict line carrying `marker_head=none` fails this check and is not sent back to re-fire for
    it.** Failing (b) is what that line is _for_: step 7 calls a verdict line the only positive
    evidence that the baseline is foreign, so a shape that proves the premise cannot also be the
-   mismatch that postpones it. It goes to the two `marker_head=none` rows at the head of the table,
-   and the first of them reads it rather than aborting.
+   mismatch that postpones it. It goes to the three `marker_head=none` rows at the head of the
+   table, two of which do not abort: the first reads the review the selection found, and the second
+   re-takes the baseline without one.
    (c) **`review`, `comment` and `reaction` only** — the three forms carrying a marker. **The winning
    marker's `oid=` equals `git rev-parse HEAD`, compared in full, and `round=` is this round's
    number.** The fence's `marker_head=` and `head=` are both eight characters and are **the screen
@@ -1540,13 +1545,14 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    foreign, not instead of it. Classify that as the lost baseline, whose rows promise a later run
    re-takes the baseline; reporting it as "another bot's verdict" is an abort that loses the recovery.
    **Taking precedence relocates this comparison; it does not drop it.** The login test becomes a
-   **precondition of the adoption row** rather than an abort of its own, and it is load-bearing
-   exactly because the bot filter is off: on a compatibility baseline it is the only thing standing
-   between the adoption and another bot's review of this same commit. **A login that is not the
-   reviewer's decides nothing here.** It opens the selection instead: the fence's line names the
-   newest review by any bot, and the review the adoption wants may be sitting behind it, so what
-   settles the round is the review list and not this login. The abort stands when that selection is
-   empty.
+   **precondition of both lost-baseline selections** — the adoption's and the ancestor-relaxed one,
+   which changes the commit condition and nothing else — rather than an abort of its own, and it is
+   load-bearing exactly because the bot filter is off: on a compatibility baseline it is the only
+   thing standing between those rows and another bot's review of this same commit. **A login that is
+   not the reviewer's decides nothing here.** It opens the selection instead: the fence's line names
+   the newest review by any bot, and the review the adoption wants may be sitting behind it, so what
+   settles the round is the review list and not this login. The abort stands when **both** selections
+   come back empty.
    (e) **`VERDICT=review` only**: reconcile the review's commit against HEAD. **Ask GitHub for the
    full object id and compare full ids — do not reconcile the fence's `commit=` directly**, because
    the fence prints `.commit.oid[0:8]` and eight characters are a prefix rather than an identity. The
@@ -1730,15 +1736,18 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    and `## Notes` records that gap and what closing it would cost.
 
    **The adoption is decided by a selection over the review list, not by the fence's line.** The line
-   opens the question: a `review` carrying `marker_head=none`. What answers it is step 10's list read,
-   the same call on the same endpoint, kept to the reviews submitted **strictly after** this line's
-   `trigger=`, whose `login` equals the resolved reviewer with a trailing `[bot]` stripped from
-   **both** sides, whose `state` is not `DISMISSED`, and whose `commit_id` equals `git rev-parse HEAD`
-   in all forty characters. **Adopt if that selection is non-empty; take the abort row if it is
-   empty.** The login condition is not a formality — on a compatibility baseline the fence's `bot=` is
-   empty and its filter admits any bot, so it is the only thing between the adoption and another
-   reviewer's opinion of the same commit. It is the same comparison as before and it is made against
-   the list rather than against one line.
+   opens the question, and **any** verdict line carrying `marker_head=none` does — `review`,
+   `comment` or `reaction` alike — because the selection reads the review list and takes only
+   `trigger=` off the line. The paragraph below states that separately from what may be **adopted**,
+   which is narrower. What answers it is step 10's list read, the same call on the same endpoint,
+   kept to the reviews submitted **strictly after** this line's `trigger=`, whose `login` equals the
+   resolved reviewer with a trailing `[bot]` stripped from **both** sides, whose `state` is not
+   `DISMISSED`, and whose `commit_id` equals `git rev-parse HEAD` in all forty characters. **Adopt if
+   that selection is non-empty; when it is empty the next question is the ancestor-relaxed selection
+   below, and the abort row stands only once that one is empty too.** The login condition is not a
+   formality — on a compatibility baseline the fence's `bot=` is empty and its filter admits any bot,
+   so it is the only thing between the adoption and another reviewer's opinion of the same commit. It
+   is the same comparison as before and it is made against the list rather than against one line.
 
    **Testing the fence's primary line instead was the defect, and it was this file's own defect twice
    over.** With `bot=` empty the fence keeps the newest review by **any** bot, so a second bot that
