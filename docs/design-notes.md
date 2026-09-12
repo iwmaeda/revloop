@@ -51,6 +51,23 @@ too-new row above has nothing to lose to it. A round that carried a review **as 
 the re-take at all — it reaches the `EXTRA=` ruling, whose whole point is that the trigger was
 answered — so no recoverable finding is ever in that gap.
 
+**Adopting a review under a foreign baseline is off that table entirely, because it moves no
+baseline.** The two rows above are about which trigger the wait filters against; an adoption changes
+neither the trigger nor the filter, and posts nothing. What it rests on instead is a **different and
+stronger binding**: GitHub's own `commit_id` for the review, fetched in full and compared against
+`git rev-parse HEAD`. A marker's `oid=` records what revloop **asked about**; `commit_id` records what
+the reviewer **looked at**, and when a hand-typed trigger holds the baseline the first does not exist
+while the second still does. That is why only a `review` may be adopted — a comment or a reaction
+carries no commit binding at all, so for those the too-old row is the whole risk and stays closed.
+
+**The abort it narrows was protecting the trigger's binding, not the review's.** "The compatibility
+class anchors a baseline; it cannot bind a verdict to a commit" is true of the trigger and false of
+the review, and reading the review is not racing the person who posted the trigger — the same
+read/post line the runaway invariant already draws. The narrowing is deliberately small: adoption
+requires the configured reviewer's login **and** a full `commit_id` equal to HEAD, and an adopted
+round can neither converge the loop nor merge, because the request it answers is not one this loop
+composed.
+
 **"Newest" is a computation, not a row position.** Trigger rows are sorted before the newest is taken,
 because the fence builds its array from several generators and generator order is not time order —
 taking the last row selected the newest _hand-typed_ trigger whenever one existed, which is the
@@ -71,7 +88,10 @@ arrived and presents as "the reviewer never responded". So the fence matches a s
 - **Reviewer-agnostic without widening.** A reviewer you invented gets the same exact matching the
   presets get. A preset alternation survives as a compatibility class so a hand-typed `@codex review`
   still anchors a baseline — anchoring is all it does. Such a trigger carries no `head=`, so the fence
-  reports `marker_head=none` and step 9 aborts rather than adopting the verdict.
+  reports `marker_head=none`, and step 9 aborts on it **except** when the review it drew is the
+  configured reviewer's and GitHub says it was submitted against the commit in hand. That exception
+  reads the review and then re-takes the baseline with an ordinary trigger; everything else still
+  aborts.
 - **`bot=` filters every other bot at fetch time.** Deploy-preview, coverage, a second reviewer — all
   discarded before classification. A bot that comments on every push satisfies the wait's exit
   condition immediately, so the wait never waits; that was a real failure. **Measured on
@@ -89,6 +109,13 @@ arrived and presents as "the reviewer never responded". So the fence matches a s
   gets that a quota may have recovered, and a marker recording it would authorise a re-take on every
   future run for the life of the branch. What keeps it bounded is that a re-take **opens a round**, so
   the round number counts it like any other and `--max-rounds` stops a series.
+- **An adopted round's identity goes the other way, and the two opposite choices are both right.**
+  It is scoped by `round=adopted-<review_id>` on its replies — derived from the pull request, so a
+  session that dies half-way through answering the review is resumed by a run that computes the same
+  scope and posts no duplicates. The rate-limit re-take's licence must be refundable by a restart
+  because a restart is the only evidence a quota recovered; an adopted round's scope must **not** be,
+  because a restart is not evidence that a reply is owed twice. Same file, opposite rules, one
+  question each.
 - **Config never reaches the fence.** Reviewer identity arrives via a comment revloop posted, not a
   file the fence parses, so a hostile `.revloop.json` has no path into a shell command or jq program.
 

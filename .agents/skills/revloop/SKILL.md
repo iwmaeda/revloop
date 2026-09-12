@@ -89,18 +89,23 @@ not apply.
 
 The procedure's `## Notes` section states them; these are the ones most often lost in adaptation:
 
-- **Never re-fire a trigger without new commits**, except in the three cases the procedure names — and
-  they belong to different runs. Compare `marker_head=` against current HEAD; the in-run exception is
-  silence, and its conditions and its budget of one live in the procedure, counted from the markers on
-  the pull request rather than from this session. **Neither of the other two is that exception**: a
-  lost baseline aborts, and a later run re-takes the baseline with an ordinary trigger at an unchanged
-  HEAD once it can establish the baseline is foreign; **a rate-limited round aborts too, and a later
-  run re-takes it** from the procedure's step-9 re-take row when the run reading the reply is not the
-  run that posted the trigger. Both open a new round rather than re-posting one.
-- **A run the invariant blocks still reads the pull request.** It posts nothing and then waits on the
-  trigger already standing there, carrying that marker's timestamp as its baseline. Ending the run at
-  the invariant instead is how a rate-limited round became unrecoverable, and it is also how a
-  standing answer goes unread.
+- **Never re-fire a trigger without new commits**, except in the four cases the procedure names, and
+  they do not all belong to different runs. Compare `marker_head=` against current HEAD; the in-run
+  exception is silence, and its conditions and its budget of one live in the procedure, counted from
+  the markers on the pull request rather than from this session. **None of the other three is that
+  exception**: a lost baseline aborts, and a later run re-takes the baseline with an ordinary trigger
+  at an unchanged HEAD once it can establish the baseline is foreign — **unless the foreign trigger
+  drew a review by the configured reviewer at the commit in hand**, which the procedure's step-9
+  adoption row reads, and the re-take then happens in **this** run; **a rate-limited round aborts too,
+  and a later run re-takes it** from the procedure's step-9 re-take row when the run reading the reply
+  is not the run that posted the trigger. Every re-take opens a new round rather than re-posting one,
+  and `--max-rounds` bounds them all.
+- **A run the invariant blocks still reads the pull request, and so does a run at the round cap.**
+  Either posts nothing and then waits on the trigger already standing there, carrying that marker's
+  timestamp as its baseline. Ending the run at the invariant instead is how a rate-limited round
+  became unrecoverable, and it is also how a standing answer goes unread; ending it at the cap is how
+  a pull request already at its round limit stopped being able to read one at all. **Whatever refuses
+  the post governs the post** — never whether the pull request is read.
 - **A round that fired twice can have two reviews on the same commit.** The wait names one of them.
   Read the findings from every review **by the configured reviewer** at HEAD submitted at or after the
   round's first trigger, or the other one's are silently dropped — and without that lower bound a round reopened on an unchanged

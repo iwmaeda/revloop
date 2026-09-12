@@ -232,6 +232,101 @@ o=$(r untriggered-verdict-review)
 expect "the newest untriggered signal wins"     "$o" "bot=review 2026-08-19T10:09:00Z"
 refute "  not the older comment"                "$o" "bot=comment"
 
+# The lost baseline, in the shape step 9's two marker_head=none rows are written
+# against. This first fixture is the line iwmaeda/schoolpath#115 actually
+# produced on 2026-09-12, with the ids kept and the marker's head= changed to a
+# value HEAD cannot share -- the refute below is the point of that change.
+#
+# A hand-typed `@codex review` newer than the round-8 marker takes the baseline,
+# the compat row carries no marker payload, and the parser's defaults survive:
+# reviewer=unknown, round=unknown, marker_head=none. The reviewer then answered
+# that trigger with a review of the checked-out commit, which is the input the
+# adoption row exists for.
+o=$(r foreign-baseline-review)
+expect "hand-typed trigger takes the baseline"  "$o" "VERDICT=review"
+expect "  the baseline is the compat comment"   "$o" "trigger=2026-09-09T10:44:51Z"
+expect "  it binds no head"                     "$o" "marker_head=none"
+expect "  and names no reviewer"                "$o" "reviewer=unknown"
+expect "  and no round"                         "$o" "round=unknown"
+expect "  the review is the reviewer's"         "$o" "login=chatgpt-codex-connector"
+expect "  and is addressable by id"             "$o" "review_id=5153256704"
+expect "  and names the commit it read"         "$o" "commit=000cac73"
+refute "  the marker's head did not leak in"    "$o" "marker_head=deadbeef"
+
+# The same line with a bot nobody configured. A compat baseline carries no bot=,
+# and an empty bot= disables the fence's filter -- so this line is producible,
+# and the configured-login test is the only thing between it and the adoption.
+o=$(r foreign-baseline-foreign-bot)
+expect "a foreign bot answers the same way"     "$o" "VERDICT=review"
+expect "  still an unbound baseline"            "$o" "marker_head=none"
+expect "  and the login is the discriminator"   "$o" "login=copilot-pull-request-reviewer"
+
+# A clean comment under the same baseline. It carries a login and a cid and NO
+# commit= at all, which is why only a review may be adopted: there is nothing
+# here to compare against HEAD, and adopting it is design-notes' too-old row.
+o=$(r foreign-baseline-comment)
+expect "a comment under a lost baseline"        "$o" "VERDICT=comment"
+expect "  binds no head either"                 "$o" "marker_head=none"
+expect "  and is addressable by id"             "$o" "cid=5600599999"
+refute "  but carries no commit binding"        "$o" "commit="
+
+# The stale half: the same shape, a review of some other commit. The fence's
+# output differs from the adoptable case in exactly one field.
+o=$(r foreign-baseline-stale-review)
+expect "a stale review under the same baseline" "$o" "VERDICT=review"
+expect "  unbound baseline, as before"          "$o" "marker_head=none"
+expect "  and a commit that is not HEAD's"      "$o" "commit=a5eb3169"
+
+# Two reviews drawn by one hand-typed trigger, a day apart. The fence names only
+# the newest, which is why step 10 sweeps an adopted round rather than trusting
+# review_id= alone -- the older one is on the pull request and unnamed here.
+o=$(r foreign-baseline-two-reviews)
+expect "the newest review wins"                 "$o" "review_id=5155000000"
+refute "  the older one is not named"           "$o" "review_id=5153256704"
+refute "  and does not arrive as EXTRA="        "$o" "EXTRA="
+
+# A thumbs-up on the hand-typed trigger. The compat generator emits a reaction
+# count like any other TRIG row, so this line is producible -- and it carries
+# neither login= nor commit=, which is the whole reason a reaction cannot be
+# adopted however clean it looks.
+o=$(r foreign-baseline-reaction)
+expect "a reaction under a lost baseline"      "$o" "VERDICT=reaction"
+expect "  binds no head"                       "$o" "marker_head=none"
+expect "  and names the trigger it answers"    "$o" "id=5600570017"
+refute "  it carries no login"                 "$o" "login="
+refute "  and no commit binding"               "$o" "commit="
+
+# The adoptable shape with a second bot talking on the same pull request. The
+# compat baseline empties bot=, so the comment filter admits ANY bot -- and the
+# EXTRA= that results is authored by one nobody configured. The primary line is
+# still the reviewer's, which is what the adoption tests; the EXTRA is not, and
+# step 9 says what that costs.
+o=$(r foreign-baseline-review-extra)
+expect "the primary line is still adoptable"   "$o" "VERDICT=review"
+expect "  by the configured reviewer"          "$o" "login=chatgpt-codex-connector"
+expect "  at the commit in hand"               "$o" "commit=000cac73"
+expect "  and a second bot rides along"        "$o" "EXTRA=comment"
+expect "  authored by nobody configured"       "$o" "login=cloudflare-workers-and-pages"
+
+# WHAT THESE SEVEN CANNOT SHOW. The fence's output is IDENTICAL for an adoptable
+# and a non-adoptable review whenever the short commit= agrees, because the
+# discriminator is the FETCHED forty-character commit_id and the configured
+# login -- and the fence emits the first truncated to eight characters and does
+# not fetch the second. `foreign-baseline-stale-review` differs from
+# `foreign-baseline-review` only because the fixture was written with eight
+# different characters; a commit sharing HEAD's prefix produces the same line as
+# the adoptable case, and step 9's check (e) is what separates them.
+#
+# Nor can `foreign-baseline-review-extra` show what step 9 does with that EXTRA=.
+# The fence emits it either way; whether a foreign bot's body is matched against
+# the configured reviewer's rateLimitPatterns, and what that match may decide, is
+# prose in step 9 and not a field on this line.
+#
+# Nor can anything here catch an adoption that spends --max-rounds, that numbers
+# its replies with an integer instead of adopted-<review_id>, that converges the
+# loop, or that merges. Those rules live in steps 7, 9, 10 and 11, and this
+# harness executes no prose.
+
 o=$(r reaction)
 expect "thumbs-up -> VERDICT=reaction"          "$o" "VERDICT=reaction"
 expect "  carries the trigger id"               "$o" "id=111"
