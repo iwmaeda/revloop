@@ -3541,8 +3541,13 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   ledger" stops being a rule an operator can break and becomes a property of the location — and it
   covers the sweep's rewrite for free, since the temp file it renames over the record is a sibling
   in that same directory and is invisible to all four commands for the same reason. The field
-  notes and the grading input **stay in the tree on purpose** and keep the cost — they are artifacts
-  for a person to find, and a record for a person is worthless where only a fence looks.
+  notes and the grading input **stay in the tree on purpose** — they are artifacts for a person to
+  find, and a record for a person is worthless where only a fence looks — **but no longer pay for
+  it**: `.revloop/` carries its own `.gitignore`, which the **Field notes** paragraph under
+  `## Unexercised paths` has the procedure write first, so the two reads above return nothing for
+  them either, and `git add -A` stages nothing. **That is not enough for the ledger**, and the
+  difference is the fourth command: an ignored file is exactly what `git clean -xdf` deletes, and
+  the ledger's existence is what the teardown's `inside-worktree` guard reads.
 - **The ledger is per checkout, and per checkout is the right grain — which is why it is
   `--absolute-git-dir` and not `--git-common-dir`.** `git worktree list` answers for the whole
   repository and every linked worktree of it shares one **common** git dir, so two loops running
@@ -4238,7 +4243,28 @@ reviewer, path, outcome. Three rules make this safe:
 
 1. **Never read field notes as input to a classification.** They are for humans and for upstreaming
    into `reviewers/*.md`. A stale or poisoned notes file must not be able to change behaviour.
-2. **Never stage them.** `.revloop/` is git-ignored by default; step 4's explicit-staging rule keeps
-   it out of commits even so.
+2. **Never stage them — and the directory ignores itself, so nobody has to ignore it for you.**
+   **Before the first write into `.revloop/`** — this file, or the grading input
+   [`severity-grading.md`](severity-grading.md) writes there — **check whether `.revloop/.gitignore`
+   exists. If it does not, create it with exactly these two lines; if it does, leave it as it is**,
+   because it may be the operator's:
+
+   <!-- revloop:file id=revloop-gitignore -->
+
+   ```text
+   # Created by revloop: everything in this directory is local to this checkout.
+   *
+   ```
+
+   **The `*` matches the file that holds it**, so the whole directory drops out of git's view in a
+   repository whose own `.gitignore` says nothing about `.revloop/` — which is every repository
+   revloop is installed into, since this one's `.gitignore` has no reach there. Measured at
+   `git 2.34.1`, with those lines in place, `git status --porcelain -uall` — the read step 4 stages
+   from, and the local loop's clean-tree check — and `git ls-files -o --exclude-standard` — step 3's
+   untracked-file read — both return nothing, `git add -A` stages nothing, and
+   `git add .revloop/field-notes.md` named explicitly is refused with exit `1`. Without them both
+   reads return both files, and a grading input carrying one trailing space fails step 3's
+   whitespace check with `2`. Step 4's explicit-staging rule still holds on top of it.
+
 3. **Cap them.** One line per event, rotated at 500 lines. An append-only file that nobody reads is
    worse than no file.

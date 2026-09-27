@@ -1295,7 +1295,10 @@ exercised steps 1 through 9 and neither reached the bar
 [`../reviewers/README.md`](../reviewers/README.md) sets. Every path below is unobserved except where
 this section now says otherwise, and the whole procedure still sits at the same standing as a reviewer
 card marked `unverified`. All of them fail closed — toward an abort — except where noted. A run that
-takes one should say so in the report and append a line to `.revloop/field-notes.md`.
+takes one should say so in the report and append a line to `.revloop/field-notes.md`, under the three
+rules of the **Field notes** paragraph in [`remote-loop.md`](remote-loop.md)'s `## Unexercised paths`
+— the second of which writes `.revloop/.gitignore` first when it is missing, so the note never costs
+step 4 its clean tree.
 
 - **Steps 10 and 11, and every step under the abort path.** Steps 1 to 9 have run. Step 10 has never
   run: the `requiresPr` reviewer published at step 5 instead, and the run that would have reached 10

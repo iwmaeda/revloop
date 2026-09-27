@@ -9,7 +9,9 @@ node_modules/
 mise.local.toml
 
 # Files the loop writes at runtime: field notes and grading input (see
-# docs/design-notes.md). The worktree ledger is NOT here -- it lives under the
-# git directory, so that it needs no ignore rule in the repositories revloop is
-# installed into, where this file has no reach.
+# docs/design-notes.md). The procedure writes .revloop/.gitignore holding `*`
+# before either, so git needs no rule here or in the repositories revloop is
+# installed into. This one stays for prettier, which reads only the top-level
+# .gitignore -- without it `format:check` would start reading .revloop/. The
+# worktree ledger is NOT in .revloop/ -- it lives under the git directory.
 .revloop/

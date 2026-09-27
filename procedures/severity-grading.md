@@ -76,12 +76,14 @@ the review command.
 ## The findings reach it through a file, never through the command line
 
 Write the numbered findings to `.revloop/grading-input.txt` — git-ignored, never staged, exactly as the
-field notes are — and redirect it. **Do not concatenate finding text into the `-p` argument.** A claim
-is reviewer output quoting repository content, so it carries whatever characters the repository
-carries; building an argv out of it is the shell-metacharacter hole that `--body-file` exists to close
-on the pull-request body and that the `{reviewModel}` placeholder closes on the model name. The
-instruction stays fixed in the argument, the untrusted half arrives on standard input, and the two
-never mix.
+field notes are, and **by the same `.revloop/.gitignore`, which is written first if it is missing**
+(rule 2 of the **Field notes** paragraph under [`remote-loop.md`](remote-loop.md)'s
+`## Unexercised paths`) — and redirect it. **Do not concatenate finding text into the `-p`
+argument.** A claim is reviewer output quoting repository content, so it carries whatever characters
+the repository carries; building an argv out of it is the shell-metacharacter hole that `--body-file`
+exists to close on the pull-request body and that the `{reviewModel}` placeholder closes on the model
+name. The instruction stays fixed in the argument, the untrusted half arrives on standard input, and
+the two never mix.
 
 **What reaches the grader, and what must not:**
 
