@@ -4237,6 +4237,15 @@ takes one of these should say so in the report:
   gone is a 2.34.1 observation, and it is the whole argument for this fence carrying no prune. A
   `git` old enough to refuse either would reach `WORKTREE=stuck`, which is a wrong-looking report
   rather than a silent leftover.
+- **Rule 2 of the Field notes paragraph below — the three questions before every write into
+  `.revloop/`.** What is measured is git's side: at `git 2.34.1`, each state the rule lists answers
+  `git ls-files` and `git check-ignore` the way the rule says, and `tests/revloop-dir.test.sh`
+  re-measures them on whatever git CI carries. **No run has asked them**: nobody has watched a
+  loop create `.revloop/.gitignore`, and neither refusal — a note moved into the report, a round
+  left ungraded — has been produced by a run, so what the report says in either case is
+  unobserved. **Both refusals fail closed**, toward a line in the report or toward more work, and
+  never toward a file in `git status`. An operator's `.revloop/.gitignore` that hides the outputs,
+  and a checkout whose note is already tracked, are the two shapes most likely to be met first.
 
 **Field notes.** When a round takes one of these paths, aborts, or sees a latency outside the range on
 the reviewer's card, append **one line** to `.revloop/field-notes.md` in the project: date, PR,

@@ -13,6 +13,8 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-28
+
 ### `.revloop/` ignores itself, so installing revloop no longer means editing a shared `.gitignore`
 
 **The directory was only ignored in this repository.** `.revloop/field-notes.md` and
@@ -40,10 +42,12 @@ tracked note all print, measured — recreating that deleted file shows as modif
 `check-ignore` still answers `0`. A field note refused by either goes into the report instead; a
 grading input refused by either leaves the round ungraded, which is blocking. The first version
 checked existence alone, the second began at the ignore file, and Codex returned each as a P2 on
-`iwmaeda/revloop#33`. The rule is written once, as rule 2 of the
-**Field notes** paragraph in `remote-loop.md`'s `## Unexercised paths`, and `severity-grading.md` and
-`local-loop.md` cite it. `tests/revloop-dir.test.sh` takes the two lines out of the procedure and
-measures them, and each state the procedure lists for both git questions, against the git CI runs.
+`iwmaeda/revloop#33`. The rule is written once, as rule 2 of the **Field notes** paragraph in
+`remote-loop.md`'s `## Unexercised paths`, and `severity-grading.md` and `local-loop.md` cite it.
+`tests/revloop-dir.test.sh` takes the two lines out of the procedure and measures them, and each
+state the procedure lists for both git questions, against the git CI runs. **No run has taken the
+rule yet** — the loop that reviewed it ran 0.11.0 — so `## Unexercised paths` gains an entry for it
+rather than none.
 
 **What it does not reach:** a tool that reads only the top-level `.gitignore`, or none. prettier 3.9.6
 reports the notes file as not ignored under the nested file alone, and `markdownlint-cli2` lints it
@@ -3445,6 +3449,7 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.12.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.12.0
 [0.11.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.11.0
 [0.10.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.10.0
 [0.9.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.9.0
