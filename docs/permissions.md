@@ -178,7 +178,7 @@ If that is not enough, grant subcommands individually — `Bash(git status:*)`, 
 `Bash(git log:*)`, `Bash(git add:*)`, `Bash(git commit:*)`, `Bash(git checkout:*)`,
 `Bash(git branch:*)`, `Bash(git push:*)`, `Bash(git rev-parse:*)`, `Bash(git merge-base:*)`,
 `Bash(git fetch:*)`, `Bash(git switch:*)`, `Bash(git ls-files:*)`, `Bash(git pull:*)`,
-`Bash(git worktree:*)` — and accept that the list will need
+`Bash(git worktree:*)`, `Bash(git check-ignore:*)` — and accept that the list will need
 extending the first time a step reaches for something not on it. Nobody has measured which
 repositories need which subset.
 

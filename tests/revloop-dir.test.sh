@@ -110,4 +110,48 @@ printf '%s\n' "$BODY" > "$TMP/linked/.revloop/.gitignore"
 same "in a linked worktree, status -uall returns nothing" "$(git -C "$TMP/linked" status --porcelain -uall)"          ""
 same "in a linked worktree, ls-files -o returns nothing"  "$(git -C "$TMP/linked" ls-files -o --exclude-standard)" ""
 
+# --- the second half: git decides whether to write ----------------------------
+# An existing .revloop/.gitignore is left alone, so "the file exists" says
+# nothing about what it hides. The procedure asks `git check-ignore -q` before
+# every write and writes only on 0. Each state of its table is one repository
+# here, and each asserts both the exit code and what `git status` would do with
+# the write -- the exit code is the rule, and the status is why it is the rule.
+same "the procedure states the check it runs" \
+  "$(grep -c -- 'git check-ignore -q -- .revloop/field-notes.md' "$SRC")" "1"
+
+ci() { # ci <checkout> <path> -> exit code of the procedure's check
+  git -C "$1" check-ignore -q -- "$2"; printf '%s' "$?"
+}
+
+C=$(new_repo created);   mkdir "$C/.revloop"; printf '%s\n' "$BODY" > "$C/.revloop/.gitignore"
+E=$(new_repo empty);     mkdir "$E/.revloop"; : > "$E/.revloop/.gitignore"
+N=$(new_repo negation);  mkdir "$N/.revloop"; printf '*\n!field-notes.md\n' > "$N/.revloop/.gitignore"
+D=$(new_repo directory); mkdir -p "$D/.revloop/.gitignore"
+T=$(new_repo tracked);   mkdir "$T/.revloop"; printf '%s\n' "$BODY" > "$T/.revloop/.gitignore"
+printf 'note\n' > "$T/.revloop/field-notes.md"
+git -C "$T" add -f .revloop/field-notes.md
+git -C "$T" -c user.email=t@example.com -c user.name=t commit -q -m tracked
+X=$(new_repo exclude);   mkdir "$X/.revloop"; printf '.revloop/\n' >> "$X/.git/info/exclude"
+
+same "created with the procedure's lines: 0"      "$(ci "$C" .revloop/field-notes.md)"    "0"
+same "an empty file hides nothing: 1"             "$(ci "$E" .revloop/field-notes.md)"    "1"
+same "a negation un-hides the note: 1"            "$(ci "$N" .revloop/field-notes.md)"    "1"
+same "and still hides the grading input: 0"       "$(ci "$N" .revloop/grading-input.txt)" "0"
+same "a directory in its place hides nothing: 1"  "$(ci "$D" .revloop/field-notes.md)"    "1"
+same "a tracked note is not ignored: 1"           "$(ci "$T" .revloop/field-notes.md)"    "1"
+same "info/exclude answers for itself: 0"         "$(ci "$X" .revloop/field-notes.md)"    "0"
+
+# Why 1 must refuse: in every state that answers 1, the write shows up.
+printf 'note\n' > "$E/.revloop/field-notes.md"
+expect "a write the empty file allowed would show"    "$(git -C "$E" status --porcelain -uall)" "?? .revloop/field-notes.md"
+printf 'note\n' > "$N/.revloop/field-notes.md"
+expect "a write the negation allowed would show"      "$(git -C "$N" status --porcelain -uall)" "?? .revloop/field-notes.md"
+printf 'more\n' >> "$T/.revloop/field-notes.md"
+expect "a write to the tracked note would show"       "$(git -C "$T" status --porcelain -uall)" " M .revloop/field-notes.md"
+# And why 0 may write: the write shows nowhere.
+printf 'note\n' > "$C/.revloop/field-notes.md"
+same "a write the created file allowed shows nowhere" "$(git -C "$C" status --porcelain -uall)" ""
+printf 'note\n' > "$X/.revloop/field-notes.md"
+same "a write info/exclude allowed shows nowhere"     "$(git -C "$X" status --porcelain -uall)" ""
+
 summary "revloop-dir"

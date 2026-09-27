@@ -3544,8 +3544,9 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   notes and the grading input **stay in the tree on purpose** — they are artifacts for a person to
   find, and a record for a person is worthless where only a fence looks — **but no longer pay for
   it**: `.revloop/` carries its own `.gitignore`, which the **Field notes** paragraph under
-  `## Unexercised paths` has the procedure write first, so the two reads above return nothing for
-  them either, and `git add -A` stages nothing. **That is not enough for the ledger**, and the
+  `## Unexercised paths` has the procedure write first, and each write there waits for
+  `git check-ignore` to say the path is ignored — so the two reads above return nothing for them
+  either, and `git add -A` stages nothing. **That is not enough for the ledger**, and the
   difference is the fourth command: an ignored file is exactly what `git clean -xdf` deletes, and
   the ledger's existence is what the teardown's `inside-worktree` guard reads.
 - **The ledger is per checkout, and per checkout is the right grain — which is why it is
@@ -4244,10 +4245,10 @@ reviewer, path, outcome. Three rules make this safe:
 1. **Never read field notes as input to a classification.** They are for humans and for upstreaming
    into `reviewers/*.md`. A stale or poisoned notes file must not be able to change behaviour.
 2. **Never stage them — and the directory ignores itself, so nobody has to ignore it for you.**
-   **Before the first write into `.revloop/`** — this file, or the grading input
-   [`severity-grading.md`](severity-grading.md) writes there — **check whether `.revloop/.gitignore`
-   exists. If it does not, create it with exactly these two lines; if it does, leave it as it is**,
-   because it may be the operator's:
+   **Before every write into `.revloop/`** — this file, or the grading input
+   [`severity-grading.md`](severity-grading.md) writes there — do two things, in this order. **First,
+   check whether `.revloop/.gitignore` exists. If it does not, create it with exactly these two
+   lines; if it does, leave it as it is**, because it may be the operator's:
 
    <!-- revloop:file id=revloop-gitignore -->
 
@@ -4265,6 +4266,40 @@ reviewer, path, outcome. Three rules make this safe:
    `git add .revloop/field-notes.md` named explicitly is refused with exit `1`. Without them both
    reads return both files, and a grading input carrying one trailing space fails step 3's
    whitespace check with `2`. Step 4's explicit-staging rule still holds on top of it.
+
+   **Second, ask git whether the path you are about to write is ignored, and write it only if it
+   is:**
+
+   ```bash
+   git check-ignore -q -- .revloop/field-notes.md    # or .revloop/grading-input.txt — 0 means ignored
+   ```
+
+   **Exit `0` is the only answer that permits the write.** `1` means git would show the file, and
+   anything else means the question was not answered; neither is permission. **What happens instead
+   depends on the file, and both fail closed**: a field note that git would show goes into the
+   report instead of the file; a grading input that git would show means the round is **not
+   graded**, so every finding in it is `ungraded` — blocking under every floor, as
+   [`severity-grading.md`](severity-grading.md) rules for a finding the grader did not rank. Either
+   way the report says that `.revloop/` is not ignored in this checkout, and quotes
+   `.revloop/.gitignore` if there is one.
+
+   **The existence test decides whether to create, git decides whether to write, and they are two
+   tests because they answer two questions.** Leaving an existing file alone is right — it may be
+   the operator's — and it is exactly the case in which "the file exists" says nothing about what it
+   hides. Written as the existence test alone, this rule let an existing file that hides nothing
+   through to a write git then shows, and the reviewer returned it as a P2 (`iwmaeda/revloop#33`,
+   2026-09). **Asking git rather than reading the file is what covers every source of a rule at
+   once** — a top-level `.gitignore` or `.git/info/exclude` naming `.revloop/` answers `0` too — and
+   a path already tracked, which no ignore rule hides. Measured at `git 2.34.1`:
+
+   | `.revloop/.gitignore`                       | `check-ignore` exits | Write                                 |
+   | ------------------------------------------- | -------------------- | ------------------------------------- |
+   | absent, so created with the lines above     | `0`                  | yes                                   |
+   | present and empty                           | `1`                  | no                                    |
+   | present, `*` then `!field-notes.md`         | `1` for the note     | the grading input only                |
+   | present as a **directory**                  | `1`                  | no                                    |
+   | `*`, but the note is already tracked        | `1`                  | no — the write would show as modified |
+   | any, asked of a path outside the repository | `128`                | no                                    |
 
 3. **Cap them.** One line per event, rotated at 500 lines. An append-only file that nobody reads is
    worse than no file.
