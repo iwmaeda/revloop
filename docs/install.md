@@ -95,11 +95,11 @@ loop prints a permission prompt for every step, work through [`permissions.md`](
 
 A run may create `.revloop/` at the top of your checkout: field notes for you to read later, and the
 grader's input. **Nothing needs adding to your `.gitignore`.** The first file written there is
-`.revloop/.gitignore`, holding `*`, and nothing is written there that `git check-ignore` says git
-would show — so the directory stays out of `git status` and `git add` in any repository, including
-one where revloop is installed only for you, through `.claude/settings.local.json`. The worktree
-ledger is under `.git/` and never in the tree at all. The reasons, and what this does not cover, are
-in [design notes](design-notes.md#field-notes).
+`.revloop/.gitignore`, holding `*`; nothing is written where git tracks anything under `.revloop`, or
+where `git check-ignore` says git would show the file — so the directory stays out of `git status`
+and `git add` in any repository, including one where revloop is installed only for you, through
+`.claude/settings.local.json`. The worktree ledger is under `.git/` and never in the tree at all. The
+reasons, and what this does not cover, are in [design notes](design-notes.md#field-notes).
 
 ## Related docs
 

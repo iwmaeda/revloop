@@ -545,9 +545,12 @@ a note is refused. The same file is what `.pytest_cache/`, `.mypy_cache/`, `.ruf
 Python 3.13 venv carry, for the same reason. The rule lives once, in the **Field notes** paragraph of
 [`remote-loop.md`](../procedures/remote-loop.md)'s `## Unexercised paths`. **An existing
 `.revloop/.gitignore` is left alone, because it may be the operator's — and so every write is also
-asked of `git check-ignore`**, which answers for that file, the top-level `.gitignore`,
-`.git/info/exclude` and a path already tracked at once. A field note git would show goes into the
-report instead, and a grading input git would show leaves the round ungraded, which is blocking.
+asked of `git check-ignore`**, which answers for that file, the top-level `.gitignore` and
+`.git/info/exclude` at once. **And before either, `git ls-files -- .revloop` must print nothing**:
+a tracked path there — a tracked ignore file deleted from the work tree, a tracked symbolic link or
+a submodule at `.revloop` — makes the directory the repository's, and even creating the ignore file
+would modify it or write outside the checkout. A field note refused by either goes into the report
+instead, and a grading input refused by either leaves the round ungraded, which is blocking.
 
 **Four alternatives were weighed and each costs more than it saves.** Under the git directory,
 beside the ledger, would hide the one artifact whose whole purpose is to be found later by a human,

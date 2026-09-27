@@ -76,18 +76,18 @@ the review command.
 ## The findings reach it through a file, never through the command line
 
 Write the numbered findings to `.revloop/grading-input.txt` — git-ignored, never staged, exactly as the
-field notes are, and under the same rule: **`.revloop/.gitignore` is written first if it is missing,
-and the file is written only when `git check-ignore` says git will not show it** (rule 2 of the
-**Field notes** paragraph under [`remote-loop.md`](remote-loop.md)'s `## Unexercised paths`) — and
-redirect it. **When git says it would show it, do not grade this round**: every finding is
-`ungraded`, which is blocking under every floor exactly as a finding the grader did not rank is, and
-the report says `.revloop/` is not ignored in this checkout. That fails toward more work rather than
-toward a findings file in `git status`. **Do not concatenate finding text into the `-p`
-argument.** A claim is reviewer output quoting repository content, so it carries whatever characters
-the repository carries; building an argv out of it is the shell-metacharacter hole that `--body-file`
-exists to close on the pull-request body and that the `{reviewModel}` placeholder closes on the model
-name. The instruction stays fixed in the argument, the untrusted half arrives on standard input, and
-the two never mix.
+field notes are, and under the same rule: **nothing is written unless git tracks nothing under
+`.revloop`, `.revloop/.gitignore` is written first if it is missing, and the file is written only
+when `git check-ignore` says git will not show it** (rule 2 of the **Field notes** paragraph under
+[`remote-loop.md`](remote-loop.md)'s `## Unexercised paths`) — and redirect it. **When any of the
+three refuses, do not grade this round**: every finding is `ungraded`, which is blocking under every
+floor exactly as a finding the grader did not rank is, and the report says which of the three refused.
+That fails toward more work rather than toward a findings file in `git status`. **Do not concatenate
+finding text into the `-p` argument.** A claim is reviewer output quoting repository content, so it
+carries whatever characters the repository carries; building an argv out of it is the
+shell-metacharacter hole that `--body-file` exists to close on the pull-request body and that the
+`{reviewModel}` placeholder closes on the model name. The instruction stays fixed in the argument,
+the untrusted half arrives on standard input, and the two never mix.
 
 **What reaches the grader, and what must not:**
 

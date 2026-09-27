@@ -33,13 +33,17 @@ file in the directory including itself. Measured at `git 2.34.1`, in an ordinary
 linked one, both reads return nothing, `git add -A` stages nothing, and
 `git add .revloop/field-notes.md` named explicitly is refused with exit `1`. **An existing
 `.revloop/.gitignore` is left alone, so every write also asks `git check-ignore -q` and goes ahead
-only on `0`** — an empty file, a negation, a directory in its place and an already-tracked note all
-answer `1`, measured. A field note git would show goes into the report instead; a grading input git
-would show leaves the round ungraded, which is blocking. The first version checked existence alone
-and Codex returned it as a P2 on `iwmaeda/revloop#33`. The rule is written once, as rule 2 of the
+only on `0`** — an empty file, a negation and a directory in its place all answer `1`, measured.
+**And before anything is written there, `git ls-files -- .revloop` must print nothing**: a tracked
+ignore file deleted from the work tree, a tracked symbolic link or submodule at `.revloop`, and a
+tracked note all print, measured — recreating that deleted file shows as modified while
+`check-ignore` still answers `0`. A field note refused by either goes into the report instead; a
+grading input refused by either leaves the round ungraded, which is blocking. The first version
+checked existence alone, the second began at the ignore file, and Codex returned each as a P2 on
+`iwmaeda/revloop#33`. The rule is written once, as rule 2 of the
 **Field notes** paragraph in `remote-loop.md`'s `## Unexercised paths`, and `severity-grading.md` and
 `local-loop.md` cite it. `tests/revloop-dir.test.sh` takes the two lines out of the procedure and
-measures them, and each state in the procedure's `check-ignore` table, against the git CI runs.
+measures them, and each state the procedure lists for both git questions, against the git CI runs.
 
 **What it does not reach:** a tool that reads only the top-level `.gitignore`, or none. prettier 3.9.6
 reports the notes file as not ignored under the nested file alone, and `markdownlint-cli2` lints it
@@ -48,7 +52,7 @@ a rule keeps it. `docs/design-notes.md` says why `.git/`, `.git/info/exclude`, `
 ignored" names were each weighed and not taken.
 
 **No fence changed.** The file is written with the `Write` tool every command already grants, and
-`git check-ignore` falls under the `Bash(git:*)` every command already carries, so no command gains
+both git questions fall under the `Bash(git:*)` every command already carries, so no command gains
 a permission prompt and no approval has to be given again. **One grant is new for an operator who
 listed git subcommands individually**: `docs/permissions.md`'s list gains `Bash(git check-ignore:*)`,
 and `tests/permissions.test.sh` is what required it.
