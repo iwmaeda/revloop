@@ -516,25 +516,55 @@ whatever HEAD it is sitting on.
 When a round takes an unexercised path, aborts, or sees a latency outside the range on the reviewer's
 card, the procedure appends one line to `.revloop/field-notes.md` — date, PR, reviewer, path, outcome.
 Three rules make that safe: never read them as input to a classification (they are for humans, and for
-upstreaming into `reviewers/*.md`); never stage them (`.revloop/` is git-ignored, and step 4's
-explicit-staging rule keeps it out of commits anyway); and cap them at 500 lines, rotated.
+upstreaming into `reviewers/*.md`); never stage them (`.revloop/` ignores itself — see below — and
+step 4's explicit-staging rule keeps it out of commits anyway); and cap them at 500 lines, rotated.
 
 **The worktree ledger is not in that directory, and the difference is the audience.** A run records
 each git worktree it creates in `revloop/worktrees.txt` inside the checkout's own git directory —
 `.git/revloop/` in an ordinary checkout, `.git/worktrees/<name>/revloop/` in a linked one — which is
 how the teardown fence knows which worktrees are its own — and **the same fence retires each entry it
 consumes**, so a record buys one removal rather than authorizing that path for good. Field notes are
-for a person to find and upstream, so they live in the tree and pay for it; the ledger is read and
-rewritten by a fence and touched by nothing else,
-so it lives where **no `git status`, `git ls-files -o`, `git add -A` or `git clean -xdf` can reach
-it** and needs no ignore rule in the repository the loop is running against. The third rule still
-holds and is the only one that had to be argued: it is never read as input to a classification — the
-only thing it decides is which directory the sweep may delete.
+for a person to find and upstream, so they live in the tree; the ledger is read and rewritten by a
+fence and touched by nothing else, so it lives where **no `git status`, `git ls-files -o`,
+`git add -A` or `git clean -xdf` can reach it** and needs no ignore rule in the repository the loop
+is running against. The third rule still holds and is the only one that had to be argued: it is
+never read as input to a classification — the only thing it decides is which directory the sweep
+may delete.
 
-**The other two files keep the cost, deliberately.** `.revloop/field-notes.md` and
-`.revloop/grading-input.txt` are untracked files in a repository that does not ignore `.revloop/`,
-and moving them under the git directory would hide the one artifact whose whole purpose is to be
-found later by a human.
+**The other two files stay in the tree, and the directory ignores itself.** `.revloop/field-notes.md`
+and `.revloop/grading-input.txt` were untracked files in every repository that did not ignore
+`.revloop/`, which is every repository revloop is installed into — this one's `.gitignore` has no
+reach there — so installing revloop privately, through `.claude/settings.local.json`, still meant
+either adding a line to a `.gitignore` the whole team shares or living with both files in
+`git status`. And it was not only noise: measured at `git 2.34.1`, both come back from
+`git status --porcelain -uall` and `git ls-files -o --exclude-standard`, and a grading input carrying
+one trailing space fails the remote loop's step-3 whitespace check with `2`. **So the first write into
+`.revloop/` is now `.revloop/.gitignore`, holding `*`**, which matches every file in the directory
+including itself: both reads return nothing, `git add -A` stages nothing, and an explicit `git add` of
+a note is refused. The same file is what `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/` and a
+Python 3.13 venv carry, for the same reason. The rule lives once, in the **Field notes** paragraph of
+[`remote-loop.md`](../procedures/remote-loop.md)'s `## Unexercised paths`. **An existing
+`.revloop/.gitignore` is left alone, because it may be the operator's — and so every write is also
+asked of `git check-ignore`**, which answers for that file, the top-level `.gitignore` and
+`.git/info/exclude` at once. **And before either, `git ls-files -- .revloop` must print nothing**:
+a tracked path there — a tracked ignore file deleted from the work tree, a tracked symbolic link or
+a submodule at `.revloop` — makes the directory the repository's, and even creating the ignore file
+would modify it or write outside the checkout. A field note refused by either goes into the report
+instead, and a grading input refused by either leaves the round ungraded, which is blocking.
+
+**Four alternatives were weighed and each costs more than it saves.** Under the git directory,
+beside the ledger, would hide the one artifact whose whole purpose is to be found later by a human,
+and would turn the grader's fixed `< .revloop/grading-input.txt` into a command substitution.
+Appending to `.git/info/exclude` edits a file the operator owns, silently, and needs an idempotent
+append against the common git directory. A directory under `$HOME` needs a key per checkout, writes
+outside the workspace that a Codex `workspace-write` sandbox and Claude Code's own permission prompts
+both stand in front of, and collides with `~/.revloop`, the clone path the Codex install suggests.
+And a name that is "usually ignored" — `.cache/`, `*.local.*` — is usually ignored only in some
+ecosystems. **What a self-ignoring directory does not reach** is a tool that reads only the top-level
+`.gitignore`, or none. Measured: prettier 3.9.6 reports `.revloop/field-notes.md` as not ignored with
+only `.revloop/.gitignore` in place and as ignored under a top-level rule, and `markdownlint-cli2`
+lints it either way. So a repository with no top-level rule is where it was before — its linters see
+the note — and one that already added a rule keeps it and loses nothing.
 
 A project's `.revloop/` is unrelated to `~/.revloop`, the clone path the Codex install suggests.
 

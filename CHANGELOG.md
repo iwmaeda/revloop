@@ -13,6 +13,50 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### `.revloop/` ignores itself, so installing revloop no longer means editing a shared `.gitignore`
+
+**The directory was only ignored in this repository.** `.revloop/field-notes.md` and
+`.revloop/grading-input.txt` are written into the checkout the loop runs against, and the one rule
+that hid them was this repository's own `.gitignore`, which has no reach anywhere else — and
+`docs/install.md` never asked for one. So a person who installed revloop only for themselves, through
+`.claude/settings.local.json`, had two choices: add `.revloop/` to a `.gitignore` the whole team
+shares, or live with two untracked files.
+
+**And they were not only noise.** Measured at `git 2.34.1` in a repository with no rule for them, both
+come back from `git status --porcelain -uall` — the read `remote-loop.md` step 4 stages from and
+`local-loop.md`'s clean-tree check — and from `git ls-files -o --exclude-standard`, step 3's
+untracked-file read. A grading input carrying one trailing space fails step 3's whitespace check with
+`2`.
+
+**Now: the first write into `.revloop/` is `.revloop/.gitignore`, holding `*`**, which matches every
+file in the directory including itself. Measured at `git 2.34.1`, in an ordinary checkout and a
+linked one, both reads return nothing, `git add -A` stages nothing, and
+`git add .revloop/field-notes.md` named explicitly is refused with exit `1`. **An existing
+`.revloop/.gitignore` is left alone, so every write also asks `git check-ignore -q` and goes ahead
+only on `0`** — an empty file, a negation and a directory in its place all answer `1`, measured.
+**And before anything is written there, `git ls-files -- .revloop` must print nothing**: a tracked
+ignore file deleted from the work tree, a tracked symbolic link or submodule at `.revloop`, and a
+tracked note all print, measured — recreating that deleted file shows as modified while
+`check-ignore` still answers `0`. A field note refused by either goes into the report instead; a
+grading input refused by either leaves the round ungraded, which is blocking. The first version
+checked existence alone, the second began at the ignore file, and Codex returned each as a P2 on
+`iwmaeda/revloop#33`. The rule is written once, as rule 2 of the
+**Field notes** paragraph in `remote-loop.md`'s `## Unexercised paths`, and `severity-grading.md` and
+`local-loop.md` cite it. `tests/revloop-dir.test.sh` takes the two lines out of the procedure and
+measures them, and each state the procedure lists for both git questions, against the git CI runs.
+
+**What it does not reach:** a tool that reads only the top-level `.gitignore`, or none. prettier 3.9.6
+reports the notes file as not ignored under the nested file alone, and `markdownlint-cli2` lints it
+either way — so a repository without a top-level rule is where it was before, and one that already has
+a rule keeps it. `docs/design-notes.md` says why `.git/`, `.git/info/exclude`, `$HOME` and "usually
+ignored" names were each weighed and not taken.
+
+**No fence changed.** The file is written with the `Write` tool every command already grants, and
+both git questions fall under the `Bash(git:*)` every command already carries, so no command gains
+a permission prompt and no approval has to be given again. **One grant is new for an operator who
+listed git subcommands individually**: `docs/permissions.md`'s list gains `Bash(git check-ignore:*)`,
+and `tests/permissions.test.sh` is what required it.
+
 ## [0.11.0] - 2026-09-13
 
 ### The lost-baseline recovery was promised by three places and reachable from none
