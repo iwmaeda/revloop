@@ -13,6 +13,8 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-29
+
 ### A configuration can be yours alone: `.revloop/config.json`, kept out of git with no rule to add
 
 **0.12.0 took `.revloop/` out of every shared `.gitignore`, and left the configuration file at the
@@ -64,7 +66,7 @@ your repository. That was already true of the project-scope copy, and Codex retu
 `iwmaeda/revloop#35` once the copy moved. **Appending the line to `~/.bashrc` was round 2 and was
 returned as a P2 in turn**: zsh — macOS's default — never reads that file, a macOS bash login shell
 reads `~/.bash_profile` instead, fish needs other syntax, and a session started from an editor may
-read no startup file at all. No single file closes that set, so the router gains a fourth resolution,
+read no startup file at all. No single file closes that set, so the router gains a resolution,
 `$HOME/.revloop/procedures/remote-loop.md` — the clone path the install already uses. **A clone
 somewhere else is linked there** (`ln -s <clone> ~/.revloop`) rather than named by the variable,
 because the variable reaches the router only when the launcher passes it on and a link is a file the
@@ -79,7 +81,11 @@ user-scope install with no variable reached that search before it, so any reposi
 operations; Codex returned it as a P1 on `iwmaeda/revloop#35`. The search is gone from the router
 and from every command: a command whose `${CLAUDE_PLUGIN_ROOT}` did not expand aborts with
 `reason=procedure-unresolved`, and the router resolves the variable, its own relative path and
-`~/.revloop`, in that order, and stops otherwise.
+`~/.revloop`, in that order, and stops otherwise. **This is the one upgrade hazard in the release**:
+a command file run without the plugin — copied into `.claude/commands/`, say — used to find the
+procedure in the checkout it ran in and now aborts `procedure-unresolved`; install the plugin, or
+the Codex skill, instead.
+
 `docs/install.md`'s verify step also said the review command "comes out of `.revloop.json`", which
 has not been true since reviewers left that file in 0.7.0; it now names the reviewer's definition.
 
@@ -3524,6 +3530,7 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.13.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.13.0
 [0.12.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.12.0
 [0.11.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.11.0
 [0.10.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.10.0
