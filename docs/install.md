@@ -47,7 +47,11 @@ ln -s /path/to/your/clone ~/.revloop
 `~/.revloop` a symbolic link to a clone elsewhere, `$HOME/.revloop/procedures/remote-loop.md` reads
 the clone's procedure. `REVLOOP_PROCEDURE` still overrides every other resolution, but only for a
 session whose launcher hands it on — which a shell you configured does and an editor may not — so it
-is an override and not the way to install. The router's other two resolutions do not reach
+is an override and not the way to install. **The default path does depend on `$HOME`, and that is
+not a second launcher dependency**: Codex finds the user-scope copy at `$HOME/.agents/skills` in the
+first place, so a session whose `HOME` differs from the one you installed under never loads this
+router from there, and one that loads a project copy misses all four resolutions and stops rather
+than guessing. The router's other two resolutions do not reach
 a clone from a copy placed outside it: the relative fallback from `~/.agents/skills/revloop/` points
 at `~/procedures/`, from a project's `.agents/skills/` it points at that project's root, and the
 upward search starts in the repository you are working in. **The default path is in the router rather

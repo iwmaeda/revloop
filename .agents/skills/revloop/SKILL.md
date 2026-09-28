@@ -21,12 +21,15 @@ this order and stop at the first hit:
 3. The nearest `procedures/remote-loop.md` found by searching upward from the working directory.
 4. `$HOME/.revloop/procedures/remote-loop.md` — the clone path the install in `docs/install.md`
    uses. It is the one resolution that reaches the clone from a copy placed outside it, and it needs
-   no variable, so it holds whichever shell — or no shell — started this session.
+   no variable, so it holds whichever shell — or no shell — started this session. **It does read
+   `$HOME`, and so does the discovery that loaded this copy**: Codex's user scope is
+   `$HOME/.agents/skills`, so a session whose `HOME` is not the one the install ran under never
+   reaches this list from there, and from a project copy it misses all four and stops below.
 
 **If none resolve, stop and tell the user to link their clone at `~/.revloop`**
 (`ln -s /path/to/clone ~/.revloop`) — a file this skill reads whatever launched the session, where
-`$REVLOOP_PROCEDURE` reaches it only when the launcher passes the variable on. Do not reconstruct the procedure
-from this file — it does not contain one.
+`$REVLOOP_PROCEDURE` reaches it only when the launcher passes the variable on. Do not reconstruct
+the procedure from this file — it does not contain one.
 
 **Two more files are resolved the same way, from the directory the procedure was found in**, and the
 procedure cites both: `rigor-levels.md`, which holds the levels, and `severity-grading.md`, which
