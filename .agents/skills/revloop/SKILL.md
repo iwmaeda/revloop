@@ -20,8 +20,9 @@ this order and stop at the first hit:
    plugin, because `.agents/plugins/marketplace.json` points at the repository root.
 3. The nearest `procedures/remote-loop.md` found by searching upward from the working directory.
 
-**If none resolve, stop and tell the user to set `$REVLOOP_PROCEDURE`.** Do not reconstruct the
-procedure from this file — it does not contain one.
+**If none resolve, stop and tell the user to set `$REVLOOP_PROCEDURE` in their shell's startup
+file** — a bare `export` is gone in the next terminal, which is the usual way this is reached. Do
+not reconstruct the procedure from this file — it does not contain one.
 
 **Two more files are resolved the same way, from the directory the procedure was found in**, and the
 procedure cites both: `rigor-levels.md`, which holds the levels, and `severity-grading.md`, which

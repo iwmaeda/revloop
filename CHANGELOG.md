@@ -54,9 +54,14 @@ the design notes say why one file is read rather than two merged.
 project's `.agents/skills/`; `docs/install.md` and both READMEs now copy it into `~/.agents/skills/`,
 the user scope Codex's skill documentation lists. The project scope still works for a team that
 commits it. **Nobody has driven the router from the user scope**, and `docs/install.md` says that
-path rests on Codex's documentation rather than on a run. `docs/install.md`'s verify step also said
-the review command "comes out of `.revloop.json`", which has not been true since reviewers left that
-file in 0.7.0; it now names the reviewer's definition.
+path rests on Codex's documentation rather than on a run. **And the install now writes `REVLOOP_PROCEDURE` into the shell's
+startup file** instead of exporting it once: the variable is the only one of the router's three
+resolutions that reaches the clone — the relative fallback points at `~/procedures/` from the user
+scope and at the project root from a project copy, and the upward search starts in your repository —
+so a bare `export` left every later terminal unable to find the procedure. That was already true of
+the project-scope copy; Codex returned it as a P2 on `iwmaeda/revloop#35` once the copy moved.
+`docs/install.md`'s verify step also said the review command "comes out of `.revloop.json`", which
+has not been true since reviewers left that file in 0.7.0; it now names the reviewer's definition.
 
 **No fence changed, and no permission is new.** Both git questions were already in
 `docs/permissions.md`'s list for 0.12.0, fall under the `Bash(git:*)` every command carries, and the

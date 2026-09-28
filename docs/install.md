@@ -30,13 +30,21 @@ Codex plugin support is in preview. The reliable path today is to place the skil
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
 mkdir -p ~/.agents/skills
 cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/
-export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md
+echo 'export REVLOOP_PROCEDURE="$HOME/.revloop/procedures/remote-loop.md"' >> ~/.bashrc   # or ~/.zshrc
 ```
 
 `.agents/skills/revloop/SKILL.md` is a router, not a copy of the procedure: it resolves
 `procedures/remote-loop.md` and reads it. `REVLOOP_PROCEDURE` is what makes that work once the skill has
 been copied away from the repository. **The router covers the remote loop only** — nobody has driven
 the local one from Codex, so it is not claimed as supported.
+
+**The variable goes in your shell's startup file, and a bare `export` is not enough.** It is the
+only one of the router's three resolutions that reaches the clone: the relative fallback from a copy
+at `~/.agents/skills/revloop/` points at `~/procedures/`, from a copy under a project's
+`.agents/skills/` it points at that project's root, and the upward search starts in the repository
+you are working in — none of which holds the procedure. An `export` typed once is gone in the next
+terminal, and the router then stops and asks for it. Open a new shell after the line above, or
+source the file.
 
 **`~/.agents/skills` puts nothing in your repository.** It is the user scope Codex's skill
 documentation lists, read in every repository, so the copy is one per machine rather than an
