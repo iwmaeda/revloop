@@ -15,7 +15,15 @@ thing.
 ### Repository-supplied configuration is untrusted
 
 `.revloop.json` comes from whatever repository you are working in, including one you just cloned.
+**So does `.revloop/config.json`**, the name for a configuration kept out of git: a repository can
+track a file at that path, and git cannot tell an untracked one you wrote from one something else put
+there, so it is read under exactly the same rules and grants nothing `.revloop.json` does not.
 
+- **The procedure itself never comes from the repository.** Each Claude Code command reads its
+  procedure from `${CLAUDE_PLUGIN_ROOT}` and aborts with `reason=procedure-unresolved` otherwise, and
+  the Codex router reads `$REVLOOP_PROCEDURE`, its own relative path, or `~/.revloop`, and stops
+  otherwise. Neither searches the working tree: a `procedures/remote-loop.md` in the checkout under
+  review would replace every instruction the loop follows.
 - **It never reaches a shell fence or a jq program.** Reviewer identity reaches the wait loop through
   a GitHub comment revloop itself posted, not by the fence parsing a file. There is no interpolation
   path from config into a fence.

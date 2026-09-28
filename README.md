@@ -158,14 +158,14 @@ marketplace. The reliable path today is to place the skill by hand:
 
 ```console
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
-mkdir -p .agents/skills
-cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
-export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md
+mkdir -p ~/.agents/skills
+cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/
 ```
 
 **What you get is one skill, not seven commands, and it covers the pull-request loop only.**
 `.agents/skills/revloop/SKILL.md` is a router: it resolves `procedures/remote-loop.md` and reads it.
-`REVLOOP_PROCEDURE` is what makes that work once the skill has been copied away from the repository.
+It looks in `~/.revloop` by default; clone anywhere else and link it there with
+`ln -s /path/to/your/clone ~/.revloop`.
 **Nobody has driven the local loop from Codex, so it is not claimed as supported**, and there is no
 `/revloop:` namespace on Codex — every `/revloop:` invocation on this page, and the one
 [`docs/install.md`](docs/install.md) gives for verifying the install, is Claude Code's.

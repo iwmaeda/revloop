@@ -54,8 +54,8 @@ body:
   - type: textarea
     id: config
     attributes:
-      label: Your `.revloop.json`, if any
-      description: Redact anything private. If you have none, say so — that is the common case.
+      label: Your `.revloop.json` or `.revloop/config.json`, if any
+      description: Redact anything private. Say which of the two it is — step 1's `config:` line names it. If you have none, say so — that is the common case.
       render: json
 
   - type: textarea

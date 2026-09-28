@@ -12,6 +12,10 @@
 # two reads are the ones the procedures act on: `git status --porcelain -uall` is
 # what step 4 stages from and what the local loop's clean-tree check reads, and
 # `git ls-files -o --exclude-standard` is step 3's untracked-file read.
+#
+# The same directory holds the one file an operator writes there: a
+# configuration kept out of git, `.revloop/config.json`. The last section
+# measures the states step 1's **Config file** paragraph reads it in.
 set -uo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -191,5 +195,70 @@ printf 'note\n' > "$C/.revloop/field-notes.md"
 same "a write the created file allowed shows nowhere" "$(git -C "$C" status --porcelain -uall)" ""
 printf 'note\n' > "$X/.revloop/field-notes.md"
 same "a write info/exclude allowed shows nowhere"     "$(git -C "$X" status --porcelain -uall)" ""
+
+# --- the config file: .revloop/config.json, read in place of .revloop.json -----
+# The shared .revloop.json was the only place a configuration could live, so a
+# person who wanted one for themselves had to commit it, add a rule to a
+# .gitignore the team shares, or leave it untracked -- where step 4 stages from
+# it and the local loop's clean-tree check never passes. Step 1's **Config
+# file** paragraph reads .revloop/config.json instead when it exists: it runs
+# rule 2's first two questions whenever .revloop/ exists, then reads the local
+# file only if git tracks it or ignores it, and aborts with config-not-ignored
+# otherwise. An untracked .revloop.json git would show is still read, with a
+# hint. Each state that paragraph names is one repository below.
+same "the procedure asks git about the local config" \
+  "$(grep -qF -- 'git check-ignore -q -- .revloop/config.json' "$SRC" && echo yes)" "yes"
+same "the procedure asks git about the shared config" \
+  "$(grep -qF -- 'git check-ignore -q -- .revloop.json' "$SRC" && echo yes)" "yes"
+same "the procedure asks whether the shared config is tracked" \
+  "$(grep -qF -- 'git ls-files -- .revloop.json' "$SRC" && echo yes)" "yes"
+
+# The rule is stated once, in remote-loop.md; the local loop cites it and the
+# configuration page documents it. A copy that stops naming the file or the
+# abort is one a reader follows to a different rule.
+for f in "$SRC" "$ROOT/procedures/local-loop.md" "$ROOT/docs/configuration.md"; do
+  same "$(basename "$f") names .revloop/config.json and config-not-ignored" \
+    "$(grep -qF '.revloop/config.json' "$f" && grep -qF 'config-not-ignored' "$f" && echo yes)" "yes"
+done
+
+# A local config the operator wrote before any run: git shows it until the
+# ignore file step 1 writes is in place, and hides it from then on.
+K=$(new_repo local-config); mkdir "$K/.revloop"; printf '{"version":1}\n' > "$K/.revloop/config.json"
+expect "before it, status -uall lists the local config" "$(git -C "$K" status --porcelain -uall)" "?? .revloop/config.json"
+same "and check-ignore says not ignored: 1"             "$(ci "$K" .revloop/config.json)"          "1"
+printf '%s\n' "$BODY" > "$K/.revloop/.gitignore"
+same "after it, status -uall returns nothing"           "$(git -C "$K" status --porcelain -uall)"  ""
+same "and ls-files -o returns nothing"                  "$(git -C "$K" ls-files -o --exclude-standard)" ""
+same "and check-ignore says read it: 0"                 "$(ci "$K" .revloop/config.json)"          "0"
+
+# An operator's ignore file that hides nothing: the abort's state. Reading the
+# file here would leave it where step 4 stages from.
+V=$(new_repo local-config-visible); mkdir "$V/.revloop"; : > "$V/.revloop/.gitignore"
+printf '{"version":1}\n' > "$V/.revloop/config.json"
+same "an empty ignore file leaves it visible: 1"        "$(ci "$V" .revloop/config.json)"          "1"
+expect "and status -uall shows it"                      "$(git -C "$V" status --porcelain -uall)"  "?? .revloop/config.json"
+
+# Tracked: the repository's own config at the local name, read with no write.
+# Tracked is asked first because check-ignore does not call a tracked file
+# ignored -- asked alone, it would abort on a file nothing needs to hide.
+Q=$(new_repo local-config-tracked); mkdir "$Q/.revloop"; printf '{"version":1}\n' > "$Q/.revloop/config.json"
+git -C "$Q" add .revloop/config.json; commit "$Q" config
+same "a tracked local config prints itself"             "$(lf "$Q")"                               ".revloop/config.json"
+same "and check-ignore does not call it ignored: 1"     "$(ci "$Q" .revloop/config.json)"          "1"
+
+# Behind a tracked symbolic link the file is not this checkout's, and git
+# refuses the question rather than answering it -- which is not 0, so it aborts.
+printf '{"version":1}\n' > "$TMP/elsewhere/config.json"
+same "behind a tracked link, check-ignore refuses: 128" "$(ci "$L" .revloop/config.json 2>/dev/null)" "128"
+
+# The shared name, untracked and not ignored: what an operator had before this
+# file existed. It is read, and the hint names the move.
+H=$(new_repo shared-untracked); printf '{"version":1}\n' > "$H/.revloop.json"
+expect "an untracked .revloop.json is in status -uall"  "$(git -C "$H" status --porcelain -uall)"  "?? .revloop.json"
+expect "and in ls-files -o"                             "$(git -C "$H" ls-files -o --exclude-standard)" ".revloop.json"
+same "the procedure's ls-files prints nothing for it"   "$(git -C "$H" ls-files -- .revloop.json)" ""
+same "and check-ignore says not ignored: 1"             "$(ci "$H" .revloop.json)"                 "1"
+git -C "$H" add .revloop.json; commit "$H" shared
+same "once tracked, ls-files prints it"                 "$(git -C "$H" ls-files -- .revloop.json)" ".revloop.json"
 
 summary "revloop-dir"

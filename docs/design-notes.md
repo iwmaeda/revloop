@@ -566,6 +566,38 @@ only `.revloop/.gitignore` in place and as ignored under a top-level rule, and `
 lints it either way. So a repository with no top-level rule is where it was before — its linters see
 the note — and one that already added a rule keeps it and loses nothing.
 
+**The configuration can live there too, as `.revloop/config.json`, and the reason is the same one.**
+`.revloop.json` at the root was the only name, so configuring revloop for yourself meant committing
+the file, adding a rule to a shared `.gitignore`, or leaving it untracked — and untracked is not
+inert: measured at `git 2.34.1`, it comes back from `git status --porcelain -uall`, which the
+pull-request loop's step 4 stages from and the local loop's clean-tree check reads, so an `--auto`
+run can commit it and a local run can never reach a clean tree. **A self-ignoring directory already
+existed, so the file moved into it rather than growing a rule of its own.** The four alternatives
+above fail it the same way: `.git/` hides a file a person has to edit, `.git/info/exclude` edits a
+file the operator owns, `$HOME` needs a key per checkout, and a root name like
+`.revloop.local.json` needs a rule somewhere. Step 1 of either loop writes the ignore file when it
+finds `.revloop/` without one, under rule 2's first question, so a directory the operator made
+before any run drops out of `git status` on the first run rather than at the first field note.
+
+**Exactly one file is read, not two merged.** A merge would need rules for arrays, for `null` —
+which already means "detect" for `baseBranch` — and for which file a `config` in the `source` column
+came from, and each is a place for a reader and the procedure to disagree. Reading one file keeps
+the `source` column honest with one extra line saying which file it was. **Its cost is a stale
+local file silently shadowing the team's**, and the answer is that step 1 prints `config:` on every
+run and names the unread file whenever both exist.
+
+**A local file git would show aborts the run (`config-not-ignored`); a root file git would show
+does not.** The local name exists only to be kept out of git, so a visible one is a configuration
+about to be staged, and aborting costs one fixed ignore file. The root name is the one every
+repository configured before this existed, so aborting on it would stop each of them on upgrade;
+step 1 prints a hint instead.
+
+**The name grants nothing the other does not.** A cloned repository can track a file at
+`.revloop/config.json`, and git cannot tell an untracked file the operator wrote from one something
+else put there — so the local name is read under exactly the rules `.revloop.json` is, and
+`--merge`, `--auto`, `--rigor`, `--config`, `--model` and `--no-publish` stay flags. A location that
+granted more would be a grant any repository reaches by committing to it.
+
 A project's `.revloop/` is unrelated to `~/.revloop`, the clone path the Codex install suggests.
 
 ## Why there are tests, when the original shipped none

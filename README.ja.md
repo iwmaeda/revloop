@@ -157,14 +157,14 @@ skill 1 枚のみ、PR ループのみで、端から端まで駆動した実績
 
 ```console
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
-mkdir -p .agents/skills
-cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
-export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md
+mkdir -p ~/.agents/skills
+cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/
 ```
 
 **得られるのは 7 つのコマンドではなく skill 1 枚で、対象は PR ループのみです。**
 `.agents/skills/revloop/SKILL.md` はルータであり、`procedures/remote-loop.md` を解決して読み込みます。
-`REVLOOP_PROCEDURE` は、skill をリポジトリの外へコピーした後もそれを成立させるためのものです。
+既定では `~/.revloop` を探します。別の場所に clone した場合は
+`ln -s /path/to/your/clone ~/.revloop` でそこへリンクしてください。
 **ローカルループを Codex から駆動した人はいないため、サポート対象とは主張していません。**
 また Codex に `/revloop:` の名前空間はありません。この README に出てくる `/revloop:` の呼び出しも、
 [`docs/install.md`](docs/install.md) が導入確認用に示すものも、すべて Claude Code のものです。

@@ -187,6 +187,14 @@ the level, and a repository that wants the old number writes it.
    git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo '(no origin/HEAD = ask)'
    ```
 
+   **Before that block, resolve the configuration file exactly as the Config file paragraph of
+   [`remote-loop.md`](remote-loop.md) step 1 says** — kept whole, on every run including
+   `--no-publish`: one of `.revloop/config.json` and `.revloop.json` is read, the `config:` line
+   names it, and a `.revloop/config.json` git would show aborts with `reason=config-not-ignored`.
+   **That abort guards more here than there**, because step 4's clean tree is this loop's
+   precondition, and a configuration file git shows is one no round can commit its way past without
+   committing it.
+
    **Skip this second block under `--no-publish`**, and only then. It is one block rather than a
    `git` half and a `gh` half because the run that publishes needs all of it and the run that does not
    needs none of it — **an earlier draft split them by flag and put the upstream read on the `gh`

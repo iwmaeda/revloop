@@ -89,6 +89,66 @@ one. `defaults.maxRounds` beats it, and a repository that wants the old number w
    this from memory — measure it. The table below is the security surface for this run: it shows the
    verify commands _before_ they execute, and the `source` column shows where each value came from.
 
+   **Config file. Before the probe, decide which configuration file this run reads.** There are two
+   names and **exactly one is read**: `.revloop/config.json` when it exists — the operator's own,
+   kept out of git by the directory it lives in — and otherwise `.revloop.json` at the repository
+   root, the one a team commits. Neither is required, and a `config` in the table's `source` column
+   means whichever of them the line below names.
+
+   ```bash
+   git ls-files -- .revloop.json                 # prints the name when the repository tracks the shared file
+   git check-ignore -q -- .revloop/config.json   # asked when the local file exists and is untracked — 0 means ignored
+   git check-ignore -q -- .revloop.json          # asked when the shared file exists and is untracked — 0 means ignored
+   ```
+
+   1. **If `.revloop/` exists as a directory, ask the first two questions of rule 2 of the Field
+      notes paragraph** in `## Unexercised paths`: go on only if `git ls-files -- .revloop` prints
+      nothing, then create `.revloop/.gitignore` if it is missing. A refusal of the first writes
+      nothing and is not an abort here — the next item judges the one file this step reads. This is
+      what makes a directory the operator made before any run, for this file or for a `--config`
+      definition, drop out of `git status` on the first run rather than at the first field note.
+   2. **If `.revloop/config.json` exists, read it and do not read `.revloop.json`.** Read it only if
+      git tracks it — the first question printed `.revloop/config.json` itself — or if the second
+      line above exits `0`. **Anything else aborts with `reason=config-not-ignored`**, printing what
+      `git ls-files -- .revloop` printed and quoting `.revloop/.gitignore` if there is one.
+   3. **Otherwise read `.revloop.json` if it exists.** When the first line above prints nothing and
+      the third exits anything but `0`, git shows the file: read it anyway, and print the hint below.
+
+   Print one line before the table on every run, naming the file read and what git does with it, and
+   the file that was not read when both exist:
+
+   ```text
+   config: .revloop/config.json (ignored); .revloop.json present and not read
+   ```
+
+   ```text
+   .revloop.json is untracked: git shows it and step 4 leaves it unstaged. Move it to .revloop/config.json to keep it out of git.
+   ```
+
+   **A local file git would show aborts, and the shared one does not, because only one of them
+   exists to be kept out of git.** Measured at `git 2.34.1`: a `.revloop/config.json` written before
+   any ignore file comes back as `?? .revloop/config.json` from `git status --porcelain -uall` — the
+   read step 4 stages from and the local loop's clean-tree check — so reading it there hands the
+   operator's configuration to a commit the first time `--auto` stages what it read, and leaves the
+   local loop a tree that cannot come back clean. With the ignore file item 1 writes, both that read
+   and `git ls-files -o --exclude-standard` return nothing and the second line exits `0`; an empty
+   `.revloop/.gitignore` exits `1`, and a path behind a tracked symbolic link at `.revloop` exits
+   `128` (`beyond a symbolic link`), and both abort. **Tracked is asked first because a tracked file
+   is never reported as ignored** — the second line exits `1` for one — and a check-ignore alone
+   would abort on a file nothing needs to hide. **`.revloop.json` gets a hint and not an abort**
+   because it is the name a team commits and was the only name until this paragraph: aborting on it
+   would stop every checkout that configured revloop without committing the file, which is the state
+   the hint exists to move it out of. `tests/revloop-dir.test.sh` measures every state named here.
+
+   **The name is a location and not a trust level.** Every rule this procedure, its commands and
+   their docs state about `.revloop.json` holds for `.revloop/config.json` unchanged: the same
+   schema, the same keys, and the same list of what no configuration may set — `--merge`, `--auto`,
+   `--rigor`, `--config`, `--model` and `--no-publish` stay flags. A repository you cloned can track
+   a file at that path, and nothing git answers tells an untracked file the operator wrote from one
+   something else put there, so a local file that could grant more would be a grant any repository
+   reaches by committing it. **The `config:` line is printed on every run for the same reason**: it
+   is the only place an operator sees that their own file is shadowing the team's.
+
    ```bash
    git branch --show-current
    git fetch                                    # before the next line: it compares against a ref nothing else refreshes
@@ -4246,6 +4306,14 @@ takes one of these should say so in the report:
   unobserved. **Both refusals fail closed**, toward a line in the report or toward more work, and
   never toward a file in `git status`. An operator's `.revloop/.gitignore` that hides the outputs,
   and a checkout whose note is already tracked, are the two shapes most likely to be met first.
+- **Step 1's Config file paragraph — `.revloop/config.json`.** What is measured is git's side
+  again: at `git 2.34.1` each state the paragraph names answers `git ls-files` and
+  `git check-ignore` the way it says, and `tests/revloop-dir.test.sh` re-measures them. **No run
+  has read a `.revloop/config.json`**, written `.revloop/.gitignore` from step 1, or printed the
+  `config:` line, the hint, or `config-not-ignored`. **The abort fails closed**, toward a run that
+  does not start rather than toward a configuration in a commit, and the hint prints and decides
+  nothing. A shadowed `.revloop.json` is the shape most likely to be met first, and the `config:`
+  line is the whole of what tells an operator about it.
 
 **Field notes.** When a round takes one of these paths, aborts, or sees a latency outside the range on
 the reviewer's card, append **one line** to `.revloop/field-notes.md` in the project: date, PR,
@@ -4257,7 +4325,10 @@ reviewer, path, outcome. Three rules make this safe:
    **Before every write into `.revloop/`** — this file, its 500-line rotation, or the grading input
    [`severity-grading.md`](severity-grading.md) writes there — do three things, in this order, and
    **stop at the first that refuses**. Each refusal writes nothing into `.revloop/` and fails the
-   same closed way, given after the third.
+   same closed way, given after the third. **Step 1 asks the first two before anything else**,
+   whenever `.revloop/` already exists, because its **Config file** paragraph reads the operator's
+   configuration from there; the only write they guard at that point is the ignore file itself, so
+   the third has nothing to ask, and step 1 judges the file it reads by its own test.
 
    **First, ask git whether it tracks anything at or under `.revloop`, and go on only if it prints
    nothing:**
