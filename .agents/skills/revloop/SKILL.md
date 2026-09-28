@@ -19,10 +19,13 @@ this order and stop at the first hit:
 2. `../../../procedures/remote-loop.md` relative to this file — valid when revloop is installed as a
    plugin, because `.agents/plugins/marketplace.json` points at the repository root.
 3. The nearest `procedures/remote-loop.md` found by searching upward from the working directory.
+4. `$HOME/.revloop/procedures/remote-loop.md` — the clone path the install in `docs/install.md`
+   uses. It is the one resolution that reaches the clone from a copy placed outside it, and it needs
+   no variable, so it holds whichever shell — or no shell — started this session.
 
-**If none resolve, stop and tell the user to set `$REVLOOP_PROCEDURE` in their shell's startup
-file** — a bare `export` is gone in the next terminal, which is the usual way this is reached. Do
-not reconstruct the procedure from this file — it does not contain one.
+**If none resolve, stop and tell the user to set `$REVLOOP_PROCEDURE`** to the procedure in their
+clone, in whatever their environment reads before Codex starts. Do not reconstruct the procedure
+from this file — it does not contain one.
 
 **Two more files are resolved the same way, from the directory the procedure was found in**, and the
 procedure cites both: `rigor-levels.md`, which holds the levels, and `severity-grading.md`, which

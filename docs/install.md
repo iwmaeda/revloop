@@ -30,28 +30,31 @@ Codex plugin support is in preview. The reliable path today is to place the skil
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
 mkdir -p ~/.agents/skills
 cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/
-echo 'export REVLOOP_PROCEDURE="$HOME/.revloop/procedures/remote-loop.md"' >> ~/.bashrc   # or ~/.zshrc
 ```
 
 `.agents/skills/revloop/SKILL.md` is a router, not a copy of the procedure: it resolves
-`procedures/remote-loop.md` and reads it. `REVLOOP_PROCEDURE` is what makes that work once the skill has
-been copied away from the repository. **The router covers the remote loop only** — nobody has driven
-the local one from Codex, so it is not claimed as supported.
+`procedures/remote-loop.md` and reads it. **It looks in `~/.revloop` by default**, so the clone path
+above needs no variable. **The router covers the remote loop only** — nobody has driven the local one
+from Codex, so it is not claimed as supported.
 
-**The variable goes in your shell's startup file, and a bare `export` is not enough.** It is the
-only one of the router's three resolutions that reaches the clone: the relative fallback from a copy
-at `~/.agents/skills/revloop/` points at `~/procedures/`, from a copy under a project's
-`.agents/skills/` it points at that project's root, and the upward search starts in the repository
-you are working in — none of which holds the procedure. An `export` typed once is gone in the next
-terminal, and the router then stops and asks for it. Open a new shell after the line above, or
-source the file.
+**Clone somewhere else and you must set `REVLOOP_PROCEDURE` to the procedure in that clone**, in
+whatever your environment reads before Codex starts. The router's other two resolutions do not reach
+a clone from a copy placed outside it: the relative fallback from `~/.agents/skills/revloop/` points
+at `~/procedures/`, from a project's `.agents/skills/` it points at that project's root, and the
+upward search starts in the repository you are working in. **The default path is in the router rather
+than in a line this page asks you to add to a startup file**, because no one file covers the shells
+Codex is started from — bash reads `~/.bashrc` in a terminal and `~/.bash_profile` in a login shell
+such as macOS's, zsh reads `~/.zshrc`, fish needs different syntax, and a session started from an
+editor may read none of them. A bare `export` was the first form of this and is gone in the next
+terminal; a line appended to `~/.bashrc` was the second and zsh never reads it.
 
 **`~/.agents/skills` puts nothing in your repository.** It is the user scope Codex's skill
 documentation lists, read in every repository, so the copy is one per machine rather than an
 untracked directory in each checkout. The same copy under a project's own `.agents/skills/` works
 too, and is the place for a team that commits it. The router resolves the procedure the same way from
-either, since `REVLOOP_PROCEDURE` comes first; **nobody has driven it from the user scope yet**, so
-that path rests on Codex's documentation rather than on a run.
+either, since neither the variable nor the default path depends on where the copy sits; **nobody has
+driven it from the user scope yet**, so that path rests on Codex's documentation rather than on a
+run.
 
 Codex grants shell and network access through an approval policy and a sandbox rather than an
 allowlist; see

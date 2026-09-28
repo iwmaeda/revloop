@@ -54,12 +54,19 @@ the design notes say why one file is read rather than two merged.
 project's `.agents/skills/`; `docs/install.md` and both READMEs now copy it into `~/.agents/skills/`,
 the user scope Codex's skill documentation lists. The project scope still works for a team that
 commits it. **Nobody has driven the router from the user scope**, and `docs/install.md` says that
-path rests on Codex's documentation rather than on a run. **And the install now writes `REVLOOP_PROCEDURE` into the shell's
-startup file** instead of exporting it once: the variable is the only one of the router's three
-resolutions that reaches the clone — the relative fallback points at `~/procedures/` from the user
-scope and at the project root from a project copy, and the upward search starts in your repository —
-so a bare `export` left every later terminal unable to find the procedure. That was already true of
-the project-scope copy; Codex returned it as a P2 on `iwmaeda/revloop#35` once the copy moved.
+path rests on Codex's documentation rather than on a run.
+
+**And the router now finds `~/.revloop` without a variable.** The install ended with a bare
+`export REVLOOP_PROCEDURE=…`, gone in the next terminal, and the variable was the only one of the
+router's three resolutions that reached the clone: the relative fallback points at `~/procedures/`
+from the user scope and at the project root from a project copy, and the upward search starts in
+your repository. That was already true of the project-scope copy, and Codex returned it as a P2 on
+`iwmaeda/revloop#35` once the copy moved. **Appending the line to `~/.bashrc` was round 2 and was
+returned as a P2 in turn**: zsh — macOS's default — never reads that file, a macOS bash login shell
+reads `~/.bash_profile` instead, fish needs other syntax, and a session started from an editor may
+read no startup file at all. No single file closes that set, so the router gains a fourth resolution,
+`$HOME/.revloop/procedures/remote-loop.md` — the clone path the install already uses — and the
+variable is now needed only for a clone somewhere else.
 `docs/install.md`'s verify step also said the review command "comes out of `.revloop.json`", which
 has not been true since reviewers left that file in 0.7.0; it now names the reviewer's definition.
 
