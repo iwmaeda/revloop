@@ -50,11 +50,20 @@ session whose launcher hands it on — which a shell you configured does and an 
 is an override and not the way to install. **The default path does depend on `$HOME`, and that is
 not a second launcher dependency**: Codex finds the user-scope copy at `$HOME/.agents/skills` in the
 first place, so a session whose `HOME` differs from the one you installed under never loads this
-router from there, and one that loads a project copy misses all four resolutions and stops rather
-than guessing. The router's other two resolutions do not reach
-a clone from a copy placed outside it: the relative fallback from `~/.agents/skills/revloop/` points
-at `~/procedures/`, from a project's `.agents/skills/` it points at that project's root, and the
-upward search starts in the repository you are working in. **The default path is in the router rather
+router from there, and one that loads a project copy misses all three resolutions and stops rather
+than guessing. The router's relative fallback does not reach a clone from a copy placed outside it:
+from `~/.agents/skills/revloop/` it points at `~/procedures/`, and from a project's `.agents/skills/`
+at that project's root.
+
+**Neither the router nor any Claude Code command searches the working tree for the procedure.** The
+repository under review is untrusted input, and a `procedures/remote-loop.md` it carried would
+replace the instructions the loop follows for shell and GitHub operations. Both used to search upward
+from the working directory as a last resort; with the default path above that search became
+reachable from a user-scope install with no variable, and Codex returned it as a P1 on
+`iwmaeda/revloop#35`. A command whose `${CLAUDE_PLUGIN_ROOT}` did not expand now aborts with
+`reason=procedure-unresolved`, and the router stops with its own message.
+
+**The default path is in the router rather
 than in a line this page asks you to add to a startup file**, because no one file covers the shells
 Codex is started from — bash reads `~/.bashrc` in a terminal and `~/.bash_profile` in a login shell
 such as macOS's, zsh reads `~/.zshrc`, fish needs different syntax, and a session started from an

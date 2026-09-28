@@ -18,13 +18,20 @@ this order and stop at the first hit:
 1. `$REVLOOP_PROCEDURE`, if set.
 2. `../../../procedures/remote-loop.md` relative to this file — valid when revloop is installed as a
    plugin, because `.agents/plugins/marketplace.json` points at the repository root.
-3. The nearest `procedures/remote-loop.md` found by searching upward from the working directory.
-4. `$HOME/.revloop/procedures/remote-loop.md` — the clone path the install in `docs/install.md`
+3. `$HOME/.revloop/procedures/remote-loop.md` — the clone path the install in `docs/install.md`
    uses. It is the one resolution that reaches the clone from a copy placed outside it, and it needs
    no variable, so it holds whichever shell — or no shell — started this session. **It does read
    `$HOME`, and so does the discovery that loaded this copy**: Codex's user scope is
    `$HOME/.agents/skills`, so a session whose `HOME` is not the one the install ran under never
-   reaches this list from there, and from a project copy it misses all four and stops below.
+   reaches this list from there, and from a project copy it misses all three and stops below.
+
+**There is no search of the working tree, and adding one would be a defect.** The repository under
+review is untrusted input, and a `procedures/remote-loop.md` it carries would replace the
+instructions this skill then follows for shell and GitHub operations. A fourth resolution searching
+upward from the working directory existed until `iwmaeda/revloop#35`, where Codex returned it as a
+P1 once a user-scope install with no variable could reach it. Item 2 from a copy committed under a
+project's own `.agents/skills/` does resolve inside that project — but there the project supplied this
+file too, so it adds nothing the skill did not already take from it.
 
 **If none resolve, stop and tell the user to link their clone at `~/.revloop`**
 (`ln -s /path/to/clone ~/.revloop`) — a file this skill reads whatever launched the session, where

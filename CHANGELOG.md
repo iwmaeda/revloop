@@ -59,7 +59,7 @@ path rests on Codex's documentation rather than on a run.
 **And the router now finds `~/.revloop` without a variable.** The install ended with a bare
 `export REVLOOP_PROCEDURE=…`, gone in the next terminal, and the variable was the only one of the
 router's three resolutions that reached the clone: the relative fallback points at `~/procedures/`
-from the user scope and at the project root from a project copy, and the upward search starts in
+from the user scope and at the project root from a project copy, and the upward search started in
 your repository. That was already true of the project-scope copy, and Codex returned it as a P2 on
 `iwmaeda/revloop#35` once the copy moved. **Appending the line to `~/.bashrc` was round 2 and was
 returned as a P2 in turn**: zsh — macOS's default — never reads that file, a macOS bash login shell
@@ -70,6 +70,16 @@ somewhere else is linked there** (`ln -s <clone> ~/.revloop`) rather than named 
 because the variable reaches the router only when the launcher passes it on and a link is a file the
 router reads whatever started the session; round 3 left the variable as the custom-clone route and
 Codex returned that as a third P2. `REVLOOP_PROCEDURE` stays as an override.
+
+**Nothing searches the working tree for the procedure any more.** The router and all seven Claude
+Code commands fell back to the nearest `procedures/*.md` found upward from the working directory —
+the repository under review, which is untrusted input. Once the router had a default path, a
+user-scope install with no variable reached that search before it, so any repository carrying
+`procedures/remote-loop.md` could replace the instructions the loop follows for shell and GitHub
+operations; Codex returned it as a P1 on `iwmaeda/revloop#35`. The search is gone from the router
+and from every command: a command whose `${CLAUDE_PLUGIN_ROOT}` did not expand aborts with
+`reason=procedure-unresolved`, and the router resolves the variable, its own relative path and
+`~/.revloop`, in that order, and stops otherwise.
 `docs/install.md`'s verify step also said the review command "comes out of `.revloop.json`", which
 has not been true since reviewers left that file in 0.7.0; it now names the reviewer's definition.
 
