@@ -23,8 +23,9 @@ this order and stop at the first hit:
    uses. It is the one resolution that reaches the clone from a copy placed outside it, and it needs
    no variable, so it holds whichever shell — or no shell — started this session.
 
-**If none resolve, stop and tell the user to set `$REVLOOP_PROCEDURE`** to the procedure in their
-clone, in whatever their environment reads before Codex starts. Do not reconstruct the procedure
+**If none resolve, stop and tell the user to link their clone at `~/.revloop`**
+(`ln -s /path/to/clone ~/.revloop`) — a file this skill reads whatever launched the session, where
+`$REVLOOP_PROCEDURE` reaches it only when the launcher passes the variable on. Do not reconstruct the procedure
 from this file — it does not contain one.
 
 **Two more files are resolved the same way, from the directory the procedure was found in**, and the

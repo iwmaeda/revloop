@@ -37,8 +37,17 @@ cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/
 above needs no variable. **The router covers the remote loop only** — nobody has driven the local one
 from Codex, so it is not claimed as supported.
 
-**Clone somewhere else and you must set `REVLOOP_PROCEDURE` to the procedure in that clone**, in
-whatever your environment reads before Codex starts. The router's other two resolutions do not reach
+**Clone somewhere else and link it there**, so the default path still reaches it:
+
+```console
+ln -s /path/to/your/clone ~/.revloop
+```
+
+**The link is a file the router reads, not something a launcher has to pass on.** Measured: with
+`~/.revloop` a symbolic link to a clone elsewhere, `$HOME/.revloop/procedures/remote-loop.md` reads
+the clone's procedure. `REVLOOP_PROCEDURE` still overrides every other resolution, but only for a
+session whose launcher hands it on — which a shell you configured does and an editor may not — so it
+is an override and not the way to install. The router's other two resolutions do not reach
 a clone from a copy placed outside it: the relative fallback from `~/.agents/skills/revloop/` points
 at `~/procedures/`, from a project's `.agents/skills/` it points at that project's root, and the
 upward search starts in the repository you are working in. **The default path is in the router rather
@@ -46,7 +55,8 @@ than in a line this page asks you to add to a startup file**, because no one fil
 Codex is started from — bash reads `~/.bashrc` in a terminal and `~/.bash_profile` in a login shell
 such as macOS's, zsh reads `~/.zshrc`, fish needs different syntax, and a session started from an
 editor may read none of them. A bare `export` was the first form of this and is gone in the next
-terminal; a line appended to `~/.bashrc` was the second and zsh never reads it.
+terminal; a line appended to `~/.bashrc` was the second and zsh never reads it; and the variable
+alone, for a clone elsewhere, was the third and fails from any launcher that does not carry it.
 
 **`~/.agents/skills` puts nothing in your repository.** It is the user scope Codex's skill
 documentation lists, read in every repository, so the copy is one per machine rather than an

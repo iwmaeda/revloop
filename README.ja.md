@@ -163,8 +163,8 @@ cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/
 
 **得られるのは 7 つのコマンドではなく skill 1 枚で、対象は PR ループのみです。**
 `.agents/skills/revloop/SKILL.md` はルータであり、`procedures/remote-loop.md` を解決して読み込みます。
-既定では `~/.revloop` を探します。別の場所に clone した場合は、その clone の手順書を
-`REVLOOP_PROCEDURE` に設定してください。
+既定では `~/.revloop` を探します。別の場所に clone した場合は
+`ln -s /path/to/your/clone ~/.revloop` でそこへリンクしてください。
 **ローカルループを Codex から駆動した人はいないため、サポート対象とは主張していません。**
 また Codex に `/revloop:` の名前空間はありません。この README に出てくる `/revloop:` の呼び出しも、
 [`docs/install.md`](docs/install.md) が導入確認用に示すものも、すべて Claude Code のものです。

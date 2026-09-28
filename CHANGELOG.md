@@ -65,8 +65,11 @@ your repository. That was already true of the project-scope copy, and Codex retu
 returned as a P2 in turn**: zsh — macOS's default — never reads that file, a macOS bash login shell
 reads `~/.bash_profile` instead, fish needs other syntax, and a session started from an editor may
 read no startup file at all. No single file closes that set, so the router gains a fourth resolution,
-`$HOME/.revloop/procedures/remote-loop.md` — the clone path the install already uses — and the
-variable is now needed only for a clone somewhere else.
+`$HOME/.revloop/procedures/remote-loop.md` — the clone path the install already uses. **A clone
+somewhere else is linked there** (`ln -s <clone> ~/.revloop`) rather than named by the variable,
+because the variable reaches the router only when the launcher passes it on and a link is a file the
+router reads whatever started the session; round 3 left the variable as the custom-clone route and
+Codex returned that as a third P2. `REVLOOP_PROCEDURE` stays as an override.
 `docs/install.md`'s verify step also said the review command "comes out of `.revloop.json`", which
 has not been true since reviewers left that file in 0.7.0; it now names the reviewer's definition.
 
