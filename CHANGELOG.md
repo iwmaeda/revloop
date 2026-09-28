@@ -13,6 +13,56 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### A configuration can be yours alone: `.revloop/config.json`, kept out of git with no rule to add
+
+**0.12.0 took `.revloop/` out of every shared `.gitignore`, and left the configuration file at the
+root.** `.revloop.json` was the only name the loops read, so a person who configured revloop for
+themselves still had three choices: commit a file the team had not asked for, add a rule to a
+`.gitignore` the whole team shares, or leave it untracked.
+
+**Untracked was not only noise, for the reason 0.12.0 measured for the notes.** At `git 2.34.1`, an
+untracked `.revloop.json` comes back from `git status --porcelain -uall` — the read
+`remote-loop.md` step 4 stages from and `local-loop.md`'s clean-tree check — and from
+`git ls-files -o --exclude-standard`. So an `--auto` run could stage it into the pull request, and
+the local loop's step 4 could not leave the tree clean without committing it, which on a
+`requiresPr` reviewer is what step 5's `dirty-after-push` re-check reads.
+
+**Now: `.revloop/config.json` is read in place of `.revloop.json` whenever it exists.** Exactly one
+of the two is read and nothing is merged; step 1 of both loops prints a `config:` line on every run
+naming the file it read, and the unread one when both exist. **Before the probe, step 1 asks rule 2's
+first two questions whenever `.revloop/` exists** — `git ls-files -- .revloop` must print nothing,
+then `.revloop/.gitignore` is written if missing — so a directory the operator made before any run
+drops out of `git status` on the first run. **The local file is read only if git tracks it or
+`git check-ignore -q` answers `0`**; anything else aborts with the new `config-not-ignored`, printing
+what `git ls-files` printed and quoting the ignore file. An untracked `.revloop.json` git would
+show is still read, with a one-line hint to move it — aborting there would stop every repository
+that configured revloop before this entry. Measured at `git 2.34.1`, and re-measured by the new
+section of `tests/revloop-dir.test.sh`: with the ignore file in place both reads return nothing and
+`check-ignore` answers `0`; an empty ignore file answers `1`; a tracked config also answers `1`,
+which is why tracked is asked first; and a path behind a tracked symbolic link at `.revloop` answers
+`128`. **The rule is written once**, as the **Config file** paragraph of `remote-loop.md` step 1;
+`local-loop.md` cites it. **No run has taken it yet**, so `## Unexercised paths` gains an entry.
+
+**The name is a location, not a trust level.** A cloned repository can track a file at
+`.revloop/config.json`, and git cannot tell an untracked one the operator wrote from one something
+else put there, so it is read under every rule `.revloop.json` is: the same schema and keys, and
+`--merge`, `--auto`, `--rigor`, `--config`, `--model` and `--no-publish` stay flags. `SECURITY.md`,
+`docs/configuration.md`'s new **Where the file lives** section and `docs/design-notes.md` say so, and
+the design notes say why one file is read rather than two merged.
+
+**The Codex install no longer leaves a directory in your repository.** It copied the router into the
+project's `.agents/skills/`; `docs/install.md` and both READMEs now copy it into `~/.agents/skills/`,
+the user scope Codex's skill documentation lists. The project scope still works for a team that
+commits it. **Nobody has driven the router from the user scope**, and `docs/install.md` says that
+path rests on Codex's documentation rather than on a run. `docs/install.md`'s verify step also said
+the review command "comes out of `.revloop.json`", which has not been true since reviewers left that
+file in 0.7.0; it now names the reviewer's definition.
+
+**No fence changed, and no permission is new.** Both git questions were already in
+`docs/permissions.md`'s list for 0.12.0, fall under the `Bash(git:*)` every command carries, and the
+ignore file is written with the `Write` tool — so no command gains a prompt and no approval has to be
+given again.
+
 ## [0.12.0] - 2026-09-28
 
 ### `.revloop/` ignores itself, so installing revloop no longer means editing a shared `.gitignore`

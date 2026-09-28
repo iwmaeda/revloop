@@ -1,7 +1,8 @@
 # Configuration
 
-`.revloop.json` at the repository root. Every field is optional — with no file at all, revloop detects
-what it needs. The [schema](../schema/revloop.schema.json) is machine-readable and the
+`.revloop.json` at the repository root, or `.revloop/config.json` to keep it out of git — see
+[Where the file lives](#where-the-file-lives). Every field is optional — with no file at all, revloop
+detects what it needs. The [schema](../schema/revloop.schema.json) is machine-readable and the
 [examples](../examples/) are a faster start than this page.
 
 ```json
@@ -18,6 +19,45 @@ what it needs. The [schema](../schema/revloop.schema.json) is machine-readable a
 
 `$schema` is optional and buys editor completion. `version` is `1`; an unknown major version aborts
 rather than degrading.
+
+## Where the file lives
+
+| File                   | Whose                   | In git                                                                    |
+| ---------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| `.revloop.json`        | The team's, committed   | Tracked. Untracked works too, with a hint in step 1                       |
+| `.revloop/config.json` | Yours, in this checkout | Ignored by `.revloop/.gitignore`, which the first run writes when missing |
+
+**Exactly one is read.** When `.revloop/config.json` exists it is the configuration and
+`.revloop.json` is not read at all — no key is merged from it. Step 1 prints a `config:` line on every
+run naming the file it read, and the other file when both exist, because that line is the only place
+a stale file of your own shadowing the team's shows up. A `config` in the table's `source` column
+means whichever file that line names.
+
+**Nothing needs adding to a `.gitignore` for the second.** `.revloop/` is the directory revloop
+already writes its field notes into, and it ignores itself: step 1 of either loop writes
+`.revloop/.gitignore`, holding `*`, when the directory exists without one — unless git tracks
+anything under `.revloop`, in which case it writes nothing. To have it in place before the first
+run, write it yourself:
+
+```console
+mkdir -p .revloop && printf '*\n' > .revloop/.gitignore
+```
+
+A reviewer definition only you use can live there too — `--config .revloop/my-reviewer.json` — or
+anywhere outside the checkout; `--config` takes any path.
+
+**`.revloop/config.json` must be tracked or ignored, or the run aborts** with `config-not-ignored`.
+A file that exists to be kept out of git and that git shows anyway is one the pull-request loop's
+step 4 reads as a change and the local loop's clean-tree check can never pass, so reading it would
+put your configuration in a commit. An untracked `.revloop.json` is read, because it was the only
+name before this one, and step 1 prints a line suggesting the move instead.
+
+**The location is not a trust level.** Everything this page says about `.revloop.json` holds for
+`.revloop/config.json` unchanged — the same schema, the same keys, and the same
+[list of what is deliberately not configurable](#what-is-deliberately-not-configurable). A repository
+you cloned can track a file at that path, and git cannot tell an untracked file you wrote from one
+something else put there, so a local file that could grant more would be a grant any repository
+could reach by committing one.
 
 ## Nothing is required
 
@@ -43,7 +83,10 @@ same whatever you typed", which is the one thing it is not.
 
 | Situation                                           | Behaviour                                                                                                                                   |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| No `.revloop.json`                                  | Detect everything. Normal                                                                                                                   |
+| Neither file                                        | Detect everything. Normal                                                                                                                   |
+| Both `.revloop.json` and `.revloop/config.json`     | Read `.revloop/config.json` only. Step 1's `config:` line names the file not read                                                           |
+| `.revloop/config.json` untracked and not ignored    | **Abort** (`config-not-ignored`), printing what `git ls-files -- .revloop` printed and quoting `.revloop/.gitignore`                        |
+| `.revloop.json` untracked and not ignored           | Read it. Step 1 prints a line suggesting `.revloop/config.json`                                                                             |
 | Malformed JSON                                      | **Abort.** Never fall back to the presets — that would ignore the custom reviewer the file configures while the run still looked healthy    |
 | Unknown key                                         | Not validated at runtime; ignored. `tests/schema.test.sh` rejects it in CI against fixtures, per the schema's `additionalProperties: false` |
 | Unknown `version`                                   | **Abort**                                                                                                                                   |
@@ -426,4 +469,5 @@ path. The rest of the surface is closed by rule:
 - [Adding a reviewer](adding-a-reviewer.md) — writing a reviewer definition from measurements
 - [Permissions](permissions.md#verify-commands-are-not-pre-approved) — why `verify` is never
   pre-approved
-- [`../examples/`](../examples/) — four working `.revloop.json` files
+- [`../examples/`](../examples/) — four working `.revloop.json` files, each of which works unchanged
+  as `.revloop/config.json`

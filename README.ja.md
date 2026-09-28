@@ -157,8 +157,8 @@ skill 1 枚のみ、PR ループのみで、端から端まで駆動した実績
 
 ```console
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
-mkdir -p .agents/skills
-cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
+mkdir -p ~/.agents/skills
+cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/
 export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md
 ```
 

@@ -28,8 +28,8 @@ Codex plugin support is in preview. The reliable path today is to place the skil
 
 ```console
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
-mkdir -p .agents/skills
-cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
+mkdir -p ~/.agents/skills
+cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/
 export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md
 ```
 
@@ -37,6 +37,13 @@ export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md
 `procedures/remote-loop.md` and reads it. `REVLOOP_PROCEDURE` is what makes that work once the skill has
 been copied away from the repository. **The router covers the remote loop only** — nobody has driven
 the local one from Codex, so it is not claimed as supported.
+
+**`~/.agents/skills` puts nothing in your repository.** It is the user scope Codex's skill
+documentation lists, read in every repository, so the copy is one per machine rather than an
+untracked directory in each checkout. The same copy under a project's own `.agents/skills/` works
+too, and is the place for a team that commits it. The router resolves the procedure the same way from
+either, since `REVLOOP_PROCEDURE` comes first; **nobody has driven it from the user scope yet**, so
+that path rests on Codex's documentation rather than on a run.
 
 Codex grants shell and network access through an approval policy and a sandbox rather than an
 allowlist; see
@@ -86,7 +93,7 @@ the stable REST surface to a subcommand.
 
 On a clean tree with no changes either should print its resolved-configuration table and stop. Read
 the local one's **review command** row before you run it for real: it is the string that will be
-executed, it comes out of `.revloop.json`, and it is deliberately not pre-approved. It is printed with
+executed, it comes out of the reviewer's definition, and it is deliberately not pre-approved. It is printed with
 `{reviewModel}` already expanded, and the **review model** row beside it reads `sonnet` unless you
 passed `--model`. If the remote
 loop prints a permission prompt for every step, work through [`permissions.md`](permissions.md).
@@ -101,8 +108,14 @@ and `git add` in any repository, including one where revloop is installed only f
 `.claude/settings.local.json`. The worktree ledger is under `.git/` and never in the tree at all. The
 reasons, and what this does not cover, are in [design notes](design-notes.md#field-notes).
 
+**A configuration only you use goes in the same directory**, as `.revloop/config.json` — read in
+place of `.revloop.json` when it exists, and kept out of git by the same ignore file, which a run
+writes when it finds the directory without one. See
+[Where the file lives](configuration.md#where-the-file-lives).
+
 ## Related docs
 
 - [Permissions](permissions.md) — what to grant once revloop is in place
-- [Configuration](configuration.md) — `.revloop.json`, and what is detected without it
+- [Configuration](configuration.md) — `.revloop.json` or `.revloop/config.json`, and what is detected
+  without either
 - [Known environment quirks](known-environment-quirks.md) — if `jq` or a version manager misbehaves

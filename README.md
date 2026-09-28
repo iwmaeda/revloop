@@ -158,8 +158,8 @@ marketplace. The reliable path today is to place the skill by hand:
 
 ```console
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
-mkdir -p .agents/skills
-cp -r ~/.revloop/.agents/skills/revloop .agents/skills/
+mkdir -p ~/.agents/skills
+cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/
 export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md
 ```
 

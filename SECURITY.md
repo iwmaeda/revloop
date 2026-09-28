@@ -15,6 +15,9 @@ thing.
 ### Repository-supplied configuration is untrusted
 
 `.revloop.json` comes from whatever repository you are working in, including one you just cloned.
+**So does `.revloop/config.json`**, the name for a configuration kept out of git: a repository can
+track a file at that path, and git cannot tell an untracked one you wrote from one something else put
+there, so it is read under exactly the same rules and grants nothing `.revloop.json` does not.
 
 - **It never reaches a shell fence or a jq program.** Reviewer identity reaches the wait loop through
   a GitHub comment revloop itself posted, not by the fence parsing a file. There is no interpolation
