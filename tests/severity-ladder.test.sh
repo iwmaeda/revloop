@@ -58,8 +58,19 @@ expect "and it reads most severe first" "$LADDER" "critical > high > medium > lo
 
 # Every chain in the corpus, whatever it says. Fences included: the grader's
 # prompt is one, and it is the copy that matters most.
-CHAINS=$(grep -rhoE '\b[a-z][a-z-]* > [a-z][a-z-]*( > [a-z][a-z-]*)*' \
-  --include='*.md' --include='*.json' "$ROOT" 2>/dev/null | grep -v '/node_modules/' || true)
+#
+# node_modules is excluded by grep itself, not by a filter on its output. A
+# `| grep -v '/node_modules/'` stood here through 0.14.0 and matched nothing: `-h`
+# drops the file names, so no output line carries a path to filter on, and the
+# sweep had been reading every installed package the whole time. It stayed green
+# only because no package's docs held a chain -- until markdown-it 15.0.1
+# brought argparse 3, whose README has `a > b`, and CI failed on a file this
+# repository does not own.
+sweep() { # sweep <dir> -> every chain under it, one per line
+  grep -rhoE '\b[a-z][a-z-]* > [a-z][a-z-]*( > [a-z][a-z-]*)*' \
+    --include='*.md' --include='*.json' --exclude-dir=node_modules "$1" 2>/dev/null || true
+}
+CHAINS=$(sweep "$ROOT")
 COUNT=$(printf '%s\n' "$CHAINS" | grep -c . || true)
 STRAY=$(printf '%s\n' "$CHAINS" | grep -vxF "$LADDER" | grep . | sed 's/^/STRAY /' || true)
 
@@ -94,5 +105,16 @@ expect "a dropped rung is stray"      "$(drifted 'critical > high > low')"      
 expect "a lengthened ladder is stray" "$(drifted 'blocker > critical > high > medium > low')" STRAY
 expect "the ladder itself is clean"   "$(drifted 'on the ladder critical > high > medium > low.')" CLEAN
 expect "prose with no chain is clean" "$(drifted 'the rungs come from severityLevels')" CLEAN
+
+# The exclusion is asserted on a tree built for it, not left to whatever happens
+# to be installed: the corpus witnessed the old filter's failure only when a
+# dependency update put a chain under node_modules, and would stop witnessing
+# this one the day a later update takes it out.
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$TMP/node_modules/pkg"
+printf 'on the ladder %s.\n' "$LADDER" > "$TMP/doc.md"
+printf 'a > b\n' > "$TMP/node_modules/pkg/README.md"
+expect "the sweep reads the tree"            "$(sweep "$TMP")" "$LADDER"
+refute "and skips a chain under node_modules" "$(sweep "$TMP")" "a > b"
 
 summary "severity-ladder"
