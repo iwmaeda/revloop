@@ -13,6 +13,8 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-30
+
 ### `/revloop:local-ecc-loop` reviews at `--effort medium`, not at whatever your settings say
 
 **The review subprocess passed no `--effort`, so it ran at whatever the operator's settings gave
@@ -36,10 +38,10 @@ not turn a lighter `--model` into an abort. A host that predates the flag would 
 effort nobody recorded. The card's `## Not measured` now asks what `medium` costs in findings and
 saves in time, and whether the agents the command dispatches inherit the level.
 
-**The review command string changed**, so an "always allow" saved for the old expanded string no
-longer matches, and the first round asks once. The step-1 table prints the new string, as it
-always prints the expanded one. **The grader and the `code-review` preset are unchanged.** Both
-still run at the host's effort.
+**The review command string changed.** A permission rule saved for the old string as a whole no
+longer matches it, so the first round asks once; a prefix rule that ends before `-p` still does.
+The step-1 table prints the new string, as it always prints the expanded one. **The grader and the
+`code-review` preset are unchanged.** Both still run at the host's effort.
 
 ## [0.13.0] - 2026-09-29
 
@@ -3558,6 +3560,7 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.14.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.14.0
 [0.13.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.13.0
 [0.12.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.12.0
 [0.11.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.11.0
