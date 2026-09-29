@@ -229,13 +229,13 @@ maxRounds        5                                  rigor
 各プリセットは **定義**（`reviewers/<name>.json`）と
 **カード**（`reviewers/<name>.md`）で構成されます。
 
-| プリセット      | 実行コマンド                  | トリガー / コマンド                                     | severity | ステータス |
-| --------------- | ----------------------------- | ------------------------------------------------------- | -------- | ---------- |
-| `codex`         | `/revloop:remote-codex-loop`  | `@codex review`                                         | P1/P2/P3 | verified   |
-| `gemini`        | `/revloop:remote-gemini-loop` | `@gemini review` (カード参照)                           | P1/P2/P3 | verified   |
-| `claude`        | `/revloop:remote-claude-loop` | `@claude review`                                        | なし     | unverified |
-| `code-review`   | `/revloop:local-review-loop`  | `claude --model {reviewModel} -p "/code-review medium"` | なし     | unverified |
-| `ecc-review-pr` | `/revloop:local-ecc-loop`     | `claude --model {reviewModel} -p "/ecc:review-pr"`      | なし     | unverified |
+| プリセット      | 実行コマンド                  | トリガー / コマンド                                                | severity | ステータス |
+| --------------- | ----------------------------- | ------------------------------------------------------------------ | -------- | ---------- |
+| `codex`         | `/revloop:remote-codex-loop`  | `@codex review`                                                    | P1/P2/P3 | verified   |
+| `gemini`        | `/revloop:remote-gemini-loop` | `@gemini review` (カード参照)                                      | P1/P2/P3 | verified   |
+| `claude`        | `/revloop:remote-claude-loop` | `@claude review`                                                   | なし     | unverified |
+| `code-review`   | `/revloop:local-review-loop`  | `claude --model {reviewModel} -p "/code-review medium"`            | なし     | unverified |
+| `ecc-review-pr` | `/revloop:local-ecc-loop`     | `claude --model {reviewModel} --effort medium -p "/ecc:review-pr"` | なし     | unverified |
 
 `{reviewModel}` はコマンド実行前にローカル手順書が展開します。`--model` を指定していればその値が、
 指定がなければ `sonnet` が利用されます。

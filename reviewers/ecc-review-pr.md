@@ -2,24 +2,33 @@
 
 The `review-pr` command from the ECC plugin, driven as a subprocess.
 
-| Field               | Value                                                      |
-| ------------------- | ---------------------------------------------------------- |
-| `kind`              | `local-command`                                            |
-| `invoke`            | `subprocess`                                               |
-| `command`           | `claude --model {reviewModel} -p "/ecc:review-pr"`         |
-| `severityLevels`    | **none** — the four-rung ladder read here was not emitted  |
-| `severityMap`       | **none** — there is no measured ladder to map from         |
-| `requiresPr`        | **`true`** — it resolves a pull request first              |
-| `rateLimitPatterns` | `["You've hit your session limit"]` — its host's, measured |
-| verdict on          | the command's stdout                                       |
-| `status`            | `unverified`                                               |
-| `lastChecked`       | 2026-09                                                    |
+| Field               | Value                                                              |
+| ------------------- | ------------------------------------------------------------------ |
+| `kind`              | `local-command`                                                    |
+| `invoke`            | `subprocess`                                                       |
+| `command`           | `claude --model {reviewModel} --effort medium -p "/ecc:review-pr"` |
+| `severityLevels`    | **none** — the four-rung ladder read here was not emitted          |
+| `severityMap`       | **none** — there is no measured ladder to map from                 |
+| `requiresPr`        | **`true`** — it resolves a pull request first                      |
+| `rateLimitPatterns` | `["You've hit your session limit"]` — its host's, measured         |
+| verdict on          | the command's stdout                                               |
+| `status`            | `unverified`                                                       |
+| `lastChecked`       | 2026-09                                                            |
 
 **Definition:** [`ecc-review-pr.json`](ecc-review-pr.json) — the file the loop loads. This card is the
 measurement record beside it; the definition is the configuration, and neither restates the
 other.
 
 **Driven by:** `/revloop:local-ecc-loop`.
+
+**`{reviewModel}` is expanded by the local loop before the command runs** — to `--model` if it
+was typed, otherwise to the builtin `sonnet` — **and `--effort medium` beside it is a literal**, so
+the effort a round runs at belongs to this definition and nothing new is interpolated. **Every
+measurement below predates that pin**: all seven runs passed no `--effort`, and the effort each ran
+at was not recorded. **Derived** from `claude --help`, which describes the flag as the effort level
+for the current session: without it, a subprocess runs at whatever the operator's settings give it,
+so an operator whose default is `xhigh` paid for `xhigh` on every round of the slowest local
+reviewer this repository has measured. `## Not measured` says what the pin leaves open.
 
 **Six runs exist now, and what they establish is mostly that this card was wrong.** The command runs,
 answers in about five minutes and returns usable findings — and it emits neither the ladder nor the
@@ -175,6 +184,22 @@ configuration, and what it measures is the host rather than the command.
   the round, so the interval between the notice and the operator reading it is not negligible and a
   reported time can be stale in the useful direction.
 
+### From the effort pin
+
+**Two one-line prompts, not reviews.** They establish that the host accepts the flag the preset now
+carries, and nothing about a review run at it.
+
+- **The host accepts `--effort medium` beside both models the local loop is likely to be given.**
+  `claude --model sonnet --effort medium -p "Reply with the single word ok"` and the same command
+  under `--model haiku` each printed `ok` and exited **0** (claude-code 2.1.283, 2026-09).
+  **Derived:** the pin does not turn `--model haiku` into an abort, so a lighter reviewer is still one
+  flag away. **Derived:** an exit of 0 says the flag was accepted, not that it was applied — a
+  one-word reply cannot show whether a model honours the level.
+- **The host lists five levels: `low`, `medium`, `high`, `xhigh` and `max`** (`claude --help`,
+  claude-code 2.1.283, 2026-09). **Derived:** a host that predates the flag would reject the command
+  line, and the round would abort `review-command-failed` with the exit status and the output printed
+  — the loud direction, and never a clean round.
+
 ### From the installed command
 
 **Every bullet here is read out of the command as installed, and the subsection above is what happened
@@ -234,7 +259,14 @@ beside it.
   configuration. **That is exactly as far as it goes**, and `code-review.md` records the same command
   returning three different shapes under two different models, which is the reason to expect this one
   to move as well. If it turns out not to hold, the honest move is `status: unsupported`, not a looser
-  parse.
+  parse. **The effort pin makes that sharper**: those rounds ran at an effort the host chose and
+  nobody recorded, and none is known to have run at the `medium` the preset now ships — so the shape
+  recorded here was observed under a configuration this project no longer ships.
+- **What `medium` costs in findings, and what it saves in time.** The five rounds took 5m09s to
+  12m05s at that unrecorded effort, and no round has run at `medium`. Fewer findings at a lower
+  effort would mean either fewer defects present or fewer defects found, and a sample of one change
+  per effort level cannot tell those apart. **Re-running a round under the pin is the most useful
+  measurement this card is missing.**
 - **Whether this reviewer's headings are a ladder.** All three confidence words have now been emitted
   as headings, and they appeared in the same order every time one of them was used. **Ordering
   observed is not ordering asserted**: nothing in five rounds establishes that these are rungs a floor
@@ -249,9 +281,9 @@ beside it.
   reached its cap without it.
   Recurrence is measured and is zero; the token cost of a round is not measured here or anywhere else
   in this repository, and it is the resource the local loop is shaped around.
-- **What the six agents it dispatches run on.** The command is invoked with `--model`, and whether
-  that reaches agents the command spawns for itself is not something reading the command establishes.
-  If it does not, the pin buys less than it appears to.
+- **What the six agents it dispatches run on, and at what effort.** The command is invoked with
+  `--model` and `--effort`, and reading the command does not establish whether either reaches the
+  agents it spawns. If they do not, the pins buy less than they appear to.
 - **Whether the merge holds on a diff larger than one branch's worth.** Every round returned a single
   aggregated report rather than six sections, several times naming which agents had converged on one
   finding (`iwmaeda/revloop#22`, five rounds) — so the merge is observed on diffs of one, four and eleven

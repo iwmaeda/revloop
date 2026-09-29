@@ -26,7 +26,7 @@ carries a finished change through review.
 | ------------ | -------------------------------------------------------------------------------------------- |
 | Definition   | `${CLAUDE_PLUGIN_ROOT}/reviewers/ecc-review-pr.json`                                         |
 | Card         | `${CLAUDE_PLUGIN_ROOT}/reviewers/ecc-review-pr.md` — what was measured, when, and where      |
-| Command      | `claude --model {reviewModel} -p "/ecc:review-pr"`, run as a subprocess                      |
+| Command      | `claude --model {reviewModel} --effort medium -p "/ecc:review-pr"`, run as a subprocess      |
 | `requiresPr` | **`true`** — it resolves a pull request itself, so this run **publishes before each review** |
 | Severity     | **none.** A level with an acceptable band is resolved by grading — see below                 |
 | Status       | `unverified`                                                                                 |
@@ -51,6 +51,12 @@ neither the flag nor the key answered** — see `procedures/rigor-levels.md`.
 **expanded into a command line** at the `{reviewModel}` placeholder, so a key would be the first thing
 revloop interpolates into a shell command out of a repository-supplied file. It comes from the person
 typing it, or from the builtin, and from nowhere else.
+
+**The reviewer's effort is not a flag: the definition pins `--effort medium`.** Without the pin, the
+subprocess would run at whatever effort the operator's settings give it, on every round of the
+slowest local reviewer measured here. Nothing about it is interpolated: `medium` is a literal in the
+shipped definition, not a value this run expands. To review at another level, copy the definition,
+change that one token, and drive the copy with `/revloop:local-custom-loop`.
 
 **`--rigor minimal` and `--rigor standard` start a grader here.** This card once
 shipped a four-rung ladder read out of an agent the command dispatches, and five measured rounds
