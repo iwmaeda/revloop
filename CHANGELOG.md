@@ -13,6 +13,35 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### `markdownlint-cli2` 0.23.3, for two advisories that could not reach this repository
+
+**Two Dependabot alerts, both in packages only `markdownlint-cli2` depends on.** GHSA-253c-mchw-3w2r
+is quadratic time in `markdown-it`'s `linkify: true` handling, patched in 15.0.1. GHSA-r3ph-w7gj-g6xm
+is CPU use in `js-yaml` merge keys that `maxTotalMergeKeys` did not count, patched in 5.4.1.
+`markdownlint-cli2` pins both exactly, so the fix is its 0.23.3, which pins `markdown-it@15.0.1` and
+`js-yaml@5.4.1`. The declared range moves to `^0.23.3` so that a fresh resolve cannot land below it.
+Both packages are dev-only, and nothing the plugin ships depends on either.
+
+**Neither was reachable here, which was read rather than assumed.** `markdownlint-cli2` 0.23.3 builds
+its parser as `markdown-it({ "html": true })`, so linkify is off, and this repository configures no
+`markdown-it` plugin that could turn it on. `js-yaml` parses only YAML configuration files, and this
+repository's are `.markdownlint-cli2.jsonc` and `.markdownlint.json`. The upgrade is taken anyway,
+because it is what closes the alerts and "unreachable" holds only for the configuration as it
+stands.
+
+**`markdown-it` 15 is a major.** `npm run lint:md` still lints all 33 files with no findings. A seeded
+file still reports a duplicate heading and two bare URLs, an email and an `http://` link, so the rules
+built on the parser still fire.
+
+**`tests/severity-ladder.test.sh` swept `node_modules`, and its filter against that did nothing.** The
+sweep for `>`-separated chains ran `grep -rh ... | grep -v '/node_modules/'`, but `-h` drops file
+names, so no output line had a path for the filter to match. It stayed green only because no
+installed package's docs held a chain. `markdown-it` 15.0.1 brings `argparse` 3, whose README holds
+a two-letter one, and CI failed on it. That is why both Dependabot pull requests for this update
+were red.
+`grep --exclude-dir=node_modules` now does the excluding, and a tree built for the test asserts it,
+so the guard no longer depends on what happens to be installed.
+
 ## [0.14.0] - 2026-09-30
 
 ### `/revloop:local-ecc-loop` reviews at `--effort medium`, not at whatever your settings say
