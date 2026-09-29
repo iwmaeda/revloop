@@ -13,6 +13,8 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-09-30
+
 ### `markdownlint-cli2` 0.23.3, for two advisories that could not reach this repository
 
 **Two Dependabot alerts, both in packages only `markdownlint-cli2` depends on.** GHSA-253c-mchw-3w2r
@@ -3589,6 +3591,7 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.14.1]: https://github.com/iwmaeda/revloop/releases/tag/v0.14.1
 [0.14.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.14.0
 [0.13.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.13.0
 [0.12.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.12.0
