@@ -13,6 +13,34 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### `/revloop:local-ecc-loop` reviews at `--effort medium`, not at whatever your settings say
+
+**The review subprocess passed no `--effort`, so it ran at whatever the operator's settings gave
+it.** `claude --help` describes the flag as the effort level for the current session. Without it, the
+`claude -p` the ECC preset starts uses the host's configured default, so an operator whose default
+is `xhigh` paid for `xhigh` on every round of the slowest local reviewer this repository has measured
+(5m09s to 12m05s a round, on the card).
+
+**Now: `reviewers/ecc-review-pr.json` runs
+`claude --model {reviewModel} --effort medium -p "/ecc:review-pr"`.** The schema already says an
+effort argument belongs in `command` and nowhere else, and `code-review` already does the same with
+`/code-review medium`. **Nothing new is interpolated.** `medium` is a literal in a definition the
+plugin ships, not a value the loop expands, so the procedure, the schema and the permission model
+are unchanged. **There is no flag for it.** To review at another level, copy the definition, change
+that one token, and drive the copy with `/revloop:local-custom-loop`.
+
+**Measured, and only this far:** claude-code 2.1.283 accepts `--effort medium` beside both
+`--model sonnet` and `--model haiku`. Each printed a one-word reply and exited `0`, so the pin does
+not turn a lighter `--model` into an abort. A host that predates the flag would fail the round loudly, as
+`review-command-failed`. **Every review round the card records predates the pin** and ran at an
+effort nobody recorded. The card's `## Not measured` now asks what `medium` costs in findings and
+saves in time, and whether the agents the command dispatches inherit the level.
+
+**The review command string changed**, so an "always allow" saved for the old expanded string no
+longer matches, and the first round asks once. The step-1 table prints the new string, as it
+always prints the expanded one. **The grader and the `code-review` preset are unchanged.** Both
+still run at the host's effort.
+
 ## [0.13.0] - 2026-09-29
 
 ### A configuration can be yours alone: `.revloop/config.json`, kept out of git with no rule to add

@@ -431,7 +431,7 @@ raccept "the shipped code-review preset" '{"kind":"local-command","invoke":"subp
 # No ladder, because the shipped definition has none: five measured rounds
 # disproved the one its card used to claim. A fixture carrying a ladder the
 # shipped file does not is a fixture pinning a preset that was never shipped.
-raccept "the shipped ecc-review-pr preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} -p \"/ecc:review-pr\"","requiresPr":true,"rateLimitPatterns":["You'"'"'ve hit your session limit"]}'
+raccept "the shipped ecc-review-pr preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} --effort medium -p \"/ecc:review-pr\"","requiresPr":true,"rateLimitPatterns":["You'"'"'ve hit your session limit"]}'
 # A command with no placeholder stays valid: it is simply not pinned by the
 # loop, and the step-1 table says so rather than pretending it is.
 raccept "a subprocess command, unpinned" '{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review medium\""}'

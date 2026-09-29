@@ -3,7 +3,7 @@
   "displayName": "ECC /ecc:review-pr",
   "kind": "local-command",
   "invoke": "subprocess",
-  "command": "claude --model {reviewModel} -p \"/ecc:review-pr\"",
+  "command": "claude --model {reviewModel} --effort medium -p \"/ecc:review-pr\"",
   "requiresPr": true,
   "rateLimitPatterns": ["You've hit your session limit"],
   "status": "unverified"
