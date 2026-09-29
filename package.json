@@ -31,7 +31,7 @@
   },
   "devDependencies": {
     "ajv": "^8.20.0",
-    "markdownlint-cli2": "^0.23.2",
+    "markdownlint-cli2": "^0.23.3",
     "prettier": "^3.9.6"
   },
   "overrides": {
