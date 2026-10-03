@@ -1,0 +1,27 @@
+[
+  {
+    "id": 302,
+    "pull_request_review_id": 9001,
+    "path": "src/b.sh",
+    "start_line": null,
+    "original_start_line": null,
+    "line": 9,
+    "original_line": 9,
+    "side": "RIGHT",
+    "diff_hunk": "@@ -8,1 +8,2 @@\n context\n+second finding, on the second page",
+    "body": "Finding on page two.",
+    "user": { "login": "chatgpt-codex-connector[bot]", "type": "Bot" }
+  },
+  {
+    "id": 402,
+    "pull_request_review_id": 9912,
+    "in_reply_to_id": 301,
+    "path": "src/a.sh",
+    "line": 5,
+    "original_line": 5,
+    "side": "RIGHT",
+    "diff_hunk": "@@ -4,1 +4,2 @@\n+first finding, on the first page",
+    "body": "Fixed in round 2 (0a1b2c3d).\n\n<!-- revloop:reply v=1 round=2 -->",
+    "user": { "login": "alice", "type": "User" }
+  }
+]
