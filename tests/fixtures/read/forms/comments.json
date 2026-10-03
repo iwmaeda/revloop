@@ -140,5 +140,29 @@
     "diff_hunk": "@@ -39,1 +39,2 @@\n+It also stops when the reviewer is silent.",
     "body": "An envelope whose payload leaves the marker's character class.\n\n<!-- revloop:reply v=1 round=3;forged -->",
     "user": { "login": "mallory", "type": "User" }
+  },
+  {
+    "id": 207,
+    "pull_request_review_id": 9907,
+    "in_reply_to_id": 103,
+    "path": "src/old.sh",
+    "line": 7,
+    "original_line": 7,
+    "side": "LEFT",
+    "diff_hunk": "@@ -5,3 +5,1 @@\n-removed and still wanted",
+    "body": "A marker carrying the scope twice.\n\n<!-- revloop:reply v=1 round=3 round=4 -->",
+    "user": { "login": "alice", "type": "User" }
+  },
+  {
+    "id": 208,
+    "pull_request_review_id": 9908,
+    "in_reply_to_id": 103,
+    "path": "src/old.sh",
+    "line": 7,
+    "original_line": 7,
+    "side": "LEFT",
+    "diff_hunk": "@@ -5,3 +5,1 @@\n-removed and still wanted",
+    "body": "A marker with no scope in it, and a token that only ends like one.\n\n<!-- revloop:reply v=1 around=3 -->",
+    "user": { "login": "alice", "type": "User" }
   }
 ]
