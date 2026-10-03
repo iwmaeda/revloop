@@ -64,6 +64,77 @@ the gojq inside `gh`**: splitting an empty string gives `[]` under jq 1.7.1 and 
 fences are inline: a command called by path keeps its string while its content changes.
 [`docs/design-notes.md`](docs/design-notes.md) has the argument.
 
+### The marker read and the review list print answers, where they printed what to work them out from
+
+**Three reads in the remote loop print columns, and no fence moved.** Step 7 reads the round's
+trigger markers, step 10 the review list, and step 11 the replies under a finding. Each printed what
+GitHub returned and left the comparing to whoever read the rows: a marker's payload to split into
+keys, forty characters to hold against HEAD, a timestamp to hold against a bound. They print the
+comparison now. A marker's row carries `round=`, `opens=`, `attempt=`, `at_head=`, `by=`, `oid=` and
+`head=`; a review's carries `at_head`, `draft`, `after` and `at_or_after` beside the five keys it
+had; a reply's carries its scope as a field of its own. **Every fence is byte-identical and no
+permission rule is added**: the calls sit under the `gh api --paginate` prefix and `git` rules that
+are already granted, so nothing is re-approved.
+
+**Two of the three had no marker and no test.** The marker read and the list read are now
+`<!-- revloop:read id=round-markers -->` and `id=review-list`, and `tests/findings-read.test.sh`
+lifts both out of the procedure and runs them, beside the reads they replace, over recorded pull
+requests and over hand-written payloads for what the corpus cannot witness.
+
+**`head=` and `oid=` come off one call, in the marker's own spelling.**
+`git log -1 --abbrev=8 --format='head=%h oid=%H'` stands where two `git rev-parse` calls did, and
+its `oid=` is the value the marker read is handed. `%h` under `--abbrev=8` equals
+`git rev-parse --short=8` on all 238 commits of this repository at `git 2.34.1`.
+
+**A value typed into a program has to fail when it is wrong, and these two would not have.** A
+forgotten `<ids>` is a jq compile error. `<oid>` and `<since>` sit inside a jq string, where a
+placeholder compiles and compares — to `false`, on every row. For `<since>` that is an empty
+selection on the review sweep, which is a round that finishes clean past findings nobody read; for
+`<oid>` it is "HEAD has moved" on the invariant written to withhold a trigger. Both programs
+therefore check the shape of what they were handed and raise an error, which exits `1`. **Forty
+hexadecimal characters that are not HEAD's are not caught**, and the row prints `oid=` beside
+`at_head=` for that reason.
+
+**Step 7's backstop compares `oid=`, as step 3 already said it did.** Step 3 sends a run back when
+no marker carries an `oid=` equal to HEAD; step 7's own paragraph for the same rule still said
+`head=`, the eight characters the other three decisions had moved off. `at_head=` compares `oid=` in
+full and falls back to `head=` only on a marker that predates the key, and `by=` says which was
+compared — so the fallback `## Unexercised paths` called silent is now printed on every row that
+takes it. That entry also said no marker on any pull request carried `oid=`; nine of the 46 read
+back here do.
+
+**The pull-request body update prints one line, in both loops.** `gh api -X PATCH` answers with the
+whole pull request, which no step reads. Measured in the transcripts of sixty local-loop sessions
+(2026-09-13 onward): 39 updates put 329,989 characters into the session, and runs were cutting the
+output down by hand in a different spelling each time, some through a pipe the `PATCH` rule does not
+grant. The call now carries `--jq '"pr=\(.number) body_chars=\(.body|length)"'`.
+
+**Step 3's whitespace block is run by a test.** It is fixed text that every round runs, and its
+statuses had been measured once, by hand. It carries a `<!-- revloop:check id=whitespace -->` marker
+— not a fence marker, so nothing hashes it — and `tests/whitespace-check.test.sh` runs it over the
+three awkward names the step records, a clean new file and an unreadable one. Removing `IFS=`, `--`
+or `-z` from the lifted block turns the matching case, which was checked by hand and is not part of
+the suite.
+
+**Measured at `gh` 2.4.0.** The marker read on six pull requests of this repository — `#13`, `#27`,
+`#29`, `#31`, `#35` and `#45`: 63 rows, 46 of them markers, nine compared on `oid=` and 37 on
+`head=`. The list read on four: 45 reviews. On every key the old reads printed, the new ones print
+the same value for the same row, at five to a page as at a hundred. The reply read on `#35` and
+`#45`. `def`, `splits`, `from_entries`, `startswith` and `error` run in the jq `gh` embeds there.
+
+**Not measured: a round.** No run has composed a trigger, counted a round, selected a review or
+skipped a reply from these rows. None of the 46 markers is a re-post, so `opens=0` is pinned against
+hand-written payloads only, as are a marker nobody can parse, a draft review and a review sharing
+its second with the bound. The body update's program was run on a `GET` of the same object and on a
+`404`, not on a `PATCH`. `tests/whitespace-check.test.sh` has passed at `git 2.34.1` and nowhere
+else. All of it is in `## Unexercised paths`.
+
+**This is not a saving, and the procedure is 12,294 bytes longer for it.** In the transcripts of 106
+pull-request-loop sessions (2026-09-13 onward), reading the procedures and the reviewer cards was
+75% of everything the tools returned, and every `gh api` read together was about 3%. What this
+change buys is comparisons a program makes instead of a reader, and two reads a test now runs. What
+a round costs is decided by the length of `procedures/remote-loop.md`, which this change increased.
+
 ### `markdownlint-cli` replaces `markdownlint-cli2`, because `braces` has no patched release to move to
 
 **`npm audit` reported five high findings, and `npm audit fix` moved none of them.**

@@ -571,7 +571,8 @@ the level, and a repository that wants the old number writes it.
    git push -u origin HEAD
    git status --porcelain -uall     # a pre-push hook may have rewritten the tree; must come back empty
    gh pr create --base <base> --title '<title>' --body-file <scratch>/body.md
-   gh api -X PATCH "repos/{owner}/{repo}/pulls/<n>" -F body=@<scratch>/body.md   # updates go here
+   gh api -X PATCH "repos/{owner}/{repo}/pulls/<n>" -F body=@<scratch>/body.md \
+     --jq '"pr=\(.number) body_chars=\(.body|length)"'   # updates go here
    ```
 
    **The open-pull-request read is this round's, not step 1's, and the create-if-none decision is

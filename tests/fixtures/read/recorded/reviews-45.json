@@ -1,0 +1,162 @@
+[
+  {
+    "id": 5400147466,
+    "node_id": "PRR_kwDOT8iDHs8AAAABQd-2Cg",
+    "user": {
+      "login": "chatgpt-codex-connector[bot]",
+      "id": 199175422,
+      "node_id": "BOT_kgDOC98s_g",
+      "avatar_url": "https://avatars.githubusercontent.com/in/1144995?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D",
+      "html_url": "https://github.com/apps/chatgpt-codex-connector",
+      "followers_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "\n### 💡 Codex Review\n\nHere are some automated review suggestions for this pull request.\n\n**Reviewed commit:** `a579da314d`\n    \n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with 👍.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>",
+    "state": "COMMENTED",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/45#pullrequestreview-5400147466",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/45",
+    "author_association": "NONE",
+    "_links": {
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/45#pullrequestreview-5400147466"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/45"
+      }
+    },
+    "submitted_at": "2026-10-03T10:00:46Z",
+    "commit_id": "a579da314daa35ab6be1d26bc0b43b1a13887f78"
+  },
+  {
+    "id": 5400165994,
+    "node_id": "PRR_kwDOT8iDHs8AAAABQd_-ag",
+    "user": {
+      "login": "iwmaeda",
+      "id": 26950231,
+      "node_id": "MDQ6VXNlcjI2OTUwMjMx",
+      "avatar_url": "https://avatars.githubusercontent.com/u/26950231?u=a662e73f5d0b662d83f95970fe29062fa9b50d60&v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/iwmaeda",
+      "html_url": "https://github.com/iwmaeda",
+      "followers_url": "https://api.github.com/users/iwmaeda/followers",
+      "following_url": "https://api.github.com/users/iwmaeda/following{/other_user}",
+      "gists_url": "https://api.github.com/users/iwmaeda/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/iwmaeda/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/iwmaeda/subscriptions",
+      "organizations_url": "https://api.github.com/users/iwmaeda/orgs",
+      "repos_url": "https://api.github.com/users/iwmaeda/repos",
+      "events_url": "https://api.github.com/users/iwmaeda/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/iwmaeda/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "",
+    "state": "COMMENTED",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/45#pullrequestreview-5400165994",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/45",
+    "author_association": "OWNER",
+    "_links": {
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/45#pullrequestreview-5400165994"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/45"
+      }
+    },
+    "submitted_at": "2026-10-03T10:03:59Z",
+    "commit_id": "a579da314daa35ab6be1d26bc0b43b1a13887f78"
+  },
+  {
+    "id": 5400187711,
+    "node_id": "PRR_kwDOT8iDHs8AAAABQeBTPw",
+    "user": {
+      "login": "chatgpt-codex-connector[bot]",
+      "id": 199175422,
+      "node_id": "BOT_kgDOC98s_g",
+      "avatar_url": "https://avatars.githubusercontent.com/in/1144995?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D",
+      "html_url": "https://github.com/apps/chatgpt-codex-connector",
+      "followers_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "\n### 💡 Codex Review\n\nHere are some automated review suggestions for this pull request.\n\n**Reviewed commit:** `6f8c3956c7`\n    \n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with 👍.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>",
+    "state": "COMMENTED",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/45#pullrequestreview-5400187711",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/45",
+    "author_association": "NONE",
+    "_links": {
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/45#pullrequestreview-5400187711"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/45"
+      }
+    },
+    "submitted_at": "2026-10-03T10:08:05Z",
+    "commit_id": "6f8c3956c73055ded74790785264a5ba030a2d4e"
+  },
+  {
+    "id": 5400205617,
+    "node_id": "PRR_kwDOT8iDHs8AAAABQeCZMQ",
+    "user": {
+      "login": "iwmaeda",
+      "id": 26950231,
+      "node_id": "MDQ6VXNlcjI2OTUwMjMx",
+      "avatar_url": "https://avatars.githubusercontent.com/u/26950231?u=a662e73f5d0b662d83f95970fe29062fa9b50d60&v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/iwmaeda",
+      "html_url": "https://github.com/iwmaeda",
+      "followers_url": "https://api.github.com/users/iwmaeda/followers",
+      "following_url": "https://api.github.com/users/iwmaeda/following{/other_user}",
+      "gists_url": "https://api.github.com/users/iwmaeda/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/iwmaeda/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/iwmaeda/subscriptions",
+      "organizations_url": "https://api.github.com/users/iwmaeda/orgs",
+      "repos_url": "https://api.github.com/users/iwmaeda/repos",
+      "events_url": "https://api.github.com/users/iwmaeda/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/iwmaeda/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "",
+    "state": "COMMENTED",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/45#pullrequestreview-5400205617",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/45",
+    "author_association": "OWNER",
+    "_links": {
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/45#pullrequestreview-5400205617"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/45"
+      }
+    },
+    "submitted_at": "2026-10-03T10:11:03Z",
+    "commit_id": "6f8c3956c73055ded74790785264a5ba030a2d4e"
+  }
+]

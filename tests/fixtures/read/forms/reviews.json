@@ -1,0 +1,58 @@
+[
+  {
+    "id": 601,
+    "submitted_at": "2026-01-01T01:00:00Z",
+    "state": "COMMENTED",
+    "commit_id": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+    "user": { "login": "chatgpt-codex-connector[bot]", "type": "Bot" }
+  },
+  {
+    "id": 602,
+    "submitted_at": "2026-01-01T01:00:01Z",
+    "state": "COMMENTED",
+    "commit_id": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+    "user": { "login": "chatgpt-codex-connector[bot]", "type": "Bot" }
+  },
+  {
+    "id": 603,
+    "submitted_at": "2026-01-01T02:00:00Z",
+    "state": "COMMENTED",
+    "commit_id": "1a2b3c4d00000000000000000000000000000000",
+    "user": { "login": "chatgpt-codex-connector[bot]", "type": "Bot" }
+  },
+  {
+    "id": 604,
+    "submitted_at": null,
+    "state": "PENDING",
+    "commit_id": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+    "user": { "login": "chatgpt-codex-connector[bot]", "type": "Bot" }
+  },
+  {
+    "id": 605,
+    "submitted_at": "2026-01-01T03:00:00Z",
+    "state": "DISMISSED",
+    "commit_id": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+    "user": { "login": "chatgpt-codex-connector[bot]", "type": "Bot" }
+  },
+  {
+    "id": 606,
+    "submitted_at": "2026-01-01T03:30:00Z",
+    "state": "COMMENTED",
+    "commit_id": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+    "user": { "login": "a[bot]b", "type": "Bot" }
+  },
+  {
+    "id": 607,
+    "submitted_at": "2026-01-01T04:00:00Z",
+    "state": "COMMENTED",
+    "commit_id": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+    "user": { "login": "alice", "type": "User" }
+  },
+  {
+    "id": 608,
+    "submitted_at": "2026-01-01T00:59:59Z",
+    "state": "COMMENTED",
+    "commit_id": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+    "user": { "login": "chatgpt-codex-connector[bot]", "type": "Bot" }
+  }
+]
