@@ -1,0 +1,11 @@
+# Ignore patterns for markdownlint-cli, which is what `npm run lint:md` runs.
+#
+# The VS Code extension does not read this file: it runs the markdownlint-cli2
+# engine and takes its list from `ignores` in .markdownlint-cli2.jsonc. The two
+# lists hold the same four patterns, spelled the same way, so they can be
+# compared by eye. Change both together. The reason for the last pattern is
+# written once, in that file.
+node_modules/**
+.git/**
+tests/fixtures/**
+.revloop/field-notes.md
