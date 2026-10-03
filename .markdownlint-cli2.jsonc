@@ -1,7 +1,8 @@
-// markdownlint-cli2 configuration (shared by the CLI and the VS Code extension).
-// Rules live in .markdownlint.json. This `ignores` list is the single source of
-// ignore patterns: markdownlint-cli2 and DavidAnson.vscode-markdownlint both honor
-// it, so a separate .markdownlintignore is unnecessary.
+// Read by the VS Code extension (DavidAnson.vscode-markdownlint) only, which runs
+// the markdownlint-cli2 engine. The CLI is markdownlint-cli and does not read this
+// file: it takes its ignore patterns from .markdownlintignore. The two lists hold
+// the same four patterns, spelled the same way. Change both together. Rules live
+// in .markdownlint.json, which both read.
 //
 // `.revloop/field-notes.md` is the one artifact the procedure writes: git-
 // ignored, local, and one long line per event, which puts it past MD013

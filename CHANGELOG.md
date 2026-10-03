@@ -13,6 +13,53 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### `markdownlint-cli` replaces `markdownlint-cli2`, because `braces` has no patched release to move to
+
+**`npm audit` reported five high findings, and `npm audit fix` moved none of them.**
+GHSA-vfj7-8cjw-p6xm is stack exhaustion in `braces` on a deeply nested pattern, at `<=3.0.3`, and 3.0.3
+is the newest release there is: the advisory names no patched version, and the fix is a pull request
+still open upstream. The other four findings are the packages that lead to it. `markdownlint-cli2`
+depends on `micromatch` directly and again through `globby` and `fast-glob`, 0.23.3 is its newest
+release, and `--force` proposed `markdownlint-cli2@0.0.4`. `npm audit --audit-level=high` exits 1 on
+that tree, so the CI `audit` job would have failed on its next run.
+
+**It was not reachable here, and that does not turn the job green.** The patterns `braces` sees are
+the literal in the `lint:md` script and the four in `ignores`, all written in this repository. An
+override cannot help either, since there is no version to override to. So the dependency goes rather
+than the version. `markdownlint-cli` is the same author's other CLI over the same `markdownlint`
+0.41.1, and it globs with `tinyglobby`: `braces`, `micromatch`, `fast-glob` and `globby` leave the
+tree along with 27 other packages, and the tree is 80 packages where it was 93.
+
+**One override is added and one is removed.** `markdownlint-cli` 0.49.1 declares `js-yaml` as
+`~5.2.1`, which resolves to 5.2.3 — inside GHSA-r3ph-w7gj-g6xm, the advisory 0.14.1 closed. A root
+`overrides` entry holds it at `^5.4.1`, and the lockfile keeps the 5.4.1 it already had. The
+`smol-toml` override goes: it answered `markdownlint-cli2`'s exact pin on 1.7.0, and
+`markdownlint-cli` declares `~1.7.0`, which resolves to the patched 1.7.2 without help. `markdown-it`
+moves from 15.0.1 to 14.3.2, past the 14.3.1 that patched the 14 line for GHSA-253c-mchw-3w2r.
+
+**The new linter was compared against the one it replaces, not assumed equal.** A custom rule that
+reports every file it is handed lists the same 33 files under both: the 32 tracked ones and one
+untracked local note. A seeded file reports the same nine findings at the same lines and columns, and
+`--fix` writes byte-identical output. `--config` with a YAML file applies its rules under the
+overridden `js-yaml`, and a malformed one fails with a parse error rather than hanging.
+
+**Two things `markdownlint-cli2` did by itself are now written down.** It sets `dot: true` in its own
+source and `markdownlint-cli` does not, so both `lint:md` scripts pass `--dot`; without it the list
+falls to 30, losing `.agents/skills/revloop/SKILL.md` and `.github/pull_request_template.md`. And it
+read `ignores` from `.markdownlint-cli2.jsonc`, which `markdownlint-cli` does not read, so the four
+patterns are repeated in a new `.markdownlintignore`. The first file stays, because the VS Code
+extension runs the `markdownlint-cli2` engine and still reads it. **That is one list in two files
+with no test holding them together**; each file's comment names the other.
+
+**`CONTRIBUTING.md` has said since 0.7.0 that dot-directories are not linted, and they were.** The
+evidence then was that no `dot` option appeared in the configuration and the linter reported nothing
+from them. The option was in the linter's source, and a clean file reports nothing whether or not it
+is read. The paragraph is corrected, this time from a rule that lists what was read.
+
+**`fast-uri` 3.1.8, for GHSA-hrr3-gc8f-f4qj.** Inconsistent host case normalization through
+percent-encoded octets, moderate, at `>=3.0.0 <3.1.8`. 3.1.8 is inside the `^3.0.1` that `ajv`
+declares, so only the lockfile moves. `npm audit` now reports no findings.
+
 ## [0.14.1] - 2026-09-30
 
 ### `markdownlint-cli2` 0.23.3, for two advisories that could not reach this repository
