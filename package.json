@@ -7,8 +7,8 @@
   "scripts": {
     "format": "prettier --write \"**/*.{json,jsonc,yml,yaml,md}\"",
     "format:check": "prettier --check \"**/*.{json,jsonc,yml,yaml,md}\"",
-    "lint:md": "markdownlint-cli2 \"**/*.md\"",
-    "lint:md:fix": "markdownlint-cli2 --fix \"**/*.md\"",
+    "lint:md": "markdownlint --dot \"**/*.md\"",
+    "lint:md:fix": "markdownlint --dot --fix \"**/*.md\"",
     "lint:sh": "tests/lint-shell.sh",
     "test": "tests/run-all.sh",
     "audit": "npm audit --audit-level=high",
@@ -31,10 +31,10 @@
   },
   "devDependencies": {
     "ajv": "^8.20.0",
-    "markdownlint-cli2": "^0.23.3",
+    "markdownlint-cli": "^0.49.1",
     "prettier": "^3.9.6"
   },
   "overrides": {
-    "smol-toml": "^1.7.1"
+    "js-yaml": "^5.4.1"
   }
 }

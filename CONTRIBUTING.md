@@ -20,12 +20,14 @@ runnable offline. That makes it the one CI job the umbrella command does not rep
 exactly the gap [`.revloop.json`](.revloop.json)'s `verifyNotes` exists to record — this repository
 runs into its own feature.
 
-**`.claude/**` and `.agents/**` are NOT linted**, and this paragraph said the opposite until 0.7.0. It
-claimed `markdownlint-cli2` runs with `dot: true` and descends into dot-directories; the option appears
-nowhere in [`.markdownlint-cli2.jsonc`](.markdownlint-cli2.jsonc) or in the `lint:md` script, and
-`npx markdownlint-cli2 "**/*.md"` reports nothing from either directory. So
-[`.agents/skills/revloop/SKILL.md`](.agents/skills/revloop/SKILL.md) is unlinted, and the Codex router
-is checked by review alone.
+**`.agents/**`, `.claude/**` and `.github/**` ARE linted**, and this paragraph has now said both. From
+0.7.0 it said they were not, because no `dot` option appeared in the configuration and the linter
+reported nothing from those directories. Neither showed it: `markdownlint-cli2` 0.23.3 sets `dot: true`
+in its own source, and a clean file reports nothing whether or not it is read. A custom rule that
+reports every file it is handed listed [`.agents/skills/revloop/SKILL.md`](.agents/skills/revloop/SKILL.md)
+and `.github/pull_request_template.md` among the rest. The linter is now `markdownlint-cli`, where the
+same reach is the `--dot` in the `lint:md` script, and without it both files drop out. So the Codex
+router is linted, and what [`.markdownlintignore`](.markdownlintignore) names is all that is skipped.
 
 ## The procedure is the product
 
