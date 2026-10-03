@@ -2141,7 +2141,7 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
     ```bash
     gh api "repos/{owner}/{repo}/pulls/<n>/reviews/<id>" --jq '{state,commit:.commit_id,body}'
     gh api --paginate "repos/{owner}/{repo}/pulls/<n>/comments?per_page=100" \
-      --jq '.[]|select(.pull_request_review_id|IN(<ids>))|{id,review:.pull_request_review_id,path,start:(.start_line // .original_start_line),line:(.line // .original_line),side,outdated:(.line==null),context:((.diff_hunk // "")|split("\n")|.[-6:]|map(.[0:160])),body}'
+      --jq '.[]|select(.pull_request_review_id|IN(<ids>))|{id,review:.pull_request_review_id,path,start:(.start_line // .original_start_line),line:(.line // .original_line),side,outdated:(if .subject_type=="file" then null else .line==null end),context:((.diff_hunk // "")|split("\n")|.[-6:]|map(.[0:160])),body}'
     ```
 
     **`<id>` is whichever review is in hand** — `review_id=` on the direct path, each swept `id` on
@@ -2189,7 +2189,11 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
     **`outdated`, `start`, `side` and `context` are on the row so that locating a finding costs no
     further call.** `outdated` is `.line == null`, which is the answer `reviewThreads { isOutdated }`
     was being asked for — measured agreeing with GraphQL's `outdated` on 14 findings of 14
-    (`iwmaeda/revloop#31` and `iwmaeda/revloop#35`, 2026-10). `start` is where a multi-line finding's
+    (`iwmaeda/revloop#31` and `iwmaeda/revloop#35`, 2026-10). **Null by itself is ambiguous, because
+    GitHub also leaves `line` null on a file-level comment** — one with `subject_type: "file"` — for
+    a reason that has nothing to do with the diff moving on, so the row reads `outdated` as `null`
+    rather than `true` whenever `subject_type` is `"file"`: unknown, not stale. Fetch the thread's own
+    state for one of those if it matters. `start` is where a multi-line finding's
     range opens and is null on a single-line one. `side` is `LEFT` when the finding sits on a deleted
     line, whose number is then the old file's and not the new one's. `context` is the tail of the
     comment's `diff_hunk`, six rows of it, each cut at 160 characters: GitHub ends the hunk on the

@@ -243,7 +243,8 @@ same "  and a short one is not"                  "$(field "$o" 103 '.context | l
 # is a context with no text in it, and that is all the row is asked for.
 same "a comment with no hunk still yields its row" "$(field "$o" 105 .id)" "105"
 same "  with a context holding no text"            "$(field "$o" 105 '.context | join("")')" ""
-same "  and no line at all reads as null"          "$(field "$o" 105 '"\(.line) \(.outdated)"')" "null true"
+same "  a file-level comment's line is null"       "$(field "$o" 105 .line)" "null"
+same "  but outdated is unknown, not true"         "$(field "$o" 105 .outdated)" "null"
 
 same "one id of the two yields its review alone" \
   "$(findings 9002 "$FORMS" | jq -r .id | tr '\n' ' ')" "103 "
