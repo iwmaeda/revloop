@@ -2187,13 +2187,14 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
     arrive with no location and get dropped.
 
     **`outdated`, `start`, `side` and `context` are on the row so that locating a finding costs no
-    further call.** `outdated` is `.line == null`, which is the answer `reviewThreads { isOutdated }`
-    was being asked for — measured agreeing with GraphQL's `outdated` on 14 findings of 14
-    (`iwmaeda/revloop#31` and `iwmaeda/revloop#35`, 2026-10). **Null by itself is ambiguous, because
-    GitHub also leaves `line` null on a file-level comment** — one with `subject_type: "file"` — for
-    a reason that has nothing to do with the diff moving on, so the row reads `outdated` as `null`
-    rather than `true` whenever `subject_type` is `"file"`: unknown, not stale. Fetch the thread's own
-    state for one of those if it matters. `start` is where a multi-line finding's
+    further call.** On a **line** comment, `outdated` is `.line == null`, which is the answer
+    `reviewThreads { isOutdated }` was being asked for — measured agreeing with GraphQL's `outdated`
+    on 14 findings of 14 (`iwmaeda/revloop#31` and `iwmaeda/revloop#35`, 2026-10), **every one of them
+    a line comment**. `.line == null` is not that answer on a **file-level** comment
+    (`subject_type: "file"`): GitHub leaves `line` null there by definition, for a reason that has
+    nothing to do with the diff moving on, so the row reads `outdated` as `null` rather than `true`
+    whenever `subject_type` is `"file"` — unknown, never read off the equivalence above. Fetch the
+    thread's own state for one of those if it matters. `start` is where a multi-line finding's
     range opens and is null on a single-line one. `side` is `LEFT` when the finding sits on a deleted
     line, whose number is then the old file's and not the new one's. `context` is the tail of the
     comment's `diff_hunk`, six rows of it, each cut at 160 characters: GitHub ends the hunk on the
@@ -2360,9 +2361,10 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
     the rung each finding carried when you answered it**: [`rigor-levels.md`](rigor-levels.md)
     re-opens the acceptances under a ceiling that has risen since the previous round, and it can see
     that only from a record that says which bucket a finding went into and at what rung. `outdated` on
-    each row narrows the reading quickly — it is what `reviewThreads { isOutdated }` answers, without
-    the call, and **`isResolved` is useless because nobody presses Resolve** (measured 0 resolved, 31
-    of 32 outdated) — but confirm against the diff.
+    each row narrows the reading quickly — on a line comment it is what `reviewThreads { isOutdated }`
+    answers, without the call, and it is `null` rather than that answer on a file-level comment — and
+    **`isResolved` is useless because nobody presses Resolve** (measured 0 resolved, 31 of 32
+    outdated) — but confirm against the diff.
 
     **Then, having fixed one, sweep for its shape.** A reviewer returns few findings per round — see
     the measurements on its card in `reviewers/` — so leaving a sibling behind literally buys another

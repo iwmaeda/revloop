@@ -26,13 +26,14 @@ fence is byte-identical and no permission rule is added**: the calls are the sam
 the existing rules grant, so nothing is re-approved.
 
 **A finding's row carries what the next call used to be made for.** Beside `id`, `path`, `line` and
-`body` it now has `review`, `start`, `side`, `outdated` and `context`. `outdated` is `.line == null`,
-which answers what step 10 told the reader to ask `reviewThreads { isOutdated }` for and gave no
-command to ask it with — **except on a file-level comment**, where `.line` is null by definition
-and not because the thread went stale, so `outdated` reads `null` there instead of `true`. `context`
-is the last six rows of the comment's `diff_hunk`, each cut at 160 characters. **`.line == null` and
-not `position == null`**, the test a first draft of this read used: on `iwmaeda/revloop#31`
-`position` is non-null on all 18 comments while `line` is null on 16 of them.
+`body` it now has `review`, `start`, `side`, `outdated` and `context`. On a **line** comment,
+`outdated` is `.line == null`, which answers what step 10 told the reader to ask
+`reviewThreads { isOutdated }` for and gave no command to ask it with. **On a file-level comment**
+(`subject_type: "file"`), `.line` is null by definition and not because the thread went stale, so
+`outdated` reads `null` there instead — unknown, never `true` by that equivalence. `context` is the
+last six rows of the comment's `diff_hunk`, each cut at 160 characters. **`.line == null` and not
+`position == null`**, the test a first draft of this read used: on `iwmaeda/revloop#31` `position`
+is non-null on all 18 comments while `line` is null on 16 of them.
 
 **Measured on `iwmaeda/revloop#31` and `iwmaeda/revloop#35`, at `gh` 2.4.0.** The new reads were run
 beside the ones they replace. On every key the old reads printed — a review's `commit_id`, `state`

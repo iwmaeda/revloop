@@ -161,7 +161,7 @@ same "  bound to the review it came from"          "$(field "$o" 4127727186 .rev
 same "  with its path"                             "$(field "$o" 4127727186 .path)" ".agents/skills/revloop/SKILL.md"
 same "  a null line falls back to original_line"   "$(field "$o" 4127727186 .line)" "23"
 same "  and the range opens where it did"          "$(field "$o" 4127727186 .start)" "22"
-same "  a null line is what outdated means"        "$(field "$o" 4127727186 .outdated)" "true"
+same "  on a line comment, a null line is outdated" "$(field "$o" 4127727186 .outdated)" "true"
 same "  the context is the hunk's tail"            "$(field "$o" 4127727186 '.context | length')" "6"
 same "  ending on the hunk's last row"             "$(field "$o" 4127727186 '.context | last')" \
   "$(jq -r '.[] | select(.id == 4127727186) | .diff_hunk | split("\n") | last' "$REC/comments.json")"
