@@ -13,6 +13,8 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-04
+
 ### A round reads a review's findings in four calls, where it took three and two more per finding
 
 **Three reads in the remote loop are consolidated, and no fence moved.** Steps 9, 10 and 11 fetch a
@@ -3760,6 +3762,7 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.15.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.15.0
 [0.14.1]: https://github.com/iwmaeda/revloop/releases/tag/v0.14.1
 [0.14.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.14.0
 [0.13.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.13.0
