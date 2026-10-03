@@ -1,0 +1,27 @@
+[
+  {
+    "id": 301,
+    "pull_request_review_id": 9001,
+    "path": "src/a.sh",
+    "start_line": null,
+    "original_start_line": null,
+    "line": 5,
+    "original_line": 5,
+    "side": "RIGHT",
+    "diff_hunk": "@@ -4,1 +4,2 @@\n context\n+first finding, on the first page",
+    "body": "Finding on page one.",
+    "user": { "login": "chatgpt-codex-connector[bot]", "type": "Bot" }
+  },
+  {
+    "id": 401,
+    "pull_request_review_id": 9911,
+    "in_reply_to_id": 302,
+    "path": "src/b.sh",
+    "line": 9,
+    "original_line": 9,
+    "side": "RIGHT",
+    "diff_hunk": "@@ -8,1 +8,2 @@\n+second finding, on the second page",
+    "body": "A reply that sorts before the finding it answers.\n\n<!-- revloop:reply v=1 round=2 -->",
+    "user": { "login": "alice", "type": "User" }
+  }
+]

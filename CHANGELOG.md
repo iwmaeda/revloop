@@ -13,6 +13,55 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### A round reads a review's findings in four calls, where it took three and two more per finding
+
+**Three reads in the remote loop are consolidated, and no fence moved.** Steps 9, 10 and 11 fetch a
+review's commit, state and body, its inline findings, and the replies under them. Until now step 9's
+check (e) and step 10 each fetched the same review, step 10 paged through the pull request's comments
+once per review, and step 11 paged through them again on either side of every reply — three calls and
+two more per finding on the ordinary path, and more on a sweep. They are now one read of the review,
+shared by steps 9 and 10; one read of the findings, for every selected review at once; and one read
+of the replies, for every finding at once, run before the first POST and after the last. **Every
+fence is byte-identical and no permission rule is added**: the calls are the same `gh api` prefixes
+the existing rules grant, so nothing is re-approved.
+
+**A finding's row carries what the next call used to be made for.** Beside `id`, `path`, `line` and
+`body` it now has `review`, `start`, `side`, `outdated` and `context`. `outdated` is `.line == null`,
+which answers what step 10 told the reader to ask `reviewThreads { isOutdated }` for and gave no
+command to ask it with. `context` is the last six rows of the comment's `diff_hunk`, each cut at 160
+characters. **`.line == null` and not `position == null`**, the test a first draft of this read
+used: on `iwmaeda/revloop#31` `position` is non-null on all 18 comments while `line` is null on 16
+of them.
+
+**Measured on `iwmaeda/revloop#31` and `iwmaeda/revloop#35`, at `gh` 2.4.0.** The new reads were run
+beside the ones they replace. On every key the old reads printed — a review's `commit_id`, `state`
+and `body`, and a finding's `id`, `path`, `line` and `body` — the two agree, for all ten of the
+reviewer's reviews and all 14 findings, and a reply's row is the old row behind a leading id.
+`outdated` agrees with GraphQL's on 14 of 14. The hunk ends on the commented line on 14 of 14, which
+is why its tail is the context; the largest hunk was 25,362 characters and the largest context
+printed 677. `IN(...)` runs in the jq that `gh` embeds at that version. **`gh api --paginate` applies
+`--jq` to each page separately** — 18 comments at five to a page reach the program as four inputs —
+so neither program compares one comment with another, and both print the same rows at five to a page
+as at a hundred.
+
+**Not measured: a round.** No run has driven the loop through these reads, so what is established is
+that the programs print what the old ones did and more, not that a round reading them behaves as it
+did. Every measured finding is a `RIGHT`-side line comment; `LEFT`, file-level and hunk-less comments
+are pinned against hand-written payloads only. And step 11 now reads once before the first reply
+where it read before each, so a reply another run posts in between goes unseen — a duplicate on the
+pull request, which is the visible direction. All three are in `## Unexercised paths`.
+
+**`tests/findings-read.test.sh` is the first test to reach these reads.** They are prose and not
+fences, so nothing ran them. It lifts the three jq programs out of the procedure by a new
+`<!-- revloop:read id=... -->` marker and runs them over the recorded payloads of #35 and over
+hand-written ones for the forms the corpus cannot witness. **It found one difference between jq and
+the gojq inside `gh`**: splitting an empty string gives `[]` under jq 1.7.1 and `[""]` under `gh`
+2.4.0. Only the context of a comment with no hunk is affected, and the assertion holds under both.
+
+**A shipped tool was considered and rejected**, script and compiled binary alike, for the reason the
+fences are inline: a command called by path keeps its string while its content changes.
+[`docs/design-notes.md`](docs/design-notes.md) has the argument.
+
 ## [0.14.1] - 2026-09-30
 
 ### `markdownlint-cli2` 0.23.3, for two advisories that could not reach this repository

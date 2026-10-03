@@ -1,0 +1,697 @@
+[
+  {
+    "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127584871",
+    "pull_request_review_id": 5345317056,
+    "id": 4127584871,
+    "node_id": "PRRC_kwDOT8iDHs72BfJn",
+    "diff_hunk": "@@ -28,8 +28,8 @@ Codex plugin support is in preview. The reliable path today is to place the skil\n \n ```console\n git clone https://github.com/iwmaeda/revloop.git ~/.revloop\n-mkdir -p .agents/skills\n-cp -r ~/.revloop/.agents/skills/revloop .agents/skills/\n+mkdir -p ~/.agents/skills\n+cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/",
+    "path": "docs/install.md",
+    "commit_id": "a460e312c2acb1ee46b37509c428d5383025e89e",
+    "original_commit_id": "13f13378b0929e397c1fc3ba43e6575c99c4ee12",
+    "user": {
+      "login": "chatgpt-codex-connector[bot]",
+      "id": 199175422,
+      "node_id": "BOT_kgDOC98s_g",
+      "avatar_url": "https://avatars.githubusercontent.com/in/1144995?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D",
+      "html_url": "https://github.com/apps/chatgpt-codex-connector",
+      "followers_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Make the user-scope install survive a new shell**\n\nAfter the skill is copied to `~/.agents/skills`, the one-time `export REVLOOP_PROCEDURE=...` disappears when the terminal session ends. Unlike the previous project-local placement, the router's relative fallback in `.agents/skills/revloop/SKILL.md` then points at `~/procedures/remote-loop.md`, while its upward search starts in the consumer repository, so a later Codex session cannot find the procedure and aborts. Persist the variable in shell startup/configuration or add a fallback that resolves the `~/.revloop` clone.\n\nUseful? React with 👍 / 👎.",
+    "created_at": "2026-09-28T22:21:19Z",
+    "updated_at": "2026-09-28T22:21:19Z",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127584871",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/35",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127584871"
+      },
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127584871"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/35"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127584871/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": 31,
+    "original_start_line": 31,
+    "start_side": "RIGHT",
+    "line": 32,
+    "original_line": 32,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 7,
+    "position": 8,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127608553",
+    "pull_request_review_id": 5345343202,
+    "id": 4127608553,
+    "node_id": "PRRC_kwDOT8iDHs72Bk7p",
+    "diff_hunk": "@@ -28,8 +28,8 @@ Codex plugin support is in preview. The reliable path today is to place the skil\n \n ```console\n git clone https://github.com/iwmaeda/revloop.git ~/.revloop\n-mkdir -p .agents/skills\n-cp -r ~/.revloop/.agents/skills/revloop .agents/skills/\n+mkdir -p ~/.agents/skills\n+cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/",
+    "path": "docs/install.md",
+    "commit_id": "a460e312c2acb1ee46b37509c428d5383025e89e",
+    "original_commit_id": "13f13378b0929e397c1fc3ba43e6575c99c4ee12",
+    "user": {
+      "login": "iwmaeda",
+      "id": 26950231,
+      "node_id": "MDQ6VXNlcjI2OTUwMjMx",
+      "avatar_url": "https://avatars.githubusercontent.com/u/26950231?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/iwmaeda",
+      "html_url": "https://github.com/iwmaeda",
+      "followers_url": "https://api.github.com/users/iwmaeda/followers",
+      "following_url": "https://api.github.com/users/iwmaeda/following{/other_user}",
+      "gists_url": "https://api.github.com/users/iwmaeda/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/iwmaeda/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/iwmaeda/subscriptions",
+      "organizations_url": "https://api.github.com/users/iwmaeda/orgs",
+      "repos_url": "https://api.github.com/users/iwmaeda/repos",
+      "events_url": "https://api.github.com/users/iwmaeda/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/iwmaeda/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "Fixed in round 2 (0c81a406).\n\nThe finding is right, and its premise is half right: the defect is not new to the user-scope copy. From a project copy at `.agents/skills/revloop/`, the router's relative fallback points at that project's root and the upward search starts in the same repository, so neither reaches the clone there either — `REVLOOP_PROCEDURE` was always the only resolution that does, and a bare `export` was always gone in the next terminal.\n\nThe install block in `docs/install.md`, `README.md` and `README.ja.md` now appends `export REVLOOP_PROCEDURE=\"$HOME/.revloop/procedures/remote-loop.md\"` to `~/.bashrc` (or `~/.zshrc`), and `docs/install.md` says why a bare `export` is not enough. Measured: sourcing the appended line in a fresh bash expands `$HOME` at that point, not at install time. The router's own \"stop and tell the user to set `$REVLOOP_PROCEDURE`\" now says to put it in the startup file.\n\nSweeps: corpus — every copy of the install block (three) and both READMEs' sentence on the variable; definition — the router's stop message; already-fixed — the block was changed once on this branch (round 1's move), this is the first fix to its variable.\n\n<!-- revloop:reply v=1 round=1 -->\n",
+    "created_at": "2026-09-28T22:24:42Z",
+    "updated_at": "2026-09-28T22:24:42Z",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127608553",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/35",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127608553"
+      },
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127608553"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/35"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127608553/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": 31,
+    "original_start_line": 31,
+    "start_side": "RIGHT",
+    "line": 32,
+    "original_line": 32,
+    "side": "RIGHT",
+    "in_reply_to_id": 4127584871,
+    "author_association": "OWNER",
+    "original_position": 7,
+    "position": 8,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127624328",
+    "pull_request_review_id": 5345361481,
+    "id": 4127624328,
+    "node_id": "PRRC_kwDOT8iDHs72BoyI",
+    "diff_hunk": "@@ -28,16 +28,31 @@ Codex plugin support is in preview. The reliable path today is to place the skil\n \n ```console\n git clone https://github.com/iwmaeda/revloop.git ~/.revloop\n-mkdir -p .agents/skills\n-cp -r ~/.revloop/.agents/skills/revloop .agents/skills/\n-export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md\n+mkdir -p ~/.agents/skills\n+cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/\n+echo 'export REVLOOP_PROCEDURE=\"$HOME/.revloop/procedures/remote-loop.md\"' >> ~/.bashrc   # or ~/.zshrc",
+    "path": "docs/install.md",
+    "commit_id": "0c81a406325e8e23c0fab9c0c5c0b2db972b4774",
+    "original_commit_id": "0c81a406325e8e23c0fab9c0c5c0b2db972b4774",
+    "user": {
+      "login": "chatgpt-codex-connector[bot]",
+      "id": 199175422,
+      "node_id": "BOT_kgDOC98s_g",
+      "avatar_url": "https://avatars.githubusercontent.com/in/1144995?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D",
+      "html_url": "https://github.com/apps/chatgpt-codex-connector",
+      "followers_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Persist the procedure path for the user's actual shell**\n\nOn systems using zsh (including default macOS installations), pasting this command verbatim writes only `~/.bashrc`, which zsh does not read, so later Codex sessions still lack `REVLOOP_PROCEDURE` and the router stops. The inline `# or ~/.zshrc` is only a comment and does not select the correct file. The replacement is fresh evidence beyond the earlier bare-`export` finding, and the same hard-coded recipe occurs in all three install snippets: `docs/install.md:33`, `README.md:163`, and `README.ja.md:162`; provide shell-specific alternatives or select the startup file from the user's shell.\n\nUseful? React with 👍 / 👎.",
+    "created_at": "2026-09-28T22:27:09Z",
+    "updated_at": "2026-09-28T22:27:09Z",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127624328",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/35",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127624328"
+      },
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127624328"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/35"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127624328/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": null,
+    "original_line": 33,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 9,
+    "position": 1,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127642495",
+    "pull_request_review_id": 5345380778,
+    "id": 4127642495,
+    "node_id": "PRRC_kwDOT8iDHs72BtN_",
+    "diff_hunk": "@@ -28,16 +28,31 @@ Codex plugin support is in preview. The reliable path today is to place the skil\n \n ```console\n git clone https://github.com/iwmaeda/revloop.git ~/.revloop\n-mkdir -p .agents/skills\n-cp -r ~/.revloop/.agents/skills/revloop .agents/skills/\n-export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md\n+mkdir -p ~/.agents/skills\n+cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/\n+echo 'export REVLOOP_PROCEDURE=\"$HOME/.revloop/procedures/remote-loop.md\"' >> ~/.bashrc   # or ~/.zshrc",
+    "path": "docs/install.md",
+    "commit_id": "0c81a406325e8e23c0fab9c0c5c0b2db972b4774",
+    "original_commit_id": "0c81a406325e8e23c0fab9c0c5c0b2db972b4774",
+    "user": {
+      "login": "iwmaeda",
+      "id": 26950231,
+      "node_id": "MDQ6VXNlcjI2OTUwMjMx",
+      "avatar_url": "https://avatars.githubusercontent.com/u/26950231?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/iwmaeda",
+      "html_url": "https://github.com/iwmaeda",
+      "followers_url": "https://api.github.com/users/iwmaeda/followers",
+      "following_url": "https://api.github.com/users/iwmaeda/following{/other_user}",
+      "gists_url": "https://api.github.com/users/iwmaeda/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/iwmaeda/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/iwmaeda/subscriptions",
+      "organizations_url": "https://api.github.com/users/iwmaeda/orgs",
+      "repos_url": "https://api.github.com/users/iwmaeda/repos",
+      "events_url": "https://api.github.com/users/iwmaeda/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/iwmaeda/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "Fixed in round 3 (0e220984).\n\nRight. And since round 2 had already fixed this block, the class was named too narrowly: it is not \"the export does not persist\" but \"the install depends on which shell, if any, starts Codex\". bash reads `~/.bashrc` in a terminal and `~/.bash_profile` in a macOS login shell, zsh reads `~/.zshrc`, fish needs other syntax, and a session started from an editor may read none of them — so per-shell alternatives would still leave members of that set open.\n\nThe dependency is removed instead. The router (`.agents/skills/revloop/SKILL.md`) gains a fourth resolution, `$HOME/.revloop/procedures/remote-loop.md` — the clone path the install already uses — and the variable line is gone from all three blocks (`docs/install.md`, `README.md`, `README.ja.md`). `REVLOOP_PROCEDURE` is now needed only for a clone somewhere else, and `docs/install.md` says why the default lives in the router rather than in a startup-file line.\n\nSweeps: corpus — all three install blocks and both READMEs' sentence on the variable; definition — the router's resolution list and stop message, which the install text now describes; already-fixed — yes (round 2), hence the widened class.\n\n<!-- revloop:reply v=1 round=2 -->\n",
+    "created_at": "2026-09-28T22:29:56Z",
+    "updated_at": "2026-09-28T22:29:56Z",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127642495",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/35",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127642495"
+      },
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127642495"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/35"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127642495/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": null,
+    "original_line": 33,
+    "side": "RIGHT",
+    "in_reply_to_id": 4127624328,
+    "author_association": "OWNER",
+    "original_position": 9,
+    "position": 1,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127659767",
+    "pull_request_review_id": 5345400503,
+    "id": 4127659767,
+    "node_id": "PRRC_kwDOT8iDHs72Bxb3",
+    "diff_hunk": "@@ -28,15 +28,33 @@ Codex plugin support is in preview. The reliable path today is to place the skil\n \n ```console\n git clone https://github.com/iwmaeda/revloop.git ~/.revloop\n-mkdir -p .agents/skills\n-cp -r ~/.revloop/.agents/skills/revloop .agents/skills/\n-export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md\n+mkdir -p ~/.agents/skills\n+cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/\n ```\n \n `.agents/skills/revloop/SKILL.md` is a router, not a copy of the procedure: it resolves\n-`procedures/remote-loop.md` and reads it. `REVLOOP_PROCEDURE` is what makes that work once the skill has\n-been copied away from the repository. **The router covers the remote loop only** — nobody has driven\n-the local one from Codex, so it is not claimed as supported.\n+`procedures/remote-loop.md` and reads it. **It looks in `~/.revloop` by default**, so the clone path\n+above needs no variable. **The router covers the remote loop only** — nobody has driven the local one\n+from Codex, so it is not claimed as supported.\n+\n+**Clone somewhere else and you must set `REVLOOP_PROCEDURE` to the procedure in that clone**, in\n+whatever your environment reads before Codex starts. The router's other two resolutions do not reach",
+    "path": "docs/install.md",
+    "commit_id": "0e22098467648072d2142e7a367df526351d451f",
+    "original_commit_id": "0e22098467648072d2142e7a367df526351d451f",
+    "user": {
+      "login": "chatgpt-codex-connector[bot]",
+      "id": 199175422,
+      "node_id": "BOT_kgDOC98s_g",
+      "avatar_url": "https://avatars.githubusercontent.com/in/1144995?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D",
+      "html_url": "https://github.com/apps/chatgpt-codex-connector",
+      "followers_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Make custom-clone installs launcher-independent**\n\nWhen the repository is cloned anywhere except `~/.revloop`, this newly added route still requires `REVLOOP_PROCEDURE` to reach Codex through its launch environment, so an interactive-shell configuration works only when that shell starts Codex and fails when Codex starts from an editor or another launcher. This is fresh evidence beyond the fixed default-path case: the same launcher-dependent instruction remains in all four live locations—`docs/install.md:40-49`, `README.md:167-168`, `README.ja.md:166-167`, and `.agents/skills/revloop/SKILL.md:26-27`. Persist the custom clone location somewhere the router reads directly, or provide a launcher-independent installation such as linking the skill to the clone.\n\nUseful? React with 👍 / 👎.",
+    "created_at": "2026-09-28T22:32:41Z",
+    "updated_at": "2026-09-28T22:32:42Z",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127659767",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/35",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127659767"
+      },
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127659767"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/35"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127659767/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": 40,
+    "start_side": "RIGHT",
+    "line": null,
+    "original_line": 41,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 20,
+    "position": 1,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127673634",
+    "pull_request_review_id": 5345416163,
+    "id": 4127673634,
+    "node_id": "PRRC_kwDOT8iDHs72B00i",
+    "diff_hunk": "@@ -28,15 +28,33 @@ Codex plugin support is in preview. The reliable path today is to place the skil\n \n ```console\n git clone https://github.com/iwmaeda/revloop.git ~/.revloop\n-mkdir -p .agents/skills\n-cp -r ~/.revloop/.agents/skills/revloop .agents/skills/\n-export REVLOOP_PROCEDURE=~/.revloop/procedures/remote-loop.md\n+mkdir -p ~/.agents/skills\n+cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/\n ```\n \n `.agents/skills/revloop/SKILL.md` is a router, not a copy of the procedure: it resolves\n-`procedures/remote-loop.md` and reads it. `REVLOOP_PROCEDURE` is what makes that work once the skill has\n-been copied away from the repository. **The router covers the remote loop only** — nobody has driven\n-the local one from Codex, so it is not claimed as supported.\n+`procedures/remote-loop.md` and reads it. **It looks in `~/.revloop` by default**, so the clone path\n+above needs no variable. **The router covers the remote loop only** — nobody has driven the local one\n+from Codex, so it is not claimed as supported.\n+\n+**Clone somewhere else and you must set `REVLOOP_PROCEDURE` to the procedure in that clone**, in\n+whatever your environment reads before Codex starts. The router's other two resolutions do not reach",
+    "path": "docs/install.md",
+    "commit_id": "0e22098467648072d2142e7a367df526351d451f",
+    "original_commit_id": "0e22098467648072d2142e7a367df526351d451f",
+    "user": {
+      "login": "iwmaeda",
+      "id": 26950231,
+      "node_id": "MDQ6VXNlcjI2OTUwMjMx",
+      "avatar_url": "https://avatars.githubusercontent.com/u/26950231?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/iwmaeda",
+      "html_url": "https://github.com/iwmaeda",
+      "followers_url": "https://api.github.com/users/iwmaeda/followers",
+      "following_url": "https://api.github.com/users/iwmaeda/following{/other_user}",
+      "gists_url": "https://api.github.com/users/iwmaeda/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/iwmaeda/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/iwmaeda/subscriptions",
+      "organizations_url": "https://api.github.com/users/iwmaeda/orgs",
+      "repos_url": "https://api.github.com/users/iwmaeda/repos",
+      "events_url": "https://api.github.com/users/iwmaeda/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/iwmaeda/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "Fixed in round 4 (aa7d7e07).\n\nRight — the same class as round 3 (a route to the procedure that depends on the launcher's environment), reached through the one path that round kept. A clone elsewhere is now linked at the default path, `ln -s /path/to/your/clone ~/.revloop`, which is a file the router reads whatever started the session. Measured: with `HOME` pointing at a directory whose `.revloop` is a symbolic link to a clone elsewhere, `$HOME/.revloop/procedures/remote-loop.md` reads that clone's procedure.\n\nAll four places you named now give the link: `docs/install.md`, `README.md`, `README.ja.md`, and the router's stop message in `.agents/skills/revloop/SKILL.md`. `REVLOOP_PROCEDURE` stays first in the router as an override, and `docs/install.md` says it is not the way to install.\n\nSweeps: corpus — those four, plus a grep of the READMEs, `docs/` and the router for any other exported variable or `$NAME` an install relies on (none); definition — the router's resolution list, unchanged, which the install text restates; already-fixed — rounds 2 and 3 changed this block, the class was widened in round 3, and this closes the member it left.\n\n<!-- revloop:reply v=1 round=3 -->\n",
+    "created_at": "2026-09-28T22:34:54Z",
+    "updated_at": "2026-09-28T22:34:54Z",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127673634",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/35",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127673634"
+      },
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127673634"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/35"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127673634/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": 40,
+    "start_side": "RIGHT",
+    "line": null,
+    "original_line": 41,
+    "side": "RIGHT",
+    "in_reply_to_id": 4127659767,
+    "author_association": "OWNER",
+    "original_position": 20,
+    "position": 1,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127692750",
+    "pull_request_review_id": 5345438000,
+    "id": 4127692750,
+    "node_id": "PRRC_kwDOT8iDHs72B5fO",
+    "diff_hunk": "@@ -19,9 +19,14 @@ this order and stop at the first hit:\n 2. `../../../procedures/remote-loop.md` relative to this file — valid when revloop is installed as a\n    plugin, because `.agents/plugins/marketplace.json` points at the repository root.\n 3. The nearest `procedures/remote-loop.md` found by searching upward from the working directory.\n-\n-**If none resolve, stop and tell the user to set `$REVLOOP_PROCEDURE`.** Do not reconstruct the\n-procedure from this file — it does not contain one.\n+4. `$HOME/.revloop/procedures/remote-loop.md` — the clone path the install in `docs/install.md`\n+   uses. It is the one resolution that reaches the clone from a copy placed outside it, and it needs\n+   no variable, so it holds whichever shell — or no shell — started this session.",
+    "path": ".agents/skills/revloop/SKILL.md",
+    "commit_id": "aa7d7e07c4ce0e31ac426af3daaf3846fcc0d204",
+    "original_commit_id": "aa7d7e07c4ce0e31ac426af3daaf3846fcc0d204",
+    "user": {
+      "login": "chatgpt-codex-connector[bot]",
+      "id": 199175422,
+      "node_id": "BOT_kgDOC98s_g",
+      "avatar_url": "https://avatars.githubusercontent.com/in/1144995?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D",
+      "html_url": "https://github.com/apps/chatgpt-codex-connector",
+      "followers_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Make the default clone route independent of `$HOME`**\n\nFresh evidence after the prior launcher-dependent route was fixed: the replacement default still reads `$HOME`, which is itself inherited from whatever launches Codex. If installation runs under the login home but Codex later starts with `HOME` unset or overridden (for example, from a service or editor), the clone exists at the installed `~/.revloop` while this probe targets `/.revloop` or another user's directory; from the user-scope skill, the relative and upward fallbacks then miss and the router aborts. Every occurrence of this route is here, `docs/install.md:47`, and `CHANGELOG.md:68`; the corresponding install/default-path instructions are also repeated at `README.md:160-168` and `README.ja.md:159-167`. Use a route anchored to the installed skill or otherwise resolve the account home without relying on the launch environment.\n\nUseful? React with 👍 / 👎.",
+    "created_at": "2026-09-28T22:37:50Z",
+    "updated_at": "2026-09-28T22:37:50Z",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127692750",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/35",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127692750"
+      },
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127692750"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/35"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127692750/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": 22,
+    "start_side": "RIGHT",
+    "line": null,
+    "original_line": 24,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 9,
+    "position": 1,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127707509",
+    "pull_request_review_id": 5345456519,
+    "id": 4127707509,
+    "node_id": "PRRC_kwDOT8iDHs72B9F1",
+    "diff_hunk": "@@ -19,9 +19,14 @@ this order and stop at the first hit:\n 2. `../../../procedures/remote-loop.md` relative to this file — valid when revloop is installed as a\n    plugin, because `.agents/plugins/marketplace.json` points at the repository root.\n 3. The nearest `procedures/remote-loop.md` found by searching upward from the working directory.\n-\n-**If none resolve, stop and tell the user to set `$REVLOOP_PROCEDURE`.** Do not reconstruct the\n-procedure from this file — it does not contain one.\n+4. `$HOME/.revloop/procedures/remote-loop.md` — the clone path the install in `docs/install.md`\n+   uses. It is the one resolution that reaches the clone from a copy placed outside it, and it needs\n+   no variable, so it holds whichever shell — or no shell — started this session.",
+    "path": ".agents/skills/revloop/SKILL.md",
+    "commit_id": "aa7d7e07c4ce0e31ac426af3daaf3846fcc0d204",
+    "original_commit_id": "aa7d7e07c4ce0e31ac426af3daaf3846fcc0d204",
+    "user": {
+      "login": "iwmaeda",
+      "id": 26950231,
+      "node_id": "MDQ6VXNlcjI2OTUwMjMx",
+      "avatar_url": "https://avatars.githubusercontent.com/u/26950231?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/iwmaeda",
+      "html_url": "https://github.com/iwmaeda",
+      "followers_url": "https://api.github.com/users/iwmaeda/followers",
+      "following_url": "https://api.github.com/users/iwmaeda/following{/other_user}",
+      "gists_url": "https://api.github.com/users/iwmaeda/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/iwmaeda/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/iwmaeda/subscriptions",
+      "organizations_url": "https://api.github.com/users/iwmaeda/orgs",
+      "repos_url": "https://api.github.com/users/iwmaeda/repos",
+      "events_url": "https://api.github.com/users/iwmaeda/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/iwmaeda/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "Fixed in round 5 (05ce0b0c) — declining the suggestion, with the reason now in the docs.\n\nThe reading is right that the default path reads `$HOME`; the premise that this is a launcher dependency the router can hit is not. Codex's user scope is `$HOME/.agents/skills` (its skill documentation, cited at `docs/install.md` under \"`~/.agents/skills` puts nothing in your repository\"), so the discovery that loads the user-scope copy reads the same `$HOME`. A session whose `HOME` is not the one the install ran under never loads this router from there, and one that loads a project copy misses all four resolutions and stops with the router's message rather than guessing (`.agents/skills/revloop/SKILL.md`, \"If none resolve, stop\"). There is no launch in which the user-scope router runs and its default path points at the wrong home.\n\nAnchoring the route to the installed skill instead would rest on whether Codex hands the router a resolved or a lexical path to its own file, which nobody has measured — the relative fallback it already has is exactly that anchor, and from `~/.agents/skills/revloop/` it resolves to `~/procedures/`.\n\nThe paragraph is now in `docs/install.md` and in the router's item 4, so the next reader finds the reason there rather than in this thread.\n\n<!-- revloop:reply v=1 round=4 -->\n",
+    "created_at": "2026-09-28T22:40:06Z",
+    "updated_at": "2026-09-28T22:40:06Z",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127707509",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/35",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127707509"
+      },
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127707509"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/35"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127707509/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": 22,
+    "start_side": "RIGHT",
+    "line": null,
+    "original_line": 24,
+    "side": "RIGHT",
+    "in_reply_to_id": 4127692750,
+    "author_association": "OWNER",
+    "original_position": 9,
+    "position": 1,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127727186",
+    "pull_request_review_id": 5345478873,
+    "id": 4127727186,
+    "node_id": "PRRC_kwDOT8iDHs72CB5S",
+    "diff_hunk": "@@ -19,9 +19,17 @@ this order and stop at the first hit:\n 2. `../../../procedures/remote-loop.md` relative to this file — valid when revloop is installed as a\n    plugin, because `.agents/plugins/marketplace.json` points at the repository root.\n 3. The nearest `procedures/remote-loop.md` found by searching upward from the working directory.\n-\n-**If none resolve, stop and tell the user to set `$REVLOOP_PROCEDURE`.** Do not reconstruct the\n-procedure from this file — it does not contain one.\n+4. `$HOME/.revloop/procedures/remote-loop.md` — the clone path the install in `docs/install.md`\n+   uses. It is the one resolution that reaches the clone from a copy placed outside it, and it needs",
+    "path": ".agents/skills/revloop/SKILL.md",
+    "commit_id": "05ce0b0c31e4813afc6fae07e0cf311d14687e8b",
+    "original_commit_id": "05ce0b0c31e4813afc6fae07e0cf311d14687e8b",
+    "user": {
+      "login": "chatgpt-codex-connector[bot]",
+      "id": 199175422,
+      "node_id": "BOT_kgDOC98s_g",
+      "avatar_url": "https://avatars.githubusercontent.com/in/1144995?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D",
+      "html_url": "https://github.com/apps/chatgpt-codex-connector",
+      "followers_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/chatgpt-codex-connector%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Resolve the trusted clone before searching the checkout**\n\nWith the newly documented user-scope installation, no `REVLOOP_PROCEDURE` override is set, so any consumer repository containing `procedures/remote-loop.md` satisfies item 3 before this new default is reached. That lets an untrusted checkout replace the canonical procedure—which the router then follows for shell and GitHub operations—instead of loading the installed `~/.revloop` copy. Resolve the installed clone before searching the working tree, or restrict the upward search to a verified project-local installation.\n\nUseful? React with 👍 / 👎.",
+    "created_at": "2026-09-28T22:43:06Z",
+    "updated_at": "2026-09-28T22:43:06Z",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127727186",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/35",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127727186"
+      },
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127727186"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/35"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127727186/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": 22,
+    "start_side": "RIGHT",
+    "line": null,
+    "original_line": 23,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 8,
+    "position": 1,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127755765",
+    "pull_request_review_id": 5345512917,
+    "id": 4127755765,
+    "node_id": "PRRC_kwDOT8iDHs72CI31",
+    "diff_hunk": "@@ -19,9 +19,17 @@ this order and stop at the first hit:\n 2. `../../../procedures/remote-loop.md` relative to this file — valid when revloop is installed as a\n    plugin, because `.agents/plugins/marketplace.json` points at the repository root.\n 3. The nearest `procedures/remote-loop.md` found by searching upward from the working directory.\n-\n-**If none resolve, stop and tell the user to set `$REVLOOP_PROCEDURE`.** Do not reconstruct the\n-procedure from this file — it does not contain one.\n+4. `$HOME/.revloop/procedures/remote-loop.md` — the clone path the install in `docs/install.md`\n+   uses. It is the one resolution that reaches the clone from a copy placed outside it, and it needs",
+    "path": ".agents/skills/revloop/SKILL.md",
+    "commit_id": "05ce0b0c31e4813afc6fae07e0cf311d14687e8b",
+    "original_commit_id": "05ce0b0c31e4813afc6fae07e0cf311d14687e8b",
+    "user": {
+      "login": "iwmaeda",
+      "id": 26950231,
+      "node_id": "MDQ6VXNlcjI2OTUwMjMx",
+      "avatar_url": "https://avatars.githubusercontent.com/u/26950231?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/iwmaeda",
+      "html_url": "https://github.com/iwmaeda",
+      "followers_url": "https://api.github.com/users/iwmaeda/followers",
+      "following_url": "https://api.github.com/users/iwmaeda/following{/other_user}",
+      "gists_url": "https://api.github.com/users/iwmaeda/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/iwmaeda/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/iwmaeda/subscriptions",
+      "organizations_url": "https://api.github.com/users/iwmaeda/orgs",
+      "repos_url": "https://api.github.com/users/iwmaeda/repos",
+      "events_url": "https://api.github.com/users/iwmaeda/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/iwmaeda/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "Fixed in round 6 (a460e312).\n\nRight, and the class is wider than the router: a resolution that lets the checkout under review supply the procedure. All seven Claude Code commands fell back to the same upward search when `${CLAUDE_PLUGIN_ROOT}` did not expand. Reordering would only have closed the router's case while `~/.revloop` exists, so the upward search is removed everywhere:\n\n- `.agents/skills/revloop/SKILL.md` resolves `$REVLOOP_PROCEDURE`, its own relative path and `~/.revloop`, and stops otherwise; it now says why no working-tree search may be added back, and that its relative path from a project-committed copy resolves inside that project only where the project already supplied the skill itself.\n- Each command reads `${CLAUDE_PLUGIN_ROOT}/procedures/<file>` and nothing else, aborting with `reason=procedure-unresolved`.\n- `SECURITY.md` gains a bullet: the procedure never comes from the repository. `docs/install.md` and the CHANGELOG say the same.\n\nSweeps: definition — every resolution list (router plus seven commands), found by grepping for the upward search; `grep -rn \"searching upward\" commands .agents` is now empty. Corpus — install.md, SECURITY.md, CHANGELOG. Already-fixed — the router's list changed in round 3 (the default path); this is the first change to its order of trust.\n\n<!-- revloop:reply v=1 round=5 -->\n",
+    "created_at": "2026-09-28T22:47:34Z",
+    "updated_at": "2026-09-28T22:47:34Z",
+    "html_url": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127755765",
+    "pull_request_url": "https://api.github.com/repos/iwmaeda/revloop/pulls/35",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127755765"
+      },
+      "html": {
+        "href": "https://github.com/iwmaeda/revloop/pull/35#discussion_r4127755765"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/iwmaeda/revloop/pulls/35"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/iwmaeda/revloop/pulls/comments/4127755765/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": 22,
+    "start_side": "RIGHT",
+    "line": null,
+    "original_line": 23,
+    "side": "RIGHT",
+    "in_reply_to_id": 4127727186,
+    "author_association": "OWNER",
+    "original_position": 8,
+    "position": 1,
+    "subject_type": "line"
+  }
+]

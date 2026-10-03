@@ -196,6 +196,22 @@ path the command string never changes while the file behind it does, so a plugin
 content under a grant given once. Editing a fence therefore costs every user one re-approval, which is
 the point rather than the price; [`../CONTRIBUTING.md`](../CONTRIBUTING.md) has the protocol.
 
+**The same rule decided how a review's findings are read, and it ruled out both obvious ways of making
+that read cheaper.** Steps 10 and 11 of the remote procedure used to page through a pull request's
+review comments once per review and twice per finding. The first fix considered was a tool shipped
+with the plugin — a script, or a compiled binary — that fetches and prints everything in one command.
+That is a command called by path: the string a user grants never changes while the file behind it
+does, which is the hole above, and a binary makes it worse because its content cannot be read off a
+diff. It would have bought no portability either. The wait fence alone needs `bash`, `timeout`,
+`awk` and `sort`, so a tool that ran without a shell would have run inside a loop that cannot; and
+no host builds anything at install time, so a binary would have to be committed for every platform.
+A fifth fence was the second way. It keeps the bytes in view, but a fence takes no arguments, so it
+cannot be told which reviews a round selected, and every later change to what it prints would cost
+every user a re-approval. **So the read stayed what it was — `gh api` calls the existing prefix rules
+already grant — and only its jq programs changed**: they take a list of ids where they took one, and
+print what the next call used to be made for. Nothing new is granted and nothing is installed, and
+the programs are text in the procedure, which `tests/findings-read.test.sh` lifts out and runs.
+
 The same rule is why the wait fence's list of non-terminal comments to drop lives inside its jq
 program rather than in config: config that reached a fence would be config that changed what you
 granted.
