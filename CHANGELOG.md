@@ -13,6 +13,8 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-05
+
 ### A run has one runner, and the procedure now says which session that is
 
 **Both procedures now state who "you" is, and no fence moved.** Every step is addressed to "you" and
@@ -3803,6 +3805,7 @@ convenient is not one.
 - **`docs/install.md` gave `git` no version floor.** It is 2.22 (`git branch --show-current`),
   labelled as derived from the feature rather than measured, next to the `gh` floor that was.
 
+[0.16.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.16.0
 [0.15.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.15.0
 [0.14.1]: https://github.com/iwmaeda/revloop/releases/tag/v0.14.1
 [0.14.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.14.0
