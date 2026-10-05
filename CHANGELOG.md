@@ -13,6 +13,47 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### A run has one runner, and the procedure now says which session that is
+
+**Both procedures now state who "you" is, and no fence moved.** Every step is addressed to "you" and
+every step checks whether it is already done, which is what lets an interrupted run resume — and
+until now nothing said that the reader those sentences mean is the session the command was invoked
+in. A session that one starts can hold the whole file: a Claude Code `fork` inherits the
+conversation, and with it the procedure, the flags and every round already walked. **Every fence is
+byte-identical and no permission rule is added**, so nothing is re-approved.
+
+**Measured once, on a remote run (`repo B, 2026-10`, revloop 0.15.0).** The session handed two
+rounds' fixes to forks, each briefed not to commit or push. The first returned an uncommitted edit.
+The second committed, pushed, replied, posted the next round's trigger and armed its own wait, then
+carried the loop to a convergence: 5 commits, 5 pushes, 5 replies, 5 triggers and 5 waits in 54
+minutes, then step 12's sweep, narrating "Now proceeding to step 7 for round 3's trigger." The session that started it
+stood aside rather than race it and re-verified the result afterwards. Nothing was merged and the
+convergence held; what failed is that the run had two runners and the procedure had no sentence
+either of them could have been held to.
+
+**Three rules answer it, and none of them depends on a brief being obeyed.**
+`procedures/remote-loop.md`'s preamble says one session runs the procedure and a session it starts
+does not, even holding the file. Step 10 says the edit may be handed to another agent and nothing
+else in a round may, that the agent must start without the conversation, and what its brief names
+and does not. And step 10 has the runner note `HEAD` before handing off and check both it and the
+index on return: if HEAD moved, or anything is staged, there are two runners — an agent that only
+runs `git add` without committing leaves HEAD untouched, and step 4's own `git add <path>` does not
+clear what is already in the index, so an unstaged check alone lets a second runner's staged files
+ride into the round's commit. So stop the one you started and walk from step 1 as the interrupted run
+it now is. **That adds no abort and no `reason=`.** `procedures/local-loop.md` cites both rules
+rather than restating them, with step 9 as the step that fixes.
+
+**Not measured: any of the three.** No fork has been started that held the new paragraph, no edit
+has been handed to an agent without the conversation under this rule, and the stop-and-resume branch
+has never run. **It does not fail closed** — a started session that walks the loop does it under the
+run's own `--auto`, and under its `--merge` where there is one. Both procedures say so in
+`## Unexercised paths`, and [`docs/known-environment-quirks.md`](docs/known-environment-quirks.md)
+keeps what was specific to the harness.
+
+**`tests/one-runner.test.sh` is a tripwire for the citation, not for the behaviour.** The local
+procedure holds this rule only by pointing at the remote one, so a reworded opening there would void
+it silently. The test pins the four places the rule lives; it cannot show that an agent follows it.
+
 ## [0.15.0] - 2026-10-04
 
 ### A round reads a review's findings in four calls, where it took three and two more per finding
