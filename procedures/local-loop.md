@@ -14,6 +14,14 @@ ships or was given with `--config` — and the **flags, already parsed**. `$ARGU
 command expansion and reaches no other file, so this procedure never sees it and never parses a flag
 name. Where a step below says "the resolved reviewer", it means that definition.
 
+**One session runs this procedure — the one the command was invoked in — and
+[`remote-loop.md`](remote-loop.md) states the rule once for both.** Its preamble says who "you" is
+and what a session this run starts never does; its step 10 says what handing off an edit owes. Both
+apply here unchanged. **Step 9's edit is the one thing that may leave this session**: the commit,
+both publishes, the review, the classification, the decision and the sweep are the run. A reviewer's
+own agents are not an exception to carve out — the review command starts them with a brief to
+review, which is the case that rule already describes.
+
 **This is not a smaller `remote-loop`. It is a different reviewer class with a different scarce
 resource.** `remote-loop` drives a GitHub App, and its round is shaped around waiting safely for a
 verdict that arrives later, from elsewhere. This one drives a command on your machine, and its round
@@ -1007,6 +1015,12 @@ the level, and a repository that wants the old number writes it.
    exists because **a reviewer returns one member of a class per round**, so a class left half-closed
    buys another round. A cheap round is still a round, and ten of them cost what nobody budgeted.
 
+   **That step's hand-off rule is this step's too, and it is not restated either**: the edit may go
+   to an agent that starts without this conversation, nothing else in a round may, and what comes
+   back is checked against `HEAD` before step 3. A second runner costs this loop the thing it is
+   shaped around — a session that walks on to step 6 by itself starts a review nobody asked for, and
+   that bill arrives as tokens.
+
    **Which of them this round owes comes from the level** — [`rigor-levels.md`](rigor-levels.md)
    holds the table, and it names a floor under the taxonomy rather than a cap on it: a round may
    always run a sweep the level does not require, and may never skip one it does. **The
@@ -1447,3 +1461,10 @@ says it is ignored, so the note never costs step 4 its clean tree.
   [`remote-loop.md`](remote-loop.md)'s suite, swept twice; **no round of this loop has produced
   one**, and this procedure is where a run most plausibly would, because it is the one that repeats
   against a single checkout.
+- **The one-runner rule, on this procedure.** [`remote-loop.md`](remote-loop.md) records the one
+  measurement behind it and everything about it that is unmeasured, and all of that entry applies
+  here. What is specific to this file is that **the failure has never been observed on this loop at
+  all**: the run it was measured on drove a remote reviewer, where a second runner has to push and
+  post before it can spend anything. Here the next step after a fix is a commit and a review on this
+  machine, with no pull request to leave a trace on, so a started session that walked on would be
+  visible only in `git log` and in the bill. It does not fail closed.

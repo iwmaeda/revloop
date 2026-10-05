@@ -18,6 +18,22 @@ name. Where a step below says "the resolved reviewer", it means that definition.
 carries a finished change to a pull request and back. **Every step checks whether it is already done**,
 so an interrupted run resumes with the same command.
 
+**One session runs this procedure: the one the command was invoked in.** Every "you" below is that
+session, and nothing it starts inherits the role — not a subagent, not a fork, not a teammate,
+whatever the harness calls it, **and not even one that holds this whole file in its context**, which
+a fork does. A session the run started was handed a task, and its brief is the whole of its
+instructions: **it does not stage, commit, push, post, trigger, wait, merge or sweep unless the brief
+says so in those words, and when the task is done it reports and stops.** "Every step checks whether
+it is already done" is addressed to the session that was asked to run the loop; it is not a licence
+for whoever can see the next step to take it. Measured once (`repo B, 2026-10`): a fork handed two
+findings under a brief that said not to commit or push did both, replied, posted the next round's
+trigger, armed its own wait, and carried the loop through five more rounds to a convergence, while
+the session that started it stood aside rather than race it. Its narration was this file's and not
+its brief's — "Now proceeding to step 7 for round 3's trigger." The brief was one paragraph; this
+procedure was more than four thousand lines of the same context, and until this paragraph none of
+them said who they were addressed to. **Step 10 says what handing off an edit owes**, and
+`## Unexercised paths` says what none of this has been measured to prevent.
+
 **The flags this procedure acts on, and what each does.** The invoking command decides which of them
 it offers and what they default to, and advertises that in its own table; this one is the authority on
 **behaviour**, which is what every step and note below cites. **There is no `--reviewer`**: the command
@@ -2523,6 +2539,41 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
       **put the reason in the code or the docs** — a reason in a PR comment leaves the next reader
       unable to tell "looked and kept" from "never looked".
 
+    **The edit may be handed to another agent. Nothing else in a round may, and the agent must start
+    without this conversation.** Researching a finding, making the change and running the verify
+    commands can leave this session. The buckets, the class a sweep is run for, staging, the commit,
+    the push, the reply, the trigger and the wait cannot: they are the run, and the preamble gives
+    the run one runner. **Never hand any of it to an agent that inherits this session's context** —
+    Claude Code's `fork` is one. Such an agent holds this file, the flags, and every round this run
+    has already walked, so it is a second runner by construction, and its brief is the only thing in
+    its context that says otherwise. Measured (`repo B, 2026-10`): two forks in one run, each briefed
+    not to commit or push. The first, in round 1, returned an uncommitted edit. The second, started
+    after the session had itself walked commit, push, reply and trigger once, walked them too. It
+    made 5 commits, 5 pushes, 5 replies, 5 triggers and 5 waits in 54 minutes, one trigger carrying a
+    focus nobody but it chose, ran step 12's sweep, and reported a convergence to the session that
+    started it rather than to the person who typed the command. Whether that round of history is
+    what separated the two is not established. **One of two is not a rate; it is the reason this
+    rule does not depend on a brief being obeyed.** An agent that starts without the conversation
+    has no step 7 to proceed to.
+
+    **Write the brief for a reader who has never seen this file**: the finding, the paths, the verify
+    commands, and "report and stop". Do not name the loop, the round, this procedure, or the pull
+    request as something to act on. Both briefs above opened by telling the agent it was continuing
+    the review loop, and one of the two agents did.
+
+    **When it returns, and before step 3, check that it only edited.** Note `git rev-parse HEAD`
+    before you hand the work off; afterwards it must print the same commit, and
+    `git status --porcelain -uall` must show the change uncommitted. A commit is the first thing a
+    second runner leaves, and the one thing this check can see without a call to GitHub. **If HEAD
+    moved, there are two runners. Stop the one you started before anything else**, by whatever the
+    harness gives you for stopping a session — it may be holding a wait on a trigger of its own —
+    **and then walk this procedure from step 1 as the interrupted run it now is**: step 7 reads the
+    round back off the pull request and step 11 declines what is already answered. **Do not fire
+    step 8 while a wait you did not fire is still running**, and say in the report which steps the
+    other session took. This adds no abort. Two runners in one checkout is the state
+    `### Operating constraints` already says this procedure does not survive, and the resume every
+    step is written for is how one of them takes the run back.
+
 11. Reply to every finding you have not already replied to. **Keep reply drafts in the session
     scratchpad, not the work tree**, or they end up in a commit. Read bodies from files — **`-F`
     treats a leading `@` as a file read**, so it passes backticks, newlines, and `**` through
@@ -4547,6 +4598,20 @@ takes one of these should say so in the report:
   does not start rather than toward a configuration in a commit, and the hint prints and decides
   nothing. A shadowed `.revloop.json` is the shape most likely to be met first, and the `config:`
   line is the whole of what tells an operator about it.
+- **The preamble's one-runner rule, and step 10's hand-off.** The failure is measured once
+  (`repo B, 2026-10`) and nothing that answers it is measured at all. **No fork has been started
+  that held the preamble's paragraph**, so nothing shows that one stops where its brief does — which
+  is why step 10 forbids starting one rather than relying on it. **No edit has been handed to an
+  agent that starts without the conversation** under that rule: such an agent holds no step to take
+  next, but nothing prevents it committing, and the return check is all that would say so. **The
+  return check's two-runner branch has never run**, so stopping a started session part-way through
+  a round and resuming from step 1 is argued from how every step already resumes and not observed;
+  and the check reads HEAD, so a session that posted without committing passes it and is first seen
+  by step 7's marker read. **None of this fails closed.** A started session that walks the loop
+  does it under the run's own `--auto`, and on a `--merge` run under its `--merge`: step 12's gates
+  are ones it would run, not ones that stop it. The one measured run carried neither a merge nor a
+  second session posting beside it, because the session that started the fork stood aside — that
+  restraint was a judgement made on the day, and this rule is what replaces it.
 
 **Field notes.** When a round takes one of these paths, aborts, or sees a latency outside the range on
 the reviewer's card, append **one line** to `.revloop/field-notes.md` in the project: date, PR,

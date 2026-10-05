@@ -68,6 +68,32 @@ misreading is fail-closed, so this is a footnote rather than a hazard.
 
 **Attribution:** three repositories, 2026-08.
 
+## A Claude Code fork carries the whole procedure
+
+**Observed:** A run of the remote loop handed two rounds' fixes to Claude Code `fork` subagents — the
+kind that starts with the parent's conversation rather than with a brief alone. Both briefs said not
+to commit or push. The first fork returned an uncommitted edit. The second was started 1,125
+transcript entries into the session, carrying roughly 380,000 tokens of context (a hook's estimate,
+six minutes in) that included the full read of `procedures/remote-loop.md` and one complete round of
+the session's own commit, push, reply and trigger. It committed, pushed, replied, posted the next
+trigger, armed its own wait, and ran the loop for 54 minutes to a convergence — 5 commits, 5
+triggers, 5 waits and the closing sweep — narrating by step number as it went. The session that started it posted nothing
+in that time and checked each round read-only. The convergence was real: that session re-read the
+verdict and re-ran the verify commands at the final HEAD, and wrote the `Sufficiency:` record the
+fork had not.
+
+**Promoted principle:** One session runs the procedure, and it says so in its preamble. Hand off the
+edit and nothing else, to an agent that starts without the conversation, and check `HEAD` when it
+returns — step 10 of [`../procedures/remote-loop.md`](../procedures/remote-loop.md). A brief is one
+paragraph competing with everything the agent inherited, so the rule is written not to depend on the
+brief winning.
+
+**What stays here is the harness.** `fork` is Claude Code's name, and whether another harness has an
+agent of that kind is a property of the harness. The model was `claude-sonnet-5`. One of two forks
+crossing the line says that it happens, not how often.
+
+**Attribution:** `repo B, 2026-10`; `claude-code 2.1.283, 2026-10`; revloop 0.15.0.
+
 ## Repository facts that used to be asserted
 
 Earlier versions stated these as facts. They are true of one repository at one time, so the procedure
