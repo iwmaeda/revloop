@@ -35,9 +35,12 @@ either of them could have been held to.
 `procedures/remote-loop.md`'s preamble says one session runs the procedure and a session it starts
 does not, even holding the file. Step 10 says the edit may be handed to another agent and nothing
 else in a round may, that the agent must start without the conversation, and what its brief names
-and does not. And step 10 has the runner note `HEAD` before handing off and check it on return: if
-it moved there are two runners, so stop the one you started and walk from step 1 as the interrupted
-run it now is. **That adds no abort and no `reason=`.** `procedures/local-loop.md` cites both rules
+and does not. And step 10 has the runner note `HEAD` before handing off and check both it and the
+index on return: if HEAD moved, or anything is staged, there are two runners — an agent that only
+runs `git add` without committing leaves HEAD untouched, and step 4's own `git add <path>` does not
+clear what is already in the index, so an unstaged check alone lets a second runner's staged files
+ride into the round's commit. So stop the one you started and walk from step 1 as the interrupted run
+it now is. **That adds no abort and no `reason=`.** `procedures/local-loop.md` cites both rules
 rather than restating them, with step 9 as the step that fixes.
 
 **Not measured: any of the three.** No fork has been started that held the new paragraph, no edit

@@ -2574,6 +2574,17 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
     `### Operating constraints` already says this procedure does not survive, and the resume every
     step is written for is how one of them takes the run back.
 
+    **The same check also requires an empty index, and HEAD alone does not cover it.** An agent that
+    runs `git add` without committing leaves HEAD unchanged and the edit uncommitted, so the check
+    above passes — but step 4 stages explicitly with `git add <path>` on top of whatever is already
+    in the index, and `git commit` commits the index as it stands, not only the paths step 4 named.
+    Whatever the handed-off agent staged, intentionally or not, rides into the round's commit and then
+    step 5's push, unreviewed. **So also run `git diff --cached --name-only` and require it empty.**
+    If it is not, unstage everything — `git restore --staged .`, or `git reset HEAD --` where that is
+    unavailable — before going on to step 3: the change itself is still there, uncommitted, and step
+    4's own explicit-staging discipline is what decides what enters the commit, never whatever the
+    agent happened to run `git add` on.
+
 11. Reply to every finding you have not already replied to. **Keep reply drafts in the session
     scratchpad, not the work tree**, or they end up in a commit. Read bodies from files — **`-F`
     treats a leading `@` as a file read**, so it passes backticks, newlines, and `**` through
