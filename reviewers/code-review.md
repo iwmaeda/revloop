@@ -1,280 +1,60 @@
 # code-review
 
-The review command built into Claude Code, driven as a subprocess.
+The review command built into Claude Code, run as a subprocess.
 
-| Field               | Value                                                              |
-| ------------------- | ------------------------------------------------------------------ |
-| `kind`              | `local-command`                                                    |
-| `invoke`            | `subprocess` — the host forbids model invocation                   |
-| `command`           | `claude --model {reviewModel} -p "/code-review medium"`            |
-| `severityLevels`    | **none** — the reporting surface carries no severity               |
-| `severityMap`       | **none** — there is no native ladder to map from                   |
-| `requiresPr`        | `false`                                                            |
-| `rateLimitPatterns` | `["You've hit your session limit"]` — carried, never observed here |
-| verdict on          | the command's stdout                                               |
-| `status`            | `unverified`                                                       |
-| `lastChecked`       | 2026-09                                                            |
+| Field               | Value                                                   |
+| ------------------- | ------------------------------------------------------- |
+| `kind`              | `local-command`                                         |
+| `invoke`            | `subprocess`                                            |
+| `command`           | `claude --model {reviewModel} -p "/code-review medium"` |
+| `severityLevels`    | none                                                    |
+| `requiresPr`        | `false`                                                 |
+| `rateLimitPatterns` | `["You've hit your session limit"]`                     |
+| verdict on          | the command's stdout                                    |
+| `status`            | `unverified`                                            |
+| `lastChecked`       | 2026-09                                                 |
 
-**Definition:** [`code-review.json`](code-review.json) — the file the loop loads. This card is the
-measurement record beside it; the definition is the configuration, and neither restates the
-other.
+Definition: [`code-review.json`](code-review.json). Driven by `/revloop:local-review-loop`.
 
-**Driven by:** `/revloop:local-review-loop`.
+## Output shape
 
-**`{reviewModel}` is expanded by the local loop before the command runs** — to `--model` if it
-was typed, otherwise to the builtin `sonnet`. **Every measurement below predates that pin**, and
-`## Not measured` says what that costs.
+The shape changes with the model. Parse these and nothing else; any other output is
+`unparsed-review-output`.
 
-**Eight rounds have been observed across two runs, and convergence has not.** The first run drove the
-command five times on one change, fixing every finding between rounds: **no round was clean**, and the
-fifth reached the local loop's `--max-rounds` built-in still returning findings — a **cap-reached run,
-not a converged one**, which is the outcome `.revloop/field-notes.md` records three times for the
-remote reviewer. The second run drove it three times under the `sonnet` pin this preset now ships and
-**every one of those rounds was clean**, which is the first clean round this command has returned
-here and still not a convergence: a run whose every round found nothing never observed a finding,
-never fixed one, and so never had a later round come back clean **after** one.
-
-**`status` stays `unverified`, and the two runs fail the bar from opposite sides.** For a local
-reviewer that word turns on the loop driven to convergence — findings observed, fixed, and a later
-round returning none — and one run has the first two without the third while the other has the third
-without the first two.
+- A list: prose, then a line `Findings (N):`, then one bullet per finding with a backticked
+  `path:line`, a dash and the claim.
+- A fenced JSON array after the prose. Each object has a file, a line, a summary and a failure
+  scenario; `category` and `verdict` (`CONFIRMED` or `PLAUSIBLE`) are optional.
+- No findings: prose that names what was reviewed and states that the count is zero. It may carry an
+  empty array, `[]`.
+- One line per finding, a `path:line` followed by a summary. The command declares this form; it has
+  not been seen.
 
 ## Measured
 
-### From five runs
-
-- **Five consecutive rounds on one change returned 9, 7, 6, 8 and 10 findings, in 5m27s, 6m50s,
-  6m37s, 8m39s and 6m29s** (claude-code 2.1.233, 2026-09). The change was this repository's 0.5.0
-  diff — 23 modified files and 4 new ones — reviewed as an uncommitted working tree, because the
-  branch carried no commits and the range diff against the base was empty. All five runs exited 0.
-  **Every finding in all five rounds was acted on as a real defect**, which is an observation about
-  this sample and not a rate.
-- **The run reached `--max-rounds 5` without converging**, with the fifth round returning more
-  findings than any before it (claude-code 2.1.233, 2026-09). **Derived, and the single most useful
-  thing on this card:** the local loop's cap is not a formality on a change of this size. It is the
-  same outcome `reviewers/codex.md` and the field notes record for the remote reviewer three times,
-  reached in a fifth of the wall clock and by a different reviewer — so **"the reviewer runs out of
-  things to say" is not what ends either loop**, and the acceptance floor and the cap are the two
-  things that do.
-- **The wall clock lands inside the remote reviewer's measured range.** 5m27s to 8m39s here against
-  2:46–10:07 there (claude-code 2.1.233, 2026-09; `codex.md`). **Derived, and it contradicts what
-  this project assumed while building the local loop:** "a local round returns at once" was written
-  into the procedure, the design notes, the schema and both READMEs before anything was measured,
-  and it is false. **The difference between the two loops is what a round spends, not how long it takes** —
-  and the token cost, which is the one that differs, is the figure nothing here measures.
-- **Not one finding recurred across the five rounds** — 40 findings, 40 distinct, with each round's
-  fixed before the next ran (claude-code 2.1.233, 2026-09). **Derived, and deliberately nothing
-  more:** four transitions on one change say the repeat suppression in step 7 of the local procedure
-  went unexercised, not that it is unnecessary. The rounds where it would fire are the ones where a
-  fix is partial, and none of these was.
-- **The count did not fall: 9, 7, 6, 8, 10.** Each round's fixes added text and the next round
-  reviewed the larger diff (claude-code 2.1.233, 2026-09). **Every round after the first found
-  defects the previous round's fixes had introduced** — a stale claim left by a changed rule, a rule
-  interaction created by a fix, a truncation created by a budget, and a bypass created by a grant.
-  **Derived, and the reason this is recorded rather than smoothed:** five points are barely a trend,
-  but the direction of the last two is the informative part — on a change of this size, **fixing a
-  round's findings is itself a reliable source of the next round's**, and a loop that stops only when
-  the reviewer stops may not stop.
-- **The output shape was neither shape this card read out of the binary.** All five runs returned
-  prose —
-  a paragraph naming the scope reviewed, a paragraph on what could and could not be verified — then a
-  line reading `Findings (N):`, then one bullet per finding shaped as a backticked path and line, an
-  em dash, and the claim (claude-code 2.1.233, 2026-09). No fenced JSON array, and not the bare
-  one-line-per-finding form either. **Derived, and the reason this bullet is here rather than in a
-  footnote:** a parser written from the declarations below would have matched none of the five,
-  returned zero findings, and been read as a clean review. The local procedure's `unparsed-review-output`
-  abort is what stands between that and a run reporting success, and this is the first evidence that
-  it is load-bearing rather than defensive.
-- **Round 1 returned 9 findings at `medium`, where the cap read out of the binary for that level is
-  8** (claude-code 2.1.233, 2026-09). **Derived:** the cap is not a single number per effort level —
-  the model running the review selects among prompt variants, and at least one of them carries its
-  own, higher limit. Treat the caps below as the level's floor, not its ceiling.
-- **No run emitted a severity anywhere**, on any finding, in any form
-  (claude-code 2.1.233, 2026-09). **Derived:** this confirms from behaviour what the reporting
-  surface already said by its shape, and it is the reason this card ships no `severityLevels`.
-- **All five runs reported that their sandbox prevented them from executing the test suite**, and
-  said so in the output rather than failing (claude-code 2.1.233, 2026-09). **Derived:** a subprocess review
-  does not inherit the caller's permissions, so a repository whose findings depend on running
-  something will get those findings reasoned about statically. That is a property to record on the
-  card rather than a fault: the reviewer said which parts it had verified and which it had not.
-
-### From the 0.6.0 runs
-
-**Three rounds on `iwmaeda/revloop#22`, all under the `sonnet` pin, on diffs of one, four and eleven
-files.** They are here rather than in the section above because they were observed, and separate from
-`### From five runs` because that run had no `--model` in the command at all.
-
-- **A push does not empty this reviewer's target.** On a branch pushed with `git push -u origin HEAD`,
-  with the upstream set to `origin/<topic>`, `HEAD` equal to it and the tree clean — the exact state
-  the derivation above predicts returns nothing — the command exited 0 after 1m56s and reviewed
-  `main..HEAD`: it named `tests/version.test.sh` as "the diff's only changed file", described the
-  comment rewrite and the two entries added to `MANIFESTS`, and traced `read_json`'s dot-split path
-  resolution against the committed lockfile (`iwmaeda/revloop#22`). **An empty target cannot produce
-  that description.** Zero findings did come back, which is what the derivation predicted, and they
-  came back for the opposite reason: nothing was wrong rather than nothing was read. **Derived:** the
-  local loop's after-convergence placement is now held by caution rather than by this reasoning — one
-  sample is not enough to move a placement whose failure mode is a run finishing clean over a diff
-  nobody read, and moving it would need the sample this card has always asked for and one more.
-- **The output shape follows the model pin.** This run returned prose and then a fenced JSON array,
-  `[]`, which is one of the two shapes the section below reads out of the binary; the five rounds above
-  returned the other one, and ran with no `--model` at all (`iwmaeda/revloop#22`). Same command, same
-  effort level, same repository, different model. **Derived:** the shape is not stable across
-  configurations, which is what `unparsed-review-output` is an abort rather than a loose parse for.
-- **1m56s, 2m57s and 3m34s, against the five rounds' 5m27s to 8m39s** (`iwmaeda/revloop#22`), on
-  diffs of 1, 4 and 11 files. **Derived:** this widens no range, because the samples are not
-  comparable — those five reviewed 27 files — and what it establishes is that the wall clock rises
-  with the diff and that all three pinned rounds were faster than any unpinned one.
-- **All three pinned rounds returned zero findings**, where the five unpinned rounds returned 9, 7,
-  6, 8 and 10 (`iwmaeda/revloop#22`). **Derived, and it is a question rather than a result:** the
-  diffs differ and the branch had already been carried to convergence by five rounds of another
-  reviewer, so this cannot separate "fewer defects were present" from "fewer were found" — which is
-  precisely the direction-of-error this card's `## Not measured` names as unknowable from its own
-  sample, now unknowable from a second one.
-- **A zero-finding round arrives as prose stating the count, and not as either declared shape**
-  (`iwmaeda/revloop#22`, three rounds). One carried a fenced `[]` after the prose, one an inline
-  `[]`, one neither — and none carried a `Findings (N):` line. **Derived:** what the loop can match on
-  is that the result names what it reviewed and states its count, which is the same signal
-  [`ecc-review-pr.md`](ecc-review-pr.md) records for its own reviewer, and it is recorded as a
-  measured shape rather than reached by loosening a parser.
-- **Grading was requested on all three rounds and the grader never started** — step 7 obtains rungs
-  after the findings are parsed, and every round parsed none (`iwmaeda/revloop#22`). Those rounds were
-  driven with `--accept-at high --grade-severity`, the invocation that existed before 0.7.0 made
-  grading automatic — **quoted as it was typed, because it is what the rounds ran; neither flag
-  exists now, and the equivalent is `--rigor minimal`.**
-  **Derived:** the grader's whole failure ladder is still unentered, and the reason is not
-  that it was avoided. Grading a reviewer that returns nothing is the one case it cannot be exercised
-  by, and neither dropping the second flag nor replacing the first with a level changed that.
-
-### From the installed command
-
-- **The structured reporting surface carries no severity field.** Its entries are a file, a line, a
-  summary, a short summary, a failure scenario, an optional `category` slug, and an optional
-  `verdict` of `CONFIRMED` or `PLAUSIBLE`; severity is expressed only as the order of the list, which
-  is documented as most-severe first (claude-code 2.1.233, 2026-09). **Derived:** this reviewer's
-  definition therefore carries no `severityLevels` and no `severityMap`, so a level with an acceptable
-  band is resolved against it by grading. **`standard` is the default, so that is the ordinary run of
-  this reviewer and not an edge case**, which is
-  worth saying plainly because it means the untyped invocation costs a second subprocess and a second
-  permission prompt every round — and it
-  is the reason grading exists at all. **The two strict levels consult no rung**, so a run at
-  `thorough` is what drives this reviewer alone, as every release before the level did.
-  **Derived, and it is the trap grading has to avoid:** the
-  documented list order is the nearest thing to a severity signal this surface carries, and reading a
-  rank off it would be the loop supplying its own ladder from the reviewer's output shape. The grader
-  does not read the order; it is handed the findings and ranks their claims. `verdict` is a
-  **confidence** axis rather than a severity one and is deliberately not offered as a ladder: reading
-  `PLAUSIBLE` as "less severe" would accept a confirmed-cheap finding and block an uncertain-serious
-  one, which is the opposite of what the flag is for.
-- **The number of findings a single run may return is capped, and the cap moves with the effort
-  level** — 4 at the lowest, 8 at `medium`, 10 at `high`, and 15 at `xhigh` and `max`
-  (claude-code 2.1.233, 2026-09). **The observed round exceeded the `medium` figure**, so read these
-  as floors; the bullet above records that. **Derived:** the reviewer brings its own brake, which is
-  why this preset can be driven at all without a ladder. **Derived, and the reason `medium` is the shipped
-  default:** the higher levels are documented as broadening coverage and admitting uncertain
-  findings, so raising the effort raises both the cap and the share of findings a round will argue
-  with — a loop run at the top level manufactures its own next round.
-- **The output shape is not one shape.** With a plain text output format the findings are declared to
-  come back as a fenced JSON array of objects; on at least one model family at `medium` and `high`
-  effort the report is instead one line per finding, a path and line followed by a summary, emitted
-  after a tool call (claude-code 2.1.233, 2026-09). **Both observed runs returned a third shape that
-  is neither**, which is recorded above. **Derived, and the reason step 8 of
-  [`../procedures/local-loop.md`](../procedures/local-loop.md) gives an unreadable result
-  its own abort row:** a parser written against whichever shape its author saw returns **zero
-  findings** against the others, and zero findings is what a clean review looks like.
-- **The command declines model invocation** — it is marked as startable by a person and not by the
-  model (claude-code 2.1.233, 2026-09). **Derived:** `invoke` must be `subprocess`. There is no
-  in-session path, so this is not a preference between two working options.
-- **It resolves its own review target.** Its first phase takes a range diff against the upstream, or
-  against the base branch when there is no upstream, and additionally reads the working tree when the
-  range is empty or the tree is dirty; an argument naming a pull request, a branch, or a path
-  replaces that (claude-code 2.1.233, 2026-09). **Derived:** on the unpushed topic branch this loop
-  works on, the default resolves to the whole branch against the base, which is the scope the loop
-  wants and the reason `command` carries no target argument.
-- **Derived from the same rule, and it is why the local loop publishes after convergence rather than
-  before each round: a push was expected to change what this reviewer reviews, to nothing.**
-  `git push -u origin HEAD` gives the branch an upstream, so the first clause was expected to apply
-  instead of the second; `HEAD` then equals the upstream, so the range is empty; and the loop's commit
-  step has just left the tree clean, so the working-tree fallback was expected to find nothing either.
-  **The conclusion drawn was that a round run after a push returns zero findings, and zero findings is
-  what a clean review looks like** — the failure the `unparsed-review-output` abort exists to prevent,
-  arriving instead through a feature that looks unrelated to reviewing. **A run has since contradicted
-  it**; see `### From the 0.6.0 runs`. The derivation is kept rather than deleted because the placement
-  it produced is still the one shipped, and a reader owed the reason a placement exists is owed the
-  reason it no longer rests on what it was built from.
-- **It takes `--model`, and the shipped preset now uses it** (claude-code 2.1.233, 2026-09).
-  **Derived:** this is the only lever the local loop has on what a round costs, since the command's
-  own effort level moves the number of findings rather than the price of producing them. It is also
-  the only thing that makes this reviewer a different model from the one driving the loop, which
-  `../docs/design-notes.md` records as the one condition under which a local review is a check rather
-  than a second opinion from the same source.
-- **The effort levels are `low`, `medium`, `high`, `xhigh` and `max`, and `ultra` is not one of
-  them** — it is a separate subcommand that routes to a cloud review and falls back to a local `max`
-  run when that is unavailable (claude-code 2.1.233, 2026-09). **Derived:** putting `ultra` in
-  `command` would silently buy the most expensive local level, which is the opposite of what this
-  loop wants from its effort setting.
+- A round takes 2 to 9 minutes, rising with the size of the diff.
+- Without a model pin, five rounds on one large change returned 6 to 10 findings each and reached
+  the round cap without a clean round. Each round's fixes produced findings for the next. Under
+  `sonnet`, three rounds on smaller diffs returned none.
+- No finding carries a severity. `verdict` is a confidence, and the order of the list is not a rank.
+- The effort level caps the findings in one run: about 4 at `low`, 8 at `medium`, 10 at `high` and
+  15 at `xhigh` and `max`. A run can exceed the figure slightly.
+- `ultra` is not an effort level. It is a separate subcommand that runs a cloud review, so do not put
+  it in `command`.
+- The command picks its own target: the range against the branch's upstream, or against the base
+  branch when there is no upstream, plus the working tree when the range is empty or the tree is
+  dirty. One round run after a push still reviewed the whole branch.
+- The subprocess does not inherit the caller's permissions. Rounds that could not run the test suite
+  said so and reviewed by reading.
+- The command cannot be started by the model, which is why `invoke` is `subprocess`.
 
 ## Not measured
 
-- **Anything about the preset as it now ships.** All five rounds below ran
-  `claude -p "/code-review medium"` with **no `--model` at all**, inheriting whatever the CLI
-  defaulted to; the shipped `command` now pins `{reviewModel}`, which resolves to `sonnet` unless
-  `--model` says otherwise. **So the finding counts, the wall clock, the output shape and the
-  absence of repeats below describe a configuration this project no longer ships.** They are kept
-  because they are the only measurements that exist and because most of what they establish is about
-  the command rather than the model — but nothing here says how a lighter reviewer changes them, and
-  **the direction of the error is not knowable from this sample either**: fewer findings from a
-  lighter model may mean fewer defects present or fewer defects found, and this card cannot tell you
-  which. Re-running the five rounds under the pin is the single most useful measurement available.
-- **Convergence.** It was not reached by either run, and neither sample can say whether it is
-  reachable. Five rounds did not reach it and the count rose at the end; three later rounds returned
-  nothing at all, which is a clean round and not a loop driven to one. **What would settle it is a
-  round that returns findings at `--rigor minimal` or `--rigor standard`** — a floor is the mechanism
-  for ending a loop the
-  reviewer will not end, and against this reviewer the floor needs the grader to have any rungs to
-  stand on — and no such run has been made. That is the question most worth answering next, and the one
-  `status` turns on. **The run is easier to reach than it was**: before 0.7.0 the floor needed a second
-  flag beside it, and before the floor existed at all it aborted, so the measurement this card has been
-  asking for now needs only one of the two relaxed levels and a round that finds something.
-- **Everything about the grader.** Whether its rungs are ones a person would recognise, what a
-  grading pass costs on top of the round, whether it ranks the same unchanged finding the same way
-  twice, and how often it declines to rank one at all — **the local procedure treats an unranked
-  finding as blocking, and nothing here says how often that path is taken.** A graded convergence is
-  a weaker result than a reported one and the report says so; how much weaker is unmeasured.
-- **The token cost of a round** — the local loop's scarce resource. Nothing here measures it. The
-  elapsed times above are wall clock, and the interesting thing about them is that they are **not**
-  the difference between the two loops: they land inside the remote reviewer's measured range.
-- **Whether the repeat suppression ever fires.** Four transitions produced no repeats. The case it
-  exists for is a partial fix, and this sample has none. **Nor has the case that re-opens one** — an
-  acceptance whose graded rung rises above the floor — which needs a graded run, of which there have
-  been none against this preset or any other.
-- **How many shapes there are, now that the shape is known to move.** A different model returned the
-  other declared shape (`### From the 0.6.0 runs`), so "stable" is settled in the negative and the open
-  question is narrower and worse: whether the two declared shapes are all of them. A third shape would
-  reach `unparsed-review-output`, which is the safe direction, and nothing here says how often.
-  A different effort level and a different repository remain untried.
-- **Whether the ten-finding batch size ever binds.** The five observed rounds returned 9, 7, 6, 8 and
-  10 — **the last exactly at the batch size**, so no second batch has been taken and the next round
-  would probably have needed one.
-- **How a nested invocation behaves under this loop** — its cost, whether it re-authenticates, and
-  what it does when the outer session is itself non-interactive. What is known is that its sandbox
-  differed from the caller's, recorded above.
-- **The token cost of a round at any model.** This is the figure the whole local loop is shaped
-  around and the one nothing here measures, before or after the pin. Until it exists, "sonnet is
-  cheaper" is an inference from pricing and not a measurement of this reviewer.
-- **The `rateLimitPatterns` this card ships was never observed on this command.** It was carried from
-  [`ecc-review-pr.md`](ecc-review-pr.md), where the notice was measured, on the reading that **both
-  presets drive the same binary** — `claude-code 2.1.233, 2026-09` — and that a session limit is the
-  host refusing to start work rather than anything either review command emits. **That reading is why
-  the key ships here and this bullet is under this heading rather than under `## Measured`**: a card
-  records what its reviewer was seen to do, and this reviewer has not been seen out of quota. What the
-  key buys if the reading holds is a named abort instead of `unparsed-review-output`; what it costs if
-  the reading is wrong is nothing, because a pattern that never matches leaves the behaviour that
-  existed before it.
-- **Whether this reviewer answers a refused tool call with a question.** It is started the same way
-  as [`ecc-review-pr.md`](ecc-review-pr.md)'s, whose card records a round that spent its only printed
-  message asking for permission and three bare probes of three in which the host did the same
-  (claude-code 2.1.283, 2026-10). That preset's command now carries an instruction for it and **this
-  one does not**: the five rounds here that could not run the test suite said so in their output
-  rather than asking, which is five samples of the benign answer and no bound on the other, and the
-  instruction as written speaks of a pull request this command never takes. A round that did ask
-  would reach `unparsed-review-output` — the abort, and never a clean round.
+- A convergence: findings fixed, and a later round returning none.
+- Findings under the `sonnet` pin, and the token cost of a round.
+- The grader against this reviewer.
+- Whether `rateLimitPatterns` matches. It was copied from `ecc-review-pr`, which runs the same
+  binary.
+- Whether there are output shapes beyond those listed.
+- Whether a refused tool call makes this reviewer end with a question.
+- Whether the repeat suppression or the ten-finding batch limit ever applies.
