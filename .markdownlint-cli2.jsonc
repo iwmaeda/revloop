@@ -1,15 +1,5 @@
-// Read by the VS Code extension (DavidAnson.vscode-markdownlint) only, which runs
-// the markdownlint-cli2 engine. The CLI is markdownlint-cli and does not read this
-// file: it takes its ignore patterns from .markdownlintignore. The two lists hold
-// the same four patterns, spelled the same way. Change both together. Rules live
-// in .markdownlint.json, which both read.
-//
-// `.revloop/field-notes.md` is the one artifact the procedure writes: git-
-// ignored, local, and one long line per event, which puts it past MD013
-// immediately. Linting it made following the procedure turn `npm run check:all`
-// red. The pattern names that file rather than the directory, so any other
-// Markdown someone leaves in `.revloop/` is still linted — excluding the whole
-// directory removes more than the collision it was added for.
+// Read by the VS Code extension only. Keep `ignores` in sync with .markdownlintignore.
+// field-notes.md holds one long line per event, which fails MD013.
 {
   "ignores": ["node_modules/**", ".git/**", "tests/fixtures/**", ".revloop/field-notes.md"]
 }

@@ -5,29 +5,21 @@ on:
     branches: [main]
   pull_request:
 
-# Supersede in-flight runs on the same ref. Note that this turns a push made
-# during a CI wait into a CANCELLED conclusion, which revloop reads as a failure
-# — fail-closed, and avoided entirely by not pushing while a wait is armed.
+# A push during a CI wait cancels the run, which revloop reads as a failure.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# No job writes to the repository.
 permissions:
   contents: read
 
-# Actions are pinned to a commit sha for the same reason mise.toml pins jq and
-# shellcheck exactly: a tag is a moving pointer, so `@v7` lets someone else's
-# push change what this workflow runs without a commit here. The trailing
-# comment is the human-readable version; Dependabot updates both together.
+# Actions are pinned by sha. Dependabot updates the sha and the version comment together.
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # node and shellcheck both come from mise.toml, so the versions this job
-      # runs are stated in one place and are the same ones a contributor gets.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - run: npm ci
       - name: Prettier and markdownlint
@@ -39,18 +31,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # mise.toml pins jq, so the fixtures exercise the real jq program in the
-      # wait fence, not only the replayed rows — and they exercise the same jq
-      # a contributor has, rather than whatever the runner image happens to ship.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - run: npm ci
       - name: Fence and schema tests
         run: npm test
 
-  # Kept out of `check:all` on purpose: audit needs the network, and check:all
-  # has to stay runnable offline. That makes it the one CI job the umbrella
-  # command does not reproduce — which is exactly what .revloop.json's
-  # verifyNotes is for, and this repository now demonstrates its own feature.
+  # Not part of `check:all`, which has to run offline.
   audit:
     runs-on: ubuntu-latest
     steps:

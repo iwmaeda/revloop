@@ -5,13 +5,9 @@ node_modules/
 .claude/settings.local.json
 .claude/*.local.json
 
-# Per-developer toolchain overrides (see mise.toml)
+# Per-developer toolchain overrides
 mise.local.toml
 
-# Files the loop writes at runtime: field notes and grading input (see
-# docs/design-notes.md). The procedure writes .revloop/.gitignore holding `*`
-# before either, so git needs no rule here or in the repositories revloop is
-# installed into. This one stays for prettier, which reads only the top-level
-# .gitignore -- without it `format:check` would start reading .revloop/. The
-# worktree ledger is NOT in .revloop/ -- it lives under the git directory.
+# Runtime files. Git is covered by .revloop/.gitignore; this rule is for
+# prettier, which reads only this file.
 .revloop/
