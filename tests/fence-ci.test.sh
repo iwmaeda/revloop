@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Exercises the wait-ci fence. Green is asserted only for literal SUCCESS on
-# every row; everything else must fall back to retry or to an explicit error.
+# Exercises the wait-ci fence against tests/fixtures/ci. Only SUCCESS on every
+# row is green. Anything else is a retry or an explicit error.
 set -uo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"

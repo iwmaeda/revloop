@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Exercises the merge fence. The gate re-checks CI itself, so the decisive
-# assertions are about whether the PUT was fired at all.
+# Exercises the merge fence against tests/fixtures/merge. The gate re-checks CI
+# itself, so the assertions that matter are whether the PUT was fired.
 set -uo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -9,8 +9,7 @@ TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 "$ROOT/tests/extract-fences.sh" merge > "$TMP/f.sh"
 FX="$ROOT/tests/fixtures/merge"
 
-# The fence reads real git state (it pins sha= from HEAD), so give it a
-# throwaway repository rather than depending on the checkout the tests run in.
+# The fence pins sha= from HEAD, so it runs in a throwaway repository.
 git init -q "$TMP/repo"
 git -C "$TMP/repo" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init
 
@@ -38,17 +37,15 @@ r ci-pending
 expect "in-flight CI -> abort"                   "$out" "MERGE=abort reason=ci-not-ready"
 expect "  the PUT was NOT fired"                 "$puts" "0"
 
-# A 409 leaves the PR open. The fence must read that back rather than assume the
-# PUT took: reporting an unmerged PR as merged is the failure this closes.
+# A 409 leaves the PR open. The fence must read the state back.
 r put-409
 expect "409 -> MERGE=failed, not ok"             "$out" "MERGE=failed"
 refute "  never reported as merged"              "$out" "MERGE=ok"
 expect "  surfaces the response body"            "$out" "Head branch was modified"
 expect "  reports the state it read back"        "$out" "state=OPEN null"
 
-# A detached HEAD leaves `--head` empty, which gh reads as "no filter" and
-# answers with an unrelated open PR. The gate must not get as far as its CI
-# re-check, let alone the PUT.
+# A detached HEAD leaves `--head` empty, which gh reads as no filter. The gate
+# must stop before its CI re-check and the PUT.
 : > "$TMP/put.log"
 export REVLOOP_PUT_LOG="$TMP/put.log"
 out=$(run_fence_detached "$TMP/f.sh" "$FX/ok")
