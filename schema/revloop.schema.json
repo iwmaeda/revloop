@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/revloop.schema.json",
   "title": ".revloop.json",
-  "description": "Project configuration for revloop, read from .revloop/config.json when that file exists and from .revloop.json at the repository root otherwise — exactly one of the two, never a merge, and under the same rules: the local name keeps the file out of git and grants nothing the shared one does not. Every field is optional; anything absent is auto-detected and shown in the resolved-configuration table with source=detected. Every key here has a consumer in procedures/remote-loop.md or procedures/local-loop.md — a key with no consumer is a promise the procedure does not keep, so it is removed rather than left in place. THAT RULE IS WHY THIS FILE NO LONGER DEFINES REVIEWERS. It once carried a reviewers map, and no procedure reads one now: a built-in command names a definition this plugin ships, and a custom command takes one the operator names with --config <path>. A map nothing loads would be exactly the promise this sentence refuses. The format did not die with the key — it is schema/reviewer.schema.json, and a reviewer you had defined here becomes a file of that shape.",
+  "description": "Project configuration for revloop. It is read from .revloop/config.json when that file exists, and otherwise from .revloop.json at the repository root; the two are never merged. Every field is optional, and anything absent is detected and shown in the step 1 table with source=detected. Reviewers are not defined here; see schema/reviewer.schema.json.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -34,11 +34,11 @@
           "items": {
             "type": "string"
           },
-          "description": "Commands run before pushing. Shown in the resolved table BEFORE they run, and deliberately excluded from allowed-tools so the permission system always sees them."
+          "description": "Commands run before pushing. They are printed in the step 1 table before they run and are never pre-approved."
         },
         "verifyNotes": {
           "type": "string",
-          "description": "Which CI job the umbrella verify command does not reproduce, if any. The shape of this gap is universal; its answer differs per project and may be empty."
+          "description": "What CI runs that the verify commands do not, if anything."
         },
         "commit": {
           "type": "object",
@@ -69,7 +69,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "{model} expands to the running model's name — the model that did the work, which is the one running the loop. No vendor address is stamped by default. IT IS NOT {reviewModel}, which a local reviewer's command expands to the model the REVIEW runs on. The two tokens are different words because after the local loop's review-model default they are deliberately different models, and that difference is the point of the feature; one token for both would read as a claim that the reviewer and the fixer are the same."
+              "description": "{model} expands to the name of the model running the loop. It is not {reviewModel}, the model a local review runs on."
             },
             "onePerRound": {
               "type": "boolean"
@@ -79,7 +79,7 @@
         "pr": {
           "type": "object",
           "additionalProperties": false,
-          "description": "The merge method is not configurable: the merge fence sends merge_method=merge, and it takes no arguments so that its command string never changes. Squash and rebase are not supported. CI cleanliness is likewise not configurable — the gate cannot be loosened from a file.",
+          "description": "The merge method is not configurable: the loop always creates a merge commit. The CI check before a merge is not configurable either.",
           "properties": {
             "titleLanguage": {
               "type": "string"
@@ -91,17 +91,17 @@
     "defaults": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Defaults for the command flags. WHICH REVIEWER RUNS IS NOT AMONG THEM AND CANNOT BE: it is decided by which command you typed, so there is no key to set and nothing to default. A repository that could choose your reviewer would choose which bot login the wait fence filters on and which rungs your acceptance floor is measured against. A flag always overrides its default. --merge, --auto and --rigor are deliberately absent: this file comes from whatever repository you are working in, and a repository must not be able to turn on merging or to remove the two human confirmation points. A repository that could set --rigor would lower its own review bar on a checkout you just cloned while the run still reported a clean convergence. A KEY HOLDING ONLY THE TWO STRICT LEVELS WAS CONSIDERED AND IS WORSE, NOT SAFER: those grant nothing, so it could never lower a bar, and a key that can only hold the value it already has is a promise rather than a setting. Those are settable by flag only, because the flag is the approval. --model is absent for a second and sharper reason: its value is EXPANDED INTO A COMMAND LINE at the {reviewModel} placeholder, so a key here would be the first thing revloop interpolates into a shell command out of a repository-supplied file. It comes from the person typing it, or from the builtin, and from nowhere else. THE LOCAL LOOP'S --no-publish IS ABSENT FOR NEITHER OF THOSE REASONS, and inheriting one would be wrong: publishing is that loop's DEFAULT, so a key could only ever turn it off, and a key that removes an action grants nothing. It stays flag-only because nothing measured says a project wants it, and because the two situations that would — a fork, and a remote that is not GitHub — abort in step 1 naming the flag, which is a louder signal than a default configured once and forgotten. That makes it a NOT YET rather than a NEVER: defaults.localPublish: false would be defensible and nobody has asked for it.",
+      "description": "Defaults for the command flags. A flag always overrides its default. --merge, --auto, --rigor, --config, --model and --no-publish have no key: this file comes from the repository you are working in, so it cannot turn on merging, remove a confirmation, lower the review bar or choose the reviewer.",
       "properties": {
         "maxRounds": {
           "type": "integer",
           "minimum": 1,
-          "description": "Circuit breaker on the number of rounds, for the pull-request loop only. It stays settable from config, unlike --rigor, because it bounds spend rather than safety: raising it costs rounds and never merges anything. IT BEATS THE NUMBER THE LEVEL SUPPLIES. procedures/rigor-levels.md gives a cap per level and it replaces the builtin row only, so the precedence is --max-rounds, then this key, then the level — a repository that configured a cap keeps it, and the level answers where nothing else did. Step 1 prints source=rigor in that last case rather than builtin, because a number that moves with what you typed must not print as one that does not. THE DEFAULT LEVEL IS standard AND ITS NUMBER IS 5, so a run that types no level and sets no key here is capped lower than the 10 this loop carried as a builtin. Write the key if you want the old number."
+          "description": "Round cap for the remote commands. The order is --max-rounds, then this key, then the number the --rigor level supplies (5 at the default, standard)."
         },
         "localMaxRounds": {
           "type": "integer",
           "minimum": 1,
-          "description": "Circuit breaker for the local loop. Separate from maxRounds because the two bound different things: a remote round spends a quota and a stretch of wall clock a person notices, while a local round spends tokens and nothing in the room displays that, so the cap is the only brake there is. It is NOT that a local round is quick: measured rounds run 5m27s to 8m39s, inside the remote reviewer's own range, so what differs is what a round spends and not how long it takes. Sharing one key let a remote-oriented value silently raise the local cap, which defeats the only limit that loop has. It takes precedence over the number the level supplies, exactly as maxRounds does. The 5 this key used to name as a builtin is now thorough's, and the DEFAULT LEVEL IS standard, whose number is 3 — so a run that types no level and sets no key here is capped lower than it used to be. Write the key if you want the old number."
+          "description": "Round cap for the local commands. The order is --max-rounds, then this key, then the number the --rigor level supplies (3 at the default, standard)."
         },
         "timeout": {
           "type": "string",
