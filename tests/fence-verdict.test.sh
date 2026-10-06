@@ -217,6 +217,30 @@ refute "  the older answer is never mentioned"  "$o" "810"
 # not a thing the fence can do at all: EXTRA= carries a comment and never a
 # review. The refute above, on the older review_id, is the one that pins it.
 
+# Codex's status card: an issue comment by the configured reviewer, newer than
+# the trigger, that is neither a verdict nor a finding. Both payloads are one
+# real pull request's (repo C, 2026-10) with its ids and commit replaced — the
+# first as the fence met it 13 seconds after the trigger, the second after the
+# reviewer had edited the card in place and posted its clean comment beside it.
+# Emitted, the card ended the first poll as VERDICT=comment and step 9 aborted
+# on a body it had no row for.
+#
+# WHAT THIS PINS ONLY WHERE jq IS INSTALLED. The stub runs the fence's own jq
+# program over graphql.json when it can and replays `rows` when it cannot, and
+# `rows` is that program's output — so it never held the card. Without jq these
+# pass whatever the drop list says; tests/jq-program.test.sh is where the drop
+# itself is asserted, and it announces when it is skipped.
+o=$(r codex-status-card)
+expect "a status card alone -> still waiting"   "$o" "VERDICT=pending"
+refute "  the card is not a verdict"            "$o" "VERDICT=comment"
+refute "  and its marker is never printed"      "$o" "codex-pull-request-review-summary"
+
+o=$(r codex-status-card-clean)
+expect "the clean comment beside it wins"       "$o" "VERDICT=comment"
+expect "  by the clean comment's own id"        "$o" "cid=600"
+refute "  not the card's"                       "$o" "cid=500"
+expect "  with the clean phrase as the body"    "$o" "body=Codex Review: Didn't find any major issues. Chef's kiss."
+
 # The marker's bot= discards every other bot on the PR at fetch time.
 o=$(r foreign-bot)
 expect "foreign bots filtered -> pending"       "$o" "VERDICT=pending"

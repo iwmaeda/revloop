@@ -99,13 +99,16 @@ degraded loop.
 ## If it posts a preamble first
 
 Some reviewers acknowledge the trigger before doing the work — gemini posts `## Summary of Changes`,
-copilot posts `Copilot is reviewing`. Those comments are non-terminal, and the wait fence drops them
-inside its jq program.
+copilot posts `Copilot is reviewing`, and codex posts a status card that it edits in place while the
+review runs. Those comments are non-terminal, and the wait fence drops them inside its jq program.
 
-A new preamble therefore means a fence edit, which follows the protocol in
+A new one therefore means a fence edit, which follows the protocol in
 [`../CONTRIBUTING.md`](../CONTRIBUTING.md#editing-or-adding-a-shell-fence). Until it is added the loop does not
-hang: step 9 aborts with `interim-loop` and prints the `cid=` and the body, which is exactly the
-material the edit needs. Why the drop list cannot live in config is in
+hang: step 9 aborts on the comment and prints its `cid=` and its body in full, which is exactly the
+material the edit needs. **Expect that abort to carry no `reason=`.** A body step 9 has no row for
+takes its "any other bot body" row, which is how codex's card was met (repo C, 2026-10);
+`interim-loop` is reported only for a `cid=` the run had already classified as non-terminal. Why the
+drop list cannot live in config is in
 [`design-notes.md`](design-notes.md#permission-rules-and-fence-bytes).
 
 ## Local command reviewers

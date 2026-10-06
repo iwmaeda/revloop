@@ -7,7 +7,7 @@
 | `botLogin`    | `chatgpt-codex-connector[bot]`                                    |
 | verdict on    | `comments` (findings arrive as a review; terminal signals do not) |
 | `status`      | `verified`                                                        |
-| `lastChecked` | 2026-08                                                           |
+| `lastChecked` | 2026-10                                                           |
 
 **Definition:** [`codex.json`](codex.json) — the file the loop loads. This card is the
 measurement record beside it; the definition is the configuration, and neither restates the
@@ -28,6 +28,7 @@ other.
   rounds in this repository span **2:46 to 10:07**. A **clean** round is timed against a different
   endpoint and is not a member of that range: `iwmaeda/revloop#11` found nothing, so its terminal
   signal was an issue comment rather than a review, and trigger to comment ran **3:46** (2026-08).
+  Two more clean rounds ran **8:24** and **2:57** on that endpoint (repo C, 2026-10).
   **Derived:** budget for the range and not the centre, and treat the range itself as provisional —
   **each sample so far has moved one end or both outward**, so the next one probably will too — the
   fourth moved only the low end, to 2:46, and left 10:07 standing as the high-water mark from the
@@ -84,10 +85,29 @@ other.
   not zero.
 - **Terminal signals arrive as issue comments, not reviews.** On `iwmaeda/iwmaeda#8` and `#11`,
   `/pulls/<n>/reviews` was empty while the clean verdict sat in `/issues/<n>/comments`.
+- **A status card arrives seconds after the trigger, and it is edited in place.** An issue comment
+  whose first line is `<!-- codex-pull-request-review-summary -->` was created 13 seconds after a
+  trigger, holding a table with one row that read `Running`. Read again after the round, its
+  `created_at` was unchanged, its `updated_at` was three seconds after the clean comment, and the row
+  read `Completed` (repo C, 2026-10). Two pull requests in that repository on the previous day drew
+  six triggers between them and no such comment (repo C, 2026-10). **Derived:** it reports a status
+  and carries no verdict — on that round the clean signal still arrived as a comment of its own — so
+  the wait fence drops it by that first line. **Derived, and the reason it had to be the fence:** the
+  card is by the reviewer and newer than the trigger for the whole of the round that created it, so
+  emitted it ended that round's first poll as a bot comment step 9 of
+  [`../procedures/remote-loop.md`](../procedures/remote-loop.md) has no row for, and every re-fire
+  would have met it again.
+- **The 👍 lands on the pull request's description, not on the trigger.** On two clean rounds the
+  reviewer's `+1` was on the pull request itself — one second before its clean comment on one, five
+  seconds after it on the other — and the trigger comment of each carried zero reactions; a pull
+  request whose last round returned findings carried none anywhere (repo C, 2026-10). **Derived:**
+  the wait fence reads reactions off the trigger comment, so its `reaction` verdict cannot fire on
+  this placement, and the clean comment is still the signal a round finishes on.
 - **The clean phrase's tail varies between rounds.** Observed after
   `Codex Review: Didn't find any major issues.` — `Keep it up!`, `:tada:`, `Breezy!`, and
-  `What shall we delve into next?` (repo C, 2026-08), and `Keep them coming!`
-  (`iwmaeda/revloop#11`, 2026-08). **Derived:** match it as a prefix, because an
+  `What shall we delve into next?` (repo C, 2026-08), `Keep them coming!`
+  (`iwmaeda/revloop#11`, 2026-08), and `Nice work!` and `Chef's kiss.` (repo C, 2026-10).
+  **Derived:** match it as a prefix, because an
   equality test on a string that is not constant fails a clean round.
 - **Supports a one-off focus suffix**: `@codex review <focus>` was accepted and answered on seven
   consecutive rounds (`iwmaeda/revloop#8`, 2026-08). **Derived, and explicitly not measured:** that it
@@ -130,8 +150,16 @@ for code reviews.` followed by a dashboard link (same comment). **Derived:** a r
   one without it, it is overridable from
   `.revloop.json`, and the loop prints the floor it produces — as the sets of `P1`/`P2`/`P3` that
   block and that do not — before the first round runs.
-- The documented "👍 reaction when there are no findings" path. Every measured trigger carried zero
-  reactions.
+- **Whether a 👍 ever lands on the trigger comment**, which is the only place the wait fence reads
+  one. Every measured trigger carried zero reactions, and the two 👍 recorded above were on the pull
+  request's description instead.
+- **Whether the status card is created once per pull request or once per trigger.** The pull request
+  it was seen on ran a single round. The drop is by the card's first line, so it holds either way;
+  what is unknown is only how many of them a long pull request accumulates.
+- **What the card's row reads in any state but `Running` and `Completed`** — a rate limit, a failed
+  review, a skipped one — and whether such a state also arrives as a comment of its own. If one
+  arrived on the card alone the fence would not see it, and the round would read `pending` until
+  `--timeout` and end in `no-verdict` rather than in the abort that names the cause.
 - **Whether a trigger posted after a rate limit, at an unchanged HEAD, draws a review once the quota
   is back.** The one occurrence recorded here (`iwmaeda/revloop#13`, 2026-08) was blocked by the loop
   rather than by the reviewer — the runaway invariant refused the second trigger, so it was never

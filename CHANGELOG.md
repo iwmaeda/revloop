@@ -13,6 +13,41 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### The wait fence no longer reads Codex's status card as a verdict
+
+**The `wait-verdict` fence changed: one alternative was added to the drop list inside its jq
+program, and that costs every user one re-approval.** The other three fences are byte-identical.
+
+**Measured (`repo C, 2026-10`, revloop 0.16.0).** Thirteen seconds after a trigger, the reviewer
+posted an issue comment opening `<!-- codex-pull-request-review-summary -->` — a table whose one row
+read `Running`. The fence took it for the round's comment on its first poll and printed
+`VERDICT=comment`, and step 9 aborted on a bot body it has no row for. The round's real answer was a
+clean comment 2:57 after the trigger; three seconds after that the card had been edited in place to
+`Completed`, its `created_at` unchanged. Two pull requests in that repository a day earlier drew six
+triggers and no card, so this is the reviewer changing and not a setting.
+
+**The card is dropped by its first line, the way a preamble is, because no row of step 9 can recover
+from it.** The fence remembers nothing between firings, so a comment it emits is the first thing
+every re-fire meets. Re-run against that pull request's own payload — through `jq` and through the
+`gojq` that `gh` embeds — the edited program emits the trigger and the clean comment and no longer
+the card. Two fixtures built from that payload, with its ids and commit replaced, pin both moments:
+the card alone reads `pending`, and the card beside a clean comment reads the clean comment.
+
+**Not measured:** a round that returns findings on a pull request carrying a card, a second round on
+one, and any state of the card but `Running` and `Completed`. **Derived, not observed:** if a
+terminal state ever arrives on the card alone, the round now reads `pending` and ends in
+`no-verdict`, which is the direction this fence's other gaps fail in. `reviewers/codex.md` lists all
+of it.
+
+**Also recorded, and no fence moved for it: the reviewer's 👍 lands on the pull request's
+description, not on the trigger comment** — on both clean rounds read (`repo C, 2026-10`). The fence
+reads reactions off the trigger, so `VERDICT=reaction` has still never fired. The clean comment
+arrived on both, so nothing here depends on the reaction.
+
+**`docs/adding-a-reviewer.md` said an interim comment the fence does not know aborts with
+`interim-loop`, and it does not.** A body step 9 has no row for takes the "any other bot body" row,
+which carries no `reason=`; that is the abort this run reported. The page now says so.
+
 ## [0.16.0] - 2026-10-05
 
 ### A run has one runner, and the procedure now says which session that is
