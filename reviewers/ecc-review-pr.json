@@ -3,7 +3,7 @@
   "displayName": "ECC /ecc:review-pr",
   "kind": "local-command",
   "invoke": "subprocess",
-  "command": "claude --model {reviewModel} --effort medium -p \"/ecc:review-pr\"",
+  "command": "claude --model {reviewModel} --effort medium --append-system-prompt \"Non-interactive run: nobody can answer a question or approve a tool call. If a call is denied, never ask and never retry it. If the pull request cannot be read, say so and stop. Otherwise finish without that call, list what you could not run, and open the report with its number, title and changed files.\" -p \"/ecc:review-pr\"",
   "requiresPr": true,
   "rateLimitPatterns": ["You've hit your session limit"],
   "status": "unverified"

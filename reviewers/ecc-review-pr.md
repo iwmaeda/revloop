@@ -2,18 +2,18 @@
 
 The `review-pr` command from the ECC plugin, driven as a subprocess.
 
-| Field               | Value                                                              |
-| ------------------- | ------------------------------------------------------------------ |
-| `kind`              | `local-command`                                                    |
-| `invoke`            | `subprocess`                                                       |
-| `command`           | `claude --model {reviewModel} --effort medium -p "/ecc:review-pr"` |
-| `severityLevels`    | **none** — the four-rung ladder read here was not emitted          |
-| `severityMap`       | **none** — there is no measured ladder to map from                 |
-| `requiresPr`        | **`true`** — it resolves a pull request first                      |
-| `rateLimitPatterns` | `["You've hit your session limit"]` — its host's, measured         |
-| verdict on          | the command's stdout                                               |
-| `status`            | `unverified`                                                       |
-| `lastChecked`       | 2026-09                                                            |
+| Field               | Value                                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `kind`              | `local-command`                                                                               |
+| `invoke`            | `subprocess`                                                                                  |
+| `command`           | `claude --model {reviewModel} --effort medium --append-system-prompt "…" -p "/ecc:review-pr"` |
+| `severityLevels`    | **none** — the four-rung ladder read here was not emitted                                     |
+| `severityMap`       | **none** — there is no measured ladder to map from                                            |
+| `requiresPr`        | **`true`** — it resolves a pull request first                                                 |
+| `rateLimitPatterns` | `["You've hit your session limit"]` — its host's, measured                                    |
+| verdict on          | the command's stdout                                                                          |
+| `status`            | `unverified`                                                                                  |
+| `lastChecked`       | 2026-10                                                                                       |
 
 **Definition:** [`ecc-review-pr.json`](ecc-review-pr.json) — the file the loop loads. This card is the
 measurement record beside it; the definition is the configuration, and neither restates the
@@ -21,11 +21,29 @@ other.
 
 **Driven by:** `/revloop:local-ecc-loop`.
 
+**The `"…"` in that row is one literal, too long for a cell, and it is quoted here once.** It is the
+argument to `--append-system-prompt`, and `tests/schema.test.sh` fails if this copy and the
+definition's part:
+
+```text
+Non-interactive run: nobody can answer a question or approve a tool call. If a call is denied, never ask and never retry it. If the pull request cannot be read, say so and stop. Otherwise finish without that call, list what you could not run, and open the report with its number, title and changed files.
+```
+
+**It is there because a headless session prints its last message and nothing before it**, and a
+reviewer refused a tool call can spend that message asking for permission nobody is there to give.
+One round did, with the permission block installed (`### From two runs in a third repository`), and
+three bare probes of three asked the same way (`### From the headless instruction`). **Like
+`--effort medium` it is a literal**, so nothing new is interpolated. **It sits in the command and not
+in a file the command points at** for the reason the fences are inline: the string is what the
+step-1 table shows and what the permission system matches, and a path would keep that string still
+while the text behind it moved.
+
 **`{reviewModel}` is expanded by the local loop before the command runs** — to `--model` if it
 was typed, otherwise to the builtin `sonnet` — **and `--effort medium` beside it is a literal**, so
-the effort a round runs at belongs to this definition and nothing new is interpolated. **Every
-measurement below predates that pin**: all seven runs passed no `--effort`, and the effort each ran
-at was not recorded. **Derived** from `claude --help`, which describes the flag as the effort level
+the effort a round runs at belongs to this definition and nothing new is interpolated. **The first
+seven runs below predate that pin**: they passed no `--effort`, and the effort each ran
+at was not recorded. Two later rounds ran with it (`### From two runs in a third repository`).
+**Derived** from `claude --help`, which describes the flag as the effort level
 for the current session: without it, a subprocess runs at whatever the operator's settings give it,
 so an operator whose default is `xhigh` paid for `xhigh` on every round of the slowest local
 reviewer this repository has measured. `## Not measured` says what the pin leaves open.
@@ -33,7 +51,8 @@ reviewer this repository has measured. `## Not measured` says what the pin leave
 **Six runs exist now, and what they establish is mostly that this card was wrong.** The command runs,
 answers in about five minutes and returns usable findings — and it emits neither the ladder nor the
 report shape read out of it below. `status` stays `unverified`: for a local reviewer that word turns
-on convergence, and no round of this reviewer has yet come back clean.
+on convergence — findings fixed, and a later round returning none — and the one round of this
+reviewer that has come back with nothing to fix was a first round.
 
 **It also does not run at all in a repository that has not been configured**, which nothing here
 predicted and which is the first thing to check. See `### From the first six runs`.
@@ -43,6 +62,13 @@ its host's session limit.** The command exits 0 and returns the notice in place 
 the same shape as the unconfigured case and the same shape as a clean round. The card now carries a
 `rateLimitPatterns` so the loop names the quota rather than the parse. See
 `### From a seventh run, in another repository`.
+
+**Two more runs, in a third repository, found a third way, and it is neither the configuration nor
+the quota: the reviewer stopped to ask.** One returned a report with nothing to fix. The other
+returned a single line asking for permission to run a command of its own choosing, in a checkout
+that had the permission block — exit 0, no findings, and the same shape as both ways above. The
+command now tells the reviewer that nobody can answer. See
+`### From two runs in a third repository`.
 
 **It shipped as `invoke: skill` and no longer does, and the reason is that a skill has no model
 boundary.** A skill runs in the loop's own session: on the loop's model, spending the loop's context.
@@ -88,6 +114,12 @@ could not confirm one existed. **So the shape this card records for the loop to 
 the target**, which is the only signal that survives the process boundary: nothing outside the
 subprocess can see whether `gh` answered. A result that does not name what it reviewed is
 `unparsed-review-output` and never a clean round.
+
+**A sixth working round named it by number alone, and at the end**
+(`### From two runs in a third repository`), so "opens with its number, its title and its changed
+files" is the habit of five rounds on one pull request rather than the shape. **What the loop matches
+is that the result names the pull request it reviewed.** The instruction the command now carries asks
+for all three at the opening, and no review has yet run under it.
 
 ## Measured
 
@@ -184,6 +216,54 @@ configuration, and what it measures is the host rather than the command.
   the round, so the interval between the notice and the operator reading it is not negligible and a
   reported time can be stale in the useful direction.
 
+### From two runs in a third repository
+
+**Two runs of one round each, under an hour apart on two pull requests of one repository**, both
+`claude --model sonnet --effort medium -p "/ecc:review-pr"` on claude-code 2.1.283 with ecc 2.2.0.
+They are the only rounds measured at the effort pin, and both predate the instruction the command
+now carries — the second is the reason it carries one.
+
+- **A first round can come back with nothing to fix, and that report does not use the headings.**
+  The command exited 0 after **2m43s** and returned one bullet for each of five agents it had run —
+  each reporting no issue or naming what it had set aside — and a closing paragraph that began
+  `**Verdict: No blocking findings.**` (`MIRock-jp/hippoblogs#152`, 2026-10). No `## Critical`,
+  `## Important` or `## Advisory` heading appeared, and one item was reported at 75% confidence and
+  described as below the command's own bar of 80. **Derived:** the headings recorded above are the
+  shape of a round that has findings, and this is the one sample of a round that has none.
+  **Derived:** the verdict sentence is the model's own wording and not one of the three tokens an
+  agent of this command specifies, so the reading under `### From the installed command` stands.
+  **Derived, and the reason `status` did not move:** nothing was fixed before this round, so it
+  shows the reviewer finishing and not the loop converging.
+- **That round named its target by number alone, and at the end.** Its only reference to the pull
+  request was `PR #152` in the closing paragraph, with no title and no list of changed files
+  (`MIRock-jp/hippoblogs#152`, 2026-10). **Derived:** naming the target survives as the signal the
+  loop matches, and where and how fully it is named does not.
+- **Five agents ran, not six.** The subprocess's own transcript shows `code-reviewer`,
+  `comment-analyzer`, `pr-test-analyzer`, `silent-failure-hunter` and `code-simplifier` dispatched,
+  and `type-design-analyzer` not (`MIRock-jp/hippoblogs#152`, 2026-10). **Derived:** the list in the
+  command is what a round may dispatch rather than what it does, so a round's cost and its coverage
+  both move with the change under review.
+- **A round can end on a question with the permission block installed.** The command exited 0 after
+  **68s**, and its whole stdout was one line of 152 characters asking for permission to run
+  `npm run lint:md` (`MIRock-jp/hippoblogs#154`, 2026-10). The subprocess's transcript shows
+  `gh pr view` and `gh pr diff` both answering, a message naming the pull request by number and
+  branch, that command refused three times — once inside a pipeline and twice alone, the last two
+  with `This command requires approval` — no agent dispatched, and the question as its final turn
+  (`MIRock-jp/hippoblogs#154`, 2026-10). The checkout's `.claude/settings.local.json` held
+  `README.md`'s block, which grants `gh` and `git` and nothing for `npm`
+  (`MIRock-jp/hippoblogs#154`, 2026-10). **Derived:** this is a third way for a round to return no
+  review, beside the unconfigured checkout and the quota, and the repair this card named for the
+  shape — install the block — had already been made. **Derived:** a `-p` session prints its final
+  turn alone, so the message that named the pull request never reached the loop, and
+  `unparsed-review-output` was the right reading of what did. **Derived:** the review command asks
+  for no such check and the reviewer chose it, so no grant list written in advance can be known to
+  cover what a round will reach for.
+- **Being refused does not by itself end a round.** The round that reported was refused four
+  commands of its own — a redirect outside the working directory, a `mkdir`, and two compound lines
+  — and went on to dispatch its agents (`MIRock-jp/hippoblogs#152`, 2026-10). **Derived:** whether
+  a refusal ends in a report or in a question is the model's choice on the run rather than a
+  property of the grants, which is why the answer here is an instruction and not a wider grant.
+
 ### From the effort pin
 
 **Two one-line prompts, not reviews.** They establish that the host accepts the flag the preset now
@@ -199,6 +279,29 @@ carries, and nothing about a review run at it.
   claude-code 2.1.283, 2026-09). **Derived:** a host that predates the flag would reject the command
   line, and the round would abort `review-command-failed` with the exit status and the output printed
   — the loud direction, and never a clean round.
+
+### From the headless instruction
+
+**Eight short prompts, not reviews.** They establish that the host accepts the command as it now
+ships, and that the instruction changes what a refused session prints — on a task that is not this
+reviewer's.
+
+- **Bare, a refused session asked for approval every time, and twice returned nothing else.** In a
+  scratch repository with no grants, `claude --model sonnet --effort medium -p` was given a two-part
+  task three times — review one file, and run `npm run lint:md` first. All three final messages
+  asked for the command to be approved; two carried no finding at all, and the third carried the
+  findings beside the request (claude-code 2.1.283, 2026-10). **Derived:** the one-line question
+  recorded above is this host's ordinary answer to a refusal, not an accident of one pull request.
+- **With the instruction, none asked.** The same task three times under `--append-system-prompt`
+  with the text quoted at the head of this card: every final message carried the findings and said
+  the command could not be run, and none asked for anything (claude-code 2.1.283, 2026-10).
+  **Derived:** three runs of a two-line task say the instruction is read and followed there. They
+  do not say a multi-agent review follows it.
+- **The host accepts the shipped command line beside both models.** The definition's `command`, with
+  `{reviewModel}` expanded to `sonnet` and then to `haiku` and its prompt replaced by
+  `Reply with the single word ok`, printed `ok` and exited **0** both times (claude-code 2.1.283,
+  2026-10). **Derived:** the 394-character string is one shell command line as written, and the
+  flag does not turn `--model haiku` into an abort.
 
 ### From the installed command
 
@@ -260,13 +363,34 @@ beside it.
   returning three different shapes under two different models, which is the reason to expect this one
   to move as well. If it turns out not to hold, the honest move is `status: unsupported`, not a looser
   parse. **The effort pin makes that sharper**: those rounds ran at an effort the host chose and
-  nobody recorded, and none is known to have run at the `medium` the preset now ships — so the shape
-  recorded here was observed under a configuration this project no longer ships.
+  nobody recorded, and the two rounds since measured at `medium` returned a report with no headings
+  and a question — so the heading shape has still not been observed under the configuration this
+  project ships.
 - **What `medium` costs in findings, and what it saves in time.** The five rounds took 5m09s to
-  12m05s at that unrecorded effort, and no round has run at `medium`. Fewer findings at a lower
+  12m05s at that unrecorded effort, and the one working round at `medium` took 2m43s on another
+  repository and another change. Fewer findings at a lower
   effort would mean either fewer defects present or fewer defects found, and a sample of one change
-  per effort level cannot tell those apart. **Re-running a round under the pin is the most useful
-  measurement this card is missing.**
+  per effort level cannot tell those apart. **A round under the pin on a change an unpinned round
+  also reviewed is the most useful measurement this card is missing.**
+- **Whether the headless instruction holds in a review.** No round has run under it. The probes
+  refused one command in a two-line task; a round is refused several, by a session that dispatches
+  agents, and — as with the model and the effort below — reading the command does not establish
+  that an appended system prompt reaches the agents it spawns.
+- **Whether "say so and stop" is obeyed when the pull request itself cannot be read.** This is the
+  direction that matters: a reviewer told to finish without a refused call could, with `gh` refused,
+  report a review of nothing. The instruction says to stop instead, and no probe refused the target
+  read. **The guard does not rest on its being obeyed** — a result that does not name the pull
+  request it reviewed is still `unparsed-review-output` — but that guard is a reading by the loop's
+  own model, and an instruction that made a blocked reviewer more fluent would lean on it harder.
+- **Whether `--permission-prompts none` would do the same job.** The host lists it, as the setting
+  under which anything that would prompt is denied automatically (`claude --help`, claude-code
+  2.1.283, 2026-10). It is not shipped: the release that introduced it is not known here, a host
+  without it rejects the whole command line, and no probe ran with it — so what a refusal reads
+  like under it, and whether a session then asks, are both unobserved.
+- **Whether an item the reviewer names and sets aside is a finding.** One round reported an item at
+  75% confidence, below the bar the command sets for reporting at all, and the run that read it
+  counted no finding and started no grader. Nothing on this card or in the local procedure says
+  which reading is right, and one sample does not make either a rule.
 - **Whether this reviewer's headings are a ladder.** All three confidence words have now been emitted
   as headings, and they appeared in the same order every time one of them was used. **Ordering
   observed is not ordering asserted**: nothing in five rounds establishes that these are rungs a floor
@@ -276,9 +400,10 @@ beside it.
   against it by grading —
   the same position `code-review.md` holds, reached from the opposite direction: that reviewer never
   had a ladder and this one had the wrong one.
-- **Rounds to converge, and tokens per round.** Five rounds have run, **none of them came back clean**,
-  and the count did not fall — so this card cannot say convergence is reachable, only that the loop
-  reached its cap without it.
+- **Rounds to converge, and tokens per round.** Five rounds of one loop ran, **none of them came back
+  clean**, and the count did not fall — so this card cannot say convergence is reachable, only that
+  the loop reached its cap without it. The one round that returned nothing to fix was a first round
+  on another change, which shows no fix being answered.
   Recurrence is measured and is zero; the token cost of a round is not measured here or anywhere else
   in this repository, and it is the resource the local loop is shaped around.
 - **What the six agents it dispatches run on, and at what effort.** The command is invoked with

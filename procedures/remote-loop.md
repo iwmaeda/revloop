@@ -1568,7 +1568,7 @@ ledger=ok` with the ledger line retired and the worktree still registered, and *
    Q='query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){
    comments(last:40){nodes{createdAt databaseId body author{login __typename} reactionGroups{content users{totalCount}}}}
    reviews(last:15){nodes{submittedAt databaseId state author{login __typename} commit{oid}}}}}}'
-   J='.data.repository.pullRequest as $p|[($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger "))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) \(.body|split("revloop:trigger ")[1]|split(" -->")[0]|gsub("[^A-Za-z0-9=._ -]";""))"),($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger ")|not)|select(.body|test("^[@/](codex|gemini|claude|copilot) review([[:space:]]|$)"))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) compat=1"),($p.reviews.nodes[]|select(.author.__typename=="Bot")|select(.state!="DISMISSED")|"review \(.submittedAt) \(.author.login) \(.databaseId) \(.commit.oid[0:8])"),($p.comments.nodes[]|select(.author.__typename=="Bot")|select(.body|test("^(## Summary of Changes|Copilot is reviewing|Copilot wasn)")|not)|"comment \(.createdAt) \(.author.login) \(.databaseId) \(.body|split("\n")[0]|gsub("=";"-")|.[0:110])")]|.[]'
+   J='.data.repository.pullRequest as $p|[($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger "))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) \(.body|split("revloop:trigger ")[1]|split(" -->")[0]|gsub("[^A-Za-z0-9=._ -]";""))"),($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger ")|not)|select(.body|test("^[@/](codex|gemini|claude|copilot) review([[:space:]]|$)"))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) compat=1"),($p.reviews.nodes[]|select(.author.__typename=="Bot")|select(.state!="DISMISSED")|"review \(.submittedAt) \(.author.login) \(.databaseId) \(.commit.oid[0:8])"),($p.comments.nodes[]|select(.author.__typename=="Bot")|select(.body|test("^(## Summary of Changes|Copilot is reviewing|Copilot wasn|<!-- codex-pull-request-review-summary)")|not)|"comment \(.createdAt) \(.author.login) \(.databaseId) \(.body|split("\n")[0]|gsub("=";"-")|.[0:110])")]|.[]'
    F=0; TS=""; END=$((SECONDS + 480))
    while [ "$SECONDS" -lt "$END" ]; do
      O=$(timeout 25 gh api graphql -F o="${S%%/*}" -F n="${S##*/}" -F p="$PR" -f query="$Q" --jq "$J" 2>/dev/null); r=$?
@@ -3703,10 +3703,16 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   **stays silent forever**. Neither the table in step 9 nor the output list in step 12 has a row for
   "nothing came back", so silence tells the reader nothing. `timeout`'s exit code 124 is non-zero, so
   it flows into the existing failure counter with no new branch.
-- **The documented "👍 when there are no findings" path has never been observed.** Every measured
-  trigger carried zero reactions, and clean rounds always came back as a comment. Treat the comment as
+- **The documented "👍 when there are no findings" reaction has been observed twice, and not where
+  the fence looks.** On two clean rounds the reviewer put it on the **pull request's description** —
+  one second before its clean comment on one, five seconds after it on the other — and each trigger
+  comment carried zero reactions (repo C, 2026-10). The fence reads `reactionGroups` off the trigger
+  comment, so `VERDICT=reaction` has still never fired, and on those rounds it could not have. Every
+  measured clean round came back as a comment, those two included. Treat the comment as
   the real signal and the reaction as a last resort; if a round ends on `reaction`, say in the report
-  that it took an unexercised path.
+  that it took an unexercised path. **Pointing the fence at the description is a fence edit and is
+  not made on two observations from one repository**, least of all two where the comment it would
+  stand in for arrived.
 - **The fence names `copilot` in two places for a reviewer this plugin no longer ships**, and both are
   deliberate. Its `Copilot is reviewing` and `Copilot wasn` patterns are in the drop list, and its name
   is in the compatibility alternation that lets a hand-typed `@<reviewer> review` anchor a baseline.
@@ -3715,6 +3721,23 @@ limits`) as **issue comments**, with `/pulls/<n>/reviews` empty. Gemini returns 
   be a fence edit, which costs **every user one re-approval**, and it would buy a regex two words
   shorter — the same trade `reviewers/copilot.md` recorded against itself before it was removed, and
   the reason this whole restructure changed no fence byte.
+- **Codex's status card is in the drop list too, and it is the first entry there that is not a
+  preamble.** A comment opening `<!-- codex-pull-request-review-summary -->` appeared 13 seconds
+  after a trigger, as a table whose one row read `Running`. The reviewer then **edited it in
+  place**: its `created_at` stayed, its `updated_at` moved to three seconds after the clean comment,
+  and the row read `Completed` (repo C, 2026-10). Two pull requests in that repository a day earlier
+  carried no such comment across six triggers. **Emitted, it is newer than the baseline on every
+  poll of the round that created it**: the fence exited on its first poll with `VERDICT=comment`, and
+  step 9 aborted on a bot body it had no row for — 13 seconds into a round whose real answer was a
+  clean comment under three minutes later. **It is dropped because it carries a status and never a
+  verdict**: on that round the clean signal still arrived as a comment of its own, and findings
+  arrive as a review. **Derived, not observed:** if a terminal state ever arrives on the card alone,
+  dropping it fails closed — the round reads `pending` and ends in `no-verdict`, whose row says to
+  read the pull request. **Derived as well:** emitted, the card would outrank an older rate-limit
+  comment in the `tail -1` that picks the round's comment, and would turn a pull request carrying no
+  trigger into `untriggered-verdict`; dropped, it does neither. **The pattern stops before the
+  marker's closing `-->`**, the way `Copilot wasn` stops inside a word, so a marker that grows an
+  attribute is still matched.
 
 ### Parsing
 
@@ -3968,7 +3991,9 @@ and the trigger re-post: `## Notes` shows it can finish a round clean over an
 orphaned abort-class signal, and its entry below repeats that. A round that
 takes one of these should say so in the report:
 
-- `VERDICT=reaction` — every measured trigger carried zero reactions, so this has never fired.
+- `VERDICT=reaction` — every measured trigger carried zero reactions, so this has never fired. **Both
+  👍 observed landed on the pull request's description rather than on the trigger**
+  (repo C, 2026-10), which the fence does not read; `## Notes` has the observation.
 - The `--is-ancestor` `1` (diverged) and `128` (absent locally) aborts. The exit codes themselves are
   measured; a bot review arriving _while_ the repository is in that state is not.
 - Step 12's `CHECKS_FAILED`, `SKIPPED`, and legacy `StatusContext` handling.

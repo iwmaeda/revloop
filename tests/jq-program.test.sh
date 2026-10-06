@@ -61,6 +61,20 @@ o=$(run jq/preamble)
 refute "a preamble is not emitted as a comment" "$o" "Summary of Changes"
 expect "  the trigger is still seen"            "$o" "TRIG"
 
+# The same rule for a comment that is not a preamble: Codex's status card. It
+# lands seconds after the trigger and is edited in place while the review runs
+# (repo C, 2026-10), so it is newer than the baseline on every poll of the round
+# that created it. Its body also names the trigger phrase on a later line; it is
+# a bot's comment and the phrase is not at the head, so it anchors no baseline.
+o=$(run verdict/codex-status-card)
+refute "a status card is not emitted as a comment" "$o" "codex-pull-request-review-summary"
+expect "  the trigger is the only row left"        "$(printf '%s\n' "$o" | grep -c .)" "1"
+expect "  and it is the marked one"                "$o" "TRIG 2026-10-06T00:03:23Z 111 0 v=1 reviewer=codex"
+
+o=$(run verdict/codex-status-card-clean)
+refute "the card is dropped beside a verdict too"  "$o" "codex-pull-request-review-summary"
+expect "  and the clean comment is still emitted"  "$o" "comment 2026-10-06T00:06:20Z chatgpt-codex-connector 600 Codex Review: Didn't find any major issues. Chef's kiss."
+
 # A focus containing the literal `revloop:trigger` wins the split, so the marker
 # keys are never reached. Step 7 forbids composing such a focus; this pins what
 # happens if one is composed anyway.

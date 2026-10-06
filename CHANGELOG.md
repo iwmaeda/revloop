@@ -13,6 +13,89 @@ repointed, because an entry should say what was true when it was written.
 
 ## [Unreleased]
 
+### The wait fence no longer reads Codex's status card as a verdict
+
+**The `wait-verdict` fence changed: one alternative was added to the drop list inside its jq
+program, and that costs every user one re-approval.** The other three fences are byte-identical.
+
+**Measured (`repo C, 2026-10`, revloop 0.16.0).** Thirteen seconds after a trigger, the reviewer
+posted an issue comment opening `<!-- codex-pull-request-review-summary -->` — a table whose one row
+read `Running`. The fence took it for the round's comment on its first poll and printed
+`VERDICT=comment`, and step 9 aborted on a bot body it has no row for. The round's real answer was a
+clean comment 2:57 after the trigger; three seconds after that the card had been edited in place to
+`Completed`, its `created_at` unchanged. Two pull requests in that repository a day earlier drew six
+triggers and no card, so this is the reviewer changing and not a setting.
+
+**The card is dropped by its first line, the way a preamble is, because no row of step 9 can recover
+from it.** The fence remembers nothing between firings, so a comment it emits is the first thing
+every re-fire meets. Re-run against that pull request's own payload — through `jq` and through the
+`gojq` that `gh` embeds — the edited program emits the trigger and the clean comment and no longer
+the card. Two fixtures built from that payload, with its ids and commit replaced, pin both moments:
+the card alone reads `pending`, and the card beside a clean comment reads the clean comment.
+
+**Not measured:** a round that returns findings on a pull request carrying a card, a second round on
+one, and any state of the card but `Running` and `Completed`. **Derived, not observed:** if a
+terminal state ever arrives on the card alone, the round now reads `pending` and ends in
+`no-verdict`, which is the direction this fence's other gaps fail in. `reviewers/codex.md` lists all
+of it.
+
+**Also recorded, and no fence moved for it: the reviewer's 👍 lands on the pull request's
+description, not on the trigger comment** — on both clean rounds read (`repo C, 2026-10`). The fence
+reads reactions off the trigger, so `VERDICT=reaction` has still never fired. The clean comment
+arrived on both, so nothing here depends on the reaction.
+
+**`docs/adding-a-reviewer.md` said an interim comment the fence does not know aborts with
+`interim-loop`, and it does not.** A body step 9 has no row for takes the "any other bot body" row,
+which carries no `reason=`; that is the abort this run reported. The page now says so.
+
+### `/revloop:local-ecc-loop` tells its reviewer that nobody can answer
+
+**The shipped `ecc-review-pr` definition's `command` changed, and no fence did.** It now reads
+`claude --model {reviewModel} --effort medium --append-system-prompt "…" -p "/ecc:review-pr"`, where
+the elided argument is one literal sentence-group saying the run is non-interactive: never ask,
+never retry a refused call, stop if the pull request cannot be read, and otherwise finish without
+the call and say what could not be run. `reviewers/ecc-review-pr.md` quotes it in full. **The review
+command is never pre-approved, so if you had answered "always allow" for the old string you will be
+asked once for the new one.**
+
+**Measured (`MIRock-jp/hippoblogs#154`, 2026-10, revloop 0.15.0).** The reviewer read the pull
+request, was refused `npm run lint:md` three times — a check of its own choosing, in a checkout that
+had the permission block — dispatched none of its agents, and ended its turn asking for permission.
+A `-p` session prints its last message and nothing before it, so the review command's whole stdout
+was that question: one line, exit 0, 68 seconds. The loop aborted with
+`reason=unparsed-review-output`, which was right, and the card's only explanation for that shape was
+a missing permission block that was not missing.
+
+**Measured on probes, and on no review.** In a scratch repository with no grants, a two-part task —
+review a file, and run that lint command first — was run three times bare and three times with the
+instruction (claude-code 2.1.283). Bare, all three asked for approval and two returned nothing else.
+With it, none asked and all three returned their findings beside a note of what could not be run.
+The shipped command line was also run with a one-word prompt under `sonnet` and under `haiku`, and
+printed `ok` at exit 0 both times.
+
+**Not measured: a review under the instruction, and the case that matters most.** No round has run
+with it. Nothing establishes that an appended system prompt reaches the agents the review command
+dispatches, and no probe refused the read of the pull request itself — where "finish without that
+call" must not turn a blocked reviewer into a fluent one. The instruction says to stop there, and
+the card's rule that a result must name the pull request it reviewed still stands behind it.
+
+**The `code-review` preset is exposed to the same refusal and is not changed.** Nothing has measured
+it asking, and its command takes a pull request from nowhere, so this sentence would not fit it as
+written. `--permission-prompts none` was considered and is not shipped either: the host lists it,
+the release that introduced it is not known here, and a host without it rejects the whole line.
+
+**The procedure says what the abort means, and the abort is unchanged.** Step 8 of
+`procedures/local-loop.md` now states that under `invoke: subprocess` the output is the reviewer's
+last message alone, so a reviewer that stops to ask returns the question — a reviewer that stopped,
+not a review in an unrecorded shape — and that the report should say what it asked for.
+`docs/adding-a-reviewer.md` gains the same trap for anyone writing a definition.
+
+**The card also records its first round with nothing to fix** (`MIRock-jp/hippoblogs#152`, 2026-10):
+2m43s, five agents, a closing `Verdict:` sentence and none of the headings the six earlier runs
+returned. **`status` stays `unverified`** — nothing was fixed before that round, so it shows the
+reviewer finishing and not the loop converging. `tests/schema.test.sh` now fails if the instruction the
+card quotes and the one the definition carries differ.
+
 ## [0.16.0] - 2026-10-05
 
 ### A run has one runner, and the procedure now says which session that is

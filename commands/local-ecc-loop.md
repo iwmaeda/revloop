@@ -26,10 +26,14 @@ carries a finished change through review.
 | ------------ | -------------------------------------------------------------------------------------------- |
 | Definition   | `${CLAUDE_PLUGIN_ROOT}/reviewers/ecc-review-pr.json`                                         |
 | Card         | `${CLAUDE_PLUGIN_ROOT}/reviewers/ecc-review-pr.md` — what was measured, when, and where      |
-| Command      | `claude --model {reviewModel} --effort medium -p "/ecc:review-pr"`, run as a subprocess      |
+| Command      | `claude --model {reviewModel} --effort medium … -p "/ecc:review-pr"`, run as a subprocess    |
 | `requiresPr` | **`true`** — it resolves a pull request itself, so this run **publishes before each review** |
 | Severity     | **none.** A level with an acceptable band is resolved by grading — see below                 |
 | Status       | `unverified`                                                                                 |
+
+**The `…` in the Command row stands for a literal the definition holds in full — read the command
+from the definition, never from this row.** The row is here so the table says which program runs;
+a string with a gap in it is not a command line.
 
 ## Flags
 
@@ -81,8 +85,15 @@ the floor together. `procedures/rigor-levels.md` states the four levels and what
   `.claude/settings.local.json` produced a 52-second run that returned prose asking which of two
   options to take — zero findings, no shape the card records — and the procedure correctly aborted on
   the parse rather than reading it as clean. The card records both that run and the working one.
-- **It names its target.** Every working round opened by naming the pull request it reviewed, by number
-  and title, and the blocked round said instead that it could not confirm one existed. That is the only
+- **That block does not cover what the reviewer decides to run, so the command tells it nobody can
+  answer.** With the block installed, one round was refused a lint command of its own choosing and
+  spent the only message a subprocess prints asking for permission — 68 seconds, exit 0, no review,
+  and the same abort. The definition's command therefore carries an instruction saying the run is
+  non-interactive: never ask, finish without the refused call, and say what could not be run.
+  **It is measured on short probes and on no review**, and the card has both.
+- **It names its target.** Five working rounds opened by naming the pull request they reviewed, by
+  number and title; a sixth named it by number alone, at the end; and the blocked rounds either said
+  they could not confirm one existed or never printed the line that named it. That is the only
   signal outside the subprocess that the reviewer reached its target at all.
 
 ## Run the procedure
