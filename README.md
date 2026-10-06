@@ -231,13 +231,13 @@ separate process** estimates it.
 Each preset is made of a **definition** (`reviewers/<name>.json`) and a **card**
 (`reviewers/<name>.md`).
 
-| Preset          | Driven by                     | Trigger or command                                                 | Severity | Status     |
-| --------------- | ----------------------------- | ------------------------------------------------------------------ | -------- | ---------- |
-| `codex`         | `/revloop:remote-codex-loop`  | `@codex review`                                                    | P1/P2/P3 | verified   |
-| `gemini`        | `/revloop:remote-gemini-loop` | `@gemini review` (see the card)                                    | P1/P2/P3 | verified   |
-| `claude`        | `/revloop:remote-claude-loop` | `@claude review`                                                   | none     | unverified |
-| `code-review`   | `/revloop:local-review-loop`  | `claude --model {reviewModel} -p "/code-review medium"`            | none     | unverified |
-| `ecc-review-pr` | `/revloop:local-ecc-loop`     | `claude --model {reviewModel} --effort medium -p "/ecc:review-pr"` | none     | unverified |
+| Preset          | Driven by                     | Trigger or command                                                                  | Severity | Status     |
+| --------------- | ----------------------------- | ----------------------------------------------------------------------------------- | -------- | ---------- |
+| `codex`         | `/revloop:remote-codex-loop`  | `@codex review`                                                                     | P1/P2/P3 | verified   |
+| `gemini`        | `/revloop:remote-gemini-loop` | `@gemini review` (see the card)                                                     | P1/P2/P3 | verified   |
+| `claude`        | `/revloop:remote-claude-loop` | `@claude review`                                                                    | none     | unverified |
+| `code-review`   | `/revloop:local-review-loop`  | `claude --model {reviewModel} -p "/code-review medium"`                             | none     | unverified |
+| `ecc-review-pr` | `/revloop:local-ecc-loop`     | `claude --model {reviewModel} --effort medium … -p "/ecc:review-pr"` (see the card) | none     | unverified |
 
 `{reviewModel}` is expanded by the local procedure before the command runs — to `--model` if you typed
 it, otherwise to `sonnet`.

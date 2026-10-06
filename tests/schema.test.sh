@@ -135,6 +135,36 @@ for def in "$ROOT"/reviewers/*.json; do
   fi
 done
 
+# A COMMAND MAY CARRY A LITERAL TOO LONG FOR A TABLE CELL, and then its card
+# quotes the literal once and every table elides it. That is one string in two
+# files, which is the drift this directory's split was made to end, so the copy
+# is pinned: whatever a definition hands to --append-system-prompt must appear
+# verbatim in its card.
+#
+# Read off the raw line rather than through a JSON parser. The argument sits
+# between escaped quotes, and a text that needed an escape of its own could not
+# sit in a shell command line either — so the bytes in the file are the text.
+#
+# A TRIPWIRE THAT MATCHES NOTHING PASSES, so the count is asserted as well. If
+# the instruction is ever removed on purpose, this block goes with it.
+quoted=0
+for def in "$ROOT"/reviewers/*.json; do
+  stem=$(basename "$def" .json)
+  arg=$(sed -n 's/.*--append-system-prompt \\"\([^"\\]*\)\\".*/\1/p' "$def")
+  [ -n "$arg" ] || continue
+  quoted=$((quoted + 1))
+  if grep -qF -- "$arg" "$ROOT/reviewers/$stem.md"; then
+    PASS=$((PASS + 1)); printf '  ok   %s quotes the instruction its definition carries\n' "$stem"
+  else
+    FAIL=$((FAIL + 1)); printf '  FAIL reviewers/%s.md does not quote the --append-system-prompt text in %s.json\n' "$stem" "$stem"
+  fi
+done
+if [ "$quoted" -ge 1 ]; then
+  PASS=$((PASS + 1)); printf '  ok   a definition carrying an instruction was found\n'
+else
+  FAIL=$((FAIL + 1)); printf '  FAIL no definition carries --append-system-prompt; the pin above checked nothing\n'
+fi
+
 reject() { # reject <label> <json>
   printf '%s' "$2" > "$TMP/bad.json"
   if v "$TMP/bad.json"; then
@@ -431,7 +461,9 @@ raccept "the shipped code-review preset" '{"kind":"local-command","invoke":"subp
 # No ladder, because the shipped definition has none: five measured rounds
 # disproved the one its card used to claim. A fixture carrying a ladder the
 # shipped file does not is a fixture pinning a preset that was never shipped.
-raccept "the shipped ecc-review-pr preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} --effort medium -p \"/ecc:review-pr\"","requiresPr":true,"rateLimitPatterns":["You'"'"'ve hit your session limit"]}'
+# The instruction it carries is 304 characters of a command the schema caps at
+# 400, so this is also the case that says the shipped string still fits.
+raccept "the shipped ecc-review-pr preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} --effort medium --append-system-prompt \"Non-interactive run: nobody can answer a question or approve a tool call. If a call is denied, never ask and never retry it. If the pull request cannot be read, say so and stop. Otherwise finish without that call, list what you could not run, and open the report with its number, title and changed files.\" -p \"/ecc:review-pr\"","requiresPr":true,"rateLimitPatterns":["You'"'"'ve hit your session limit"]}'
 # A command with no placeholder stays valid: it is simply not pinned by the
 # loop, and the step-1 table says so rather than pretending it is.
 raccept "a subprocess command, unpinned" '{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review medium\""}'

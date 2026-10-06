@@ -126,6 +126,7 @@ above does not apply; this one does.
 | **How does it resolve its review target?**                        | the card's prose. **A push can change the answer** — see the trap below            |
 | Does it need an open pull request?                                | `requiresPr`                                                                       |
 | What does it say when it is out of quota?                         | `rateLimitPatterns` — and see the trap below                                       |
+| **What does it print when a tool call is refused?**               | `command` — say there that nobody can answer, and see the trap below               |
 | What severity vocabulary reaches its **output**?                  | `severityLevels`, ordered most severe first                                        |
 | What does each of those rungs mean?                               | `severityMap`, onto revloop's four canonical rungs                                 |
 | What shape is that output — a JSON block, tagged lines, headings? | the card's prose. **This is the one that decides whether it can be driven at all** |
@@ -172,6 +173,16 @@ parse instead of the quota, sending you to a card and a permission block that ar
 down to its exact bytes — read it there rather than here, and expect a reset time that differs every
 round; a pattern that copied the time would match nothing, and a pattern that matches nothing is
 indistinguishable from a card that never declared one.
+
+**Trap: a headless reviewer refused a tool call may answer with a question, and the question is all
+that comes back.** A `subprocess` reviewer prints its last message and nothing before it, so a
+session that stops to ask for permission returns the request in place of the review — exit 0, no
+findings, the same shape as the out-of-quota reply above. **A permission block does not close it**:
+what a round reaches for is the reviewer's choice, and no grant list written in advance is known to
+cover it. **Say in `command` that the run is non-interactive**, in whatever way the command's CLI
+takes an instruction, and record on the card what that instruction was measured on.
+[`../reviewers/ecc-review-pr.md`](../reviewers/ecc-review-pr.md) records the round that returned a
+question, the probes behind the instruction its command now carries, and what neither establishes.
 
 **Trap: `invoke: skill` has no model boundary.** A skill runs in the loop's own session, on the loop's
 model. Use `subprocess` with `{reviewModel}` in `command` unless the host forbids it.

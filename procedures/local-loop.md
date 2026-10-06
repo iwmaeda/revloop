@@ -945,6 +945,19 @@ the level, and a repository that wants the old number writes it.
    fenced JSON array in one configuration and one line per finding in another. A parser written
    against the shape someone saw once will silently return zero findings on the other.
 
+   **Under `invoke: subprocess`, "what came back" is the reviewer's last message and nothing before
+   it.** A headless session prints its final turn; whatever it said on the way there stays in its own
+   transcript. So a reviewer that stops to ask a question returns the question, and that is this
+   row. Measured on `MIRock-jp/hippoblogs#154` (2026-10): the reviewer read the pull request and
+   named it, was refused the same command of its own choosing three times, dispatched none of its
+   agents, and ended its turn asking for permission — 68 seconds in, at an exit status of zero, with
+   the permission block its card asks for already installed. The line naming the pull request never
+   reached stdout. **That is a reviewer that stopped, not a review in a shape nobody recorded**, and
+   no pattern separates the two — reading the output does. **Say in the report what it asked for**,
+   because that, and not the card's shape, is what the operator has to act on. **The abort is the
+   same either way**: nothing was reviewed, and a question is no more a clean round than a quota
+   notice is.
+
    **The clean row is "no findings", not "none above the floor", and splitting the two is what keeps
    an acceptance floor honest.** Written as one row it sent a review consisting entirely of acceptable
    findings straight to the report, before step 9 had assigned a single `accepted` bucket — so the
@@ -1314,8 +1327,13 @@ These are load-bearing. Each one exists because the obvious alternative fails.
 that each returned nothing — plus one `ecc-review-pr` invocation that aborted before a round began,
 **and one round in a second repository that aborted because the reviewer had no quota left to answer
 with** (`repo B, 2026-09`),
-exercised steps 1 through 9 and neither reached the bar
-[`../reviewers/README.md`](../reviewers/README.md) sets. Every path below is unobserved except where
+**and two single-round runs in a third — one whose first review raised nothing it would report, and
+one that aborted because the reviewer ended its turn on a question**
+(`MIRock-jp/hippoblogs#152` and `MIRock-jp/hippoblogs#154`, 2026-10),
+exercised steps 1 through 9 and none reached the bar
+[`../reviewers/README.md`](../reviewers/README.md) sets. **A first round that leaves nothing to fix
+finishes the run and is not that bar**: nothing was fixed, so nothing shows a fix being answered.
+Every path below is unobserved except where
 this section now says otherwise, and the whole procedure still sits at the same standing as a reviewer
 card marked `unverified`. All of them fail closed — toward an abort — except where noted. A run that
 takes one should say so in the report and append a line to `.revloop/field-notes.md`, under the three
@@ -1381,7 +1399,9 @@ says it is ignored, so the note never costs step 4 its clean tree.
   none of which is the default's; the
   per-level sweep obligations are a judgement about relative cost rather than a measurement of what a
   level saves; and the rising-ceiling re-open has never fired, because no run has resolved a floor at
-  all. **The sufficiency test has run on no convergence**, so its record shape is unverified —
+  all. **The sufficiency test has run once, on a first round that left nothing to fix**
+  (`MIRock-jp/hippoblogs#152`, 2026-10), where it wrote a one-line record, **and on no round that
+  followed a fix**, so its record shape is still unverified —
   though it is the one entry here that cannot fail open, since the test can only withhold permission
   and step 9 states why it cannot even do that on the fall-through.
 - **The default level is itself unexercised, and it moves the grader onto the ordinary run.** Both

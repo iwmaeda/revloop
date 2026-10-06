@@ -270,3 +270,11 @@ files.** They are here rather than in the section above because they were observ
   key buys if the reading holds is a named abort instead of `unparsed-review-output`; what it costs if
   the reading is wrong is nothing, because a pattern that never matches leaves the behaviour that
   existed before it.
+- **Whether this reviewer answers a refused tool call with a question.** It is started the same way
+  as [`ecc-review-pr.md`](ecc-review-pr.md)'s, whose card records a round that spent its only printed
+  message asking for permission and three bare probes of three in which the host did the same
+  (claude-code 2.1.283, 2026-10). That preset's command now carries an instruction for it and **this
+  one does not**: the five rounds here that could not run the test suite said so in their output
+  rather than asking, which is five samples of the benign answer and no bound on the other, and the
+  instruction as written speaks of a pull request this command never takes. A round that did ask
+  would reach `unparsed-review-output` — the abort, and never a clean round.
