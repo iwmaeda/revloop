@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fake `gh`, placed first on PATH by the test harness. It replays a fixture
-# directory ($REVLOOP_FIXTURE) according to the argv the fences actually use.
+# directory ($REVLOOP_FIXTURE) according to the argv the fences use.
 #
 # Files it reads, all optional:
 #   repo        nameWithOwner, one line. "FAIL" makes the call exit non-zero.

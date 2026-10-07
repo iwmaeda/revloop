@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
-# Extract a named shell fence OUT of the canonical procedure.
-#
-# The fences are tested by extraction rather than by copying them into the test
-# suite: a copy would be a second source of truth for classification logic, and
-# the point of the tests is to pin the interface the procedure's decision table
-# consumes, not to restate it.
+# Extract a named shell fence from the canonical procedure, so the tests run the
+# procedure's own text and hold no copy of it.
 #
 # Usage: tests/extract-fences.sh <fence-id> [procedure-path]
 #        tests/extract-fences.sh --list [procedure-path]

@@ -1,18 +1,7 @@
 #!/usr/bin/env bash
-# Runs the whitespace preflight step 3 of procedures/remote-loop.md tells every
-# round to run before it pushes: `git diff --check HEAD` for tracked content,
-# then a loop that puts each untracked file through the same check against
-# /dev/null and classifies the statuses that come back.
-#
-# The block is not a fence -- nothing hashes it and no permission rule is keyed
-# to its bytes -- but it is fixed text that takes no arguments, and the step
-# spends a table and four paragraphs on why each token in it is there. Every one
-# of those claims was measured once, by hand, on a throwaway repository. This
-# file makes the same measurements each time the suite runs.
-#
-# The block is lifted OUT of the procedure by its marker,
-# `<!-- revloop:check id=whitespace -->`, the way findings-read.test.sh lifts a
-# read, so what runs here is what the procedure tells a round to type.
+# Runs the whitespace preflight from step 3 of procedures/remote-loop.md:
+# `git diff --check HEAD`, then each untracked file against /dev/null. The block
+# is taken from the procedure by its `revloop:check id=whitespace` marker.
 set -uo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -29,8 +18,7 @@ same() { # same <label> <actual> <expected> -- exact, unlike lib.sh's expect
 
 SRC="$ROOT/procedures/remote-loop.md"
 WORK=$(mktemp -d)
-# The unreadable file below is mode 000, and so would be anything left behind
-# by a run that died between the chmod and the cleanup.
+# A case below leaves a mode-000 file, so permissions are restored before removal.
 trap 'chmod -R u+rw "$WORK" 2>/dev/null; rm -rf "$WORK"' EXIT
 
 SCRIPT="$WORK/check.sh"
@@ -54,17 +42,14 @@ awk '
   }
 ' "$SRC" > "$SCRIPT"
 
-# An extraction that found nothing is an empty script, which exits 0 on every
-# repository below -- a suite that passes because it ran nothing.
+# An empty extraction would be a script that exits 0 everywhere.
 if ! grep -q -- '--no-index' "$SCRIPT" || ! grep -q -- 'git diff --check HEAD' "$SCRIPT"; then
   echo "  FAIL could not lift the whitespace block out of the procedure"
   exit 1
 fi
 
-# A fresh repository holding one clean tracked file, left in $d. It sets a
-# variable rather than printing a path: called as $(repo) it would run in a
-# subshell, the counter would never advance, and every case would share one
-# repository with the case before it.
+# A fresh repository with one clean tracked file, left in $d. It sets a variable
+# because $(repo) would run in a subshell and the counter would never advance.
 N=0; d=
 repo() {
   N=$((N + 1))
@@ -87,8 +72,7 @@ check
 same "a clean tree passes"                           "$RC" "0"
 same "  and says nothing"                            "$OUT" ""
 
-# --no-index compares against /dev/null, so every new file is a difference and
-# exits 1. A loop testing `$? -ne 0` would go red whenever one exists.
+# --no-index against /dev/null exits 1 for every new file, clean or not.
 repo
 printf 'new and clean\n' > "$d/new.txt"
 check
@@ -100,8 +84,6 @@ check
 same "an untracked file with a whitespace error is 2" "$RC" "2"
 expect "  and the report names it"                   "$OUT" "new.txt:1: trailing whitespace."
 
-# `git diff --check` alone reaches tracked content only -- which is why the
-# loop exists -- and its finding is in the output, not in the block's status.
 repo
 printf 'edited \n' >> "$d/tracked.txt"
 check
@@ -122,8 +104,7 @@ printf 'trailing blank \n' > "$d/ignored.txt"
 check
 same "an ignored file is not put through the check"  "$RC" "0"
 
-# The three names the step measured, each holding a whitespace error. In the
-# naive spelling all three were skipped: two errors about the names, no report.
+# Three awkward file names, each holding a whitespace error.
 repo
 printf 'trailing blank \n' > "$d/  leading-space.txt"
 check
@@ -142,17 +123,15 @@ check
 same "a name holding a newline is one path (-z, -d '')" "$RC" "2"
 expect "  and reported"                              "$OUT" "trailing whitespace."
 
-# The braces: the loop is the last stage of a pipeline and so a subshell. A
-# status kept without them would be the last file's alone.
+# The loop is a pipeline subshell. The braces let it exit with the worst status seen.
 repo
 printf 'trailing blank \n' > "$d/a-first.txt"
 printf 'clean\n' > "$d/z-last.txt"
 check
 same "an error in an earlier file survives a clean later one" "$RC" "2"
 
-# 2 is the whitespace bit and 128 & 2 is zero, so a bit test calls a file the
-# check could not read clean. Classifying the status is what keeps it red.
-# Root reads a mode-000 file, so there is nothing to measure as root.
+# 128 & 2 is zero, so a bit test would call an unreadable file clean.
+# Root can read a mode-000 file, so these cases are skipped as root.
 if [ "$(id -u)" -eq 0 ]; then
   echo "  note running as root; the unreadable-file cases are not exercised here."
 else

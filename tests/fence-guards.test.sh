@@ -1,50 +1,35 @@
 #!/usr/bin/env bash
-# Structural guards on the fences. These catch the failures that are invisible
-# to a reader and to `bash -n`.
+# Structural guards on the fences in procedures/remote-loop.md and on what
+# procedures/*.md and commands/*.md may carry. Also reads tests/fence-hashes.txt
+# and docs/permissions.md.
 set -uo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 SRC="$ROOT/procedures/remote-loop.md"
-# TWO SETS, BECAUSE THE SPLIT PUT THE GRANT AND THE GRANTED TEXT IN DIFFERENT
-# FILES. A procedure holds the fences and the fenced bash; a command holds the
-# `allowed-tools` line that pre-approves it. Reading one glob for both would
-# assert a missing grant on every procedure -- a file the host never installs as
-# a command, and which therefore must not carry one.
+# Procedures hold the fences. Commands hold the allowed-tools grant.
 PROCS=("$ROOT"/procedures/*.md)
 CMDS=("$ROOT"/commands/*.md)
 IDS=$("$ROOT/tests/extract-fences.sh" --list)
 
 echo "fence-guards:"
 
-# An unexpanded glob is a single path that does not exist. `grep` over it finds
-# nothing, `refute` then passes, and the allowed-tools `expect` is the only
-# assertion that would notice — reporting a missing grant rather than a missing
-# file. The other two globbed guards fail on this explicitly; this one did not,
-# which made a claim in the changelog untrue about a third of its subject.
+# An unexpanded glob is one path that does not exist; the guards would pass over it.
 if [ ! -f "${PROCS[0]}" ]; then
   FAIL=$((FAIL + 1)); printf '  FAIL procedures/*.md matched no file\n'
 fi
 if [ ! -f "${CMDS[0]}" ]; then
   FAIL=$((FAIL + 1)); printf '  FAIL commands/*.md matched no file\n'
 fi
-# One command per reviewer, plus the two that take a definition. A glob that
-# matched three would satisfy the guard above while leaving four reviewers
-# undriven, which is the same "green over a partial corpus" hole the floors in
-# schema.test.sh and severity-ladder.test.sh exist for.
+# One command per reviewer, plus the two that take a definition.
 if [ "${#CMDS[@]}" -ge 7 ]; then
   PASS=$((PASS + 1)); printf '  ok   %d commands were found\n' "${#CMDS[@]}"
 else
   FAIL=$((FAIL + 1)); printf '  FAIL only %d commands found; the glob is broken\n' "${#CMDS[@]}"
 fi
 
-# extract-fences.sh --list fails when $SRC does not exist, but this script has no
-# `set -e`, so that failure is swallowed and IDS silently becomes empty. The for
-# loop below would then run zero times -- parsing, placeholder, repo-slug, jq-pipe,
-# globbing and hash-pinning checks all skipped with no FAIL and no note that
-# anything was skipped. This is the same failure class PROCS[0] above was fixed
-# for; IDS needs the same guard.
+# There is no set -e, so a failed --list leaves IDS empty and the loop runs zero times.
 if [ -z "$IDS" ]; then
   FAIL=$((FAIL + 1)); printf '  FAIL extract-fences.sh --list produced no fence ids (missing %s?)\n' "$SRC"
 fi
@@ -58,8 +43,7 @@ for id in $IDS; do
     FAIL=$((FAIL + 1)); printf '  FAIL %s does not parse\n%s\n' "$id" "$(cat "$TMP/err")"
   fi
 
-  # An unsubstituted placeholder is read by the shell as a redirect from a file
-  # of that name. It runs, it does the wrong thing, and `bash -n` says nothing.
+  # The shell reads an unsubstituted <placeholder> as a redirect, and bash -n accepts it.
   ph=$(grep -oE '<[a-z][a-z_-]*>' "$TMP/$id.sh" || true)
   refute "$id has no unsubstituted placeholder" "$ph" "<"
 
@@ -76,9 +60,8 @@ for id in $IDS; do
   expect "$id disables globbing" "$gl" "1"
 done
 
-# A failure token that contains the success token as a substring makes every
-# `grep -q ALL_PASS` true on failure. Checked against the fences only: the Notes
-# section names the bad token on purpose, to explain why it is not used.
+# A failure token containing the success token makes `grep -q ALL_PASS` true on
+# failure. Fences only: the Notes section names the bad token on purpose.
 bad=$(cat "$TMP"/*.sh | grep -oE '[A-Za-z_]+ALL_PASS|ALL_PASS[A-Za-z_]+' | sort -u || true)
 refute "no emitted token contains ALL_PASS" "$bad" "ALL_PASS"
 
@@ -89,15 +72,7 @@ for src in "${PROCS[@]}" "${CMDS[@]}"; do
   refute "$name uses no literal repo slug" "$slug" "repos/"
 done
 
-# A command's own `allowed-tools` is a grant like any other. Shipping a rule
-# there that the docs tell users NOT to grant hands it out silently for that
-# command — which is how `Bash(gh api *)`, named in permissions.md as the rule
-# that reaches every repository your token can touch, once sat in the frontmatter
-# while three files explained why nobody should use it.
-#
-# EVERY COMMAND is read, because the grant is per file: the local family grants
-# a strictly smaller set and needs no broad gh rule at all, and a guard that read
-# only one would report on a file the user never installed alone.
+# A command's allowed-tools may grant only rules docs/permissions.md documents.
 documented=$(grep -oE '"Bash\([^)]*\)"' "$ROOT/docs/permissions.md" | tr -d '"' | sort -u)
 for src in "${CMDS[@]}"; do
   name=$(basename "$src")
@@ -107,12 +82,7 @@ for src in "${CMDS[@]}"; do
   refute "$name allowed-tools grants nothing docs/permissions.md does not" "$extra" "Bash("
 done
 
-# A PROCEDURE IS NOT A COMMAND AND MUST NOT GRANT ANYTHING. The host installs
-# `commands/` and never `procedures/`, so an `allowed-tools` line in a procedure
-# is a grant nobody receives -- and worse, a reader who finds one will believe it
-# applies. That is the same failure the block above exists for, seen from the
-# other side: there, a rule granted that the docs refuse; here, a rule that reads
-# as granted and is not.
+# The host never installs procedures/, so a grant there would reach nobody.
 for src in "${PROCS[@]}"; do
   name=$(basename "$src")
   fm=$(awk 'NR==1 && /^---$/{f=1} f{print} NR>1 && /^---$/{exit}' "$src")
@@ -120,18 +90,14 @@ for src in "${PROCS[@]}"; do
   refute "$name carries no frontmatter"   "$fm" "---"
 done
 
-# THE MARKER IS THE PROCEDURE'"'"'S AND A COMMAND MUST NOT PRINT ONE. Its four keys
-# are what the wait fence parses a round'"'"'s identity out of; a second copy in a
-# thin command is a second source of truth for exactly the thing the marker guard
-# below exists to pin, and one that no test would compare against the first.
+# The trigger marker belongs to the procedure. A command prints none.
 for src in "${CMDS[@]}"; do
   name=$(basename "$src")
   m=$(grep -o 'revloop:trigger v=' "$src" || true)
   refute "$name prints no trigger marker" "$m" "revloop:trigger"
 done
 
-# Fence bytes are a permission-relevant surface: a change costs every user one
-# re-approval, so it has to be a deliberate, recorded act.
+# A fence change costs every user one re-approval, so the bytes are hash-pinned.
 HASHES="$ROOT/tests/fence-hashes.txt"
 if [ -f "$HASHES" ]; then
   for id in $IDS; do
@@ -150,25 +116,8 @@ else
   printf '  note tests/fence-hashes.txt is absent; run tests/update-fence-hashes.sh\n'
 fi
 
-# Every marker the procedure prints must carry the four keys the wait fence
-# reads by name. SCOPED TO $SRC ON PURPOSE: procedures/local-loop.md posts no
-# comment and prints no marker, so a glob here would assert over a file that
-# has nothing to assert about and report a missing marker as a defect. `attempt=` is deliberately not in this list: it is absent on a
-# round's first trigger, which is the shape the reviewer card measured. A doc
-# edit that drops one of the four is the input step 7's "never put the literal
-# in the focus" rule is entirely about — a marker whose keys were never reached
-# reports marker_head=none and, with an empty bot=, stops filtering bots.
-# Extracting fewer markers than the procedure holds would make every assertion
-# below vacuous for the one that got away, so the count is checked first: a
-# discarded row is not the same as a row that was never there.
-#
-# The key test is anchored to a token boundary, because the fence's `case`
-# matches `head=*` against a whitespace-separated token and a bare `grep head=`
-# does not. A marker whose `head=` had been typo'd to `marker_head=` satisfied
-# the substring but not the fence, so it passed all four assertions while
-# parsing to exactly the marker_head=none this block exists to catch — the
-# guard going green on its own failure case. That is step 7's whole-token rule,
-# which the procedure states twice and which applies to the test that guards it.
+# Every marker $SRC prints must carry the four keys the wait fence reads.
+# `attempt=` is absent on a round's first trigger, so it is not one of them.
 literals=$(grep -c 'revloop:trigger v=' "$SRC")
 markers=$(grep -o '<!-- revloop:trigger [^>]*-->' "$SRC")
 found=$(printf '%s\n' "$markers" | grep -c 'revloop:trigger') || true
@@ -182,6 +131,7 @@ if [ -z "$markers" ]; then
 else
   PASS=$((PASS + 1)); printf '  ok   the procedure prints at least one trigger marker\n'
   for key in reviewer bot head round; do
+    # Matched at a token boundary, as the fence does: `marker_head=` is not `head=`.
     missing=$(printf '%s\n' "$markers" | grep -cvE "(^|[[:space:]])$key=") || true
     if [ "$missing" -eq 0 ]; then
       PASS=$((PASS + 1)); printf '  ok   every printed marker carries %s=\n' "$key"

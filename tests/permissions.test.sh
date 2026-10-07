@@ -1,38 +1,8 @@
 #!/usr/bin/env bash
-# The granular permission list in docs/permissions.md is a copy of a fact that
-# lives in the procedure: which commands it actually runs. Both halves of the
-# list are checked here — git subcommands, and the gh api verbs that each need
-# their own rule because a rule matches a prefix and the flag precedes the path.
-#
-# A THIRD AXIS SITS AT THE BOTTOM AND IS NOT A HALF OF THAT LIST. It reads the
-# procedures' own `allowed-tools` lines and holds them, and the doc's list, to
-# the binaries the schema forbids a repository-supplied review command from
-# beginning with. That is the grant side of the same prefix rule: a granted
-# binary the schema does not ban is a prefix a repository can occupy with no
-# prompt. Its own paragraph is above the block; the failure it answers is that
-# adding Bash(claude:*) to a frontmatter pre-approved the grader and both
-# shipped presets' review commands and nothing here went red.
-#
-# Copies drift, and this one has, twice. It was missing `switch` (step 2),
-# `fetch` (step 9's recovery row) and `ls-files` (step 3) when a review of this
-# repository looked; and step 6 later gained `-X PATCH`, after `gh pr edit`
-# turned out not to work at the documented floor, with no rule to match it.
-#
-# An earlier round declined to test it, on the grounds that a grep for
-# `git <word>` over the procedure cannot tell a command from prose: the file
-# says "makes git set the upstream" and names `git show HEAD` twice in order to
-# forbid it. That reason was wrong, and the fix is to grep a narrower thing.
-# Runnable commands live in ```bash blocks; prose does not. Extracting from the
-# blocks alone yields no `set` and no `show`, so no exclusion list is needed and
-# there is nothing to drift.
-#
-# This used to record a blind spot instead of closing it: `git add` and
-# `git commit` were prescribed in step 4's paragraph and `git fetch` in step 9's
-# decision table, so no block contained them and three hardcoded assertions
-# named them by hand. That was a stand-in for a check. **The answer was to move
-# the commands, not to widen the grep** — they are in fenced blocks now, which
-# step 4 and step 9 wanted anyway, and the sets are equal, so the check runs in
-# both directions.
+# Checks the permission list in docs/permissions.md against the fenced bash in
+# procedures/*.md and commands/*.md: git subcommands and gh api forms. Also
+# checks that every binary an `allowed-tools` line grants is one that
+# schema/reviewer.schema.json bans as the start of a review command.
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=tests/lib.sh
@@ -40,25 +10,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "permissions"
 
-# THE GRANT AND THE GRANTED TEXT NOW LIVE IN DIFFERENT FILES, so this file reads
-# two globs and reads them for different things. A procedure holds the fenced
-# bash that RUNS git and gh; a command holds the `allowed-tools` line that
-# PRE-APPROVES it. Both are globbed rather than written out, because a file added
-# without being named here would be exempt from this whole file — the same drift
-# the file exists to catch, one level up.
-#
-# THE BASH HALF READS BOTH SETS, DELIBERATELY. Today every fenced block lives in
-# a procedure and `fence-guards.test.sh` refuses one in a command. If that ever
-# changes, a command running an ungranted subcommand must fail here rather than
-# slip through a glob that only looked at procedures.
+# Globbed so that a file added later is covered without being named here.
 PROCS=("$ROOT"/procedures/*.md)
 CMDS=("$ROOT"/commands/*.md)
 DOC="$ROOT/docs/permissions.md"
 
-# An unexpanded glob is a single path that does not exist, and awk on it prints
-# nothing — which every subset check below reads as "no commands used", the
-# empty-input hole this file already guards for its two lists. Fail on it here,
-# where the cause is still legible, rather than three assertions later.
+# An unmatched glob yields no text, which the subset checks would pass on.
 if [ ! -f "${PROCS[0]}" ]; then
   FAIL=$((FAIL + 1)); printf '  FAIL procedures/*.md matched no file\n'
 fi
@@ -66,112 +23,55 @@ if [ ! -f "${CMDS[0]}" ]; then
   FAIL=$((FAIL + 1)); printf '  FAIL commands/*.md matched no file\n'
 fi
 
-# The text of every fenced bash block in every procedure. Runnable commands live
-# in blocks and prose does not, so extracting from the blocks alone needs no
-# exclusion list — the procedure says "makes git set the upstream" in prose and
-# names `git show HEAD` twice in order to forbid it.
+# Runnable commands live in ```bash blocks and prose does not, so only the
+# blocks are read.
 blocks() { awk '/^ *```bash$/{inb=1;next} /^ *```$/{inb=0} inb' "${PROCS[@]}" "${CMDS[@]}"; }
 
-# `git -C <path> <subcommand>` PUTS THE SUBCOMMAND IN THE THIRD FIELD and the
-# extraction below reads the second, so it contributed NOTHING. Step 3's
-# recording command is the first in this repository to use that form, and
-# `git -C "$W" rev-parse` matched no subcommand at all -- harmless the day it
-# landed, because `rev-parse` is granted from another line, and a hole in the
-# one check that exists to catch this list drifting. So the option is normalised
-# away first.
-#
-# AND THEN ANYTHING STILL UNREADABLE IS A FAILURE, not an empty contribution.
-# That is the same rule the gh api half below spends a paragraph on: a check
-# that falls back to "nothing found" when it cannot parse a line is fail-open by
-# construction, and fail-open is the one direction a permission check must not
-# take. Widening this normaliser is how a new spelling gets handled; going quiet
-# is not.
+# `git -C <path> <sub>` puts the subcommand in the third field, so the option
+# is removed first. An invocation that still names no subcommand is a failure.
 normalise() { sed -E 's/(^|[^A-Za-z0-9_-])git -C ("[^"]*"|[^[:space:]]+) /\1git /g'; }
-# Subcommands the procedures run, taken from fenced bash blocks only.
+
 USED=$(blocks | normalise | grep -oE '\bgit [a-z][a-z-]*' | sed 's/^git //' | sort -u)
 UNREADABLE=$(blocks | normalise | grep -oE '\bgit +[^ ]*' | grep -vE '^git +[a-z]' | sed 's/^/UNREADABLE /')
 refute "every git invocation names a subcommand" "$UNREADABLE" "UNREADABLE "
-# Subcommands docs/permissions.md grants individually.
+
 GRANTED=$(grep -oE 'Bash\(git [a-z][a-z-]*' "$DOC" | sed 's/^Bash(git //' | sort -u)
 
-# Both lists must be non-empty. A broken extraction yields nothing, `comm` then
-# finds nothing missing, and the subset check goes green on no data — the
-# "no bad marks is not good" hole the procedure warns about. The counts
-# themselves are not pinned: they change whenever a step legitimately does.
+# An empty list passes any subset check, so both must be non-empty.
 nz() { if [ "$1" -gt 0 ]; then echo NONEMPTY; else echo EMPTY; fi; }
 expect "the procedures' blocks do run git" "$(nz "$(printf '%s\n' "$USED" | grep -c .)")" NONEMPTY
 expect "the doc grants a git list"         "$(nz "$(printf '%s\n' "$GRANTED" | grep -c .)")" NONEMPTY
 
-# comm needs sorted input; both are. -23 leaves lines only in the first file.
 MISSING=$(comm -23 <(printf '%s\n' "$USED") <(printf '%s\n' "$GRANTED") | sed 's/^/UNGRANTED /')
 refute "every git subcommand in a bash block is granted individually" "$MISSING" "UNGRANTED "
 
-# THERE ARE NO PROSE-ONLY COMMANDS LEFT, so the check runs in both directions.
-# `git add`, `git commit` and `git fetch` used to be prescribed in paragraphs and
-# table cells and were invisible here; the three hardcoded assertions that named
-# them were a stand-in for a check, not a check. They are now written in fenced
-# blocks like everything else, which was overdue on its own merits — step 4 told
-# you to stage explicitly and never showed the command, and step 9 put its
-# recovery inside a table cell.
-#
-# With the sets equal, an unused grant is as much a defect as an ungranted use:
-# it is a permission nobody needs, and it means the list and the procedure have
-# drifted. If a future step legitimately prescribes something in prose, this is
-# the assertion that will complain, and the answer is to put it in a block.
+# The reverse direction. A command prescribed only in prose fails here; put it
+# in a fenced block.
 GRANT_UNUSED=$(comm -13 <(printf '%s\n' "$USED") <(printf '%s\n' "$GRANTED") | sed 's/^/UNUSED /')
 refute "no git rule is granted that no bash block uses" "$GRANT_UNUSED" "UNUSED "
 
-# --- gh api, the same check on the other half of the list -------------------
+# --- gh api -----------------------------------------------------------------
 #
-# A rule matches a command-string prefix and the flag precedes the path, so
-# `gh api -X PATCH …` needs its own rule and is not covered by the bare one.
-# Step 6 gained exactly that verb after `gh pr edit` turned out not to work at
-# the documented floor, and nothing would have noticed the missing rule.
-#
-# THIS CHECK REJECTS RATHER THAN FALLS BACK, and that is the whole design. Two
-# earlier versions matched a *method group* and made it optional, so any line
-# the group failed to recognise quietly became the bare form — which is granted.
-# Each round then widened the alphabet (`-XPOST`, then `--method`, then
-# lowercase) and the next spelling walked straight through: `-X  DELETE` with two
-# spaces, `gh  api`, a tab, `-X 'DELETE'`. The alphabet was never the class. **An
-# optional group with a granted default is fail-open by construction**, which is
-# the one direction a permission check must never take.
-#
-# So: find every line that invokes gh api in *any* spelling, classify each
-# against the canonical forms only, and treat anything unclassified as a
-# failure. Widening the alphabet is no longer how a new spelling is handled —
-# rewriting it canonically is.
-#
-# GRANTED is read from the fenced ```json block alone, not the whole document.
-# The prose names `Bash(gh api *)` in order to discourage it, and a grep over the
-# page would read that discouragement as a grant.
+# Grants are read from the ```json block only. The prose names
+# `Bash(gh api *)` to discourage it.
 GH_GRANTED=$(awk '/^```json$/{inj=1;next} /^```$/{inj=0} inj' "$DOC" \
   | grep -oE '"Bash\(gh api (-X [A-Z]+|--paginate|graphql|repos)' | sed -E 's/^"Bash\(gh api //' | sort -u)
 
-# canon() classifies one invocation, and exists so the rejected spellings can be
-# pinned by cases — the corpus holds only canonical ones, so it can never
-# witness a form that must be rejected.
 canon() { # canon <text> -> form | UNCLASSIFIED
   f=$(printf '%s' "$1" | grep -oE "$GH_CANON" | head -1 | sed -E "$GH_NORM")
   printf '%s' "${f:-UNCLASSIFIED}"
 }
 
-# The text of every fenced bash block, scanned as text rather than line by line.
 GH_TXT=$(blocks)
-# THE SCOPED PATH IS PART OF THE RULE, so it is part of the pattern. Matching
-# only the verb reduced `gh api -X PATCH "users/example"` to `-X PATCH`, which is
-# granted — while `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` would not
-# authorize that call at all. A rule is a whole prefix; comparing half of one
-# answers a question nobody asked.
+# A rule matches a command-string prefix and the flag precedes the path, so
+# each verb needs its own rule and the scoped path is part of the form.
+# GH_NORM reduces a match to its key in the grant list: `-X POST`,
+# `--paginate`, `graphql` or `repos`.
 GH_CANON='gh api (-X [A-Z]+ |--paginate )?"repos/\{owner\}/\{repo\}/|gh api graphql '
 GH_NORM='s/^gh api //; s/ ?"repos\/\{owner\}\/\{repo\}\/$//; s/ +$//; s/^$/repos/'
 
-# THE DENOMINATOR COUNTS INVOCATIONS, NOT LINES, and that distinction is the
-# whole guard. Counting lines and classifying one per line with `head -1` lets a
-# second call on the same line go unseen — `gh api "repos/{owner}/{repo}/x" && gh api -X DELETE
-# …` classified only the granted sibling. And a call split across a continuation
-# (`gh \` then `api -X DELETE …`) matches no single-line pattern at all, so it
-# was absent from the count entirely rather than counted and rejected.
+# Every invocation is counted, including a second one on a line and one split
+# after `gh \`. A spelling outside the canonical forms then fails the equality.
 gh_inline=$(printf '%s\n' "$GH_TXT" | grep -oE 'gh[[:space:]]+api' | grep -c .)
 gh_split=$(printf '%s\n' "$GH_TXT" | grep -cE '\bgh[[:space:]]*\\[[:space:]]*$')
 gh_total=$((gh_inline + gh_split))
@@ -181,7 +81,6 @@ nz() { if [ "$1" -gt 0 ]; then echo NONEMPTY; else echo EMPTY; fi; }
 expect "the procedures' blocks do call gh api"     "$(nz "$gh_total")" NONEMPTY
 expect "every gh api invocation is canonical"       "$gh_canon" "$gh_total"
 
-# Every canonical occurrence, not one per line.
 GH_USED=$(printf '%s\n' "$GH_TXT" | grep -oE "$GH_CANON" | sed -E "$GH_NORM" | sort -u)
 GH_GRANTED=$(awk '/^```json$/{inj=1;next} /^```$/{inj=0} inj' "$DOC" \
   | grep -oE '"Bash\(gh api (-X [A-Z]+|--paginate|graphql|repos)' | sed -E 's/^"Bash\(gh api //' | sort -u)
@@ -190,19 +89,13 @@ expect "the doc grants a gh api list" "$(nz "$(printf '%s\n' "$GH_GRANTED" | gre
 GH_MISSING=$(comm -23 <(printf '%s\n' "$GH_USED") <(printf '%s\n' "$GH_GRANTED") | sed 's/^/UNGRANTED /')
 refute "every gh api verb in a bash block has its own rule" "$GH_MISSING" "UNGRANTED "
 
-# Both directions here too. The git half gained this and the gh half did not,
-# which left an unused `-X DELETE` grant passing — the same defect the git half
-# had, surviving one round longer because the fix was applied to one of two
-# places that needed it.
 GH_UNUSED=$(comm -13 <(printf '%s\n' "$GH_USED") <(printf '%s\n' "$GH_GRANTED") | sed 's/^/UNUSED /')
 refute "no gh api rule is granted that no bash block uses" "$GH_UNUSED" "UNUSED "
-# Pins the scoping above: the broad rule appears in the prose and must not be
-# read as granted. If this ever reports it, the extraction has widened past the
-# json block and the subset check has stopped meaning anything.
+# Guards the json-block scoping of GH_GRANTED.
 refute "  the prose-only Bash(gh api *) is not read as a grant" "$GH_GRANTED" "*"
 
-# The classifier is a predicate. The corpus holds only canonical spellings, so
-# it cannot witness a single one of the forms that must be rejected.
+# canon() cases. The blocks hold only canonical spellings, so the rejected
+# ones are pinned here.
 expect "canonical -X reads as itself"   "$(canon 'gh api -X POST "repos/{owner}/{repo}/x"')"        "-X POST"
 expect "a quoted path reads as repos"   "$(canon 'gh api "repos/{owner}/{repo}/x"')" "repos"
 expect "an off-scope path is rejected"  "$(canon 'gh api -X PATCH "users/example"')" UNCLASSIFIED
@@ -219,35 +112,11 @@ expect "a doubled gh/api space is too"  "$(canon 'gh  api -X DELETE "repos/{owne
 expect "a tab between tokens is too"    "$(canon 'gh	api -X DELETE "repos/{owner}/{repo}/x"')"      UNCLASSIFIED
 expect "a quoted verb is rejected"      "$(canon "gh api -X 'DELETE' \"repos/x\"")"  UNCLASSIFIED
 
-# --- allowed-tools: which binaries a procedure pre-approves ----------------
+# --- allowed-tools ----------------------------------------------------------
 #
-# A permission rule matches a command-string PREFIX, so granting a binary in a
-# frontmatter pre-approves every command starting with that word. That is why
-# the schema forbids a repository-supplied `command` from beginning with `git`
-# or `gh`, and why the review command and step 7's grader are kept out of
-# `allowed-tools` at all -- procedures/local-loop.md and
-# docs/permissions.md both call that absence the thing that makes the
-# permission system see them every round.
-#
-# NOTHING PINNED IT. Adding `Bash(claude:*)` to either frontmatter went green
-# while pre-approving the grader's own command line AND both shipped presets'
-# review commands, every one of which begins with `claude` -- a
-# repository-supplied string running unprompted, which is the exact hole the
-# git and gh prefix bans exist to close, reached from the grant side instead.
-#
-# So the granted set is compared against the schema's ban list rather than
-# against a name written here: a grant with no matching ban is a prefix a
-# repository can occupy unprompted. THE CHECK IS ONE-WAY ON PURPOSE. The schema
-# says its gh ban is deliberately wider than the grants that motivate it,
-# because a ban that lags its grants by one release is the hole itself -- so a
-# ban with no grant is the design, not a defect, and asserting equality would
-# fail the thing it guards.
-#
-# Read from the frontmatter alone, not the whole file: the local family names
-# `Bash(gh pr:*)` in prose in order to say which rule it does NOT hold, and a
-# grep over the body would read that refusal as a grant -- the same scoping the
-# gh api half needed, for the same reason. SCOPED TO COMMANDS because a procedure
-# grants nothing at all, which `fence-guards.test.sh` asserts directly.
+# Granting a binary pre-approves every command that starts with it, so each
+# granted binary must be on the schema's ban list. The schema may ban more.
+# Only the frontmatter is read. A command's body names rules it does not hold.
 frontmatter() { # every command's YAML frontmatter, and nothing else
   for f in "${CMDS[@]}"; do
     awk 'NR==1 { if ($0 != "---") exit; next } /^---$/ { exit } { print }' "$f"
@@ -261,16 +130,11 @@ bins() { # bins <text> -> the binary each Bash(...) rule grants, one per line
 
 GRANTED_BINS=$(bins "$(frontmatter)")
 DOC_BINS=$(bins "$(awk '/^```json$/{inj=1;next} /^```$/{inj=0} inj' "$DOC")")
-# The schema's ban list, read as data rather than restated here. {reviewModel}
-# is not a binary -- it is the placeholder ban, which exists because expansion
-# happens after a prefix is checked -- so the character class drops it here
-# instead of making it an exception in the comparisons below.
+# A ban in the schema is a pattern of the form "^\\s*<binary>". The character
+# class skips the {reviewModel} ban, which is not a binary.
 BANNED_BINS=$(grep -oE '"\^\\\\s\*[A-Za-z][A-Za-z0-9_.-]*"' "$ROOT/schema/reviewer.schema.json" \
   | sed -E 's/^"\^\\\\s\*//; s/"$//' | sort -u)
 
-# All three must be non-empty. A broken extraction yields nothing, `comm` then
-# finds nothing ungranted, and both subset checks go green on no data -- the
-# same hole the two lists above guard against.
 expect "the frontmatter grants a binary"  "$(nz "$(printf '%s\n' "$GRANTED_BINS" | grep -c .)")" NONEMPTY
 expect "the doc grants a binary"          "$(nz "$(printf '%s\n' "$DOC_BINS"     | grep -c .)")" NONEMPTY
 expect "the schema bans a binary"         "$(nz "$(printf '%s\n' "$BANNED_BINS"  | grep -c .)")" NONEMPTY
@@ -280,8 +144,7 @@ refute "no procedure grants a binary the schema does not ban" "$UNBANNED" "UNBAN
 DOC_UNBANNED=$(comm -23 <(printf '%s\n' "$DOC_BINS") <(printf '%s\n' "$BANNED_BINS") | sed 's/^/UNBANNED /')
 refute "the doc grants no binary the schema does not ban"     "$DOC_UNBANNED" "UNBANNED "
 
-# bins() is a predicate and the corpus holds git and gh only, so it can witness
-# none of the grants that must be caught. These are the cases that pin it.
+# bins() cases.
 expect "a model grant would be seen"     "$(bins 'allowed-tools: Bash(claude:*), Read')"                         claude
 expect "a verify grant would be seen"    "$(bins 'allowed-tools: Bash(npm run check:all)')"                      npm
 expect "a bare git rule reads as git"    "$(bins 'allowed-tools: Bash(git:*)')"                                  git

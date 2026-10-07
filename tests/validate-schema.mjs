@@ -1,14 +1,7 @@
 // Validate one JSON document against one JSON Schema and answer with an exit
-// code: 0 valid, 1 rejected by the schema, 2 could not even try.
-//
-// This replaces ajv-cli, which pulled in a high-severity prototype-pollution
-// advisory through fast-json-patch (GHSA-8gh8-hqwg-xf34) and has not moved
-// since 2021. Ajv itself was never the problem — only the wrapper, and the
-// wrapper is this file.
-//
-// Separating 1 from 2 matters here: the schema suite asserts that certain
-// documents are REJECTED, and a typo in a path would otherwise be read as a
-// rejection and pass. "It said no" and "it never ran" are different answers.
+// code: 0 valid, 1 rejected by the schema, 2 could not run.
+// The schema suite asserts that some documents are rejected, so 1 (rejected)
+// and 2 (never ran) must stay different answers.
 //
 // Usage: node tests/validate-schema.mjs <schema.json> <document.json>
 import { readFileSync } from 'node:fs'

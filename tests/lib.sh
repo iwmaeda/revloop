@@ -3,9 +3,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PASS=0; FAIL=0
 
 # Extract a fence and shrink its wall-clock budget so tests finish in seconds.
-# This changes only durations, never logic. If either substitution stops
-# matching, the fence changed shape and the accelerator must be revisited —
-# so we fail loudly instead of silently testing the un-accelerated fence.
+# If a substitution stops matching, the fence changed shape: fail loudly.
 extract_accelerated() {
   local id="$1" out="$2" src
   src="$("$ROOT/tests/extract-fences.sh" "$id")"
@@ -25,10 +23,8 @@ extract_accelerated() {
 }
 
 run_fence() { # run_fence <script> <fixture-dir>
-  # Run from a throwaway repository with a real branch, rather than depending
-  # on the branch of the checkout the tests run in. That ambient state is a
-  # real branch locally but a detached HEAD under GitHub Actions' default PR
-  # checkout, which would otherwise make every fence hit the no-branch guard.
+  # Run from a throwaway repository with a real branch. CI checks out a detached
+  # HEAD, which would send every fence to its no-branch guard.
   local d
   d=$(mktemp -d)
   git init -q "$d"
@@ -37,11 +33,8 @@ run_fence() { # run_fence <script> <fixture-dir>
   rm -rf "$d"
 }
 
-# Same, but from a throwaway repository with a detached HEAD, where
-# `git branch --show-current` prints nothing. That is the state the no-branch
-# guard exists for: `gh pr list --head ""` drops the filter instead of matching
-# nothing, and answers with an unrelated open PR. The fixture is irrelevant —
-# a fence that reaches `gh` at all has already failed the assertion.
+# Same, with a detached HEAD, where `git branch --show-current` prints nothing.
+# The fixture is irrelevant: a fence that reaches `gh` has already failed.
 run_fence_detached() { # run_fence_detached <script> <fixture-dir>
   local d
   d=$(mktemp -d)

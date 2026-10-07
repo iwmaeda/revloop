@@ -1,20 +1,6 @@
-# Single source of truth for the toolchain: a version is stated once here,
-# instead of duplicated (or left implicit) across CI and a developer's machine.
-#
-# The granularity is deliberate. Node's version does not change what the tests
-# decide, so it still floats where it can (on the patch, below) — but not all
-# the way to the major any more. `markdownlint-cli`'s `run-con` dependency
-# pulls in `ini@7.0.0`, whose own `engines.node` is `^22.22.2 || ^24.15.0 ||
-# >=26.0.0`: a contributor already on Node 24.0-24.14 would get an EBADENGINE
-# warning on install (a hard failure if `engine-strict` is ever turned on),
-# and `mise install` does not upgrade an already-satisfying version — so the
-# floor has to be stated here rather than left to float past it. shellcheck's
-# and jq's versions ARE the verdict — a new shellcheck release adds checks,
-# and the jq program inside the wait-verdict fence is exercised against
-# recorded payloads — so both are pinned exactly. jq is pinned to 1.7.1, the
-# final patch of the 1.7.x series ubuntu-latest carried when this was
-# written; shellcheck is pinned to 0.9.0, matching the image exactly. Raise
-# them, and node's minor, deliberately, in their own commit.
+# CI and local development both install from this file.
+# node: 24.15 is the lowest 24.x that markdownlint-cli's dependency ini@7 accepts.
+# jq, shellcheck: pinned exactly, because a new version changes test and lint results.
 [tools]
 node = "24.15"
 jq = "1.7.1"

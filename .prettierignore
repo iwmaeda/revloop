@@ -1,13 +1,8 @@
-# Dependencies
 node_modules/
-
-# Machine-generated lockfiles
 package-lock.json
 
-# Recorded API responses — byte-exact fixtures, never reformat
+# Recorded API responses: byte-exact, never reformat.
 tests/fixtures/
 
-# Field notes: local, git-ignored, one long line per event by design.
-# prettier already skips all of .revloop/ through the top-level .gitignore; this
-# names the one file so that dropping that rule does not bring the notes back.
+# Also covered by .gitignore; listed so it stays ignored if that rule goes.
 .revloop/field-notes.md

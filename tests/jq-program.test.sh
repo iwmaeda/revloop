@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
-# Exercises the jq program inside the wait-verdict fence directly, against raw
-# GraphQL payloads. The other suites replay the rows this program is expected to
-# produce; this one checks that it actually produces them.
-#
-# Needs a jq binary — pinned in mise.toml; `mise install` puts it on PATH.
-# gh embeds gojq rather than jq, so a difference between the two would show up
-# here as a false failure; the constructs used (select, test, contains, split,
-# gsub) behave identically in both.
+# Runs the jq program from the wait-verdict fence against the raw GraphQL
+# payloads in tests/fixtures. Needs a jq binary, pinned in mise.toml.
+# gh embeds gojq; the constructs used behave the same in both.
 set -uo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -28,18 +23,13 @@ fi
 FX="$ROOT/tests/fixtures"
 run() { jq -r "$PROG" < "$FX/$1/graphql.json"; }
 
+# A marked trigger also matches the compat pattern. It must yield one TRIG row.
 o=$(run verdict/clean-comment)
 expect "a marked trigger yields exactly one TRIG row" "$(printf '%s\n' "$o" | grep -c '^TRIG ')" "1"
 expect "  the marker payload is carried through"      "$o" "bot=chatgpt-codex-connector"
 expect "  the verdict comment is emitted"             "$o" "comment 2026-08-19T10:04:00Z chatgpt-codex-connector 222"
 
-# revloop's own trigger matches the compatibility pattern too. If both branches
-# fired, the comment would emit two TRIG rows with the same timestamp, `tail -1`
-# would take the compat one, and the marker — with it the bot filter and the
-# runaway check — would be silently discarded.
-# The character filter on the marker payload is a whitelist, so a key added to
-# the marker later has to survive it. `attempt=2` is all whitelisted characters,
-# and this is where that stops being an assumption.
+# The marker payload passes a character whitelist, so a new key has to survive it.
 o=$(run verdict/retry-marker)
 expect "a new marker key survives the filter"   "$o" "attempt=2"
 expect "  alongside the keys it already knew"   "$o" "head=1a2b3c4d round=3"
@@ -55,17 +45,13 @@ refute "  no forged pr= survives"          "$o" "pr=999"
 refute "  no forged trigger= survives"     "$o" "trigger=2030"
 refute "  no forged review_id= survives"   "$o" "review_id=42"
 
-# A non-terminal preamble must be dropped at fetch time. Emitting it makes the
-# fence exit on its first iteration every time it is re-fired.
+# A preamble is dropped at fetch time, or a re-fired fence would exit on its first iteration.
 o=$(run jq/preamble)
 refute "a preamble is not emitted as a comment" "$o" "Summary of Changes"
 expect "  the trigger is still seen"            "$o" "TRIG"
 
-# The same rule for a comment that is not a preamble: Codex's status card. It
-# lands seconds after the trigger and is edited in place while the review runs
-# (repo C, 2026-10), so it is newer than the baseline on every poll of the round
-# that created it. Its body also names the trigger phrase on a later line; it is
-# a bot's comment and the phrase is not at the head, so it anchors no baseline.
+# Codex's status card is edited in place while the review runs, so it is newer
+# than the baseline on every poll. It names the trigger phrase and anchors nothing.
 o=$(run verdict/codex-status-card)
 refute "a status card is not emitted as a comment" "$o" "codex-pull-request-review-summary"
 expect "  the trigger is the only row left"        "$(printf '%s\n' "$o" | grep -c .)" "1"
@@ -75,22 +61,8 @@ o=$(run verdict/codex-status-card-clean)
 refute "the card is dropped beside a verdict too"  "$o" "codex-pull-request-review-summary"
 expect "  and the clean comment is still emitted"  "$o" "comment 2026-10-06T00:06:20Z chatgpt-codex-connector 600 Codex Review: Didn't find any major issues. Chef's kiss."
 
-# A focus containing the literal `revloop:trigger` wins the split, so the marker
-# keys are never reached. Step 7 forbids composing such a focus; this pins what
-# happens if one is composed anyway.
-#
-# MEASURED HERE: the jq program still emits exactly one TRIG row, and that row
-# carries no `head=` and no `bot=`. That is all this fixture runs — the jq
-# program, against one recorded payload with no bot verdict in it.
-#
-# DERIVED, NOT MEASURED HERE, and stated because it is the reason the fixture
-# exists: a marker without `head=` reaches step 9 as `marker_head=none`, which
-# that step's table aborts on, so the cost is a lost wait rather than a lost
-# trigger; and an empty `bot=` leaves the fence's bot filter matching every
-# login, so any other bot on the PR would satisfy the wait. Neither consequence
-# is exercised here. Reading the shell after the jq output, and step 9's table
-# after that, is what connects them — this fixture pins only the input those two
-# readings start from.
+# A focus holding the literal `revloop:trigger` wins the split, so the marker
+# keys are never reached. Pinned: one TRIG row with no head= and no bot=.
 o=$(run jq/focus-carrying-marker)
 expect "a focus carrying the literal still yields one TRIG" "$(printf '%s\n' "$o" | grep -c '^TRIG ')" "1"
 refute "  the row carries no head= for step 9 to bind to"   "$o" "head="
@@ -101,25 +73,8 @@ refute "a DISMISSED review is not a verdict"  "$o" "review "
 expect "  a multi-line body collapses to one" "$o" "800 first line of the body"
 refute "  the second line is dropped"         "$o" "second line should not appear"
 
-# The window and the filters, in the order the query actually applies them.
-# `reviews(last:15)` truncates on the SERVER; the Bot and non-DISMISSED selects
-# run here, on whatever survived. So a window filled with rows the filters drop
-# leaves the review set empty without a single adoptable review being newer than
-# the trigger -- which is the arithmetic step 9 used to decline a wider gate
-# with, and it is wrong. Returned as a P2 (iwmaeda/revloop#31, 2026-09).
-#
-# MEASURED HERE: fifteen review nodes -- eleven humans and four of the
-# reviewer's own, DISMISSED -- yield ZERO review rows, and the bot comment
-# behind them becomes the only verdict candidate. That output is byte-identical
-# to `verdict/foreign-baseline-comment`, which is the point: the fence cannot
-# tell this pull request from one with no review on it at all.
-#
-# NOT MEASURED HERE, and the reason the fixture stops where it does: the
-# adoptable review is the SIXTEENTH, and it is absent from this payload because
-# `last:15` never returned it. No fixture can hold a node the query did not
-# fetch, so what this pins is the filter order and never the truncation. Step
-# 9's gate is what closes the gap, by opening its selection on the
-# marker_head=none STATE rather than on the review LINE.
+# `reviews(last:15)` truncates on the server; the selects run here on what is left.
+# The fixture holds fifteen rows the selects drop. Truncation itself is not tested.
 o=$(run jq/window-full-of-humans)
 expect "a full window still yields the trigger"   "$(printf '%s\n' "$o" | grep -c '^TRIG ')" "2"
 expect "  no review row survives the filters"     "$(printf '%s\n' "$o" | grep -c '^review ')" "0"
@@ -127,16 +82,8 @@ expect "  the comment behind them is emitted"     "$o" "comment 2026-09-09T10:52
 refute "  no human review leaked through"         "$o" "reviewer-0"
 refute "  and no DISMISSED one either"            "$o" "5154100000"
 
-# MEASURED HERE: the four generators are emitted in program order, not in time
-# order. jq array construction preserves generator order, so a compat row lands
-# after every marker row however much older it is. This is the fact the shell's
-# sort on the TRIG rows exists for — pinned here rather than assumed, because the
-# row fixtures replay output someone recorded and cannot witness the ordering
-# rule that produced it.
-#
-# If this case ever fails because the generators were merged into one, the sort
-# is still correct and still wanted; delete this case rather than restoring an
-# order the shell no longer depends on.
+# The generators emit in program order, so a compat row lands after every marker
+# row. The shell sorts TRIG rows for that reason. Delete this case if they merge.
 o=$(run verdict/older-compat-trigger)
 expect "both trigger classes are emitted"      "$(printf '%s\n' "$o" | grep -c '^TRIG ')" "2"
 expect "  the newer marker is emitted first"   "$(printf '%s\n' "$o" | grep '^TRIG ' | head -1)" "2026-08-25T09:00:00Z"
