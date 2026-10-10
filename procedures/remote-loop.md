@@ -798,7 +798,7 @@ report with its reason.
    | `comment` whose body starts with the reviewer's clean phrase      | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `comment` matching the rate-limit pattern + your own trigger      | abort (`reviewer-rate-limited`)     | `reason=reviewer-rate-limited`; no retry            |
    | `comment` matching the rate-limit pattern + a standing trigger    | re-take (`rate-limit-retake`)       | step 7                                              |
-   | `comment` whose `cid=` this run already marked                    | continue (once)                     | re-fire step 8; second: `reason=interim-loop`       |
+   | `comment` whose `cid=` the active-marks read lists                | continue (once) or abort            | see the marked-`cid=` bullet below                  |
    | `comment` with any other bot body                                 | skip                                | mark it, re-fire step 8 only                        |
    | `reaction`                                                        | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `pending` (within `--timeout`)                                    | continue                            | re-fire step 8 only, never step 7                   |
@@ -842,14 +842,22 @@ report with its reason.
      it names.
    - `rate-limit-retake`: say in the report that a rate-limit re-take opened the round, naming the
      `cid=`, and append one line to `.revloop/field-notes.md`.
-   - A marked `cid=` that comes back: the fence has not seen the mark. Re-fire step 8 once; a
-     second consecutive return aborts with `reason=interim-loop`.
-   - Skip: the body matches neither `cleanPatterns` nor `rateLimitPatterns`. Mark the comment with
-     the call below this list, keep its `cid=` and full body for the report, and re-fire step 8
-     only. The firing that returned it is not a chunk: it costs nothing against `--timeout` and
-     never counts toward step 7's floor. A round skips at most three comments. A fourth, or a mark
-     that exits non-zero, aborts with `reason=interim-loop`: print every skipped body in full. A
-     round with an active mark stops at step 11's gate instead of converging.
+   - A marked `cid=` that comes back is one the active-marks read lists (run it with `<since>` the
+     round's first trigger). Only a mark this invocation made on step 9's previous firing earns a
+     retry, since the mark may not have propagated: re-fire step 8 once, and a second consecutive
+     return aborts with `reason=interim-loop`. Every other marked `cid=` has spent its retry,
+     which includes each mark a resumed run finds: abort with `reason=interim-loop` at once and
+     print the comment's URL and full body.
+   - Skip: the body matches neither `cleanPatterns` nor `rateLimitPatterns`, and the active-marks
+     read does not list its `cid=`. Run that read first. A round skips at most three comments, and
+     the read counts every mark standing on it after the round's first trigger, whoever made it and
+     in whichever run: when it already returns three rows, abort with `reason=interim-loop` and
+     print each row's URL and body in full rather than marking a fourth. Otherwise mark the
+     comment with the call below this list, keep its `cid=` and full body for the report, and
+     re-fire step 8 only. The firing that returned it is not a chunk: it costs nothing against
+     `--timeout` and never counts toward step 7's floor. A mark that exits non-zero aborts with
+     `reason=interim-loop` and prints the body in full. A round with an active mark stops at step
+     11's gate instead of converging.
    - `reaction`: an unexercised path; say so in the report.
    - `trigger=` not your `SINCE`: step 8's reconciliation gives the rules.
    - `re-post (once)`: silence is not proof that nothing was sent, so the report says a signal may
@@ -1434,7 +1442,8 @@ second, and the one-runner rule.
 - A review submitted in the same second as its trigger. The fence does not select it, so a later
   clean comment can finish the round over it. Does not fail closed.
 - Step 9's skip row, from a run: the mark, a marked comment dropped by the fence, the
-  three-comment bound, a marked `cid=` coming back, and step 11's `reason=unclassified-comment`.
+  three-comment bound and a marked `cid=` coming back (both read off the pull request, so a resumed run
+  aborts on a mark it finds), and step 11's `reason=unclassified-comment`.
   Does not fail closed: a comment older than the one the fence returned is never classified, a
   marked comment the reviewer edits into its verdict stays dropped until the reaction is removed,
   and the active-marks read counts anyone's 👀 on a bot comment after the trigger, so it can stop a
