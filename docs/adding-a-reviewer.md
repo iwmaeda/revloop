@@ -3,8 +3,9 @@
 A reviewer is one of two kinds. A bot that reviews a pull request when a comment asks it to is a
 `github-comment` reviewer. A review command that runs on your machine is a
 [local command reviewer](#local-command-reviewers). Both are described by a JSON definition and need
-no change to the procedures. A preamble the wait fence does not know is skipped by marking it, under step 9's skip
-bullet, and can cost a stop or an abort ([below](#if-it-posts-a-preamble-first)).
+no change to the procedures. A preamble the wait fence does not know is skipped by marking it, which
+is step 9's skip bullet's. It can cost an abort, owned by that bullet and the marked-`cid=` bullet
+together, or a stop, owned by step 11's gate ([below](#if-it-posts-a-preamble-first)).
 
 A reviewer summoned by a reviewer request instead of a comment (GitHub Copilot, for example) is not
 supported by the pull-request loops: there is no trigger comment to bind a round to, and step 1 aborts with
