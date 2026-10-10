@@ -525,8 +525,8 @@ report with its reason.
    key: no row has this round's number in `round=` and `opens=0`. Scope it to the round, not to
    `head=`, and compare the column's whole value (`round=1` is not `round=10`). A row whose
    `round=` is not a number counts as a match and withholds the re-post.
-   (d) The round produced no classified verdict at all, and step 9's active-marks read, with
-   `<since>` this round's first trigger, returns no row. A rate-limit reply is a classified
+   (d) The round produced no classified verdict at all, and step 9's active-marks read returns no
+   row. A rate-limit reply is a classified
    verdict: its recovery is a later run's re-take, never this re-post. A marked comment is an
    answer the fence hides from the wait whoever marked it and whenever: never re-post over it.
    (e) `git rev-parse HEAD` still equals the `oid=` you are about to write, compared in full.
@@ -798,7 +798,7 @@ report with its reason.
    | `comment` whose body starts with the reviewer's clean phrase      | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `comment` matching the rate-limit pattern + your own trigger      | abort (`reviewer-rate-limited`)     | `reason=reviewer-rate-limited`; no retry            |
    | `comment` matching the rate-limit pattern + a standing trigger    | re-take (`rate-limit-retake`)       | step 7                                              |
-   | `comment` whose `cid=` the active-marks read lists                | continue (once) or abort            | see the marked-`cid=` bullet below                  |
+   | `comment` whose `cid=` the active-marks read lists                | abort (`interim-loop`)              | see the marked-`cid=` bullet below                  |
    | `comment` with any other bot body                                 | skip                                | mark it, re-fire step 8 only                        |
    | `reaction`                                                        | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `pending` (within `--timeout`)                                    | continue                            | re-fire step 8 only, never step 7                   |
@@ -842,22 +842,20 @@ report with its reason.
      it names.
    - `rate-limit-retake`: say in the report that a rate-limit re-take opened the round, naming the
      `cid=`, and append one line to `.revloop/field-notes.md`.
-   - A marked `cid=` that comes back is one the active-marks read lists (run it with `<since>` the
-     round's first trigger). Only a mark this invocation made on step 9's previous firing earns a
-     retry, since the mark may not have propagated: re-fire step 8 once, and a second consecutive
-     return aborts with `reason=interim-loop`. Every other marked `cid=` has spent its retry,
-     which includes each mark a resumed run finds: abort with `reason=interim-loop` at once and
-     print the comment's URL and full body.
+   - A marked `cid=` that comes back is one the active-marks read lists. It has no retry: abort
+     with `reason=interim-loop` at once and print the comment's URL and full body. Nothing here
+     asks who made the mark or in which run, so a resumed run meets it as an earlier one did.
    - Skip: the body matches neither `cleanPatterns` nor `rateLimitPatterns`, and the active-marks
-     read does not list its `cid=`. Run that read first. A round skips at most three comments, and
-     the read counts every mark standing on it after the round's first trigger, whoever made it and
-     in whichever run: when it already returns three rows, abort with `reason=interim-loop` and
-     print each row's URL and body in full rather than marking a fourth. Otherwise mark the
-     comment with the call below this list, keep its `cid=` and full body for the report, and
-     re-fire step 8 only. The firing that returned it is not a chunk: it costs nothing against
-     `--timeout` and never counts toward step 7's floor. A mark that exits non-zero aborts with
-     `reason=interim-loop` and prints the body in full. A round with an active mark stops at step
-     11's gate instead of converging.
+     read does not list its `cid=`. Run that read first. The pull request carries at most three
+     marks at once, whoever made them and in whichever run: when the read already returns three
+     rows, abort with `reason=interim-loop` and print each row's URL and body in full rather than
+     marking a fourth. Otherwise mark the comment with the call below this list, then run the
+     read again and require the `cid=` to be a row. A mark that exits non-zero, or one the
+     second read does not list, aborts with `reason=interim-loop` and prints the body in full:
+     the wait would otherwise return the same comment again with nothing spent. When the row is
+     there, keep its full body for the report and re-fire step 8 only. The firing that returned it
+     is not a chunk: it costs nothing against `--timeout` and never counts toward step 7's floor.
+     A pull request with an active mark stops at step 11's gate instead of converging.
    - `reaction`: an unexercised path; say so in the report.
    - `trigger=` not your `SINCE`: step 8's reconciliation gives the rules.
    - `re-post (once)`: silence is not proof that nothing was sent, so the report says a signal may
@@ -865,8 +863,8 @@ report with its reason.
      `attempt=2`, then re-fire step 8. Record it in the report and in the field notes.
    - `pending` abort: name the condition that failed: `no-verdict attempts=2`,
      `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is
-     silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical. A round
-     with an active mark never re-posts: its abort is plain `no-verdict`, with every marked body
+     silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical. A pull
+     request with an active mark never re-posts: its abort is plain `no-verdict`, with every marked body
      printed in full.
    - The marks are read off the pull request and never kept in the session. The 👀 outlives the
      run and the round that made it, and the fence drops a marked comment whatever its body is now,
@@ -882,9 +880,11 @@ report with its reason.
      --jq '"MARKED=\(.id) content=\(.content)"'
    ```
 
-   The active marks. `<since>` is the round's first trigger's `created_at`, as in step 10's list
-   read, and the read fails if it is left unfilled. A row is a bot comment after that trigger
-   carrying any 👀. The fence drops only the one from the account `gh` is authenticated as, so a
+   The active marks. `<since>` is the `created_at` of the oldest `revloop:trigger` marker step 7's
+   read returns, whichever round it opened (the verdict line's `trigger=` when the pull request
+   carries none), and the read fails if it is left unfilled. It is the same value every time, so
+   a mark from an earlier round stays in every later check. A row is a bot comment after that
+   trigger carrying any 👀. The fence drops only the one from the account `gh` is authenticated as, so a
    row can be over-inclusive and never under-inclusive:
 
    <!-- revloop:read id=active-marks -->
@@ -1106,11 +1106,11 @@ report with its reason.
     `comment` and `reaction` rows, which arrive with no findings to answer.
 
     - If even one item needs fixing, go back to step 3.
-    - If nothing needs fixing and step 9's active-marks read returns a row for this round, do not
-      converge: abort with `reason=unclassified-comment`, print each row and the comment's body in
-      full, and say to remove that 👀 and run the command again. This is pull-request state, so it
-      holds for a marker from an interrupted run, an earlier run or a person alike, and a run stops
-      here until the reaction is gone. The reviewer may have edited the comment into its verdict,
+    - If nothing needs fixing and step 9's active-marks read returns a row, do not converge: abort
+      with `reason=unclassified-comment`, print each row and the comment's body in full, and say
+      to remove that 👀 and run the command again. This is pull-request state, so it holds for a
+      mark from an interrupted run, an earlier run, an earlier round or a person alike, and a run
+      stops here until the reaction is gone. The reviewer may have edited the comment into its verdict,
       and the fence reads it again only once its 👀 is removed.
     - If every item is fixed, declined, or accepted, re-read step 1's `pr_head=`, run the
       sufficiency test in [`rigor-levels.md`](rigor-levels.md), and go to step 12 only when both
@@ -1216,12 +1216,12 @@ report with its reason.
       so nothing was graded), lead with every finding you did not fix.
     - Carry the `Sufficiency:` block the test wrote, in the shape
       [`rigor-levels.md`](rigor-levels.md) gives, into the report and into the pull-request body.
-    - Run step 9's active-marks read, with `<since>` the newest round's first trigger, on any
-      ending at all (a convergence, a merge, any `reason=` abort, a round that went on to fix
-      findings). For each row it returns, list the comment's id and URL, and say that its 👀 stays
-      until you remove it and that the fence drops the comment, even one the reviewer has since
-      edited into its verdict, while it stands. Remove it before running the command again. If the
-      read fails, say so and do not call the report clean of marks.
+    - Run step 9's active-marks read on any ending at all (a convergence, a merge, any `reason=`
+      abort, a round that went on to fix findings). For each row it returns, list the comment's id
+      and URL, and say that its 👀 stays until you remove it and that the fence drops the comment,
+      even one the reviewer has since edited into its verdict, while it stands. Remove it before
+      running the command again. If the read fails, say so and do not call the report clean of
+      marks.
     - Say everything an earlier step told you to say in the report, including every accepted
       finding with its reason, a reviewer `status` that is not `verified`, and each unexercised
       path the run took.
@@ -1442,13 +1442,14 @@ second, and the one-runner rule.
 - A review submitted in the same second as its trigger. The fence does not select it, so a later
   clean comment can finish the round over it. Does not fail closed.
 - Step 9's skip row, from a run: the mark, a marked comment dropped by the fence, the
-  three-comment bound and a marked `cid=` coming back (both read off the pull request, so a resumed run
-  aborts on a mark it finds), and step 11's `reason=unclassified-comment`.
+  three-mark bound, the second read after a mark and a marked `cid=` coming back (all read off the
+  pull request, so a resumed run aborts on a mark it finds), and step 11's
+  `reason=unclassified-comment`.
   Does not fail closed: a comment older than the one the fence returned is never classified, a
   marked comment the reviewer edits into its verdict stays dropped until the reaction is removed,
-  and the active-marks read counts anyone's 👀 on a bot comment after the trigger, so it can stop a
-  run over a reaction the fence ignores. The read is measured at `gh 2.4.0` on a pull request with
-  no mark; no run has read a marked one.
+  and the active-marks read counts anyone's 👀 on a bot comment since the loop's first trigger, so
+  it can stop a run over a reaction the fence ignores or over an earlier round's mark. The read is
+  measured at `gh 2.4.0` on a pull request with no mark; no run has read a marked one.
 - Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor: the round caps, the
   per-level sweep obligations, the rising-ceiling re-open, the sufficiency test (it cannot fail
   open), and the default level `standard`.

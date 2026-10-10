@@ -87,10 +87,11 @@ and Codex posts a status card that it edits while the review runs. The wait fenc
 knows.
 
 One it does not know is skipped. Step 9 adds a 👀 reaction to the comment from your account, the
-fence ignores a comment that carries it, and the wait goes on. A round that has a bot comment with
-a 👀 on it after its trigger, whoever put it there and in whichever run, and then has nothing to
-fix stops with `reason=unclassified-comment` and prints the comment. Remove the 👀 and run the
-command again to accept the verdict. The fence ignores a marked comment whatever it says later, so
+fence ignores a comment that carries it, and the wait goes on. A round whose
+pull request carries a bot comment with a 👀 on it since the loop's first trigger, whoever put it
+there and in whichever run or round, and then has nothing to fix stops with
+`reason=unclassified-comment` and prints the comment. Remove the 👀 and run the command again to
+accept the verdict. The fence ignores a marked comment whatever it says later, so
 a reviewer that edits that comment into its verdict is read only after the 👀 is removed. Every
 report lists the marks the pull request still carries.
 
