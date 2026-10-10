@@ -20,7 +20,7 @@
       "properties": {
         "baseBranch": {
           "type": ["string", "null"],
-          "description": "Null or absent: read from gh repo view --json defaultBranchRef."
+          "description": "Null or absent: the local commands read origin/HEAD, then gh repo view --json defaultBranchRef, then ask; with --no-publish only origin/HEAD. The remote commands read defaultBranchRef."
         },
         "branchPrefixes": {
           "type": "array",
