@@ -76,7 +76,7 @@ refute "  and the viewer-marked one is not"        "$o" " 500 "
 
 # Another account's eyes, and the viewer's thumbs-up, are not what the fence
 # filters on. The active-marks read in step 9 does count anyone's eyes.
-o=$(run verdict/not-the-viewers-reactions)
+o=$(run verdict/other-accounts-eyes-viewer-thumbs-up)
 expect "another account's eyes drop nothing"        "$o" "comment 2026-10-10T00:00:20Z chatgpt-codex-connector 500 Review started."
 
 # A focus holding the literal `revloop:trigger` wins the split, so the marker
