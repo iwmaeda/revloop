@@ -174,7 +174,7 @@
         "type": "string",
         "enum": ["critical", "high", "medium", "low"]
       },
-      "description": "Maps each rung of severityLevels onto critical, high, medium or low, so that a --rigor level means the same thing for every reviewer. Required whenever severityLevels is present. Every rung needs an entry, no entry may name a rung outside severityLevels, a more severe rung may not map below a less severe one, and the top and bottom rungs may not map to the same value. Step 1 checks these at the minimal and standard levels and aborts with reason=bad-severity-map. The map is your judgement of what the reviewer's rungs mean; step 1 prints the rungs that block and the rungs that are acceptable before the first round."
+      "description": "Maps each rung of severityLevels onto critical, high, medium or low, so that a --rigor level means the same thing for every reviewer. Required whenever severityLevels is present. Every rung needs an entry, no entry may name a rung outside severityLevels, a more severe rung may not map below a less severe one, and on a ladder of two or more rungs the top rung must map above the bottom one. Step 1 checks these at the minimal and standard levels and aborts with reason=bad-severity-map. The map is your judgement of what the reviewer's rungs mean; step 1 prints the rungs that block and the rungs that are acceptable before the first round."
     },
     "expectedLatency": {
       "type": "string",

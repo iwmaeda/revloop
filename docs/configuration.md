@@ -52,17 +52,17 @@ The `source` column of the step 1 table is `flag`, `config`, `detected`, `rigor`
 
 ## When configuration is missing or wrong
 
-| Situation                                           | Behaviour                                                    |
-| --------------------------------------------------- | ------------------------------------------------------------ |
-| Neither file                                        | Detect everything                                            |
-| Both files                                          | Read `.revloop/config.json` only                             |
-| `.revloop/config.json` untracked and not ignored    | Abort (`config-not-ignored`)                                 |
-| `.revloop.json` untracked                           | Read it. Step 1 suggests moving it to `.revloop/config.json` |
-| Malformed JSON, or an unknown `version`             | Abort                                                        |
-| Unknown key                                         | Ignored at runtime                                           |
-| `--config` names no readable file                   | Abort (`config-not-found`)                                   |
-| `--config` names a file the reviewer schema rejects | Abort (`config-invalid`)                                     |
-| No verify command found or configured               | Ask before continuing. With `--merge`, abort                 |
+| Situation                                           | Behaviour                                                           |
+| --------------------------------------------------- | ------------------------------------------------------------------- |
+| Neither file                                        | Detect what can be detected; the rest is built in or from `--rigor` |
+| Both files                                          | Read `.revloop/config.json` only                                    |
+| `.revloop/config.json` untracked and not ignored    | Abort (`config-not-ignored`)                                        |
+| `.revloop.json` untracked                           | Read it. Step 1 suggests moving it to `.revloop/config.json`        |
+| Malformed JSON, or an unknown `version`             | Abort                                                               |
+| Unknown key                                         | Ignored at runtime                                                  |
+| `--config` names no readable file                   | Abort (`config-not-found`)                                          |
+| `--config` names a file the reviewer schema rejects | Abort (`config-invalid`)                                            |
+| No verify command found or configured               | Ask before continuing. With `--merge`, abort                        |
 
 ## `project`
 
