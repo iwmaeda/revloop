@@ -58,7 +58,7 @@ no allowlist; see [Codex: approval policy and sandbox](permissions.md#codex-appr
 /revloop:local-review-loop
 ```
 
-On a clean tree each prints its resolved configuration table and stops. In the local table, read the
+On a clean tree with no changes, each should print its resolved configuration table and stop. In the local table, read the
 **review command** row before a real run: that string is what will be executed, and it is never
 pre-approved. If the remote loop prompts at every step, work through [`permissions.md`](permissions.md).
 
@@ -66,8 +66,9 @@ pre-approved. If the remote loop prompts at every step, work through [`permissio
 
 A run may create `.revloop/` at the top of the checkout, for field notes and the grader's input. It
 writes `.revloop/.gitignore` containing `*` first, so nothing there appears in `git status` and you
-add nothing to your own `.gitignore`. If git already tracks anything under `.revloop/`, nothing is
-written there and the run reports instead.
+add nothing to your own `.gitignore`. If git already tracks anything under `.revloop/`, or an
+existing `.revloop/.gitignore` does not hide the file, nothing is written there and the run reports
+instead.
 
 A configuration only you use goes in the same directory, as `.revloop/config.json`. See
 [Where the file lives](configuration.md#where-the-file-lives).

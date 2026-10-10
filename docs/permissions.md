@@ -49,7 +49,7 @@ A plugin cannot grant itself permissions, so this is a copy-and-paste list.
 ### What `Bash(git:*)` still allows
 
 `Bash(git:*)` matches every git subcommand, including `git push --force` and `git reset --hard`. The
-procedures never force-push and they abort on a fork, but the permission system does not enforce
+procedures never force-push and they abort on a fork unless `--no-publish`, but the permission system does not enforce
 either.
 
 The one `--force` a procedure runs is `git worktree remove --force`, in the `worktree-teardown`

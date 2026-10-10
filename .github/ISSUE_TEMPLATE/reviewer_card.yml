@@ -6,8 +6,9 @@ body:
     attributes:
       value: |
         A card records what you observed when you drove the reviewer, not what its documentation
-        says. See
-        [docs/adding-a-reviewer.md](https://github.com/iwmaeda/revloop/blob/main/docs/adding-a-reviewer.md).
+        says. This form is for a bot that a comment triggers. See
+        [docs/adding-a-reviewer.md](https://github.com/iwmaeda/revloop/blob/main/docs/adding-a-reviewer.md),
+        which covers local command reviewers too.
 
   - type: input
     id: name

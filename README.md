@@ -23,8 +23,9 @@ There is one command per reviewer:
 The remote commands need a reviewer whose GitHub integration is already installed on the repository
 and answers comments.
 
-The local commands post no comments and never merge. They push the converged branch and open a pull
-request for it; `--no-publish` stops at the commit. The review runs on `sonnet` by default, and
+The local commands post no comments and never merge. They push the branch and open a pull request
+for it, before each round for a reviewer that reads the pull request and after convergence for the
+rest; `--no-publish` stops at the commit. The review runs on `sonnet` by default, and
 `--model` changes that.
 
 ```console
@@ -40,16 +41,16 @@ request for it; `--no-publish` stops at the commit. The review runs on `sonnet` 
 /revloop:local-custom-loop --config ./my-reviewer.json
 ```
 
-| Flag               | Commands        | Default    | What it does                                   |
-| ------------------ | --------------- | ---------- | ---------------------------------------------- |
-| `--rigor <level>`  | all             | `standard` | How strictly the run must finish (see below)   |
-| `--max-rounds <n>` | all             | 5 / 3      | Abort if the loop has not converged by then    |
-| `--auto`           | all             | off        | Run through the stop points without halting    |
-| `--merge`          | `remote-*`      | off        | After convergence, wait for green CI and merge |
-| `--timeout <dur>`  | `remote-*`      | `30m`      | Cap on waiting for one trigger's verdict       |
-| `--model <name>`   | `local-*`       | `sonnet`   | The model the review runs on                   |
-| `--no-publish`     | `local-*`       | off        | End at the commit: no push, no pull request    |
-| `--config <path>`  | `*-custom-loop` | required   | The reviewer definition this run drives        |
+| Flag               | Commands        | Default    | What it does                                                        |
+| ------------------ | --------------- | ---------- | ------------------------------------------------------------------- |
+| `--rigor <level>`  | all             | `standard` | How strictly the run must finish (see below)                        |
+| `--max-rounds <n>` | all             | 5 / 3      | Abort if the loop has not converged by then                         |
+| `--auto`           | all             | off        | Run through the stop points, except a local reviewer's confirmation |
+| `--merge`          | `remote-*`      | off        | After convergence, wait for green CI and merge                      |
+| `--timeout <dur>`  | `remote-*`      | `30m`      | Cap on waiting for one trigger's verdict                            |
+| `--model <name>`   | `local-*`       | `sonnet`   | The model the review runs on                                        |
+| `--no-publish`     | `local-*`       | off        | End at the commit: no push, no pull request                         |
+| `--config <path>`  | `*-custom-loop` | required   | The reviewer definition this run drives                             |
 
 A default written as two numbers is remote / local. The default of `--max-rounds` comes from
 `--rigor`.

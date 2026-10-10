@@ -29,7 +29,9 @@ Exactly one file is read. When `.revloop/config.json` exists, `.revloop.json` is
 is merged from it. Step 1 prints a `config:` line naming the file it read.
 
 `.revloop/config.json` must be tracked or ignored by git; otherwise the run aborts with
-`config-not-ignored`. To create the ignore file before the first run:
+`config-not-ignored`. An existing `.revloop/.gitignore` is left as it is: a file it does not hide is
+not written, so field notes go into the report and the grader's input is skipped, which leaves every
+finding `ungraded` and blocking. To create the ignore file before the first run:
 
 ```console
 mkdir -p .revloop && printf '*\n' > .revloop/.gitignore
@@ -40,12 +42,12 @@ Both files follow the same schema and the same rules. A reviewer definition only
 
 ## What is detected
 
-| Value            | Detected from                                                                     |
-| ---------------- | --------------------------------------------------------------------------------- |
-| `baseBranch`     | `gh repo view --json defaultBranchRef`                                            |
-| `verify`         | Build files: `package.json`, `Makefile`, `pyproject.toml`, `Cargo.toml`, `go.mod` |
-| `branchPrefixes` | The prefixes used in the repository's commit subjects                             |
-| `commit.*`       | The last 20 commits: style, language, existing trailers                           |
+| Value            | Detected from                                                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `baseBranch`     | `gh repo view --json defaultBranchRef`; the `local-*` commands read `origin/HEAD` first, and with `--no-publish` use only that, asking if it is missing |
+| `verify`         | Build files: `package.json`, `Makefile`, `pyproject.toml`, `Cargo.toml`, `go.mod`                                                                       |
+| `branchPrefixes` | The prefixes used in the repository's commit subjects                                                                                                   |
+| `commit.*`       | The last 20 commits: style, language, existing trailers                                                                                                 |
 
 The `source` column of the step 1 table is `flag`, `config`, `detected`, `rigor` or `builtin`.
 `rigor` marks a round cap supplied by [the rigor level](#the-rigor-level).
@@ -57,7 +59,7 @@ The `source` column of the step 1 table is `flag`, `config`, `detected`, `rigor`
 | Neither file                                        | Detect what can be detected; the rest is built in or from `--rigor` |
 | Both files                                          | Read `.revloop/config.json` only                                    |
 | `.revloop/config.json` untracked and not ignored    | Abort (`config-not-ignored`)                                        |
-| `.revloop.json` untracked                           | Read it. Step 1 suggests moving it to `.revloop/config.json`        |
+| `.revloop.json` untracked and shown by git          | Read it. Step 1 suggests moving it to `.revloop/config.json`        |
 | Malformed JSON, or an unknown `version`             | Abort                                                               |
 | Unknown key                                         | Ignored at runtime                                                  |
 | `--config` names no readable file                   | Abort (`config-not-found`)                                          |
@@ -132,14 +134,14 @@ Severity is measured on one ladder, `critical > high > medium > low`. A reviewer
 mapped onto it by `severityMap`, which is required whenever `severityLevels` is present. Step 1 prints
 which of the reviewer's rungs block and which are acceptable before the first round.
 
-| Situation                                                                                  | Behaviour                                                           |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| `<level>` is not one of the four                                                           | Abort (`unknown-rigor-level`)                                       |
-| `severityMap` is partial, out of order, or maps a ladder of two or more rungs to one value | Abort (`bad-severity-map`), at `minimal` and `standard` only        |
-| No `severityLevels`, at `minimal` or `standard`                                            | Findings are graded; see below                                      |
-| No `severityLevels`, at `thorough` or `exhaustive`                                         | Nothing is graded                                                   |
-| `minimal` or `standard` with `--merge --auto`                                              | Abort (`unreviewed-accept-merge`)                                   |
-| `minimal` or `standard` with `--merge`, after accepting a finding                          | Stop for confirmation before the CI wait, listing what was accepted |
+| Situation                                                                                                                            | Behaviour                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `<level>` is not one of the four                                                                                                     | Abort (`unknown-rigor-level`)                                       |
+| `severityMap` is partial, names a rung outside `severityLevels`, is out of order, or maps a ladder of two or more rungs to one value | Abort (`bad-severity-map`), at `minimal` and `standard` only        |
+| No `severityLevels`, at `minimal` or `standard`                                                                                      | Findings are graded; see below                                      |
+| No `severityLevels`, at `thorough` or `exhaustive`                                                                                   | Nothing is graded                                                   |
+| `minimal` or `standard` with `--merge --auto`                                                                                        | Abort (`unreviewed-accept-merge`)                                   |
+| `minimal` or `standard` with `--merge`, after accepting a finding                                                                    | Stop for confirmation before the CI wait, listing what was accepted |
 
 The level also sets:
 
@@ -178,10 +180,10 @@ Reviewers are not configured in this file. Each is a JSON document validated aga
 [`reviewers/`](../reviewers/); pass your own with `--config <path>` on `remote-custom-loop` or
 `local-custom-loop`. The file name is the reviewer's name and must match `^[a-z0-9][a-z0-9-]*$`.
 
-| `kind`                     | Required            | Also takes                                                         |
-| -------------------------- | ------------------- | ------------------------------------------------------------------ |
-| `github-comment` (default) | `botLogin`          | `trigger`, `markerTolerated`, `cleanPatterns`, `rateLimitPatterns` |
-| `local-command`            | `invoke`, `command` | `requiresPr`, `rateLimitPatterns`                                  |
+| `kind`                     | Required              | Also takes                                              |
+| -------------------------- | --------------------- | ------------------------------------------------------- |
+| `github-comment` (default) | `botLogin`, `trigger` | `markerTolerated`, `cleanPatterns`, `rateLimitPatterns` |
+| `local-command`            | `invoke`, `command`   | `requiresPr`, `rateLimitPatterns`                       |
 
 Both kinds take `displayName`, `severityLevels`, `severityMap`, `expectedLatency` and `status`. A key
 that belongs to the other kind is rejected.

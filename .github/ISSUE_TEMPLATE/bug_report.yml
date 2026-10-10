@@ -14,7 +14,8 @@ body:
       label: The fence output, verbatim
       description: >-
         The `VERDICT=`, `CI_WAIT=` or `MERGE=` line, plus any `EXTRA=` second line.
-        Do not trim it and do not drop the second line.
+        Do not trim it and do not drop the second line. A local run has no such line: paste the
+        review command's output instead.
       placeholder: VERDICT=comment pr=12 trigger=2026-08-19T10:00:00Z reviewer=codex marker_head=1a2b3c4d round=3 head=1a2b3c4d at=... login=... cid=... body=...
       render: text
     validations:
@@ -24,7 +25,9 @@ body:
     id: expected
     attributes:
       label: What you expected the loop to do with it
-      description: Which row of step 9's decision table did you expect, and which did it take?
+      description: >-
+        Which row of step 9's decision table did you expect, and which did it take? On a local run
+        it is step 8's table.
     validations:
       required: true
 

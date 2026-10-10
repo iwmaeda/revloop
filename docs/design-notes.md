@@ -35,8 +35,8 @@ matches that:
 - `head=`, `round=` and `attempt=` keep the run's state on the pull request, so an interrupted run
   resumes without local state.
 - Reviewer identity reaches the wait through this comment and never through a configuration file.
-- A hand-typed `@codex review` still anchors a baseline, but it carries no `head=`, so a verdict
-  behind it is not bound to a commit.
+- A hand-typed `@codex review` still anchors a baseline, but it carries no `head=` and no `bot=`, so
+  the bot filter admits any bot and a verdict behind it is not bound to a commit.
 
 ## Permission rules and fence bytes
 
@@ -100,13 +100,13 @@ does not mean the change has been reviewed. That is why the local commands never
 
 ## Where the local loop publishes
 
-The local loop pushes the converged branch and opens a pull request unless `--no-publish` is given.
-When it publishes depends on the reviewer's `requiresPr`.
+The local loop pushes the branch and opens a pull request unless `--no-publish` is given. When it
+publishes depends on the reviewer's `requiresPr`.
 
-| `requiresPr` | Publishes               | Why                                                                           |
-| ------------ | ----------------------- | ----------------------------------------------------------------------------- |
-| `true`       | Before every round      | The reviewer reads the pull request, which must exist and match HEAD          |
-| `false`      | Once, after convergence | A reviewer that diffs against the branch's upstream sees nothing after a push |
+| `requiresPr` | Publishes               | Why                                                                                                 |
+| ------------ | ----------------------- | --------------------------------------------------------------------------------------------------- |
+| `true`       | Before every round      | The reviewer reads the pull request, which must exist and match HEAD                                |
+| `false`      | Once, after convergence | A reviewer that resolves its own target may resolve a different one once the branch has an upstream |
 
 On a fork, without an `origin`, or with a remote that is not GitHub, the run aborts and names
 `--no-publish`.
@@ -117,8 +117,9 @@ When a round takes an unexercised path, aborts, or sees unexpected latency, the 
 line to `.revloop/field-notes.md`. The notes are for people: the loop never reads them as input,
 never stages them, and caps the file at 500 lines.
 
-`.revloop/` ignores itself. Unless git tracks anything under `.revloop/`, in which case nothing is
-written there, the first write into it is `.revloop/.gitignore` containing `*`, so the
+`.revloop/` ignores itself. Unless git tracks anything under `.revloop/` or an existing
+`.revloop/.gitignore` does not hide the file, in which case nothing is written there, the first
+write into it is `.revloop/.gitignore` containing `*`, so the
 notes, the grader's input and `.revloop/config.json` stay out of `git status` without a rule in your
 own `.gitignore`. A tool that reads only the top-level `.gitignore`, such as prettier, still sees the
 files unless you add a rule there.
