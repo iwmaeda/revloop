@@ -431,9 +431,9 @@ same "  and a bound that is a date and not a timestamp" "$?" "1"
 
 # --- active marks: hand-written ----------------------------------------------
 #
-# Bot comments after the bound that carry any eyes, whoever put it there. The
-# fence drops only the viewer's own, so the read may over-include and may not
-# under-include.
+# Bot comments at or after the bound that carry any eyes, whoever put it there. The
+# fence drops only the viewer's own, so on one snapshot the read lists every comment the
+# fence drops and may list more. Step 9 says what a row guarantees about the next instant.
 marks() { # marks <since> <file>...
   local since=$1
   shift
