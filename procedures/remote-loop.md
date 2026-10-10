@@ -660,8 +660,8 @@ report with its reason.
 
    A firing of the fence whose fetch shows a bot comment carrying a 👀 (`eyes`) reaction from the
    account `gh` is authenticated as does not emit that comment. A reaction added or removed after
-   a fetch is seen by the next firing and not by that one. Step 9's skip bullet marks a comment that
-   way; what the loop does next and what a mark can cost is ruled by that bullet, the marked-`cid=`
+   a fetch is seen by the next firing and not by that one. Step 9's skip bullet can add that reaction;
+   what the loop does with a comment and what a mark can cost is ruled by that bullet, the marked-`cid=`
    bullet, step 7's condition (d), step 11's gate and step 12.
 
    Reconcile `trigger=` with the `SINCE` you recorded in step 7 on `review`, `comment`, `reaction`
@@ -1475,8 +1475,9 @@ second, and the one-runner rule.
 - Step 9's skip row, from a run. What a mark leads to is ruled by step 9's skip bullet and
   marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, none restated here, and no
   run has taken any of them. Does not fail closed: a firing returns the newest comment after the
-  trigger, so an older one is classified only when a later firing exposes it, a firing whose fetch
-  shows a mark drops the comment whatever it later says,
+  trigger, so an older one is classified only when it is the newest the firing's fetch leaves, which
+  a mark can bring about in that same firing, a firing whose fetch shows a mark drops the comment
+  whatever it later says,
   and the active-marks read counts anyone's 👀 on a bot comment since the pull request was opened,
   including one the fence ignores and an earlier round's. The read is measured at `gh 2.4.0` on a
   pull request with no mark; no run has read a marked one.

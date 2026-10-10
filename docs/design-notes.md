@@ -56,10 +56,10 @@ The fences are inline in the procedure instead of shipped as script files. Behin
 update could change what runs under a grant given once. Inline, an edit changes the command string
 and asks every user to approve it again. For the same reason no configuration value reaches a fence,
 and the list of interim comments the wait ignores lives inside the fence. A comment that list does
-not name is marked on the pull request instead: the loop adds a reaction from your account under step
-9's skip bullet, and a firing of the fence whose fetch shows one drops that comment. What a mark can
-cost is ruled by that bullet, the marked-`cid=` bullet, step 7's condition (d), step 11's gate and
-step 12.
+not name is ruled by step 9's skip bullet instead, which can add a reaction from your account to it,
+and a firing of the fence whose fetch shows one drops that comment. What the loop does with it and
+what a mark can cost is ruled by that bullet, the marked-`cid=` bullet, step 7's condition (d),
+step 11's gate and step 12.
 
 ## Two procedures, seven commands
 

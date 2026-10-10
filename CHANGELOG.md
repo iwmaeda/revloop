@@ -21,11 +21,11 @@ Fences: `wait-verdict` changed (one re-approval).
   allow" given for the old string is asked for once more.
 - When a subprocess reviewer ends by asking a question, the `unparsed-review-output` report says
   what it asked for.
-- A pull-request loop marks a reviewer comment it cannot classify instead of aborting on it at
-  once. It adds a 👀 reaction to the comment from your account, and a firing of the wait fence skips
-  a comment whose fetch shows one. What the loop does next and what a mark can cost is ruled by
-  step 9's skip bullet and marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12,
-  which this entry does not restate.
+- A pull-request loop no longer aborts at once on every reviewer comment it cannot classify. A
+  firing of the wait fence skips a bot comment whose fetch shows a 👀 reaction from your account.
+  What the loop does with such a comment and what a mark can cost is ruled by step 9's skip bullet
+  and marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, which this entry
+  does not restate.
 
 ### Fixed
 

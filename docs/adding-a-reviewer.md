@@ -3,8 +3,8 @@
 A reviewer is one of two kinds. A bot that reviews a pull request when a comment asks it to is a
 `github-comment` reviewer. A review command that runs on your machine is a
 [local command reviewer](#local-command-reviewers). Both are described by a JSON definition and need
-no change to the procedures. A preamble the wait fence does not know is skipped by marking it, and
-what a mark can cost is ruled by step 9's skip bullet and marked-`cid=` bullet, step 7's condition
+no change to the procedures. What the loop does with a preamble the wait fence does not know, and
+what that can cost, is ruled by step 9's skip bullet and marked-`cid=` bullet, step 7's condition
 (d), step 11's gate and step 12 ([below](#if-it-posts-a-preamble-first)).
 
 A reviewer summoned by a reviewer request instead of a comment (GitHub Copilot, for example) is not
@@ -87,12 +87,12 @@ Some reviewers acknowledge the trigger before doing the work. Gemini posts `## S
 and Codex posts a status card that it edits while the review runs. The wait fence drops the ones it
 knows.
 
-One it does not know is skipped by marking it. In outline, the loop adds a 👀 reaction to the
-comment from your account and a firing of the fence that fetches it ignores that comment.
-What a mark can cost is ruled by step 9's skip bullet and marked-`cid=` bullet, step 7's condition
-(d), step 11's gate and step 12, and none is restated here.
+A firing of the fence ignores a bot comment whose fetch shows a 👀 reaction from your account. What
+the loop does with one it does not know, and what that can cost, is ruled by step 9's skip bullet
+and marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, and none is restated
+here.
 
-To remove what a mark can cost, add the preamble to the fence's list. That is a fence edit, which follows the
+To remove what that can cost, add the preamble to the fence's list. That is a fence edit, which follows the
 protocol in [`CONTRIBUTING.md`](../CONTRIBUTING.md#editing-or-adding-a-shell-fence).
 
 ## Local command reviewers
