@@ -658,8 +658,9 @@ report with its reason.
 
    A firing of the fence whose fetch shows a bot comment carrying a 👀 (`eyes`) reaction from the
    account `gh` is authenticated as does not emit that comment. A reaction added or removed after
-   a fetch is seen by the next firing and not by that one. Step 9's skip row marks a comment that
-   way, when its mark reads allow, to wait past it.
+   a fetch is seen by the next firing and not by that one. Step 9's skip bullet marks a comment that
+   way to wait past it; what a mark can cost is ruled there, in the marked-`cid=` bullet and at step
+   11's gate.
 
    Reconcile `trigger=` with the `SINCE` you recorded in step 7 on `review`, `comment`, `reaction`
    and `pending`. No `VERDICT=error` form emits `trigger=`: an absent one is not a mismatch, and an
@@ -885,8 +886,9 @@ report with its reason.
    - The marks are read off the pull request and never kept in the session. The 👀 outlives the
      run and the round that made it, and a firing whose fetch shows the mark drops the comment
      whatever its body is now, so a reviewer that edited it in place into its verdict stays
-     unread by those firings. A run whose every poll fetches the mark ends in silence, and one that
-     removes the reaction before a later poll's fetch can read the edited verdict. Step 7's
+     unread by those firings. A run whose every poll fetches the mark ends in `pending`, which
+     step 9's `pending` rows rule, and one that removes the reaction before a later poll's fetch can
+     read the edited verdict. Step 7's
      condition (d), step 11's gate and step 12's report each run the read below.
 
    The mark, for the skip row. `<cid>` is the `cid=` on the fence's line. Decide failure from the
@@ -1364,7 +1366,8 @@ These are load-bearing. Each rule here holds across steps, or is stated by no si
 
 - **Arm one wait at a time.** If an earlier wait may still be running, wait for its verdict instead
   of firing again.
-- Add the 👀 mark that step 8's fence reads only in step 9's skip row. The fence counts only the
+- Add the 👀 mark only as step 9's skip bullet says; what it can cost is ruled there, in the
+  marked-`cid=` bullet and at step 11's gate. The fence counts only the
   authenticated account's reaction as one, while the active-marks read counts anyone's. A firing
   whose fetch shows the mark leaves the comment unread whatever it later says, an edit into a
   verdict included. To make a later firing read it, remove the reaction before that firing's fetch.

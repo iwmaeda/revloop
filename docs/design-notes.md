@@ -57,7 +57,8 @@ update could change what runs under a grant given once. Inline, an edit changes 
 and asks every user to approve it again. For the same reason no configuration value reaches a fence,
 and the list of interim comments the wait ignores lives inside the fence. A comment that list does
 not name is marked on the pull request instead: the loop adds a reaction from your account under step
-9's skip rule, and a firing of the fence whose fetch shows one drops that comment.
+9's skip bullet, and a firing of the fence whose fetch shows one drops that comment. What a mark can
+cost is ruled by that bullet, the marked-`cid=` bullet and step 11's gate.
 
 ## Two procedures, seven commands
 

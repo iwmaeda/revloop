@@ -94,9 +94,8 @@ body:
       label: Does it post anything before the real review?
       description: >-
         Quote the first line exactly. The loop skips a preamble the wait fence does not know by
-        marking it. Step 9's skip bullet of the procedure owns the marking and the re-fire, and
-        that bullet and the marked-`cid=` bullet together own the aborts; a fence edit removes the
-        stops those rules can cause.
+        marking it. What a mark can cost is ruled by step 9's skip bullet and marked-`cid=` bullet
+        and by step 11's gate, none restated here; a fence edit removes that cost.
       placeholder: "## Summary of Changes"
 
   - type: textarea

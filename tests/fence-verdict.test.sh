@@ -152,8 +152,9 @@ refute "  not the card's"                       "$o" "cid=500"
 expect "  with the clean phrase as the body"    "$o" "body=Codex Review: Didn't find any major issues. Chef's kiss."
 
 # A comment that carries the viewer's own eyes reaction is skipped too, whatever
-# its body: step 9 marks one it cannot classify and the wait goes on past it,
-# under the conditions in step 9's skip bullet.
+# its body: step 9's skip bullet marks one it cannot classify. What a mark can cost is
+# ruled by that bullet, the marked-`cid=` bullet and step 11's gate; this test pins only
+# what the fence does with one.
 # As above, the drop itself is asserted in tests/jq-program.test.sh.
 o=$(r marked-comment)
 expect "a marked comment alone -> still waiting" "$o" "VERDICT=pending"
