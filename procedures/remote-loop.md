@@ -344,12 +344,15 @@ report with its reason.
 
    ```bash
    gh pr create --base <base> --title '<title>' --body-file <scratch>/body.md
+   gh api "repos/{owner}/{repo}/pulls/<n>" --jq '"pr_head=\(.head.sha) opened=\(.created_at)"'   # after creating
    gh api -X PATCH "repos/{owner}/{repo}/pulls/<n>" -F body=@<scratch>/body.md \
      --jq '"pr=\(.number) body_chars=\(.body|length)"'   # updates go here
    ```
 
-   The update prints one line; `body_chars` is the length of the body GitHub now holds. Decide
-   failure from the exit code: a failed call can still print `pr=null body_chars=0`.
+   After creating, run the second line for the new number: it is step 1's read, and its `opened=` is
+   the `<since>` of step 9's active-marks read, which nothing else supplies on a run that created
+   the pull request. The update prints one line; `body_chars` is the length of the body GitHub now
+   holds. Decide failure from the exit code: a failed call can still print `pr=null body_chars=0`.
 
    Write the title and body in the languages from the resolved configuration (`pr.titleLanguage`,
    `commit.bodyLanguage`).
@@ -855,8 +858,10 @@ report with its reason.
      marking a fourth. Otherwise mark the comment with the call below this list, then run the
      read again and require the `cid=` to be a row and the read to return at most three rows: a
      mark added meanwhile counts. A mark that exits non-zero, one the second read does not list
-     and a fourth standing mark abort with `reason=interim-loop` and prints the body in full:
-     the wait would otherwise return the same comment again with nothing spent. When the row is
+     and a fourth standing mark abort with `reason=interim-loop` and print the body in full: the
+     wait would otherwise return the same comment again with nothing spent. The three is what the
+     loop proceeds on, not what can stand: a race can leave the mark just added as a fourth, which
+     the loop cannot remove, so the abort names it and the report lists it for removal. When the row is
      there, keep its full body for the report and re-fire step 8 only. The firing that returned it
      is not a chunk: it costs nothing against `--timeout` and never counts toward step 7's floor.
      A pull request with an active mark stops at step 11's gate instead of converging.
@@ -1459,6 +1464,9 @@ second, and the one-runner rule.
   and the active-marks read counts anyone's 👀 on a bot comment since the pull request was opened,
   so it can stop a run over a reaction the fence ignores or over an earlier round's mark. The read is
   measured at `gh 2.4.0` on a pull request with no mark; no run has read a marked one.
+- The marks' last read before a merge sits outside the merge fence, so a 👀 added in the seconds
+  between that read and the fence's PUT is merged over. Putting it inside is a fence edit and a
+  re-approval for every user. Does not fail closed.
 - Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor: the round caps, the
   per-level sweep obligations, the rising-ceiling re-open, the sufficiency test (it cannot fail
   open), and the default level `standard`.
