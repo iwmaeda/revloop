@@ -533,9 +533,10 @@ report with its reason.
    (d) The round produced no classified verdict at all, and step 9's active-marks read returns no
    row. Run that read again immediately before posting the re-post, after the body is read back
    and composed, and post nothing on a row or a failed read. A rate-limit reply is a classified
-   verdict: its recovery is a later run's re-take, never this re-post. A marked comment is an
-   answer the fence hides from the wait whoever marked it and whenever: do not re-post over a
-   mark this read observed.
+   verdict: its recovery is a later run's re-take, never this re-post. A comment carrying the
+   authenticated account's 👀 is an answer the fence's firings hide from the wait, while this read
+   counts anyone's 👀, so it withholds the re-post more often than the fence hides a comment. A
+   reaction added after the read is not covered: do not re-post over a mark this read observed.
    (e) `git rev-parse HEAD` still equals the `oid=` you are about to write, compared in full.
 
    The re-post is the first trigger's body verbatim, trigger text and focus included, with `head=`
@@ -867,8 +868,8 @@ report with its reason.
      the loop cannot remove, so the abort names it and the report lists it for removal. When the row is
      there, keep its full body for the report and re-fire step 8 only. The firing that returned it
      is not a chunk: it costs nothing against `--timeout` and never counts toward step 7's floor.
-     A pull request on which the active-marks read observes a mark stops at step 11's gate
-     instead of converging.
+     A pull request on which the active-marks read observes a mark stops at step 11's gate,
+     whose own read decides at that moment, instead of converging.
    - `reaction`: an unexercised path; say so in the report.
    - `trigger=` not your `SINCE`: step 8's reconciliation gives the rules.
    - `re-post (once)`: silence is not proof that nothing was sent, so the report says a signal may
@@ -882,8 +883,9 @@ report with its reason.
    - The marks are read off the pull request and never kept in the session. The 👀 outlives the
      run and the round that made it, and a firing whose fetch shows the mark drops the comment
      whatever its body is now, so a reviewer that edited it in place into its verdict stays
-     unread by those firings, and a run that waits on it ends in silence. Step 7's condition (d),
-     step 11's gate and step 12's report each run the read below.
+     unread by those firings. A run whose every poll fetches the mark ends in silence, and one that
+     removes the reaction before a later poll's fetch can read the edited verdict. Step 7's
+     condition (d), step 11's gate and step 12's report each run the read below.
 
    The mark, for the skip row. `<cid>` is the `cid=` on the fence's line. Decide failure from the
    exit code:
@@ -1472,7 +1474,7 @@ second, and the one-runner rule.
   `reason=unclassified-comment`.
   Does not fail closed: a comment older than the one the fence returned is never classified, a
   marked comment the reviewer edits into its verdict stays dropped by each firing whose fetch shows
-  the mark until the reaction is removed,
+  the mark, until a firing fetches after the reaction is removed,
   and the active-marks read counts anyone's 👀 on a bot comment since the pull request was opened,
   so it can stop a run over a reaction the fence ignores or over an earlier round's mark. The read is
   measured at `gh 2.4.0` on a pull request with no mark; no run has read a marked one.
