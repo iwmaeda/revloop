@@ -534,7 +534,8 @@ report with its reason.
    row. Run that read again immediately before posting the re-post, after the body is read back
    and composed, and post nothing on a row or a failed read. A rate-limit reply is a classified
    verdict: its recovery is a later run's re-take, never this re-post. A marked comment is an
-   answer the fence hides from the wait whoever marked it and whenever: never re-post over it.
+   answer the fence hides from the wait whoever marked it and whenever: do not re-post over a
+   mark this read observed.
    (e) `git rev-parse HEAD` still equals the `oid=` you are about to write, compared in full.
 
    The re-post is the first trigger's body verbatim, trigger text and focus included, with `head=`
@@ -864,7 +865,8 @@ report with its reason.
      the loop cannot remove, so the abort names it and the report lists it for removal. When the row is
      there, keep its full body for the report and re-fire step 8 only. The firing that returned it
      is not a chunk: it costs nothing against `--timeout` and never counts toward step 7's floor.
-     A pull request with an active mark stops at step 11's gate instead of converging.
+     A pull request on which the active-marks read observes a mark stops at step 11's gate
+     instead of converging.
    - `reaction`: an unexercised path; say so in the report.
    - `trigger=` not your `SINCE`: step 8's reconciliation gives the rules.
    - `re-post (once)`: silence is not proof that nothing was sent, so the report says a signal may
@@ -873,8 +875,8 @@ report with its reason.
    - `pending` abort: name the condition that failed: `no-verdict attempts=2`,
      `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is
      silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical. A pull
-     request with an active mark never re-posts: its abort is plain `no-verdict` (`max-rounds`
-     at the cap), with every marked body printed in full.
+     request on which condition (d)'s read observes a mark does not re-post: its abort is plain
+     `no-verdict` (`max-rounds` at the cap), with every marked body printed in full.
    - The marks are read off the pull request and never kept in the session. The 👀 outlives the
      run and the round that made it, and the fence drops a marked comment whatever its body is now,
      so a reviewer that edited it in place into its verdict stays unread, and a run that waits on
