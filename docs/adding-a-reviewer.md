@@ -4,8 +4,8 @@ A reviewer is one of two kinds. A bot that reviews a pull request when a comment
 `github-comment` reviewer. A review command that runs on your machine is a
 [local command reviewer](#local-command-reviewers). Both are described by a JSON definition and need
 no change to the procedures. A preamble the wait fence does not know is skipped by marking it, and
-what a mark can cost is ruled by step 9's skip bullet and marked-`cid=` bullet and by step 11's gate
-([below](#if-it-posts-a-preamble-first)).
+what a mark can cost is ruled by step 9's skip bullet and marked-`cid=` bullet, step 7's condition
+(d), step 11's gate and step 12 ([below](#if-it-posts-a-preamble-first)).
 
 A reviewer summoned by a reviewer request instead of a comment (GitHub Copilot, for example) is not
 supported by the pull-request loops: there is no trigger comment to bind a round to, and step 1 aborts with
@@ -89,9 +89,9 @@ knows.
 
 One it does not know is skipped by marking it. In outline, the loop adds a 👀 reaction to the
 comment from your account and a firing of the fence that fetches it ignores that comment.
-Marking, going on, the aborts and the stop are ruled by step 9's skip bullet, step 9's
-marked-`cid=` bullet and step 11's gate, and none is restated here. A stop at the
-gate is `reason=unclassified-comment`, which prints the comment: remove the 👀 and run the command
+What a mark can cost is ruled by step 9's skip bullet and marked-`cid=` bullet, step 7's condition
+(d), step 11's gate and step 12, and none is restated here. A stop at the gate or on step 12's read
+is `reason=unclassified-comment`, which prints the comment: remove the 👀 and run the command
 again to accept the verdict. A firing that fetches the 👀 ignores the comment whatever it
 says later, so a reviewer that edits that comment into its verdict is read only by a firing that
 fetches after the 👀 is removed. Every report lists the marks the loop's last read observed on the

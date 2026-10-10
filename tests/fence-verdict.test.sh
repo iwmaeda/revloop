@@ -153,8 +153,8 @@ expect "  with the clean phrase as the body"    "$o" "body=Codex Review: Didn't 
 
 # A comment that carries the viewer's own eyes reaction is skipped too, whatever
 # its body: step 9's skip bullet marks one it cannot classify. What a mark can cost is
-# ruled by that bullet, the marked-`cid=` bullet and step 11's gate; this test pins only
-# what the fence does with one.
+# ruled by that bullet, the marked-`cid=` bullet, step 7's condition (d), step 11's gate and
+# step 12; this test pins only what the fence does with one.
 # As above, the drop itself is asserted in tests/jq-program.test.sh.
 o=$(r marked-comment)
 expect "a marked comment alone -> still waiting" "$o" "VERDICT=pending"

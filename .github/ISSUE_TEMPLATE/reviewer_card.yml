@@ -94,8 +94,9 @@ body:
       label: Does it post anything before the real review?
       description: >-
         Quote the first line exactly. The loop skips a preamble the wait fence does not know by
-        marking it. What a mark can cost is ruled by step 9's skip bullet and marked-`cid=` bullet
-        and by step 11's gate, none restated here; a fence edit removes that cost.
+        marking it. What a mark can cost is ruled by step 9's skip bullet and marked-`cid=` bullet,
+        step 7's condition (d), step 11's gate and step 12, none restated here; a fence edit
+        removes that cost.
       placeholder: "## Summary of Changes"
 
   - type: textarea
