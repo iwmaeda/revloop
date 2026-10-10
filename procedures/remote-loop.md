@@ -432,10 +432,11 @@ report with its reason.
    - A `pending` in any flavour (matched or mismatched, inside `--timeout` or past it) aborts with
      `reason=max-rounds` at once: no re-fire, no re-post, no charge against `--timeout`, no count
      toward condition (a). At the cap there is no second trigger of any kind.
-   - Step 9's rows that send a verdict back to step 8 still run, on step 9's own counters: the
-     mismatched-`trigger=` row (two re-fires, then `reason=foreign-baseline`), the ancestor row
-     (one, then abort) and the skip row (three, then `reason=interim-loop`). A re-fire that returns
-     `pending` aborts as above.
+   - Step 9's rows that send a verdict back to step 8 still run, on step 9's own bounds: the
+     mismatched-`trigger=` row (two re-fires, then `reason=foreign-baseline`) and the ancestor row
+     (one, then abort) on counters, and the skip row on the marks standing on the pull request
+     (a marked `cid=` aborts with `reason=interim-loop` at once, and so does a fourth mark). A
+     re-fire that returns `pending` aborts as above.
    - With the abort, print the cap, its `source`, the marker count it was measured against and the
      remedy; when the `source` is `rigor`, name `defaults.maxRounds` as the key that pins it. Say
      what this run did before it met the cap: a verdict read, findings answered, a fix pushed.
@@ -1271,9 +1272,13 @@ report with its reason.
     - `CI_WAIT=error reason=no-pr`: the branch has no open PR. Suspect step 6, not the merge.
     - `CI_WAIT=error reason=no-branch`: HEAD is detached. Check a branch out; do not look at CI.
 
-    Unless `--auto` was passed, stop for confirmation just before merging. Then merge with the
-    fence below. It re-runs the CI check itself and pins `sha=`, so it fails closed when CI is no
-    longer green or HEAD moved since the check.
+    Unless `--auto` was passed, stop for confirmation just before merging. Then run step 9's
+    active-marks read once more, immediately before the fence below: the CI wait can last about
+    18 minutes, and a pull request with a mark standing does not merge. A row, or a failed read,
+    stops here with `reason=unclassified-comment`; print the rows and do not fire the fence. Then
+    merge with the fence. It re-runs the CI check itself and pins `sha=`, so it fails closed when
+    CI is no longer green or HEAD moved since the check. It does not read marks, so this read is
+    the only guard between a 👀 added during the wait and the merge.
 
     <!-- revloop:fence id=merge -->
 
