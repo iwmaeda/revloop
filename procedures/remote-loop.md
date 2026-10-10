@@ -860,10 +860,11 @@ report with its reason.
      silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical. A round
      that skipped a comment never re-posts: its abort is plain `no-verdict`, with every skipped
      body printed in full.
-   - Every stop that follows a skip (`unclassified-comment`, `no-verdict`, `interim-loop`) lists each
-     skipped comment's `cid=` and its `MARKED=` id, and says to remove that 👀 before running the
-     command again. The fence drops a marked comment whatever its body is now, so a reviewer that
-     edited it in place into its verdict stays unread, and a run that waits on it ends in silence.
+   - Keep every `MARKED=` id with its `cid=` for the whole run. The 👀 outlives the round that made
+     it, so step 12's report names each mark on every way the run ends, whatever the reason: see
+     the last bullet of the report list there. The fence drops a marked comment whatever its body is
+     now, so a reviewer that edited it in place into its verdict stays unread, and a run that waits
+     on it ends in silence.
 
    The mark, for the skip row. `<cid>` is the `cid=` on the fence's line. Decide failure from the
    exit code:
@@ -1193,6 +1194,11 @@ report with its reason.
       so nothing was graded), lead with every finding you did not fix.
     - Carry the `Sufficiency:` block the test wrote, in the shape
       [`rigor-levels.md`](rigor-levels.md) gives, into the report and into the pull-request body.
+    - If this run marked a comment in step 9's skip row, on any ending at all (a convergence, a
+      merge, any `reason=` abort, a round that went on to fix findings), list each marked comment's
+      `cid=`, its `MARKED=` id and its URL, and say that its 👀 stays until you remove it and that
+      the fence drops the comment, even one the reviewer has since edited into its verdict, while
+      it stands. Remove it before running the command again.
     - Say everything an earlier step told you to say in the report, including every accepted
       finding with its reason, a reviewer `status` that is not `verified`, and each unexercised
       path the run took.
