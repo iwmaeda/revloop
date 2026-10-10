@@ -441,12 +441,12 @@ marks() { # marks <since> <file>...
 }
 MFORMS="$FX/forms/marked-comments.json"
 o=$(marks 2026-01-01T01:00:00Z "$MFORMS")
-same "only bot comments with an eyes after the bound are rows" \
-  "$(printf '%s\n' "$o" | cut -d' ' -f2 | tr '\n' ' ')" "703 707 "
+same "only bot comments with an eyes at or after the bound are rows" \
+  "$(printf '%s\n' "$o" | cut -d' ' -f2 | tr '\n' ' ')" "702 703 707 "
 expect "  a row names the comment's URL"             "$o" "https://github.com/o/r/pull/1#issuecomment-703"
 expect "  and how many eyes it carries"              "$o" "eyes=2"
-same "a comment in the bound's own second is not after it" \
-  "$(printf '%s\n' "$o" | grep -c ' 702 ')" "0"
+same "a comment in the bound's own second is a row: the opening second counts" \
+  "$(printf '%s\n' "$o" | grep -c ' 702 ')" "1"
 same "a person's eyes is not a mark"                 "$(printf '%s\n' "$o" | grep -c ' 705 ')" "0"
 same "a bot comment with no reactions object is no row" "$(printf '%s\n' "$o" | grep -c ' 706 ')" "0"
 same "an earlier bound adds the earlier comments" \

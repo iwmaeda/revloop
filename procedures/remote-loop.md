@@ -852,9 +852,9 @@ report with its reason.
      with `reason=interim-loop` at once and print the comment's URL and full body. Nothing here
      asks who made the mark or in which run, so a resumed run meets it as an earlier one did.
    - Skip: the body matches neither `cleanPatterns` nor `rateLimitPatterns`, and the active-marks
-     read does not list its `cid=`. Run that read first. The pull request carries at most three
-     marks at once, whoever made them and in whichever run: when the read already returns three
-     rows, abort with `reason=interim-loop` and print each row's URL and body in full rather than
+     read does not list its `cid=`. Run that read first. The loop proceeds on at most three
+     marks, whoever made them and in whichever run: when the read already returns three rows,
+     abort with `reason=interim-loop` and print each row's URL and body in full rather than
      marking a fourth. Otherwise mark the comment with the call below this list, then run the
      read again and require the `cid=` to be a row and the read to return at most three rows: a
      mark added meanwhile counts. A mark that exits non-zero, one the second read does not list
@@ -893,14 +893,16 @@ report with its reason.
    fails if it is left unfilled. The pull request's own creation time cannot move, so it is the
    same value on every use, a mark from an earlier round or before the first marker stays in every
    later check, and a hand-typed trigger followed by a marker cannot shift it. A row is a bot
-   comment created after it carrying any 👀. The fence drops only the one from the account `gh` is
-   authenticated as, so a row can be over-inclusive and never under-inclusive:
+   comment created at or after it, so one made in the opening second counts, carrying any 👀. The
+   fence drops only the one from the account `gh` is authenticated as, so a row can be
+   over-inclusive. A row is what the read observed when it ran and is no guarantee about the
+   instant after:
 
    <!-- revloop:read id=active-marks -->
 
    ```bash
    gh api --paginate "repos/{owner}/{repo}/issues/<n>/comments?per_page=100" \
-     --jq '(if ("<since>"|test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")) then . else error("since is not filled in") end)|.[]|select(.user.type=="Bot" and ((.reactions.eyes // 0)>0) and (.created_at>"<since>"))|"\(.created_at) \(.id) \(.user.login) eyes=\(.reactions.eyes) \(.html_url)"'
+     --jq '(if ("<since>"|test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")) then . else error("since is not filled in") end)|.[]|select(.user.type=="Bot" and ((.reactions.eyes // 0)>0) and (.created_at>="<since>"))|"\(.created_at) \(.id) \(.user.login) eyes=\(.reactions.eyes) \(.html_url)"'
    ```
 
    A non-zero exit is a failed read, never an empty one.
@@ -1122,7 +1124,7 @@ report with its reason.
       `reason=unclassified-comment`, print each row and the comment's body in full, and say to
       remove that 👀 and run the command again. This is pull-request state, so it holds for a
       mark from an interrupted run, an earlier run, an earlier round or a person alike, and a run
-      stops here until the reaction is gone. The reviewer may have edited the comment into its
+      stops here for as long as the read observes one. The reviewer may have edited the comment into its
       verdict, and the fence reads it again only once its 👀 is removed.
     - If `pr_head=` is no longer `git rev-parse HEAD`, abort with `reason=pr-head-advanced`. Name
       both object ids, and say in the report that the pull request advanced during the round and
@@ -1226,7 +1228,10 @@ report with its reason.
     - Carry the `Sufficiency:` block the test wrote, in the shape
       [`rigor-levels.md`](rigor-levels.md) gives, into the report and into the pull-request body.
     - Run step 9's active-marks read on any ending at all (a convergence, a merge, any `reason=`
-      abort, a round that went on to fix findings). A row, or a failed read, on a run that was
+      abort, a round that went on to fix findings). It needs `<n>` and `opened=`: take them again
+      with step 1's `pulls/<n>` read when the pull request exists. When it does not, because step 1
+      ended before it or the branch has no pull request, or when that read fails, say that the marks
+      were not read and do not call the report clean of them. A row, or a failed read, on a run that was
       about to report a convergence withdraws it: report `reason=unclassified-comment` instead,
       and merge nothing. For each row it returns, list the comment's id and URL, and say that its
       👀 stays until you remove it and that the fence drops the comment, even one the reviewer has
@@ -1283,8 +1288,8 @@ report with its reason.
 
     Unless `--auto` was passed, stop for confirmation just before merging. Then run step 9's
     active-marks read once more, immediately before the fence below: the CI wait can last about
-    18 minutes, and a pull request with a mark standing does not merge. A row, or a failed read,
-    stops here with `reason=unclassified-comment`; print the rows and do not fire the fence. Then
+    18 minutes, and a pull request on which the read observes a mark does not merge. A row, or a
+    failed read, stops here with `reason=unclassified-comment`; print the rows and do not fire the fence. Then
     merge with the fence. It re-runs the CI check itself and pins `sha=`, so it fails closed when
     CI is no longer green or HEAD moved since the check. It does not read marks, so this read is
     the only guard between a 👀 added during the wait and the merge.

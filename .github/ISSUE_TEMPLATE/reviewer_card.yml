@@ -94,7 +94,8 @@ body:
       label: Does it post anything before the real review?
       description: >-
         Quote the first line exactly. The loop skips a preamble the wait fence does not know and
-        stops once before it finishes; a fence edit removes that stop.
+        stops before it finishes while its reads observe the skip's mark; a fence edit removes that
+        stop.
       placeholder: "## Summary of Changes"
 
   - type: textarea
