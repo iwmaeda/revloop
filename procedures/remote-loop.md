@@ -438,11 +438,11 @@ report with its reason.
      toward condition (a). At the cap there is no second trigger of any kind.
    - Step 9's rows that send a verdict back to step 8 still run, on step 9's own bounds: the
      mismatched-`trigger=` row (two re-fires, then `reason=foreign-baseline`) and the ancestor row
-     (one, then abort) on counters, and the skip row on the marks its active-marks reads observe.
-     The skip row re-fires step 8 only on the conditions in step 9's skip bullet. That bullet
-     and the marked-`cid=` bullet, which allows no re-fire, together are the one list of what
-     aborts it with `reason=interim-loop`: none is restated here. A re-fire that returns `pending`
-     aborts as above.
+     (one, then abort) on counters, and the skip row on the 👀 from any account that its
+     active-marks reads observe. The skip row re-fires step 8 only on the conditions in step 9's
+     skip bullet. That bullet and the marked-`cid=` bullet, which allows no re-fire, together are
+     the one list of what aborts it with `reason=interim-loop`: none is restated here. A re-fire
+     that returns `pending` aborts as above.
    - With the abort, print the cap, its `source`, the marker count it was measured against and the
      remedy; when the `source` is `rigor`, name `defaults.maxRounds` as the key that pins it. Say
      what this run did before it met the cap: a verdict read, findings answered, a fix pushed.
@@ -662,7 +662,8 @@ report with its reason.
    account `gh` is authenticated as does not emit that comment. A reaction added or removed after
    a fetch is seen by the next firing and not by that one. Step 9's skip bullet can add that reaction;
    what the loop does with a comment and what a mark can cost is ruled by that bullet, the marked-`cid=`
-   bullet, step 7's condition (d), step 11's gate and step 12.
+   bullet, step 7's condition (d), step 11's gate and step 12, which act on a 👀 from any account
+   through the active-marks read.
 
    Reconcile `trigger=` with the `SINCE` you recorded in step 7 on `review`, `comment`, `reaction`
    and `pending`. No `VERDICT=error` form emits `trigger=`: an absent one is not a mismatch, and an
@@ -813,7 +814,7 @@ report with its reason.
    | `comment` whose body starts with the reviewer's clean phrase      | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `comment` matching the rate-limit pattern + your own trigger      | abort (`reviewer-rate-limited`)     | `reason=reviewer-rate-limited`; no retry            |
    | `comment` matching the rate-limit pattern + a standing trigger    | re-take (`rate-limit-retake`)       | step 7                                              |
-   | `comment` whose `cid=` the active-marks read lists                | abort (`interim-loop`)              | see the marked-`cid=` bullet below                  |
+   | `comment` whose `cid=` the active-marks read lists (anyone's 👀)  | abort (`interim-loop`)              | see the marked-`cid=` bullet below                  |
    | `comment` with any other bot body                                 | skip                                | per step 9's skip bullet below                      |
    | `reaction`                                                        | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `pending` (within `--timeout`)                                    | continue                            | re-fire step 8 only, never step 7                   |
@@ -873,8 +874,8 @@ report with its reason.
      the loop cannot remove, so the abort names it and the report lists it for removal. When the row is
      there, keep its full body for the report and re-fire step 8 only. The firing that returned it
      is not a chunk: it costs nothing against `--timeout` and never counts toward step 7's floor.
-     The other rules that act on a mark are the marked-`cid=` bullet, step 7's condition (d),
-     step 11's gate and step 12.
+     The other rules that act on a 👀 from any account are the marked-`cid=` bullet, step 7's
+     condition (d), step 11's gate and step 12.
    - `reaction`: an unexercised path; say so in the report.
    - `trigger=` not your `SINCE`: step 8's reconciliation gives the rules.
    - `re-post (once)`: silence is not proof that nothing was sent, so the report says a signal may
@@ -887,9 +888,9 @@ report with its reason.
      run and the round that made it, and a firing whose fetch shows the authenticated account's
      mark drops the comment whatever its body is now, an edit into a verdict included. Removing
      that reaction before a later firing's fetch is what lets that firing read the comment, and
-     another account's 👀 never hides it from the fence. The rules that act on a mark
-     are this skip bullet and the marked-`cid=` bullet, step 7's condition (d), step 11's gate and
-     step 12, and each of them acts on what the read below returns.
+     another account's 👀 never hides it from the fence. The rules that act on a 👀
+     from any account are this skip bullet and the marked-`cid=` bullet, step 7's condition (d),
+     step 11's gate and step 12, and each of them acts on what the read below returns.
 
    The mark, for the skip row. `<cid>` is the `cid=` on the fence's line. Decide failure from the
    exit code:
@@ -1243,12 +1244,13 @@ report with its reason.
       abort, a round that went on to fix findings). It needs `<n>` and `opened=`: take them again
       with step 1's `pulls/<n>` read when the pull request exists. When it does not, because step 1
       ended before it or the branch has no pull request, or when that read fails, say that the marks
-      were not read and do not call the report clean of them. A row, or a failed read, on a run that was
-      about to report a convergence withdraws it: report `reason=unclassified-comment` instead,
-      and merge nothing. For each row it returns, list the comment's id and URL, and say that its
-      👀 stays until you remove it and, when it is the authenticated account's, that a firing
-      whose fetch shows it drops the comment, even one the reviewer has since edited into its
-      verdict. Remove it before running the command again.
+      were not read and do not call the report clean of them. A row (a bot comment carrying a 👀 from
+      any account), or a failed read, on a run that was about to report a convergence withdraws it:
+      report `reason=unclassified-comment` instead, and merge nothing. For each row it returns,
+      list the comment's id and URL, and say that its 👀 stays until you remove it and, when it
+      is the authenticated account's, that a firing whose fetch shows it drops the comment, even
+      one the reviewer has since edited into its verdict. Remove it before running the command
+      again.
       If the read fails, say so and do not call the report clean of marks.
     - Say everything an earlier step told you to say in the report, including every accepted
       finding with its reason, a reviewer `status` that is not `verified`, and each unexercised
@@ -1301,11 +1303,11 @@ report with its reason.
 
     Unless `--auto` was passed, stop for confirmation just before merging. Then run step 9's
     active-marks read once more, immediately before the fence below: the CI wait can last about
-    18 minutes, and a pull request on which the read observes a mark does not merge. A row, or a
-    failed read, stops here with `reason=unclassified-comment`; print the rows and do not fire the fence. Then
+    18 minutes, and a pull request on which the read observes a 👀 from any account does not merge.
+    A row, or a failed read, stops here with `reason=unclassified-comment`; print the rows and do not fire the fence. Then
     merge with the fence. It re-runs the CI check itself and pins `sha=`, so it fails closed when
     CI is no longer green or HEAD moved since the check. It does not read marks, so this read is
-    the only guard between a 👀 added during the wait and the merge.
+    the only guard between a 👀, from any account, added during the wait and the merge.
 
     <!-- revloop:fence id=merge -->
 
@@ -1476,7 +1478,7 @@ second, and the one-runner rule.
   when there is also no bot comment and no reaction.
 - A review submitted in the same second as its trigger. The fence does not select it, so a later
   clean comment can finish the round over it. Does not fail closed.
-- Step 9's skip row, from a run. What a mark leads to is ruled by step 9's skip bullet and
+- Step 9's skip row, from a run. What a 👀 from any account leads to is ruled by step 9's skip bullet and
   marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, none restated here, and no
   run has taken any of them. Does not fail closed: a firing returns the newest comment after the
   trigger, so an older one is classified only when it is the newest the firing's fetch leaves, which
@@ -1486,7 +1488,7 @@ second, and the one-runner rule.
   including one the fence ignores and an earlier round's. The read is measured at `gh 2.4.0` on a
   pull request with no mark; no run has read a marked one.
 - Step 12's last read of the marks before a merge sits outside the merge fence, so none of the five
-  rules reads a 👀 added in the seconds between that read and the fence's PUT. Putting it inside is
+  rules reads a 👀, from any account, added in the seconds between that read and the fence's PUT. Putting it inside is
   a fence edit and a re-approval for every user. Does not fail closed.
 - Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor: the round caps, the
   per-level sweep obligations, the rising-ceiling re-open, the sufficiency test (it cannot fail

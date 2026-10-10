@@ -25,7 +25,7 @@ Fences: `wait-verdict` changed (one re-approval).
   firing of the wait fence skips a bot comment whose fetch shows a 👀 reaction from your account.
   What the loop does with such a comment and what a mark can cost is ruled by step 9's skip bullet
   and marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, which this entry
-  does not restate.
+  does not restate and which count a 👀 from any account, not only yours.
 
 ### Fixed
 

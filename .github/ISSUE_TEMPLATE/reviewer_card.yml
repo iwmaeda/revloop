@@ -95,8 +95,9 @@ body:
       description: >-
         Quote the first line exactly. What the loop does with a preamble the wait fence does not
         know, and what that can cost, is ruled by step 9's skip bullet and marked-`cid=` bullet,
-        step 7's condition (d), step 11's gate and step 12, none restated here; a fence edit
-        removes that cost.
+        step 7's condition (d), step 11's gate and step 12, none restated here. Those rules
+        count a 👀 from any account, where the fence drops only the one from your own; a fence
+        edit removes that cost.
       placeholder: "## Summary of Changes"
 
   - type: textarea

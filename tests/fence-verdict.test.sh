@@ -154,22 +154,23 @@ expect "  with the clean phrase as the body"    "$o" "body=Codex Review: Didn't 
 # A comment that carries the viewer's own eyes reaction is skipped too, whatever
 # its body. What the loop does with a comment it does not know, and what a mark can cost,
 # is ruled by step 9's skip bullet, the marked-`cid=` bullet, step 7's condition (d),
-# step 11's gate and step 12; this test pins only what the fence does with one.
+# step 11's gate and step 12, whose active-marks read counts anyone's eyes; this test pins
+# only what the fence does with the viewer's.
 # As above, the drop itself is asserted in tests/jq-program.test.sh.
-o=$(r marked-comment)
-expect "a marked comment alone -> still waiting" "$o" "VERDICT=pending"
-refute "  the marked comment is not a verdict"  "$o" "cid=500"
+o=$(r viewer-marked-comment)
+expect "a viewer-marked comment alone -> still waiting" "$o" "VERDICT=pending"
+refute "  the viewer-marked comment is not a verdict" "$o" "cid=500"
 
-o=$(r marked-comment-then-clean)
-expect "a verdict newer than the mark wins"     "$o" "VERDICT=comment"
+o=$(r viewer-marked-comment-then-clean)
+expect "a verdict newer than the viewer's mark wins" "$o" "VERDICT=comment"
 expect "  by its own id"                        "$o" "cid=600"
-refute "  not the marked comment's"             "$o" "cid=500"
+refute "  not the viewer-marked comment's"      "$o" "cid=500"
 
 # Dropping the newest comment uncovers an older signal of the same round.
-o=$(r marked-comment-over-rate-limit)
-expect "the mark uncovers the older rate limit" "$o" "cid=400"
+o=$(r viewer-marked-comment-over-rate-limit)
+expect "the viewer's mark uncovers the older rate limit" "$o" "cid=400"
 expect "  with its body"                        "$o" "body=You have reached your Codex usage limits"
-refute "  not the marked comment"               "$o" "cid=500"
+refute "  not the viewer-marked comment"        "$o" "cid=500"
 
 # Another account's eyes, and the viewer's thumbs-up, are not what the fence
 # filters on. The active-marks read in step 9 does count anyone's eyes.

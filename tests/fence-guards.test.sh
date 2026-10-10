@@ -61,7 +61,7 @@ for id in $IDS; do
 done
 
 # The gh stub ignores the query, so no fixture shows that the query fetches the
-# reaction the jq program filters on. Without the field the mark hides nothing.
+# reaction the jq program filters on. Without the field the viewer's mark hides nothing.
 if grep -q '\.viewerHasReacted' "$TMP/wait-verdict.sh"; then
   q=$(grep -c 'reactionGroups{content viewerHasReacted ' "$TMP/wait-verdict.sh" || true)
   expect "wait-verdict queries the reaction its program filters on" "$q" "1"

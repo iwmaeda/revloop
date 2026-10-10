@@ -5,7 +5,8 @@ A reviewer is one of two kinds. A bot that reviews a pull request when a comment
 [local command reviewer](#local-command-reviewers). Both are described by a JSON definition and need
 no change to the procedures. What the loop does with a preamble the wait fence does not know, and
 what that can cost, is ruled by step 9's skip bullet and marked-`cid=` bullet, step 7's condition
-(d), step 11's gate and step 12 ([below](#if-it-posts-a-preamble-first)).
+(d), step 11's gate and step 12 ([below](#if-it-posts-a-preamble-first)), which count a 👀 from any
+account.
 
 A reviewer summoned by a reviewer request instead of a comment (GitHub Copilot, for example) is not
 supported by the pull-request loops: there is no trigger comment to bind a round to, and step 1 aborts with
@@ -90,7 +91,7 @@ knows.
 A firing of the fence ignores a bot comment whose fetch shows a 👀 reaction from your account. What
 the loop does with one it does not know, and what that can cost, is ruled by step 9's skip bullet
 and marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, and none is restated
-here.
+here. Those rules count a 👀 from any account, where the fence ignores only the one from yours.
 
 To remove what that can cost, add the preamble to the fence's list. That is a fence edit, which follows the
 protocol in [`CONTRIBUTING.md`](../CONTRIBUTING.md#editing-or-adding-a-shell-fence).
