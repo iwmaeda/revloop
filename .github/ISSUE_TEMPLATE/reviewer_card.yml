@@ -93,9 +93,10 @@ body:
     attributes:
       label: Does it post anything before the real review?
       description: >-
-        Quote the first line exactly. The loop skips a preamble the wait fence does not know and
-        stops before it finishes when a read observes the skip's mark; a fence edit removes that
-        stop.
+        Quote the first line exactly. The loop marks and waits past a preamble the wait fence does
+        not know when its mark reads allow, stops before it finishes while a read observes the
+        mark, and aborts with `interim-loop` when the mark cannot be made or confirmed; a fence
+        edit removes those stops.
       placeholder: "## Summary of Changes"
 
   - type: textarea

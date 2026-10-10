@@ -3,8 +3,9 @@
 A reviewer is one of two kinds. A bot that reviews a pull request when a comment asks it to is a
 `github-comment` reviewer. A review command that runs on your machine is a
 [local command reviewer](#local-command-reviewers). Both are described by a JSON definition and need
-no change to the procedures. A preamble the wait fence does not know costs one stop on a round with
-nothing to fix ([below](#if-it-posts-a-preamble-first)).
+no change to the procedures. A preamble the wait fence does not know costs a stop on a round with
+nothing to fix while a read observes its mark, and an abort when the mark cannot be made or
+confirmed ([below](#if-it-posts-a-preamble-first)).
 
 A reviewer summoned by a reviewer request instead of a comment (GitHub Copilot, for example) is not
 supported by the pull-request loops: there is no trigger comment to bind a round to, and step 1 aborts with
@@ -86,9 +87,11 @@ Some reviewers acknowledge the trigger before doing the work. Gemini posts `## S
 and Codex posts a status card that it edits while the review runs. The wait fence drops the ones it
 knows.
 
-One it does not know is skipped. Step 9 adds a 👀 reaction to the comment from your account, a
-firing of the fence that fetches it ignores that comment, and the wait goes on with the next
-firing's fetch deciding. A round whose pull request carries a bot comment with a 👀 on it since
+One it does not know is skipped. Step 9 adds a 👀 reaction to the comment from your account when
+fewer than three marks stand and a second read lists the new one, a firing of the fence that
+fetches it ignores that comment, and the wait goes on with the next firing's fetch deciding.
+Three marks already standing, a reaction that cannot be added or a second read that does not list
+it abort with `reason=interim-loop` instead. A round whose pull request carries a bot comment with a 👀 on it since
 the pull request was opened, whoever put it there and in whichever run or round, as far as the
 loop's reads observe, and then has nothing to fix stops with `reason=unclassified-comment` and
 prints the comment. Remove the 👀 and run the command again to accept the verdict. A firing that

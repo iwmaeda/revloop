@@ -657,7 +657,7 @@ report with its reason.
    A firing of the fence whose fetch shows a bot comment carrying a 👀 (`eyes`) reaction from the
    account `gh` is authenticated as does not emit that comment. A reaction added or removed after
    a fetch is seen by the next firing and not by that one. Step 9's skip row marks a comment that
-   way to wait past it.
+   way, when its mark reads allow, to wait past it.
 
    Reconcile `trigger=` with the `SINCE` you recorded in step 7 on `review`, `comment`, `reaction`
    and `pending`. No `VERDICT=error` form emits `trigger=`: an absent one is not a mismatch, and an
@@ -809,7 +809,7 @@ report with its reason.
    | `comment` matching the rate-limit pattern + your own trigger      | abort (`reviewer-rate-limited`)     | `reason=reviewer-rate-limited`; no retry            |
    | `comment` matching the rate-limit pattern + a standing trigger    | re-take (`rate-limit-retake`)       | step 7                                              |
    | `comment` whose `cid=` the active-marks read lists                | abort (`interim-loop`)              | see the marked-`cid=` bullet below                  |
-   | `comment` with any other bot body                                 | skip                                | mark it, re-fire step 8 only                        |
+   | `comment` with any other bot body                                 | skip                                | mark and confirm it, re-fire step 8 only            |
    | `reaction`                                                        | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `pending` (within `--timeout`)                                    | continue                            | re-fire step 8 only, never step 7                   |
    | any output whose `trigger=` is not your `SINCE`                   | continue (twice)                    | re-fire; third: `reason=foreign-baseline`           |
@@ -1362,10 +1362,10 @@ These are load-bearing. Each rule here holds across steps, or is stated by no si
 
 - **Arm one wait at a time.** If an earlier wait may still be running, wait for its verdict instead
   of firing again.
-- Add the 👀 mark that step 8's fence reads only in step 9's skip row. Nobody else's reaction
-  counts as one. A firing whose fetch shows the mark leaves the comment unread whatever it later
-  says, an edit into a verdict included. To make a later firing read it, remove the reaction
-  before that firing's fetch.
+- Add the 👀 mark that step 8's fence reads only in step 9's skip row. The fence counts only the
+  authenticated account's reaction as one, while the active-marks read counts anyone's. A firing
+  whose fetch shows the mark leaves the comment unread whatever it later says, an edit into a
+  verdict included. To make a later firing read it, remove the reaction before that firing's fetch.
 - Discard the findings of a stale review; never salvage them. Step 9 allows one re-fire per round
   and aborts on the second.
 - Before trusting a `pending` row in step 9, enumerate the `pending`: within `--timeout` or past
