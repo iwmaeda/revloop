@@ -1,640 +1,140 @@
 # Design notes
 
-Why the loops are shaped the way they are. The procedures state the rules; this page covers decisions
-that span the whole design, and holds the reasoning the task guides link out to.
+Why the loops work the way they do. The rules themselves are in [`procedures/`](../procedures/).
 
-## Provenance
+## The baseline timestamp
 
-revloop is the union of three independently hardened copies of the same procedure. None was best on
-its own — each had fixed bugs the others still had: a clean phrase matched for equality instead of as
-a prefix, a findings reader that trusted a field which is usually null, a failure token containing
-the success token as a substring, a wait loop that exited on a non-terminal signal, and a wait built
-on an endpoint that returns 404 while another serves the same data. Each of those is now a rule in
-[`../procedures/remote-loop.md`](../procedures/remote-loop.md).
+The wait takes the newest trigger as its baseline and accepts a verdict that arrives after it.
 
-The differences that were _not_ bugs became the configuration surface. `.revloop.json`'s field list is
-therefore not a guess about what people might want, but the list of what actually differed between
-three working installations.
+| Baseline | Consequence                                                                                                                          | Class                             |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
+| Too new  | A verdict that already arrived is dropped: the round times out, or finishes clean over a dropped comment that should have stopped it | Liveness; safety for that comment |
+| Too old  | A previous round's "no issues" is accepted as this round's                                                                           | Safety                            |
 
-## The baseline timestamp is the whole safety argument
+Findings that arrive as a review are also bound to a commit. A terminal comment is bound only by
+time, so the baseline never moves backwards: walking back to an older trigger when no verdict is
+found would trade a timeout for a false clean result. Moving it forward is allowed, which is why a
+round may re-post its trigger once, and why a later run may re-take a rate-limited trigger.
 
-The wait loop takes the newest trigger as its baseline and accepts a verdict arriving after it.
-Getting that wrong fails in two directions, and they are not equally bad:
-
-| Baseline | Consequence                                                                                                                 | Class                                                                |
-| -------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Too new  | A verdict that already arrived is dropped; the round times out and aborts — or, since the re-post, may finish clean instead | **liveness**, but **safety** when the dropped signal was abort-class |
-| Too old  | A **previous** round's "no issues" satisfies the filter → false clean verdict                                               | **safety**                                                           |
-
-Findings arriving as a _review_ are protected by comparing `commit=` against HEAD. Terminal signals
-arriving as a comment have no commit binding at all, so the timestamp is the only thing tying them to
-this round. "Newest trigger" guarantees never-too-old at the price of being vulnerable to too-new,
-which is why the tempting refinement — walk back to an older trigger when no verdict is found — is
-rejected. It trades a liveness bug for a safety bug, and with `--auto --merge` a safety bug merges
-unreviewed code.
-
-**Posting a second trigger is the mirror of that, and it is allowed.** A re-post moves the baseline
-**forward**, so it can only reach the too-new row above, never the too-old one. **The direction is the
-entire argument**: the rejected refinement reaches for a verdict older than the baseline, which is how
-a previous round's "no issues" gets adopted.
-
-The cost is bounded but not zero. A review orphaned in the gap is recovered by step 10's two-trigger
-sweep; a comment-only signal has no such recovery, and for the two abort-class comments that is a real
-widening, which is why a two-trigger round says so in its report. The conditions, the budget, and the
-recovery are in the procedure's step 7 and step 10.
-
-**The rate-limit re-take moves the baseline forward too, and it is the one forward move that drops
-nothing.** The signal it steps past is the rate-limit reply the run has already classified, so the
-too-new row above has nothing to lose to it. A round that carried a review **as well** never reaches
-the re-take at all — it reaches the `EXTRA=` ruling, whose whole point is that the trigger was
-answered — so no recoverable finding is ever in that gap.
-
-**Adopting a review under a foreign baseline is off that table entirely, because it moves no
-baseline.** The two rows above are about which trigger the wait filters against; an adoption changes
-neither the trigger nor the filter, and posts nothing. What it rests on instead is a **different and
-stronger binding**: GitHub's own `commit_id` for the review, read in full and compared against
-`git rev-parse HEAD`. **Which review that is comes from the review list rather than from the wait
-fence's line**: with a hand-typed trigger holding the baseline the fence has no `bot=` to filter on,
-so its line names the newest review by any bot and the reviewer's own may be behind it. The
-procedure's step 9 states the selection; its lower bound is the fence's own, strictly after the
-winning trigger, which is what keeps the too-old row below closed rather than merely narrow.
-A marker's `oid=` records what revloop **asked about**; `commit_id` records what
-the reviewer **looked at**, and when a hand-typed trigger holds the baseline the first does not exist
-while the second still does. That is why only a `review` may be **adopted** — a comment or a reaction
-carries no commit binding at all, so for those the too-old row is the whole risk and stays closed.
-**What may be adopted and what may open the question are two different things**, and conflating them
-cost a round: the selection reads the review list and needs only the `trigger=` every verdict form
-carries, so a `comment` or a `reaction` line opens it too. It has to, because the fence's
-`reviews(last:15)` window truncates before its Bot and non-`DISMISSED` filters run — fifteen newer
-human or dismissed reviews empty its review set while an adoptable review sits outside the window.
-The gate is keyed to the `marker_head=none` state for that reason, and nothing about what it may
-adopt moved.
-
-**A review the branch has already moved past is discarded rather than adopted, and that is also off
-the table above.** When the reviewer's answer is bound to a strict **ancestor** of HEAD, nothing
-standing can bind a verdict to the commit in hand, so the procedure's `foreign-baseline-retake` row
-opens an ordinary round without reading it. That is the too-old row honoured rather than bent: the
-review is not adopted at a commit it never looked at. It is also the only way home for a run
-interrupted between an adopted round's push and its re-take, where the fixes have advanced HEAD past
-the very review that licensed them.
-
-**The abort it narrows was protecting the trigger's binding, not the review's.** "The compatibility
-class anchors a baseline; it cannot bind a verdict to a commit" is true of the trigger and false of
-the review, and reading the review is not racing the person who posted the trigger — the same
-read/post line the runaway invariant already draws. The narrowing is deliberately small: adoption
-requires the configured reviewer's login **and** a full `commit_id` equal to HEAD, and an adopted
-round can neither converge the loop nor merge, because **which** request it answers cannot be
-established — it may be a stranger's, whose focus is unknown and may be arbitrarily narrow.
-
-**That last uncertainty is the one thing a timestamp cannot remove, and the re-take is priced against
-it rather than excused from it.** "Submitted after the hand-typed trigger" orders two events; it does
-not make the trigger the cause. A marked request of revloop's own can be outstanding at the same
-commit, so the review the loop adopts may be the answer to that — and the person's request may still
-be in flight when the re-take fires. The procedure **prints** that possibility and gates nothing on
-it: a gate would key on a comment already posted, which never stops being there, so the refusal would
-repeat on every later run and restore the permanent block this chapter's adoption row exists to
-remove. What the gate would buy is instead bought twice over elsewhere: the adopted round may not
-converge or merge whoever asked, and the round the re-take opens runs step 10's review sweep, so a
-second answer at the same commit is read rather than dropped. The cost that remains is one round,
-which `--max-rounds` bounds and the pull request shows.
-
-**"Newest" is a computation, not a row position.** Trigger rows are sorted before the newest is taken,
-because the fence builds its array from several generators and generator order is not time order —
-taking the last row selected the newest _hand-typed_ trigger whenever one existed, which is the
-too-old row reached without anyone choosing it. What the sort enforces is that **the trigger posted
-later wins, whatever class it belongs to**.
+A review drawn by a hand-typed trigger is read only when it is by the configured reviewer and
+GitHub's `commit_id` for it equals HEAD. Such a round never converges or merges; the loop then opens
+an ordinary round. If no review by the configured reviewer stands at HEAD or at an ancestor of it,
+the run aborts instead, and a later run opens that round.
 
 ## Why the loop marks its own triggers
 
-A configurable reviewer collides with that baseline: the fence must recognise triggers, and every
-name-matching approach widens what it matches. `^[@/][a-z-]+ review` also matches
-`@someone review this before merging`, which advances the baseline past a verdict that already
-arrived and presents as "the reviewer never responded". So the fence matches a string revloop wrote:
+The wait has to recognise a trigger, and matching by name also matches ordinary comments such as
+`@someone review this before merging`. So revloop appends a marker to the trigger it posts, and
+matches that:
 
 ```text
-<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=1a2b3c4d round=3 -->
+<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=1a2b3c4d oid=<full commit sha> round=3 -->
 ```
 
-- **Reviewer-agnostic without widening.** A reviewer you invented gets the same exact matching the
-  presets get. A preset alternation survives as a compatibility class so a hand-typed `@codex review`
-  still anchors a baseline — anchoring is all it does. Such a trigger carries no `head=`, so the fence
-  reports `marker_head=none`, and step 9 aborts on it **except** when the review it drew is the
-  configured reviewer's and GitHub says it was submitted against the commit in hand. That exception
-  reads the review and then re-takes the baseline with an ordinary trigger; everything else still
-  aborts.
-- **`bot=` filters every other bot at fetch time.** Deploy-preview, coverage, a second reviewer — all
-  discarded before classification. A bot that comments on every push satisfies the wait's exit
-  condition immediately, so the wait never waits; that was a real failure. **Measured on
-  `iwmaeda/iwmaeda#1` and `#2` (2026-08)**, where Copilot reviews arrived **fired automatically rather
-  than by request** — a second reviewer's review landing inside the waiting window and read as this
-  round's verdict. That observation lived on `reviewers/copilot.md` until the card was removed in
-  0.7.0; it is recorded here because it is a fact about the filter and never was one about Copilot.
-- **`head=` and `attempt=` put the run's bounds on GitHub rather than in the session**, where a
-  restart cannot refund them. Adding `attempt=` cost no fence edit, because the fence reads marker
-  keys by name and skips one it does not know — **a marker key can be added without changing any
-  fence's bytes**, and so without costing any user a re-approval.
-- **One bound is deliberately not on GitHub, and it is the exception that proves the rule above**:
-  whether this run posted the trigger it is looking at. It decides the rate-limit re-take, and a
-  restart is supposed to refund it — the operator's re-invocation is the only signal the loop ever
-  gets that a quota may have recovered, and a marker recording it would authorise a re-take on every
-  future run for the life of the branch. What keeps it bounded is that a re-take **opens a round**, so
-  the round number counts it like any other and `--max-rounds` stops a series.
-- **An adopted round's identity goes the other way, and the two opposite choices are both right.**
-  It is scoped by `round=adopted-<review_id>` on its replies — derived from the pull request, so a
-  session that dies half-way through answering the review is resumed by a run that computes the same
-  scope and posts no duplicates. **The id is the review each finding came from**, not the round's
-  newest, because an adopted round can read several: the newest is a value the pull request can
-  change between two runs, and scoping by it would make a later arrival re-post every reply the
-  scope exists to suppress. The rate-limit re-take's licence must be refundable by a restart
-  because a restart is the only evidence a quota recovered; an adopted round's scope must **not** be,
-  because a restart is not evidence that a reply is owed twice. Same file, opposite rules, one
-  question each.
-- **Config never reaches the fence.** Reviewer identity arrives via a comment revloop posted, not a
-  file the fence parses, so a hostile `.revloop.json` has no path into a shell command or jq program.
+- `bot=` filters out every other bot before classification, so a deploy-preview or coverage comment
+  cannot end the wait.
+- `oid=`, `round=` and `attempt=` keep the run's state on the pull request, so an interrupted run
+  resumes without local state. `head=` is the short form of `oid=`, for display.
+- Reviewer identity reaches the wait through this comment and never through a configuration file.
+- A hand-typed `@codex review` still anchors a baseline, but it carries no `head=` and no `bot=`, so
+  the bot filter admits any bot and a verdict behind it is not bound to a commit.
 
 ## Permission rules and fence bytes
 
-The reasoning behind [`permissions.md`](permissions.md). **A permission rule matches a command-string
-prefix**, and that single fact shapes three decisions:
+A Claude Code permission rule matches the start of a command string. Three decisions follow.
 
-- **`{owner}/{repo}` instead of a literal slug.** `gh api` expands both from the current remote, so no
-  call needs a `$(...)` substitution — which is what makes `Bash(gh api repos/{owner}/{repo}/:*)`
-  possible. A blanket rule over `gh api` would reach every repository your token can touch.
-- **`-X POST`, `-X PUT`, and `--paginate` need their own rules.** The flag precedes the path, so the
-  string starts with `gh api -X POST`, not `gh api repos/`. All three are used, and each is narrowed
-  the same way.
-- **The wait scripts take no arguments.** A fence embedding the PR number, a timestamp, or a reviewer
-  name would differ every round, "always allow" would never apply, and you would be prompted every
-  round — exactly where `--auto` dies. The fences resolve the repository and PR themselves, so their
-  text is permanently identical and one approval holds.
-- **The teardown fence takes none either, and that is what decided how a worktree is identified.** It
-  removes the worktrees a run created, and the obvious way to tell it which is to hand it the path —
-  which is a session-specific string, so the fence would change every session and be prompted for
-  every session. **So the path is written down where the fence can find it with no argument**: step 3
-  appends it to `revloop/worktrees.txt` inside the checkout's own git directory, and the fence
-  resolves that location from `git rev-parse --absolute-git-dir`. The bytes are identical every
-  session and resolve to a different checkout's record in a different checkout, which is the same
-  trick `wait-verdict` plays on the branch and the pull request. **The fence writes that file back as
-  well as reading it**, which is what keeps a command string that can never change from accumulating
-  authority as the file behind it grows: each sweep leaves only the paths it could not remove.
-  **`--absolute-git-dir` and not `--git-common-dir`**: the common dir is shared by every linked
-  worktree of a repository, so it would put two concurrently running loops back in one ledger — the
-  failure the run id was replaced to fix. **And the git directory rather than the working tree**,
-  because revloop runs against
-  somebody else's repository, where a top-level record is an untracked file this project's
-  `.gitignore` cannot reach and the loop's own clean-tree check would return. **The identity could
-  not be derived instead of recorded**, and the attempt is worth keeping: `revloop-wt-$PPID-` in the
-  name looked like a run id the shell hands over for free, until it turned out that a harness
-  routing every Bash call through one app-server gives two concurrent runs the same parent. A
-  recorded path has no such dependency. The permission rule shaped the design, rather than the
-  design being fitted to a rule afterwards.
+- `gh api` calls use `repos/{owner}/{repo}/`, which `gh` expands from the current remote, so the
+  rules can be scoped to one repository.
+- `-X POST`, `-X PUT`, `-X PATCH` and `--paginate` have their own rules, because the flag comes
+  before the path.
+- The fences take no arguments. A script that embedded a pull-request number or a path would differ
+  on every run and be prompted for every time. The fences resolve the repository, the branch and the
+  pull request themselves, and the teardown fence finds the worktrees to remove in
+  `revloop/worktrees.txt` under the checkout's git directory.
 
-**That is also why the fences are inline rather than shipped as scripts and called by path.** Behind a
-path the command string never changes while the file behind it does, so a plugin update could ship new
-content under a grant given once. Editing a fence therefore costs every user one re-approval, which is
-the point rather than the price; [`../CONTRIBUTING.md`](../CONTRIBUTING.md) has the protocol.
+The fences are inline in the procedure instead of shipped as script files. Behind a path, a plugin
+update could change what runs under a grant given once. Inline, an edit changes the command string
+and asks every user to approve it again. For the same reason no configuration value reaches a fence,
+and the list of interim comments the wait ignores lives inside the fence.
 
-**The same rule decided how a review's findings are read, and it ruled out both obvious ways of making
-that read cheaper.** Steps 10 and 11 of the remote procedure used to page through a pull request's
-review comments once per review and twice per finding. The first fix considered was a tool shipped
-with the plugin — a script, or a compiled binary — that fetches and prints everything in one command.
-That is a command called by path: the string a user grants never changes while the file behind it
-does, which is the hole above, and a binary makes it worse because its content cannot be read off a
-diff. It would have bought no portability either. The wait fence alone needs `bash`, `timeout`,
-`awk` and `sort`, so a tool that ran without a shell would have run inside a loop that cannot; and
-no host builds anything at install time, so a binary would have to be committed for every platform.
-A fifth fence was the second way. It keeps the bytes in view, but a fence takes no arguments, so it
-cannot be told which reviews a round selected, and every later change to what it prints would cost
-every user a re-approval. **So the read stayed what it was — `gh api` calls the existing prefix rules
-already grant — and only its jq programs changed**: they take a list of ids where they took one, and
-print what the next call used to be made for. Nothing new is granted and nothing is installed, and
-the programs are text in the procedure, which `tests/findings-read.test.sh` lifts out and runs.
+## Two procedures, seven commands
 
-The same rule is why the wait fence's list of non-terminal comments to drop lives inside its jq
-program rather than in config: config that reached a fence would be config that changed what you
-granted.
+The remote loop waits for a verdict that arrives later, from a GitHub App. The local loop reads the
+output of a command on your machine. About half of the remote procedure handles the wait, so the
+local loop is a separate procedure, and it cites the shared preparation steps by number.
 
-## The local loop is a second procedure, not a flag
-
-`local-loop.md` exists as its own file, and the alternative — a `--local` branch inside
-`remote-loop.md` — was rejected using the argument that file already makes about `gh` feature
-detection: **two code paths halve the empirical coverage behind every claim, because any given run
-exercises only one.** That argument was about two ways of reaching the same outcome. Here the two are
-not the same outcome at all, which makes the split easier rather than harder to justify:
-
-|                     | Remote                                                                                                 | Local                                                              |
-| ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| The reviewer        | A GitHub App, in its own context                                                                       | A command on your machine                                          |
-| The scarce resource | **Wall clock** — a quota and your patience, both visible                                               | **Tokens** — invisible while they are spent                        |
-| The verdict         | Arrives asynchronously; the baseline, the marker and the bot filter all exist to bind it to this round | Arrives as the command's own output                                |
-| The memory          | The pull request                                                                                       | The commit                                                         |
-| Permissions         | `gh` and `git`                                                                                         | `git`, plus four narrow `gh` rules                                 |
-| Where it ends       | A merged pull request, with `--merge`                                                                  | A commit; a pushed branch; an open pull request. **Never a merge** |
-
-**Roughly half of `remote-loop.md` is machinery for a problem the local loop does not have.** The
-baseline timestamp, the trigger marker, the re-post budget, the two-trigger sweep, and the whole wait
-fence exist because a verdict arrives later, from elsewhere, possibly for someone else's trigger.
-Carrying that across would mean every one of those rules had to be re-read as "does this still apply?"
-by whoever edits next. What the two **do** share is the prepare phase, which the local procedure cites
-by step number rather than restating.
-
-**The invariant that does transfer is the runaway one, and it transfers for a different reason.**
-Remotely, re-firing a trigger against an unchanged HEAD spends the reviewer's quota and a visible
-stretch of wall clock. Locally it spends tokens, and **nothing about it feels expensive** — which is
-precisely why it has to be written down. **It is not that a local round is quick**: measured rounds
-land inside the remote reviewer's own measured range ([`../reviewers/code-review.md`](../reviewers/code-review.md),
-[`../reviewers/codex.md`](../reviewers/codex.md)). The wall clock is not the difference between the
-loops; what a round spends while it passes is, and one of the two is invisible.
-
-## Why there are seven commands and two procedures
-
-`--reviewer <name>` selected the reviewer until 0.7.0, and the string was the defect. **A flag that
-selects a reviewer is a flag that can select the wrong one**, and the reviewer is not a detail of the
-run: it decides which bot login the wait fence filters on, which rungs an acceptance floor is measured
-against, whether a merge is even available, and which aborts are reachable. Choosing it wrongly and
-choosing it silently were the same act.
-
-**The commands are where a person chooses; the procedure is where the work is written.** That split is
-the same one `## The local loop is a second procedure, not a flag` argues one level up, and it has to
-answer the same objection: **two code paths halve the empirical coverage behind every claim, because
-any given run exercises only one.** Seven commands do not create seven paths. Each is a flag table, a
-reviewer definition and a pointer; every `remote-*` command runs one procedure and every `local-*`
-command runs the other, byte for byte. What multiplied is the number of front doors, and
-`tests/commands.test.sh` is what keeps them from becoming anything more — no command may carry a bash
-fence, print a trigger marker, spell the canonical ladder, or grant tools its family does not.
-
-**The gain is that a flag surface can finally be wrong out loud.** `--merge` on a local reviewer and
-`--model` on a bot were always meaningless, and the old `argument-hint` advertised both to everyone.
-Now each command advertises only what it offers, and a test compares that against what its own table
-documents — a check that could not exist while one command served every reviewer.
-
-**The reviewer definitions became files in the same change, and for a related reason.** The presets
-were prose plus a fenced block inside a card, so `--reviewer codex` resolved against a description
-rather than a definition. Now `reviewers/<name>.json` is what the loop loads, the card beside it is
-what records whether anyone has watched it work, and a reviewer you write with `--config` is read by
-the same loader as the ones that ship. **The Codex router gains most from that**: it had to infer a
-preset from prose, and can now read the same file Claude Code does.
+The reviewer is chosen by the command you type. It decides which bot the wait listens to, which
+severity rungs block and whether a merge is available, so each command offers only the flags that
+apply to its reviewer. Every `remote-*` command runs one procedure and every `local-*` command runs
+the other.
 
 ## The rigor level
 
-**`--rigor` names how strictly a run must finish, and it is the only argument that decides when the
-loop may stop.** An acceptance floor is the first consumer `severityLevels` ever had. The schema says
-a key with no consumer is a promise the procedure does not keep, and this was that key: cards filled
-the ladder in, nothing read it, and the one place that reasoned about severity named a rung literally
-— one reviewer's vocabulary, hardcoded into a rule meant to apply to all of them. On a ladder that
-does not contain that rung, the rule led the report with nothing.
+`--rigor` sets the acceptance floor, the round cap, the sweeps a round owes after a fix, and a
+sufficiency test before the run finishes. The specification is
+[`procedures/rigor-levels.md`](../procedures/rigor-levels.md); the operator's summary is in
+[Configuration](configuration.md#the-rigor-level).
 
-**A bare floor answered one question with one comparison, and that was the smaller half of what an
-operator means by "this run does not need the full treatment".** It could not say how many rounds to
-budget, how far to sweep after a fix, or whether the change looked finished rather than merely
-above-the-line — so the only lever was to raise the floor and hope the rounds got shorter. A level
-carries all four: the floor, the round cap it supplies where nothing else did, the sweeps a round
-owes, and a **sufficiency test** at every edge into the report step. The specification is
-[`../procedures/rigor-levels.md`](../procedures/rigor-levels.md).
-
-**The sufficiency test is judged rather than compared, and it is bounded so that the loop may run it
-on itself.** It reads the latest review's rungs, the run's own record of buckets and rungs, and which
-sweeps were run, and answers in writing whether the change is sufficiently reviewed for this level.
-**It may keep a run going and can never end one early**: every stop it permits is one the floor
-already permitted, and everything else in it can only withhold permission. The party obliged to fix
-the findings can therefore give itself more work and never less — which is the same sentence the
-grading rule below rests on, applied to the standard instead of to the rungs. **The rungs still come
-from outside the loop**; what the loop applies is a standard it did not author to rungs it did not
-author, and the `Sufficiency:` block is how a reader outside the run checks the answer.
-
-**One rule lets the run's history change the decision, and it re-opens rather than blocks.** A ceiling
-that has risen inside the acceptable band since the previous round re-opens the acceptances under it.
-A gate there would deadlock: with nothing left to fix, the next round arrives at a step that refuses
-to review an unchanged tree, and the loop sits between a step that will not review and a step with no
-verdict to classify. A re-open gives the round something to fix, so the tree moves.
-
-**The floor and "do not triage by the badge" are compatible, and the boundary between them is where
-a relaxed level is safe.** [`../reviewers/codex.md`](../reviewers/codex.md) derives that instruction from a
-measurement: the severity mix moves per pull request, so the badge cannot tell you what is worth
-reading. The floor never decides what to read. Every finding is fetched, classified, recorded, and
-listed whatever its rung; the floor decides only **when the loop may stop**. **"Recorded" is the
-loop-agnostic word and it is deliberate**: a reply is where the pull-request loop puts it, and the
-local loop has no review thread to reply to — and under `--no-publish` no pull request at all — so
-its record is the commit's `Accepted:` block and the report, plus the pull-request body on a run that
-publishes. Writing the promise as "replied to" named a mechanism only one of the two loops has, which
-left the local loop appearing to owe a reply it has nowhere to post. A version that skipped
-fetching the accepted rungs would be the thing the card forbids, and it would also be cheaper — which
-is why the rule is written down instead of left to judgement.
-
-**The loop never supplies a ladder the reviewer did not.** Asked to accept findings from a reviewer
-that emits no severity, it does not rank them itself. It is the party obliged to fix them, so a ladder
-it authors is a ladder it can author its way out of the work with, and from outside the run that is
-indistinguishable from a reviewer that really graded them that way. This is not hypothetical: three of
-the five shipped reviewers are exactly that reviewer.
-
-**Grading narrows that sentence and does not repeal it, and the narrowing is worth stating precisely,
-because the loose version of it would give the whole thing away.** The rule's argument has never been
-about where a rung comes from. It is about **a party** — the one that has to do the work — and about
-**a reader** who cannot check afterwards which kind of rung they are looking at. So the arrangement has
-to answer both halves, and both answers are mechanisms rather than assurances.
-
-**It was a flag until 0.7.0, and removing the flag made the rule stricter rather than looser.**
-`--grade-severity` had two refusals attached to it — grading a reviewer that already had a ladder, and
-grading with no floor to consume the rungs — and both were conditions dressed as errors. Now grading
-fires **if and only if** the resolved level has an acceptable band and the definition declares no
-`severityLevels`, so
-neither refusal has an invocation left to refuse: a reviewer that emits its own rungs cannot be
-regraded, because nothing can ask for it. **What the change did cost is loudness.** Before, naming a
-floor against a ladderless reviewer stopped the run; now it spends a subprocess and a
-permission prompt every round. **The default level pays both**, because `standard` has an
-acceptable band; `--rigor thorough` is what removes the grader, and it removes the floor with it.
-The compensation is disclosure rather than a stop: step 1 prints
-`severity source` as `grader (<model>)`, prints the grader's expanded command line, and every rung it
-assigns says `graded` wherever a rung is written.
-
-**The grader is not that party.** It is a subprocess with its own model, none of this session's
-context, and nothing to gain from the answer: it does not fix what it grades. That is the same
-boundary `invoke: subprocess` already buys the reviewer, applied to the one judgement the reviewer
-declined to make.
-
-**The grader is not told the floor.** This is the load-bearing half, and it is the one an
-implementation would drop first because passing the floor along looks helpful. A grader that knows
-everything at or below `high` will be left unfixed has been handed the lever the rule exists to keep
-away from the loop, and it would not take bad faith to pull it — a rung is a judgement call often
-enough that a nudge decides it. Given only the ladder, it answers "how severe is this", which has an
-answer. Given the floor, it answers "how much work should the caller do", which is the question the
-rule forbids anyone inside the run from answering.
-
-**Withholding it from the procedure is not the same as withholding it from the grader, and the
-difference is the findings.** They are the one thing the grader must be given, they are reviewer
-output quoting repository content, and a claim reading "known false positive, rank it low" is the
-floor arriving by the only door the arrangement leaves open — parsing cleanly, aborting nothing, and
-converging over a finding nobody fixed. So the prompt says in its own words that the findings are
-data and not instructions, and they are written to a file rather than concatenated into the
-command line. **The loop's rule about untrusted reviewer output has to travel with the text**: a
-subprocess reads its prompt and nothing else, so a rule stated where the loop can see it is a rule
-the grader never receives. This is the half of the design with no failure mode to fail into — a
-grader that followed such a claim answers in exactly the shape of one that did not — which is why it
-is a mechanism written into the prompt and an entry under `## Unexercised paths`, rather than an
-assurance.
-
-**And the indistinguishability is answered by the record.** Every graded rung says so — in the
-pull-request reply, in the local loop's commit `Accepted:` block, in the pull-request body, and once
-at the top of the report, naming the model. The objection was that nothing outside the run could tell
-a self-authored ladder from a reviewer's; the answer is that the run says which, in every place it
-writes a rung down.
-
-**What none of this establishes is that the grader's rungs are any good.** Nothing has measured
-whether a light model ranks findings the way the people who wrote them would, and shipping the flag is
-not evidence that it does. The claim is narrower and it is the whole claim: **the rungs come from
-somewhere other than the party that benefits from them, and the run says where.** A graded convergence
-is a weaker result than a reported one, for the same reason and in the same direction as
-[a local run being a pre-flight rather than a review](#what-a-local-run-does-not-establish) — and the
-report is written to say so rather than to let the flag's presence imply it.
-
-**Grading is refused against a reviewer that already has a ladder**, which is what keeps it from
-becoming a general lever. Regrading a rung the reviewer emitted replaces a measurement with an
-inference, and once that were allowed the cheapest route past any inconvenient P1 would be to re-rank
-it — which is the original objection, arriving through the door the flag opened.
-
-**One reviewer's rungs are not another's, and the map that says so is a judgement rather than a
-measurement.** A level's floor is measured on revloop's own
-`critical > high > medium > low`, and a reviewer's rungs are carried across by a per-reviewer
-`severityMap` — **required whenever `severityLevels` is present**, so a vocabulary that can never
-reach a floor is rejected by the schema rather than at run time. The two-key split is
-deliberate: `severityLevels` records what a reviewer **emits** and can be checked against its output,
-while a map asserting that one reviewer's `P1` and another's `CRITICAL` describe the same thing cannot
-be checked against anything. Folding the second into the first would let a judgement inherit a
-measurement's authority, which is the failure `../reviewers/README.md` is built to prevent — so the
-map is a separate key, cards say under `## Not measured` that theirs is a judgement, and step 1 prints
-the floor a map produced before a round runs.
-
-Where the level sits in the configuration surface, and the one combination it refuses, are in
-[`configuration.md`](configuration.md#the-rigor-level).
+- The floor decides when the loop may stop. It never decides what is read: every finding is
+  fetched, classified, answered and listed in the report.
+- The sufficiency test can keep a run going. It cannot end one early.
+- The floor is measured on one ladder, `critical > high > medium > low`, and a reviewer's
+  `severityMap` maps its own rungs onto it. `severityLevels` records what the reviewer emits; the map
+  is a judgement, so step 1 prints the resulting floor before the first round.
+- The loop never ranks findings itself, because it is the party that has to fix them. When a
+  reviewer emits no severity, at `minimal` and `standard` a separate subprocess grades the findings.
+  The grader is not told the floor and does not see the session, and every rung it assigns is marked
+  `graded`. Nothing
+  establishes that its rungs are accurate, so a graded convergence is a weaker result than one on the
+  reviewer's own rungs.
+- `--rigor`, `--merge` and `--auto` have no configuration key, because the configuration file comes
+  from the repository under review. A level with an acceptable band refuses `--merge --auto`: the
+  merge would follow accepted findings that nobody read.
 
 ## What a local run does not establish
 
-**A local reviewer that is the same model as the thing that wrote the code is not an independent
-check.** It shares the training, the habits and the blind spots of the author, and a reviewer cannot
-find a defect it would have written itself. Running it as a subprocess stops it from reading _this
-session's_ reasoning, which is a real and separate improvement — a reviewer that has just watched you
-justify a decision does not find that decision suspicious — but it does not make the reviewer a second
-opinion. **Only a different model does that.**
+A local reviewer on the same model that wrote the code is not an independent check. Running it as a
+subprocess keeps it from reading the session's reasoning, and the default review model of a
+subprocess with `{reviewModel}`, `sonnet`, is usually a different model from the one doing the
+fixing. A skill reviewer runs on the session's model. It is still weaker than a separate reviewer.
 
-**The `--model` default supplies one, and the model is a property of how a command is invoked
-rather than of which command you pick.** Pinning `sonnet` in the shipped preset's own `command` gets
-there without a new reviewer, and it does so **while making the round cheaper rather than more
-expensive** — which is why the feature was reached for as a cost measure and is recorded here as an
-evidentiary one.
+A clean local run is a pre-flight. It reduces the defects present when the remote review starts; it
+does not mean the change has been reviewed. That is why the local commands never merge.
 
-**It is a weaker check than a peer, and a different weakness.** The failure it removes is a reviewer
-blind to its own habits; the failure it introduces is a reviewer that may not follow the reasoning it
-is auditing. **Nothing measures which trade is better**, and
-[`../reviewers/code-review.md`](../reviewers/code-review.md) is explicit that its five measured rounds
-predate the pin, so the finding counts there describe a configuration this project does not ship. What
-is claimed is only that the second is a check and the first was not.
+## Where the local loop publishes
 
-**So the local loop is a pre-flight and not a replacement**, and the report says so. The claim it can
-support is that fewer defects present when the remote trigger fires means fewer remote rounds. The
-claim it cannot support is that a clean local run means the change has been reviewed.
+The local loop pushes the branch and opens a pull request unless `--no-publish` is given. When it
+publishes depends on the reviewer's `requiresPr`.
 
-**Opening a pull request does not change that, and the shape of the feature is built so it cannot be
-read as changing it.** A pull request this command opens has been through a pre-flight and no review; the
-remote loop is still what reviews it. That is why there is no `--merge` here: `wait-ci` and `merge`
-are two fences that already exist and could have been reused in an afternoon, and reusing them would
-have let a run merge code on a junior model's verdict, past a claim this very section makes. **The
-absent flag is the load-bearing part of the design, not the missing part.**
+| `requiresPr` | Publishes               | Why                                                                                                 |
+| ------------ | ----------------------- | --------------------------------------------------------------------------------------------------- |
+| `true`       | Before every round      | The reviewer cannot run without a pull request, which must exist and match HEAD                     |
+| `false`      | Once, after convergence | A reviewer that resolves its own target may resolve a different one once the branch has an upstream |
 
-## Why publishing is the default, and why its placement is derived
-
-**The local loop is for carrying a change to the place the remote loop starts from**, so it does that
-without being asked: it pushes the converged branch and opens a pull request for it.
-
-**What that costs is real and is not hidden.** Three situations cannot publish at all — a fork, a
-repository with no `origin`, and a remote that is not GitHub — and the ordinary invocation aborts on
-each of them, with `reason=fork-unsupported` or `reason=publish-unavailable`, naming `--no-publish` as
-the way through. **`gh` is a requirement of the ordinary run**, which [`install.md`](install.md)
-records. Those are the price; the flag is what pays it.
-
-**`--no-publish` has no configuration key, and not for the reason its neighbours have none.**
-`--merge` and `--auto` are absent from `.revloop.json` because a repository you cloned must not be
-able to grant itself an action. Publishing is the default, so a key here could only ever turn it
-**off**, and a key that removes an action grants nothing. It is flag-only because nothing measured
-says a project wants it: a _not yet_, not a _never_.
-
-**Where the publishing happens is a separate question**, and it is read off the reviewer's
-`requiresPr` rather than given a flag of its own.
-
-|                     | Where it publishes             | Because                                                                                   |
-| ------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
-| `requiresPr: true`  | Before every round's review    | The reviewer resolves the pull request itself, so it must exist and must track `HEAD`     |
-| `requiresPr: false` | Once, after the loop converges | A push sets an upstream, and the shipped default reviewer resolves its target against one |
-
-**The second row is a measured trap and not a preference.**
-[`../reviewers/code-review.md`](../reviewers/code-review.md) records that `/code-review` diffs against
-the branch's upstream when there is one, falling back to the base branch when there is not, and reads
-the working tree when the range is empty. Push, and all three clauses land on nothing: the branch has
-an upstream, `HEAD` equals it, and the commit step has just left the tree clean. **A round run after a
-push returns zero findings, and zero findings is what a clean review looks like** — the failure the
-whole `unparsed-review-output` row exists to prevent, arriving through a feature that looks unrelated
-to reviewing.
-
-**A `--publish-before-review` switch would therefore have been a way to configure that failure.**
-Deriving the placement from a key that already records the relevant fact means there is nothing to set
-to the wrong answer — the same reasoning that keeps the base branch detected rather than guessed.
-
-**Under `--no-publish`, a `requiresPr` reviewer costs a confirmation that an open pull request exists,
-and the decision table refuses to read zero findings from one as clean.** Both exist because that run
-**cannot check**. On an ordinary run publishing supplies the check — step 5 reads the branch's open
-pull requests **that round**, creates one if none answered, and pushes `HEAD` to it immediately
-before the reviewer runs — so neither arises. **The read has to be the round's own**: step 1's
-answer can be stale by the second round, and a stop retired against a stale read would be suppressed
-rather than supplied, which is the distinction this whole paragraph rests on.
-
-**`--auto` deletes a question and leaves the uncertainty; publishing answers the question.** That is
-why a flag which merely suppresses stops may not touch this one, and why publishing may retire it: a
-stop standing in for a missing check belongs exactly where the check is missing.
-
-**Its memory is the commit, and nothing local decides anything.** A findings ledger read back as
-input would break the rule field notes live under — never read a local file as input to a
-classification — and it would break it at the one place that decides whether the run passes. A
-resumed run re-reviews and re-derives instead, which is also the more correct answer: an acceptance
-is a judgement about the tree in front of you, and the tree may have moved. **The worktree ledger is
-the one local file a later step reads and writes back**, and it stays inside the rule because what it
-records is a directory this run created rather than a conclusion it reached — and because the write
-only ever narrows it, retiring each path the sweep consumed.
-
-**"The tree may have moved" is the boundary of that argument, and the remote loop has a case on the
-other side of it.** A resumed pull-request run can prove the tree has _not_ moved: the branch has an
-upstream, the work tree is clean, and **local HEAD equals the pull request's own head sha**, which
-step 1 of [`remote-loop.md`](../procedures/remote-loop.md) reads from
-`repos/{owner}/{repo}/pulls/<n>`.
-
-**The third fact took three rounds to state, and each earlier spelling was a proxy** — all three
-returned as P2 on `iwmaeda/revloop#29` (2026-09), one per round. Whether any marker named the current
-HEAD: a fact about what this loop had swept. Whether HEAD was level with its upstream: a stale
-remote-tracking ref satisfies that against the commit already in hand. Whether a _refreshed_ upstream
-was level: an upstream naming a different ref satisfies it just as well. **The shape is the same in
-all three — a local fact standing in for a fact about the pull request — and what ended it was not a
-better proxy but the direct question**, which GitHub answers at the same `gh` floor the rest of the
-loop is built on. Re-deriving there
-buys nothing and costs the whole verify list plus a repository-wide sweep, before the run has made
-the one call that would tell it a verdict is already waiting, so **its step 3 skips itself on a first
-arrival in that state**. This is not the rejected findings ledger wearing different clothes: nothing
-is read back as input to a classification, and no conclusion is remembered — the skip turns on git
-state re-measured this run, exactly as the worktree ledger stays inside the rule by recording a
-directory rather than a judgement. What the skip does give up — a pull request the loop is
-**adopting** rather than resuming, and a commit pushed onto one it already drove — step 7 takes back,
-from the marker that names the commit rather than from the count of them. **A count separates only
-the first of those two**, which is the narrowing that shipped first and was returned as a P2
-(`iwmaeda/revloop#29`, 2026-09): a pull request already carrying markers has a count that is not zero
-whatever HEAD it is sitting on.
+On a fork, without an `origin`, or with a remote that is not GitHub, the run aborts and names
+`--no-publish`.
 
 ## Field notes
 
-When a round takes an unexercised path, aborts, or sees a latency outside the range on the reviewer's
-card, the procedure appends one line to `.revloop/field-notes.md` — date, PR, reviewer, path, outcome.
-Three rules make that safe: never read them as input to a classification (they are for humans, and for
-upstreaming into `reviewers/*.md`); never stage them (`.revloop/` ignores itself — see below — and
-step 4's explicit-staging rule keeps it out of commits anyway); and cap them at 500 lines, rotated.
+When a round takes an unexercised path, aborts, or sees unexpected latency, the procedure appends one
+line to `.revloop/field-notes.md`. The notes are for people: the loop never reads them as input,
+never stages them, and caps the file at 500 lines.
 
-**The worktree ledger is not in that directory, and the difference is the audience.** A run records
-each git worktree it creates in `revloop/worktrees.txt` inside the checkout's own git directory —
-`.git/revloop/` in an ordinary checkout, `.git/worktrees/<name>/revloop/` in a linked one — which is
-how the teardown fence knows which worktrees are its own — and **the same fence retires each entry it
-consumes**, so a record buys one removal rather than authorizing that path for good. Field notes are
-for a person to find and upstream, so they live in the tree; the ledger is read and rewritten by a
-fence and touched by nothing else, so it lives where **no `git status`, `git ls-files -o`,
-`git add -A` or `git clean -xdf` can reach it** and needs no ignore rule in the repository the loop
-is running against. The third rule still holds and is the only one that had to be argued: it is
-never read as input to a classification — the only thing it decides is which directory the sweep
-may delete.
+`.revloop/` ignores itself. Unless git tracks anything under `.revloop/` or an existing
+`.revloop/.gitignore` does not hide the file, in which case nothing is written there, the first
+write into it is `.revloop/.gitignore` containing `*`, so the
+notes, the grader's input and `.revloop/config.json` stay out of `git status` without a rule in your
+own `.gitignore`. A tool that reads only the top-level `.gitignore`, such as prettier, still sees the
+files unless you add a rule there.
 
-**The other two files stay in the tree, and the directory ignores itself.** `.revloop/field-notes.md`
-and `.revloop/grading-input.txt` were untracked files in every repository that did not ignore
-`.revloop/`, which is every repository revloop is installed into — this one's `.gitignore` has no
-reach there — so installing revloop privately, through `.claude/settings.local.json`, still meant
-either adding a line to a `.gitignore` the whole team shares or living with both files in
-`git status`. And it was not only noise: measured at `git 2.34.1`, both come back from
-`git status --porcelain -uall` and `git ls-files -o --exclude-standard`, and a grading input carrying
-one trailing space fails the remote loop's step-3 whitespace check with `2`. **So the first write into
-`.revloop/` is now `.revloop/.gitignore`, holding `*`**, which matches every file in the directory
-including itself: both reads return nothing, `git add -A` stages nothing, and an explicit `git add` of
-a note is refused. The same file is what `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/` and a
-Python 3.13 venv carry, for the same reason. The rule lives once, in the **Field notes** paragraph of
-[`remote-loop.md`](../procedures/remote-loop.md)'s `## Unexercised paths`. **An existing
-`.revloop/.gitignore` is left alone, because it may be the operator's — and so every write is also
-asked of `git check-ignore`**, which answers for that file, the top-level `.gitignore` and
-`.git/info/exclude` at once. **And before either, `git ls-files -- .revloop` must print nothing**:
-a tracked path there — a tracked ignore file deleted from the work tree, a tracked symbolic link or
-a submodule at `.revloop` — makes the directory the repository's, and even creating the ignore file
-would modify it or write outside the checkout. A field note refused by either goes into the report
-instead, and a grading input refused by either leaves the round ungraded, which is blocking.
+The worktree ledger is not in that directory. It lives under the checkout's git directory, where no
+git command reports it.
 
-**Four alternatives were weighed and each costs more than it saves.** Under the git directory,
-beside the ledger, would hide the one artifact whose whole purpose is to be found later by a human,
-and would turn the grader's fixed `< .revloop/grading-input.txt` into a command substitution.
-Appending to `.git/info/exclude` edits a file the operator owns, silently, and needs an idempotent
-append against the common git directory. A directory under `$HOME` needs a key per checkout, writes
-outside the workspace that a Codex `workspace-write` sandbox and Claude Code's own permission prompts
-both stand in front of, and collides with `~/.revloop`, the clone path the Codex install suggests.
-And a name that is "usually ignored" — `.cache/`, `*.local.*` — is usually ignored only in some
-ecosystems. **What a self-ignoring directory does not reach** is a tool that reads only the top-level
-`.gitignore`, or none. Measured: prettier 3.9.6 reports `.revloop/field-notes.md` as not ignored with
-only `.revloop/.gitignore` in place and as ignored under a top-level rule, and `markdownlint-cli2`
-lints it either way. So a repository with no top-level rule is where it was before — its linters see
-the note — and one that already added a rule keeps it and loses nothing.
+## Tests
 
-**The configuration can live there too, as `.revloop/config.json`, and the reason is the same one.**
-`.revloop.json` at the root was the only name, so configuring revloop for yourself meant committing
-the file, adding a rule to a shared `.gitignore`, or leaving it untracked — and untracked is not
-inert: measured at `git 2.34.1`, it comes back from `git status --porcelain -uall`, which the
-pull-request loop's step 4 stages from and the local loop's clean-tree check reads, so an `--auto`
-run can commit it and a local run can never reach a clean tree. **A self-ignoring directory already
-existed, so the file moved into it rather than growing a rule of its own.** The four alternatives
-above fail it the same way: `.git/` hides a file a person has to edit, `.git/info/exclude` edits a
-file the operator owns, `$HOME` needs a key per checkout, and a root name like
-`.revloop.local.json` needs a rule somewhere. Step 1 of either loop writes the ignore file when it
-finds `.revloop/` without one, under rule 2's first question, so a directory the operator made
-before any run drops out of `git status` on the first run rather than at the first field note.
+`tests/extract-fences.sh` extracts the fences from the procedure and runs them against recorded API
+responses through a `gh` stub, so the tests exercise the shipped text. `## Unexercised paths` in each
+procedure lists what has not been observed against a live reviewer.
 
-**Exactly one file is read, not two merged.** A merge would need rules for arrays, for `null` —
-which already means "detect" for `baseBranch` — and for which file a `config` in the `source` column
-came from, and each is a place for a reader and the procedure to disagree. Reading one file keeps
-the `source` column honest with one extra line saying which file it was. **Its cost is a stale
-local file silently shadowing the team's**, and the answer is that step 1 prints `config:` on every
-run and names the unread file whenever both exist.
-
-**A local file git would show aborts the run (`config-not-ignored`); a root file git would show
-does not.** The local name exists only to be kept out of git, so a visible one is a configuration
-about to be staged, and aborting costs one fixed ignore file. The root name is the one every
-repository configured before this existed, so aborting on it would stop each of them on upgrade;
-step 1 prints a hint instead.
-
-**The name grants nothing the other does not.** A cloned repository can track a file at
-`.revloop/config.json`, and git cannot tell an untracked file the operator wrote from one something
-else put there — so the local name is read under exactly the rules `.revloop.json` is, and
-`--merge`, `--auto`, `--rigor`, `--config`, `--model` and `--no-publish` stay flags. A location that
-granted more would be a grant any repository reaches by committing to it.
-
-A project's `.revloop/` is unrelated to `~/.revloop`, the clone path the Codex install suggests.
-
-## Why there are tests, when the original shipped none
-
-The procedure this grew from shipped no regression tests, reasoning that copying the classification
-logic into a suite would duplicate the canonical artifact. That is right for a single-repository file
-and wrong for a public tool used by strangers — **and the duplication objection is answered by
-construction.** `tests/extract-fences.sh` pulls the fences _out_ of the procedure and runs them against
-recorded API responses through a `gh` stub, so nothing is restated; what is pinned is the interface the
-decision table consumes. `## Unexercised paths` survives for what genuinely remains unobserved against
-a live reviewer, and keeping that list honest is more useful than making it short.
-
-## No feature detection on `gh`
-
-Only stable REST and GraphQL surfaces are used, and the loop never branches on the `gh` version. Newer
-versions offer conveniences revloop does not take, because two code paths would halve the empirical
-coverage behind every claim — any given machine exercises only one — and they buy nothing here.
-`gh --version` is printed in the step-1 probe table, so the version is visible without being branched
-on. The floor itself is in [`install.md`](install.md#requirements).
-
-## Related docs
-
-- [Permissions](permissions.md) — the rules this reasoning produces
-- [Configuration](configuration.md#what-is-deliberately-not-configurable) — what is fixed, and why
-- [`../procedures/remote-loop.md`](../procedures/remote-loop.md) — the procedure and its `## Notes`
-- [`../procedures/local-loop.md`](../procedures/local-loop.md) — the local procedure
+Only stable REST and GraphQL surfaces of `gh` are used, and the loop never branches on the `gh`
+version.

@@ -5,10 +5,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        A card records what was **measured**, when, and where — never what a vendor's
-        documentation claims. A card written from documentation is worse than no card,
-        because it looks measured. See
-        [docs/adding-a-reviewer.md](https://github.com/iwmaeda/revloop/blob/main/docs/adding-a-reviewer.md).
+        A card records what you observed when you drove the reviewer, not what its documentation
+        says. This form is for a bot that a comment triggers. See
+        [docs/adding-a-reviewer.md](https://github.com/iwmaeda/revloop/blob/main/docs/adding-a-reviewer.md),
+        which covers local command reviewers too.
 
   - type: input
     id: name
@@ -93,8 +93,7 @@ body:
     attributes:
       label: Does it post anything before the real review?
       description: >-
-        Quote the first line. This is the one reviewer property that costs a fence edit,
-        so an exact prefix matters.
+        Quote the first line exactly. Dropping a preamble takes a fence edit.
       placeholder: "## Summary of Changes"
 
   - type: textarea
@@ -102,7 +101,8 @@ body:
     attributes:
       label: Where this was measured
       description: >-
-        A public PR link if you can (`owner/repo#8`), otherwise "repo B, 2026-08".
-        Provenance is not decoration — a reader has to be able to go and check.
+        The card cites this for every observation. A public pull request: `owner/repo#8`. A private
+        repository: `repo B` and the month, as in "repo B, 2026-08". An installed command: its exact
+        version and the month, as in "ecc 2.2.0, 2026-09".
     validations:
       required: true

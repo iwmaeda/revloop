@@ -5,9 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        The fences answer in one line, and that line carries almost everything needed to
-        diagnose a round. Please paste it verbatim rather than describing it — a rewritten
-        `VERDICT=` line loses exactly the keys that distinguish the cases.
+        Paste the fence's output line verbatim. A rewritten `VERDICT=` line loses the keys
+        needed to diagnose the round.
 
   - type: textarea
     id: fence-output
@@ -15,7 +14,8 @@ body:
       label: The fence output, verbatim
       description: >-
         The `VERDICT=`, `CI_WAIT=` or `MERGE=` line, plus any `EXTRA=` second line.
-        Do not trim it and do not drop the second line.
+        Do not trim it and do not drop the second line. A local run has no such line: paste the
+        review command's output instead.
       placeholder: VERDICT=comment pr=12 trigger=2026-08-19T10:00:00Z reviewer=codex marker_head=1a2b3c4d round=3 head=1a2b3c4d at=... login=... cid=... body=...
       render: text
     validations:
@@ -25,7 +25,9 @@ body:
     id: expected
     attributes:
       label: What you expected the loop to do with it
-      description: Which row of step 9's decision table did you expect, and which did it take?
+      description: >-
+        Which row of step 9's decision table did you expect, and which did it take? On a local run
+        it is step 8's table.
     validations:
       required: true
 
@@ -33,7 +35,7 @@ body:
     id: reviewer
     attributes:
       label: Reviewer
-      placeholder: codex / gemini / claude / a name from .revloop.json
+      placeholder: codex / gemini / claude / code-review / ecc-review-pr / your own
     validations:
       required: true
 
@@ -55,7 +57,7 @@ body:
     id: config
     attributes:
       label: Your `.revloop.json` or `.revloop/config.json`, if any
-      description: Redact anything private. Say which of the two it is — step 1's `config:` line names it. If you have none, say so — that is the common case.
+      description: Redact anything private. Say which of the two it is; step 1's `config:` line names it.
       render: json
 
   - type: textarea
@@ -63,5 +65,5 @@ body:
     attributes:
       label: Anything else
       description: >-
-        A PR link is worth more than a paragraph if the repository is public. If the round took
-        a path listed under `## Unexercised paths`, say which one.
+        A pull-request link, if the repository is public. If the round took a path listed under
+        `## Unexercised paths`, say which one.

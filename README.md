@@ -5,16 +5,10 @@
 
 English ・ [日本語](README.ja.md)
 
-A Claude Code plugin that repeats an AI review-and-fix loop until it converges. Its fences keep a run
-from spending more rounds — and so more wall clock and more tokens — than the review needs.
+A Claude Code plugin that repeats an AI review-and-fix loop until the review converges. Its guards
+keep a run from spending more rounds, time and tokens than the review needs.
 
-**Codex appears here twice, and the two are not in the same state.** As a _reviewer_, `@codex review`
-is the most measured thing in this repository — `status: verified`, driven end to end through real
-pull requests. As a _host_ to run revloop from, Codex is **in preview**: one skill, the pull-request
-loop only, and nobody has driven it end to end. See [Limitations](#limitations).
-
-**There is a command of its own for each reviewer, and for where it runs — remotely or on your
-machine.** These are the commands available today:
+There is one command per reviewer:
 
 | Command                       | Reviewer                        | Where it runs                |
 | ----------------------------- | ------------------------------- | ---------------------------- |
@@ -26,20 +20,14 @@ machine.** These are the commands available today:
 | `/revloop:local-ecc-loop`     | ECC's `/ecc:review-pr`          | A subprocess on your machine |
 | `/revloop:local-custom-loop`  | one you define, with `--config` | A subprocess on your machine |
 
-Seven commands, but **two procedures**: every `remote-*` command runs
-[`procedures/remote-loop.md`](procedures/remote-loop.md) and every `local-*` command runs
-[`procedures/local-loop.md`](procedures/local-loop.md). The commands differ only in which reviewer
-they name and which flags they offer, so there are seven front doors and not seven code paths.
+The remote commands need a reviewer whose GitHub integration is already installed on the repository
+and answers comments.
 
-**The remote commands assume a reviewer that already answers.** Its GitHub integration must already be
-installed on the repository and responding to comments.
-
-**The local commands never touch a GitHub comment thread, and never merge.** It pushes the converged
-branch and opens a pull request for it (`--no-publish` stops it at the commit). **Its review runs on a
-light model by default** (`sonnet`, changed with `--model`). See
-[`docs/design-notes.md`](docs/design-notes.md).
-
-The basic invocations are below. Which flags are available differs from command to command.
+The local commands post no comments and never merge. They push the branch and open a pull request
+for it, before each round for a reviewer that cannot run without a pull request and after convergence for the
+rest; `--no-publish` stops at the commit. A subprocess reviewer whose `command` carries `{reviewModel}`
+reviews on `sonnet` by default, and `--model` changes that; a skill reviewer runs on the session's
+model.
 
 ```console
 /revloop:remote-codex-loop
@@ -54,64 +42,54 @@ The basic invocations are below. Which flags are available differs from command 
 /revloop:local-custom-loop --config ./my-reviewer.json
 ```
 
-| Flag               | Commands        | Default    | What it does                                   |
-| ------------------ | --------------- | ---------- | ---------------------------------------------- |
-| `--rigor <level>`  | all             | `standard` | How strictly the run must finish (see below)   |
-| `--max-rounds <n>` | all             | 5 / 3      | Abort if the loop has not converged by then    |
-| `--auto`           | all             | off        | Run through the stop points without halting    |
-| `--merge`          | `remote-*`      | off        | After convergence, wait for green CI and merge |
-| `--timeout <dur>`  | `remote-*`      | `30m`      | Cap on waiting for one trigger's verdict       |
-| `--model <name>`   | `local-*`       | `sonnet`   | The model the review runs on                   |
-| `--no-publish`     | `local-*`       | off        | End at the commit — no push, no pull request   |
-| `--config <path>`  | `*-custom-loop` | required   | The reviewer definition this run drives        |
+| Flag               | Commands        | Default    | What it does                                                        |
+| ------------------ | --------------- | ---------- | ------------------------------------------------------------------- |
+| `--rigor <level>`  | all             | `standard` | How strictly the run must finish (see below)                        |
+| `--max-rounds <n>` | all             | 5 / 3      | Abort if the loop has not converged by then                         |
+| `--auto`           | all             | off        | Run through the stop points, except a local reviewer's confirmation |
+| `--merge`          | `remote-*`      | off        | After convergence, wait for green CI and merge                      |
+| `--timeout <dur>`  | `remote-*`      | `30m`      | Cap on waiting for one trigger's verdict                            |
+| `--model <name>`   | `local-*`       | `sonnet`   | The model a subprocess review with `{reviewModel}` runs on          |
+| `--no-publish`     | `local-*`       | off        | End at the commit: no push, no pull request                         |
+| `--config <path>`  | `*-custom-loop` | required   | The reviewer definition this run drives                             |
 
-A default written as two numbers is remote / local. `--max-rounds` takes its default from `--rigor`,
-so changing the level moves it too.
+A default written as two numbers is remote / local. The default of `--max-rounds` comes from
+`--rigor`.
 
 ## How it works
 
-A run usually takes tens of minutes. **Most of that is time spent waiting for the reviewer.**
+A run usually takes tens of minutes, most of it spent waiting for the reviewer.
 
-| Phase       | Steps | What happens                                                                                                                  | Roughly how long        |
-| ----------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| **Resolve** | 1     | Probe the repository and build the resolved-configuration table with its `source` column                                      | seconds                 |
-| **Prepare** | 2–6   | Cut a topic branch, run verify, commit (**first stop point**), push, open the PR                                              | about 3 minutes         |
-| **Trigger** | 7     | Post the trigger comment, carrying a `revloop:trigger` marker that records the reviewer, the bot, the head sha, and the round | seconds                 |
-| **Wait**    | 8     | Poll GitHub until the verdict for _this_ trigger appears                                                                      | **minutes — see below** |
-| **Decide**  | 9     | Classify the verdict as continue / finish / abort                                                                             | seconds                 |
-| **Fix**     | 10–11 | Read the inline findings, fix them, reply to every one                                                                        | minutes                 |
-| **Finish**  | 12    | Report the outcome; with `--merge`, wait for green CI and then merge (**second stop point**)                                  | CI-bound                |
+| Phase       | Steps | What happens                                                                 |
+| ----------- | ----- | ---------------------------------------------------------------------------- |
+| **Resolve** | 1     | Probe the repository and print the resolved configuration                    |
+| **Prepare** | 2–6   | Cut a topic branch, run verify, commit (first stop point), push, open the PR |
+| **Trigger** | 7     | Post the review request                                                      |
+| **Wait**    | 8     | Poll GitHub until the verdict for this trigger arrives                       |
+| **Decide**  | 9     | Continue, finish or abort                                                    |
+| **Fix**     | 10–11 | Read the findings, fix them, reply under each inline finding                 |
+| **Finish**  | 12    | Report. With `--merge`, wait for green CI and then merge (second stop point) |
 
-If even one finding was fixed, step 11 goes back to step 3 and the next round begins. `--auto` keeps
-the loop running through both stop points instead of halting at them.
-
-How long a wait runs is recorded, as a measurement, on the [card](reviewers/) of the reviewer you
-chose. If the review fails because of a rate limit or a similar API restriction, the loop aborts, and
-re-running it once the limit clears resumes it.
-
-If the wait reaches its budget with no verdict the loop can classify, it posts the trigger once more
-before giving up — so a pull request can legitimately carry two review-request comments for one
-round. The conditions, and why re-posting is safe, are in
-[`docs/design-notes.md`](docs/design-notes.md).
+If a finding was fixed, the loop goes back to step 3 for the next round. `--auto` runs through both
+stop points. At a level with an acceptable band (`minimal` and the default `standard`), `--merge --auto`
+is refused, and `--merge` alone stops once to confirm the accepted findings; use `--rigor thorough` to
+merge unattended. A run that aborts, for example on a rate limit, resumes when you run the same command
+again once the cause has cleared.
 
 ### The local loop
 
-The spine is the remote loop's. With no waiting phase, it finishes in eleven steps.
+| Phase       | Steps   | What happens                                                           |
+| ----------- | ------- | ---------------------------------------------------------------------- |
+| **Resolve** | 1       | Probe and print the resolved configuration, including the review model |
+| **Prepare** | 2–4     | Cut a topic branch, run verify, commit (the stop point)                |
+| **Publish** | 5 or 10 | Push, and open a pull request if the branch has none                   |
+| **Review**  | 6       | Run the review command and read its output                             |
+| **Decide**  | 7–8     | Decide what happens next                                               |
+| **Fix**     | 9       | Fix the findings; record the ones declined or accepted in the report   |
+| **Finish**  | 11      | Report, and write it into the pull-request body unless `--no-publish`  |
 
-| Phase       | Steps   | What happens                                                               |
-| ----------- | ------- | -------------------------------------------------------------------------- |
-| **Resolve** | 1       | Probe and print the resolved table, including which model will review      |
-| **Prepare** | 2–4     | Cut a topic branch, run verify, commit (**the stop point**)                |
-| **Publish** | 5 or 10 | Push, and open a pull request if the branch has none                       |
-| **Review**  | 6       | Run the review command on the light model, and read its output             |
-| **Decide**  | 7–8     | Fingerprint the findings and decide what happens next                      |
-| **Fix**     | 9       | Fix, and answer the findings that are wrong                                |
-| **Finish**  | 11      | Report — and write that report into the pull-request body, if it published |
-
-**Which of the two publish steps runs is read off the reviewer, not off a flag.** A reviewer that
-resolves its own pull request is published to at 5, before every round; every other reviewer once at
-10, after the loop converges — because a push would otherwise empty the range the shipped default
-reviewer diffs. `--no-publish` skips both.
+A reviewer that cannot run without a pull request is published to before every round (step 5). Every other
+reviewer is published to once, after the loop converges (step 10). `--no-publish` skips both.
 
 ## Install
 
@@ -124,10 +102,11 @@ The details are in [`docs/install.md`](docs/install.md).
 /plugin install revloop@revloop
 ```
 
-**Both commands need an authenticated `gh`** (except a local run with `--no-publish`).
+The commands need an authenticated `gh`, except a local run with `--no-publish`.
 
-Grant the permissions the work needs at the same time, by adding the following to
-`.claude/settings.local.json`. The details are in [`docs/permissions.md`](docs/permissions.md).
+Grant the permissions the remote commands need by adding the following to `.claude/settings.local.json`.
+The local commands need only the subset listed in [`docs/permissions.md`](docs/permissions.md), which
+also has the details.
 
 ```json
 {
@@ -149,12 +128,9 @@ Grant the permissions the work needs at the same time, by adding the following t
 }
 ```
 
-### Codex — preview
+### Codex (preview)
 
-**Codex plugin support is in preview, and this is not the path above with different words.** There is
-no `codex plugin install` yet. `.codex-plugin/plugin.json` and `.agents/plugins/marketplace.json` are
-in place for when it ships, and the second names a local checkout rather than a published
-marketplace. The reliable path today is to place the skill by hand:
+`codex plugin install` does not exist yet, so place the skill by hand:
 
 ```console
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
@@ -162,22 +138,15 @@ mkdir -p ~/.agents/skills
 cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/
 ```
 
-**What you get is one skill, not seven commands, and it covers the pull-request loop only.**
-`.agents/skills/revloop/SKILL.md` is a router: it resolves `procedures/remote-loop.md` and reads it.
-It looks in `~/.revloop` by default; clone anywhere else and link it there with
-`ln -s /path/to/your/clone ~/.revloop`.
-**Nobody has driven the local loop from Codex, so it is not claimed as supported**, and there is no
-`/revloop:` namespace on Codex — every `/revloop:` invocation on this page, and the one
-[`docs/install.md`](docs/install.md) gives for verifying the install, is Claude Code's.
-
-Codex controls permissions with an approval policy and a sandbox instead. **The recipe in
-[`docs/permissions.md`](docs/permissions.md) was read out of an installed Codex build rather than
-driven end to end**, and says so where it sits.
+On Codex you get one skill, and only the pull-request loop. It has not been run end to end there.
+The skill reads the procedure from `~/.revloop`; link a clone kept elsewhere with
+`ln -s /path/to/your/clone ~/.revloop`. Codex uses a sandbox instead of an allowlist, which
+[`docs/permissions.md`](docs/permissions.md) covers.
 
 ## Configure
 
-By default, revloop detects the base branch, the verify commands, the branch prefixes, and the commit
-conventions from the repository itself, and builds a configuration table with a `source` column:
+By default revloop detects the base branch, the verify commands, the branch prefixes and the commit
+conventions from the repository, and prints them with their source:
 
 ```text
 key              value                              source
@@ -190,9 +159,10 @@ commitStyle      conventional (en)                  detected
 maxRounds        5                                  rigor
 ```
 
-To change any of it, or to add your own reviewer, write `.revloop.json`. The details are in
-[`docs/configuration.md`](docs/configuration.md) and
-[`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md).
+To change a value that has a key, write `.revloop.json`, or `.revloop/config.json`, which is read
+instead of it when present. The flags that have no key are listed in
+[`docs/configuration.md`](docs/configuration.md); see
+[`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md) for a reviewer of your own.
 
 ```json
 {
@@ -204,74 +174,66 @@ To change any of it, or to add your own reviewer, write `.revloop.json`. The det
 
 ## Keeping the loop from running away
 
-**An AI reviewing code tends to keep producing small findings.** To stop those from stretching a run
-out, `--rigor <level>` says **how strictly the run must finish**. It is the argument that decides when
-the loop may stop.
+An AI reviewer tends to keep producing small findings. `--rigor <level>` sets how strictly a run
+must finish, and so when the loop may stop.
 
-| Level                    | Blocking           | Acceptable       | Round cap (remote / local) | Sweeps                              |
-| ------------------------ | ------------------ | ---------------- | -------------------------- | ----------------------------------- |
-| `minimal`                | `critical`         | `high` and below | 3 / 2                      | Name the class, check already-fixed |
-| `standard` **(default)** | `critical`, `high` | `medium`, `low`  | 5 / 3                      | + corpus                            |
-| `thorough`               | every finding      | none             | 10 / 5                     | Every sweep that applies            |
-| `exhaustive`             | every finding      | none             | 15 / 8                     | + input-space closed as a set       |
+| Level                    | Blocking           | Acceptable       | Round cap (remote / local) |
+| ------------------------ | ------------------ | ---------------- | -------------------------- |
+| `minimal`                | `critical`         | `high` and below | 3 / 2                      |
+| `standard` **(default)** | `critical`, `high` | `medium`, `low`  | 5 / 3                      |
+| `thorough`               | every finding      | none             | 10 / 5                     |
+| `exhaustive`             | every finding      | none             | 15 / 8                     |
 
 ```console
 /revloop:remote-codex-loop --rigor minimal
 /revloop:local-ecc-loop --rigor thorough
 ```
 
-Severity is managed through `severityMap` as the same four rungs for every reviewer —
-`critical > high > medium > low`. Against a reviewer that reports no severity, **a grading model in a
-separate process** estimates it.
-
-**On convergence, the run judges whether the change is sufficiently reviewed for its level.**
+Severity is handled on one ladder for every reviewer, `critical > high > medium > low`. For a
+reviewer that reports no severity, at `minimal` and `standard` a grading model in a separate process
+estimates it. When the loop
+converges, the run records whether the change is sufficiently reviewed for its level.
 
 ## Built-in reviewers
 
-Each preset is made of a **definition** (`reviewers/<name>.json`) and a **card**
-(`reviewers/<name>.md`).
+Each built-in is a definition (`reviewers/<name>.json`) and a card (`reviewers/<name>.md`).
 
-| Preset          | Driven by                     | Trigger or command                                                                  | Severity | Status     |
-| --------------- | ----------------------------- | ----------------------------------------------------------------------------------- | -------- | ---------- |
-| `codex`         | `/revloop:remote-codex-loop`  | `@codex review`                                                                     | P1/P2/P3 | verified   |
-| `gemini`        | `/revloop:remote-gemini-loop` | `@gemini review` (see the card)                                                     | P1/P2/P3 | verified   |
-| `claude`        | `/revloop:remote-claude-loop` | `@claude review`                                                                    | none     | unverified |
-| `code-review`   | `/revloop:local-review-loop`  | `claude --model {reviewModel} -p "/code-review medium"`                             | none     | unverified |
-| `ecc-review-pr` | `/revloop:local-ecc-loop`     | `claude --model {reviewModel} --effort medium … -p "/ecc:review-pr"` (see the card) | none     | unverified |
+| Preset          | Reviewer         | Severity     | Status     |
+| --------------- | ---------------- | ------------ | ---------- |
+| `codex`         | `@codex review`  | P1 / P2 / P3 | verified   |
+| `gemini`        | `@gemini review` | P1 / P2 / P3 | verified   |
+| `claude`        | `@claude review` | none         | unverified |
+| `code-review`   | `/code-review`   | none         | unverified |
+| `ecc-review-pr` | `/ecc:review-pr` | none         | unverified |
 
-`{reviewModel}` is expanded by the local procedure before the command runs — to `--model` if you typed
-it, otherwise to `sonnet`.
-
-**A reviewer of your own is written the same way, as a definition and a card.** The details are in
+`verified` means the maintainers drove the reviewer end to end on real pull requests; `reported` means
+someone reported it working and it has not been reproduced. To add your own, see
 [`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md).
 
 ## Limitations
 
-These are the rough edges that remain.
-
-| Limitation                            | Why                                                                                                                                                                      |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Forks are unsupported**             | The pull request lives upstream, so calls would address the wrong repository. Both loops abort in step 1; a local loop can still run in a fork with `--no-publish`       |
-| **Same-repo topic branches only**     | One open PR per branch. If a loop looks one up and cannot identify it, it aborts                                                                                         |
-| **Merge commits only**                | Squash and rebase are not available                                                                                                                                      |
-| **Reviewers with no comment trigger** | One summoned by reviewer request rather than by a comment — GitHub Copilot is the example — posts nothing for the loop to anchor a round's baseline to, so step 1 aborts |
-| **The local loop never merges**       | It ends at a pushed branch with an open pull request, or at a commit under `--no-publish`. Merge it separately                                                           |
-| **Codex as a host is preview**        | One skill rather than seven commands, the pull-request loop only, and never driven end to end. It is unlinted and in no test corpus, so it is checked by review alone    |
+| Limitation                          | Detail                                                                                        |
+| ----------------------------------- | --------------------------------------------------------------------------------------------- |
+| Forks                               | Not supported; both loops abort in step 1. A local run with `--no-publish` works              |
+| Branches                            | Same-repository topic branches, with one open pull request per branch                         |
+| Merge method                        | Merge commits only. Squash and rebase are not available                                       |
+| Reviewers without a comment trigger | Not supported by the pull-request loops, for example GitHub Copilot; local commands need none |
+| The local loop                      | Never merges. Merge the pull request separately                                               |
+| Codex as a host                     | Preview: one skill, the pull-request loop only, not run end to end                            |
 
 ## Documentation
 
-| Guide                                                        | What it covers                                                               |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| [Install](docs/install.md)                                   | Prerequisites, Claude Code, Codex in preview, verifying the install          |
-| [Permissions](docs/permissions.md)                           | Claude Code's permission rules; Codex's sandbox, as a shape and not a recipe |
-| [Configuration](docs/configuration.md)                       | `.revloop.json` reference                                                    |
-| [Adding a reviewer](docs/adding-a-reviewer.md)               | How to configure a custom reviewer                                           |
-| [Design notes](docs/design-notes.md)                         | How the review loops are designed                                            |
-| [Known environment quirks](docs/known-environment-quirks.md) | Known limitations, bugs, and similar notes                                   |
-| [Contributing](CONTRIBUTING.md)                              | Running the checks, and the protocol for editing a fence                     |
-| [Code of conduct](CODE_OF_CONDUCT.md)                        | Development guidelines                                                       |
-| [Security](SECURITY.md)                                      | Security considerations                                                      |
-| [日本語版 README](README.ja.md)                              | This README in Japanese                                                      |
+| Guide                                          | What it covers                                                    |
+| ---------------------------------------------- | ----------------------------------------------------------------- |
+| [Install](docs/install.md)                     | Requirements, Claude Code, Codex (preview), verifying the install |
+| [Permissions](docs/permissions.md)             | The rules to grant on Claude Code, and the sandbox on Codex       |
+| [Configuration](docs/configuration.md)         | `.revloop.json` reference                                         |
+| [Adding a reviewer](docs/adding-a-reviewer.md) | Writing a definition and a card for your own reviewer             |
+| [Design notes](docs/design-notes.md)           | Why the loops work the way they do                                |
+| [Contributing](CONTRIBUTING.md)                | Running the checks, and how to edit a fence                       |
+| [Code of conduct](CODE_OF_CONDUCT.md)          | Contributor Covenant                                              |
+| [Security](SECURITY.md)                        | The threat model                                                  |
+| [日本語版 README](README.ja.md)                | This README in Japanese                                           |
 
 ## License
 
