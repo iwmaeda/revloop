@@ -439,9 +439,9 @@ report with its reason.
    - Step 9's rows that send a verdict back to step 8 still run, on step 9's own bounds: the
      mismatched-`trigger=` row (two re-fires, then `reason=foreign-baseline`) and the ancestor row
      (one, then abort) on counters, and the skip row on the marks its active-marks reads observe.
-     The skip row re-fires step 8 only when every condition in step 9's skip bullet holds, and
-     that bullet is the one list of what aborts it with `reason=interim-loop`: none is
-     restated here. A re-fire that returns `pending` aborts as above.
+     The skip row re-fires step 8 only on the conditions in step 9's skip bullet and its
+     marked-`cid=` bullet, which together are the one list of what aborts it with
+     `reason=interim-loop`: none is restated here. A re-fire that returns `pending` aborts as above.
    - With the abort, print the cap, its `source`, the marker count it was measured against and the
      remedy; when the `source` is `rigor`, name `defaults.maxRounds` as the key that pins it. Say
      what this run did before it met the cap: a verdict read, findings answered, a fix pushed.
@@ -810,7 +810,7 @@ report with its reason.
    | `comment` matching the rate-limit pattern + your own trigger      | abort (`reviewer-rate-limited`)     | `reason=reviewer-rate-limited`; no retry            |
    | `comment` matching the rate-limit pattern + a standing trigger    | re-take (`rate-limit-retake`)       | step 7                                              |
    | `comment` whose `cid=` the active-marks read lists                | abort (`interim-loop`)              | see the marked-`cid=` bullet below                  |
-   | `comment` with any other bot body                                 | skip                                | mark, confirm, re-fire step 8; else `interim-loop`  |
+   | `comment` with any other bot body                                 | skip                                | per step 9's skip bullet below                      |
    | `reaction`                                                        | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `pending` (within `--timeout`)                                    | continue                            | re-fire step 8 only, never step 7                   |
    | any output whose `trigger=` is not your `SINCE`                   | continue (twice)                    | re-fire; third: `reason=foreign-baseline`           |
@@ -1469,10 +1469,10 @@ second, and the one-runner rule.
   when there is also no bot comment and no reaction.
 - A review submitted in the same second as its trigger. The fence does not select it, so a later
   clean comment can finish the round over it. Does not fail closed.
-- Step 9's skip row, from a run: the mark, a marked comment dropped by the fence, each abort in
-  step 9's skip bullet and in its marked-`cid=` bullet (all read off the pull request, so a
-  resumed run aborts on a mark it finds), and step 11's `reason=unclassified-comment`. The list of
-  aborts is that bullet's, and is not restated here.
+- Step 9's skip row, from a run: the mark, a marked comment dropped by the fence, each abort listed
+  in step 9's skip bullet and in its marked-`cid=` bullet (all read off the pull request, so a
+  resumed run aborts on a mark it finds), and step 11's `reason=unclassified-comment`. The two
+  bullets together are the only list of the aborts and it is not restated here.
   Does not fail closed: a comment older than the one the fence returned is never classified, a
   marked comment the reviewer edits into its verdict stays dropped by each firing whose fetch shows
   the mark, until a firing fetches after the reaction is removed,
