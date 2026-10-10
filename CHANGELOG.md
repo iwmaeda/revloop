@@ -27,6 +27,11 @@ Fences: `wait-verdict` changed (one re-approval).
 - The wait fence ignores Codex's status card, an issue comment that opens with
   `<!-- codex-pull-request-review-summary -->`. A run used to read the card as the verdict and
   abort before the review arrived.
+- `/revloop:local-ecc-loop` tells its reviewer to read the pull request with `gh pr view --json`
+  and `gh pr diff`. On `gh` 2.4.0 a plain `gh pr view` fails, and a round that used it could not
+  name the pull request and aborted with `unparsed-review-output`.
+- The `ecc-review-pr` card lists the report shapes the reviewer emits: labels as `##` headings or
+  bold lines, confidence percentages on some rounds only, and progress lines before the report.
 
 ## [0.16.0] - 2026-10-05
 
