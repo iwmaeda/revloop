@@ -871,8 +871,8 @@ report with its reason.
      the loop cannot remove, so the abort names it and the report lists it for removal. When the row is
      there, keep its full body for the report and re-fire step 8 only. The firing that returned it
      is not a chunk: it costs nothing against `--timeout` and never counts toward step 7's floor.
-     A pull request on which the active-marks read observes a mark stops at step 11's gate,
-     whose own read decides at that moment, instead of converging.
+     Whether a run converges over a mark is ruled by step 11's gate and step 12, whose own reads
+     decide at that moment, and not by this bullet.
    - `reaction`: an unexercised path; say so in the report.
    - `trigger=` not your `SINCE`: step 8's reconciliation gives the rules.
    - `re-post (once)`: silence is not proof that nothing was sent, so the report says a signal may
@@ -1474,13 +1474,10 @@ second, and the one-runner rule.
   when there is also no bot comment and no reaction.
 - A review submitted in the same second as its trigger. The fence does not select it, so a later
   clean comment can finish the round over it. Does not fail closed.
-- Step 9's skip row, from a run: the mark, a marked comment dropped by the fence, each abort listed
-  in step 9's skip bullet and in its marked-`cid=` bullet (all read off the pull request, so a
-  resumed run aborts on a mark it finds), step 7's condition (d) withholding a re-post, step 11's
-  `reason=unclassified-comment`, and step 12's read of the marks and its withdrawal of a
-  convergence. The two bullets together are the only list of the aborts and it is not restated
-  here.
-  Does not fail closed: a comment older than the one the fence returned is never classified, a
+- Step 9's skip row, from a run. What a mark leads to is ruled by step 9's skip bullet and
+  marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, none restated here, and no
+  run has taken any of them. All are read off the pull request, so a resumed run meets a mark it
+  finds. Does not fail closed: a comment older than the one the fence returned is never classified, a
   marked comment the reviewer edits into its verdict stays dropped by each firing whose fetch shows
   the mark, until a firing fetches after the reaction is removed,
   and the active-marks read counts anyone's 👀 on a bot comment since the pull request was opened,
