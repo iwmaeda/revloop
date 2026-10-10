@@ -89,7 +89,8 @@ knows.
 One it does not know is skipped. Step 9 adds a 👀 reaction to the comment from your account, the
 fence ignores a comment that carries it, and the wait goes on. A round that skipped a comment and
 then has nothing to fix stops once with `reason=unclassified-comment` and prints the comment. Run
-the command again to accept the verdict. To make the loop read a comment it skipped, remove your 👀
+the command again to accept the verdict. The fence ignores a marked comment whatever it says
+later, so a reviewer that edits that comment into its verdict is read only after you remove your 👀
 from it.
 
 To remove that stop, add the preamble to the fence's list. That is a fence edit, which follows the

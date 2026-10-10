@@ -25,7 +25,8 @@ Fences: `wait-verdict` changed (one re-approval).
   reaction to the comment from your account, the wait fence skips a comment that carries one, and
   the wait continues. A round that skipped a comment and then has nothing to fix stops once with
   `reason=unclassified-comment`; running the command again accepts the verdict. Such a round never
-  re-posts its trigger.
+  re-posts its trigger. A skipped comment that the reviewer later edits into its verdict is read
+  only once you remove the 👀, and every stop after a skip says so.
 
 ### Fixed
 

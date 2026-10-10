@@ -860,6 +860,10 @@ report with its reason.
      silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical. A round
      that skipped a comment never re-posts: its abort is plain `no-verdict`, with every skipped
      body printed in full.
+   - Every stop that follows a skip (`unclassified-comment`, `no-verdict`, `interim-loop`) lists each
+     skipped comment's `cid=` and its `MARKED=` id, and says to remove that 👀 before running the
+     command again. The fence drops a marked comment whatever its body is now, so a reviewer that
+     edited it in place into its verdict stays unread, and a run that waits on it ends in silence.
 
    The mark, for the skip row. `<cid>` is the `cid=` on the fence's line. Decide failure from the
    exit code:
@@ -1081,8 +1085,10 @@ report with its reason.
     - If even one item needs fixing, go back to step 3.
     - If nothing needs fixing and this run skipped a comment in this round (step 9's skip row), do
       not converge: abort with `reason=unclassified-comment`, print each skipped `cid=` and body in
-      full, and say that running the command again accepts the verdict. A later run reads the same
-      verdict with nothing skipped. This is within-run state.
+      full with its `MARKED=` id, and say that running the command again accepts the verdict. A later
+      run reads the same verdict with nothing skipped. This is within-run state. Say also that a
+      skipped comment the reviewer has since edited into its verdict is read only once its 👀 is
+      removed.
     - If every item is fixed, declined, or accepted, re-read step 1's `pr_head=`, run the
       sufficiency test in [`rigor-levels.md`](rigor-levels.md), and go to step 12 only when both
       pass.
@@ -1302,7 +1308,8 @@ These are load-bearing. Each rule here holds across steps, or is stated by no si
 - **Arm one wait at a time.** If an earlier wait may still be running, wait for its verdict instead
   of firing again.
 - Add the 👀 mark that step 8's fence reads only in step 9's skip row. Nobody else's reaction
-  counts as one. To make a later run read a marked comment, remove the reaction.
+  counts as one. A marked comment stays unread whatever it later says, an edit into a verdict
+  included. To make a later run read it, remove the reaction.
 - Discard the findings of a stale review; never salvage them. Step 9 allows one re-fire per round
   and aborts on the second.
 - Before trusting a `pending` row in step 9, enumerate the `pending`: within `--timeout` or past
@@ -1408,7 +1415,8 @@ second, and the one-runner rule.
 - Step 9's skip row, from a run: the mark, a marked comment dropped by the fence, the
   three-comment bound, a marked `cid=` coming back, and step 11's `reason=unclassified-comment`.
   Does not fail closed: the stop is within-run state, so a run resumed after the skip converges
-  without it, and a comment older than the one the fence returned is never classified.
+  without it, a comment older than the one the fence returned is never classified, and a marked
+  comment the reviewer edits into its verdict stays dropped until the reaction is removed.
 - Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor: the round caps, the
   per-level sweep obligations, the rising-ceiling re-open, the sufficiency test (it cannot fail
   open), and the default level `standard`.
