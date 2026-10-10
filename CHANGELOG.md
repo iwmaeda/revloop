@@ -23,10 +23,11 @@ Fences: `wait-verdict` changed (one re-approval).
   what it asked for.
 - A pull-request loop no longer aborts on a reviewer comment it cannot classify. It adds a 👀
   reaction to the comment from your account, the wait fence skips a comment that carries one, and
-  the wait continues. A round that skipped a comment and then has nothing to fix stops once with
-  `reason=unclassified-comment`; running the command again accepts the verdict. Such a round never
-  re-posts its trigger. A skipped comment that the reviewer later edits into its verdict is read
-  only once you remove the 👀, and the report of every run that skipped a comment names it.
+  the wait continues. A round whose pull request carries such a 👀 on a bot comment and then has
+  nothing to fix stops with `reason=unclassified-comment`; remove the 👀 and run the command again
+  to accept the verdict. Such a round never re-posts its trigger. A marked comment that the
+  reviewer later edits into its verdict is read only once you remove the 👀, and every report lists
+  the marks the pull request still carries, whichever run made them.
 
 ### Fixed
 
