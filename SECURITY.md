@@ -19,9 +19,10 @@ including one you just cloned. Both are read under the same rules.
   reads `$REVLOOP_PROCEDURE`, its own relative path, or `~/.revloop`. Neither searches the working
   tree.
 - No configuration value reaches a shell fence or a jq program.
-- `--merge`, `--auto`, `--rigor`, `--config`, `--model` and `--no-publish` are flags only. A
-  repository cannot turn on merging, remove a confirmation, lower the review bar, or choose the
-  reviewer.
+- `--merge`, `--auto`, `--rigor` and `--config` are flags only. A repository cannot turn on merging,
+  remove a confirmation, lower the review bar, or choose the reviewer. `--model` is a flag only
+  because a model name from a repository file would be interpolated into a command line, and
+  `--no-publish` because nobody has asked for a key.
 - Verify commands and a subprocess reviewer's `command` are never pre-approved. Step 1 prints them
   before anything runs, and they are kept out of `allowed-tools`, so your permission system prompts
   for each unless you have granted that string yourself. A skill reviewer has no command string to

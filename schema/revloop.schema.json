@@ -91,7 +91,7 @@
     "defaults": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Defaults for the command flags. A flag always overrides its default. --merge, --auto, --rigor, --config, --model and --no-publish have no key: this file comes from the repository you are working in, so it cannot turn on merging, remove a confirmation, lower the review bar or choose the reviewer.",
+      "description": "Defaults for the command flags. A flag always overrides its default. --merge, --auto, --rigor and --config have no key: this file comes from the repository you are working in, so it cannot turn on merging, remove a confirmation, lower the review bar or choose the reviewer. --model has none because its value is interpolated into a command line, and --no-publish has none because nobody has asked for one.",
       "properties": {
         "maxRounds": {
           "type": "integer",

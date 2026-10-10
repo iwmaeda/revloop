@@ -87,9 +87,10 @@ and step 1 prints each one before anything runs.
   command line.
 - A subprocess reviewer's `command` may not begin with `git`, `gh` or `{reviewModel}`. The match is on
   the string, so `gitlint` and `gh-review` are refused too: configure such a reviewer as a skill, or
-  rename it. A skill's name is not matched against a permission rule and is not restricted this way. See [`SECURITY.md`](../SECURITY.md#repository-supplied-configuration-is-untrusted).
-- The value of `--model` is the only value interpolated into a command line. It must match
-  `^[A-Za-z0-9][A-Za-z0-9._:-]*$`.
+  rename it. A skill's name is not matched against a permission rule and is not restricted this way.
+  See [`SECURITY.md`](../SECURITY.md#repository-supplied-configuration-is-untrusted).
+- The model name, the value of `--model` or the built-in `sonnet`, is the only value interpolated
+  into a command line. It must match `^[A-Za-z0-9][A-Za-z0-9._:-]*$`.
 
 There are four fences: `wait-verdict`, `worktree-teardown`, `wait-ci` and `merge`. Editing one costs
 every user a re-approval; the protocol is in

@@ -118,7 +118,8 @@ artifact, its exact version and the month (`ecc 2.2.0, 2026-09`), the third prov
 - `severityLevels` is what the command prints, which is not always what it documents. A ladder taken
   from the documentation names rungs the output never carries, and then every finding blocks.
 - The output shape can change with the model and the effort level. Record the shape for the
-  configuration you ran; the default review model is `sonnet`. A parser written for another shape
+  configuration you ran; a subprocess reviewer with `{reviewModel}` reviews on `sonnet` unless
+  `--model` says otherwise. A parser written for another shape
   finds nothing, which looks like a clean review.
 - A command that diffs against the branch's upstream returns nothing once the branch is pushed. Set
   `requiresPr` correctly: the local loop publishes after convergence when it is `false` and before

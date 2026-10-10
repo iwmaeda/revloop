@@ -109,10 +109,11 @@ A round that re-posts its trigger waits about twice `timeout`, each attempt roun
 
 ## What is deliberately not configurable
 
-`--merge`, `--auto`, `--rigor`, `--config`, `--model` and `--no-publish` are flags only. This file
-comes from the repository you are working in, including one you just cloned, so it cannot turn on
-merging, remove a confirmation, lower the review bar or choose the reviewer. The reviewer is chosen by
-the command you type.
+`--merge`, `--auto`, `--rigor` and `--config` are flags only. This file comes from the repository you
+are working in, including one you just cloned, so it cannot turn on merging, remove a confirmation,
+lower the review bar or choose the reviewer. `--model` has no key because its value is interpolated
+into a command line, and `--no-publish` has none because a key that only turns publishing off grants
+nothing and nobody has asked for one. The reviewer is chosen by the command you type.
 
 Also fixed: the merge method (a merge commit), the CI check before a merge, which endpoints the wait
 reads, the interim-comment patterns inside the wait fence, the round number (counted from the trigger

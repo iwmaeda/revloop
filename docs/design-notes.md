@@ -81,8 +81,9 @@ sufficiency test before the run finishes. The specification is
   `severityMap` maps its own rungs onto it. `severityLevels` records what the reviewer emits; the map
   is a judgement, so step 1 prints the resulting floor before the first round.
 - The loop never ranks findings itself, because it is the party that has to fix them. When a
-  reviewer emits no severity, a separate subprocess grades the findings. The grader is not told the
-  floor and does not see the session, and every rung it assigns is marked `graded`. Nothing
+  reviewer emits no severity, at `minimal` and `standard` a separate subprocess grades the findings.
+  The grader is not told the floor and does not see the session, and every rung it assigns is marked
+  `graded`. Nothing
   establishes that its rungs are accurate, so a graded convergence is a weaker result than one on the
   reviewer's own rungs.
 - `--rigor`, `--merge` and `--auto` have no configuration key, because the configuration file comes
@@ -92,8 +93,9 @@ sufficiency test before the run finishes. The specification is
 ## What a local run does not establish
 
 A local reviewer on the same model that wrote the code is not an independent check. Running it as a
-subprocess keeps it from reading the session's reasoning, and the default review model, `sonnet`, is
-usually a different model from the one doing the fixing. It is still weaker than a separate reviewer.
+subprocess keeps it from reading the session's reasoning, and the default review model of a
+subprocess with `{reviewModel}`, `sonnet`, is usually a different model from the one doing the
+fixing. A skill reviewer runs on the session's model. It is still weaker than a separate reviewer.
 
 A clean local run is a pre-flight. It reduces the defects present when the remote review starts; it
 does not mean the change has been reviewed. That is why the local commands never merge.

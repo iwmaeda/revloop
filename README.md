@@ -25,8 +25,9 @@ and answers comments.
 
 The local commands post no comments and never merge. They push the branch and open a pull request
 for it, before each round for a reviewer that reads the pull request and after convergence for the
-rest; `--no-publish` stops at the commit. The review runs on `sonnet` by default, and
-`--model` changes that.
+rest; `--no-publish` stops at the commit. A subprocess reviewer whose `command` carries `{reviewModel}`
+reviews on `sonnet` by default, and `--model` changes that; a skill reviewer runs on the session's
+model.
 
 ```console
 /revloop:remote-codex-loop
@@ -48,7 +49,7 @@ rest; `--no-publish` stops at the commit. The review runs on `sonnet` by default
 | `--auto`           | all             | off        | Run through the stop points, except a local reviewer's confirmation |
 | `--merge`          | `remote-*`      | off        | After convergence, wait for green CI and merge                      |
 | `--timeout <dur>`  | `remote-*`      | `30m`      | Cap on waiting for one trigger's verdict                            |
-| `--model <name>`   | `local-*`       | `sonnet`   | The model the review runs on                                        |
+| `--model <name>`   | `local-*`       | `sonnet`   | The model a subprocess review with `{reviewModel}` runs on          |
 | `--no-publish`     | `local-*`       | off        | End at the commit: no push, no pull request                         |
 | `--config <path>`  | `*-custom-loop` | required   | The reviewer definition this run drives                             |
 
@@ -185,7 +186,8 @@ must finish, and so when the loop may stop.
 ```
 
 Severity is handled on one ladder for every reviewer, `critical > high > medium > low`. For a
-reviewer that reports no severity, a grading model in a separate process estimates it. When the loop
+reviewer that reports no severity, at `minimal` and `standard` a grading model in a separate process
+estimates it. When the loop
 converges, the run records whether the change is sufficiently reviewed for its level.
 
 ## Built-in reviewers
