@@ -13,7 +13,7 @@ Definition: [`codex.json`](codex.json). Driven by `/revloop:remote-codex-loop`.
 
 ## Measured
 
-- A verdict takes 3 to 10 minutes. A clean round takes about as long.
+- A verdict takes 2 to 10 minutes. A clean round takes about as long.
 - A round returns 1 to 4 findings, so a pull request needs roughly as many rounds as it has defects
   when the trigger fires. Pull requests have taken from 1 to 30 rounds.
 - Consecutive findings often land in the same file, and the missing input forms of one predicate
@@ -27,9 +27,11 @@ Definition: [`codex.json`](codex.json). Driven by `/revloop:remote-codex-loop`.
   between rounds. Match it as a prefix.
 - The rate-limit reply starts `You have reached your Codex usage limits` and arrives in about 10
   seconds.
-- A status card may arrive seconds after the trigger: an issue comment whose first line is
-  `<!-- codex-pull-request-review-summary -->`, edited in place from `Running` to `Completed`. It
-  carries no verdict, and the wait fence drops it.
+- A status card arrives 13 to 19 seconds after the first trigger on a pull request: an issue comment
+  whose first line is `<!-- codex-pull-request-review-summary -->`. It is created once per pull
+  request and edited in place, from `Running` to `Completed`, a few seconds after each verdict. It
+  shows the latest review only, and a rate-limited trigger does not edit it. It carries no verdict,
+  and the wait fence drops it.
 - The reviewer's 👍 lands on the pull request's description, not on the trigger comment, so the
   `reaction` verdict does not fire.
 - `@codex review <focus>` is accepted and answered.
@@ -41,7 +43,6 @@ Definition: [`codex.json`](codex.json). Driven by `/revloop:remote-codex-loop`.
 - Whether the `severityMap` is right. It is a judgement: `P1` to `critical`, `P2` to `high` and `P3`
   to `low`, with nothing mapped to `medium`.
 - Whether a 👍 ever lands on the trigger comment.
-- Whether the status card is created once per pull request or once per trigger, and what it shows
-  in a state other than `Running` or `Completed`.
+- What the status card shows in a state other than `Running` or `Completed`.
 - Whether a trigger posted after a rate limit, at an unchanged HEAD, draws a review once the quota
   is back.
