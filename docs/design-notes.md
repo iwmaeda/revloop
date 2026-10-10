@@ -1,8 +1,7 @@
 # Design notes
 
-Why the loops are shaped the way they are. The procedures' `## Notes` state each invariant next to the
-failure that motivated it; this page covers decisions that span the whole design, and holds the
-reasoning the task guides link out to.
+Why the loops are shaped the way they are. The procedures state the rules; this page covers decisions
+that span the whole design, and holds the reasoning the task guides link out to.
 
 ## Provenance
 
@@ -11,8 +10,7 @@ its own — each had fixed bugs the others still had: a clean phrase matched for
 a prefix, a findings reader that trusted a field which is usually null, a failure token containing
 the success token as a substring, a wait loop that exited on a non-terminal signal, and a wait built
 on an endpoint that returns 404 while another serves the same data. Each of those is now a rule in
-[`../procedures/remote-loop.md`](../procedures/remote-loop.md)'s `## Notes`, stated with the failure it
-answers.
+[`../procedures/remote-loop.md`](../procedures/remote-loop.md).
 
 The differences that were _not_ bugs became the configuration surface. `.revloop.json`'s field list is
 therefore not a guess about what people might want, but the list of what actually differed between
@@ -638,5 +636,5 @@ on. The floor itself is in [`install.md`](install.md#requirements).
 
 - [Permissions](permissions.md) — the rules this reasoning produces
 - [Configuration](configuration.md#what-is-deliberately-not-configurable) — what is fixed, and why
-- [`../procedures/remote-loop.md`](../procedures/remote-loop.md) — the procedure, and its per-step `## Notes`
+- [`../procedures/remote-loop.md`](../procedures/remote-loop.md) — the procedure and its `## Notes`
 - [`../procedures/local-loop.md`](../procedures/local-loop.md) — the local procedure

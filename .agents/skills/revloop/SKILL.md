@@ -102,7 +102,8 @@ not apply.
 
 ## Preserve the invariants
 
-The procedure's `## Notes` section states them; these are the ones most often lost in adaptation:
+The procedure states them, in its steps and its `## Notes`; these are the ones most often lost in
+adaptation:
 
 - **Never re-fire a trigger without new commits**, except in the five cases the procedure names, and
   they do not all belong to different runs. Compare `marker_head=` against current HEAD; the in-run
