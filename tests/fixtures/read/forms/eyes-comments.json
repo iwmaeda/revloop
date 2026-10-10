@@ -5,7 +5,7 @@
     "html_url": "https://github.com/o/r/pull/1#issuecomment-701",
     "user": { "login": "chatgpt-codex-connector[bot]", "type": "Bot" },
     "reactions": { "eyes": 1, "+1": 0, "total_count": 1 },
-    "body": "Before the trigger, marked: not this round's."
+    "body": "Before the trigger, with an eyes: not this round's."
   },
   {
     "id": 702,
@@ -21,7 +21,7 @@
     "html_url": "https://github.com/o/r/pull/1#issuecomment-703",
     "user": { "login": "chatgpt-codex-connector[bot]", "type": "Bot" },
     "reactions": { "eyes": 2, "+1": 0, "total_count": 2 },
-    "body": "Marked, a second after the bound."
+    "body": "With two eyes, a second after the bound."
   },
   {
     "id": 704,
@@ -52,6 +52,6 @@
     "html_url": "https://github.com/o/r/pull/1#issuecomment-707",
     "user": { "login": "other-bot[bot]", "type": "Bot" },
     "reactions": { "eyes": 1, "+1": 0, "total_count": 1 },
-    "body": "Another bot's comment, marked: still a row."
+    "body": "Another bot's comment, with an eyes: still a row."
   }
 ]

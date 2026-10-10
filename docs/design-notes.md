@@ -58,7 +58,7 @@ and asks every user to approve it again. For the same reason no configuration va
 and the list of interim comments the wait ignores lives inside the fence. A comment that list does
 not name is ruled by step 9's skip bullet instead, which can add a reaction from your account to it,
 and a firing of the fence whose fetch shows one drops that comment. What the loop does with it and
-what a mark can cost is ruled by that bullet, the marked-`cid=` bullet, step 7's condition (d),
+what adding that 👀 can cost is ruled by that bullet, the marked-`cid=` bullet, step 7's condition (d),
 step 11's gate and step 12, which count a 👀 from any account where the fence drops only yours.
 
 ## Two procedures, seven commands

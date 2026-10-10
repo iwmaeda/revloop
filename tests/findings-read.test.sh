@@ -429,7 +429,7 @@ same "  and so does a forgotten <oid>"         "$?" "1"
 reviews "$HEAD_OID" 2026-01-01 "$RFORMS" >/dev/null 2>&1
 same "  and a bound that is a date and not a timestamp" "$?" "1"
 
-# --- active marks: hand-written ----------------------------------------------
+# --- active marks (an eyes from any account): hand-written --------------------
 #
 # Bot comments at or after the bound that carry any eyes, whoever put it there. The
 # fence drops only the viewer's own, so on one snapshot the read lists every comment the
@@ -439,22 +439,22 @@ marks() { # marks <since> <file>...
   shift
   run "${MARKS//<since>/$since}" "$@"
 }
-MFORMS="$FX/forms/marked-comments.json"
-o=$(marks 2026-01-01T01:00:00Z "$MFORMS")
-same "only bot comments with an eyes at or after the bound are rows" \
+EFORMS="$FX/forms/eyes-comments.json"
+o=$(marks 2026-01-01T01:00:00Z "$EFORMS")
+same "only bot comments with an eyes from any account at or after the bound are rows" \
   "$(printf '%s\n' "$o" | cut -d' ' -f2 | tr '\n' ' ')" "702 703 707 "
 expect "  a row names the comment's URL"             "$o" "https://github.com/o/r/pull/1#issuecomment-703"
-expect "  and how many eyes it carries"              "$o" "eyes=2"
+expect "  and how many eyes it carries, whoever added them" "$o" "eyes=2"
 same "a comment in the bound's own second is a row: the opening second counts" \
   "$(printf '%s\n' "$o" | grep -c ' 702 ')" "1"
 same "a person's comment with an eyes on it is no row (bot comments only)" \
   "$(printf '%s\n' "$o" | grep -c ' 705 ')" "0"
 same "a bot comment with no reactions object is no row" "$(printf '%s\n' "$o" | grep -c ' 706 ')" "0"
 same "an earlier bound adds the earlier comments" \
-  "$(marks 2025-12-31T00:00:00Z "$MFORMS" | cut -d' ' -f2 | tr '\n' ' ')" "701 702 703 707 "
-marks '<since>' "$MFORMS" >/dev/null 2>&1
+  "$(marks 2025-12-31T00:00:00Z "$EFORMS" | cut -d' ' -f2 | tr '\n' ' ')" "701 702 703 707 "
+marks '<since>' "$EFORMS" >/dev/null 2>&1
 same "a forgotten <since> fails the read"            "$?" "1"
-marks 2026-01-01 "$MFORMS" >/dev/null 2>&1
+marks 2026-01-01 "$EFORMS" >/dev/null 2>&1
 same "  and so does a bound that is a date"          "$?" "1"
 
 summary "findings-read"

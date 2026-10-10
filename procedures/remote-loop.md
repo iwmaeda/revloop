@@ -538,9 +538,9 @@ report with its reason.
    verdict: its recovery is a later run's re-take, never this re-post. A comment carrying the
    authenticated account's 👀 is an answer the fence's firings hide from the wait, while this read
    counts anyone's 👀, so it withholds the re-post more often than the fence hides a comment. A
-   reaction added after the read is not covered: do not re-post over a mark this read observed. The
-   abort is then plain `no-verdict` (`max-rounds` at the cap), with every marked body printed in
-   full.
+   reaction added after the read is not covered: do not re-post over a 👀 this read observed. The
+   abort is then plain `no-verdict` (`max-rounds` at the cap), with the body of every comment the
+   read listed printed in full.
    (e) `git rev-parse HEAD` still equals the `oid=` you are about to write, compared in full.
 
    The re-post is the first trigger's body verbatim, trigger text and focus included, with `head=`
@@ -661,7 +661,7 @@ report with its reason.
    A firing of the fence whose fetch shows a bot comment carrying a 👀 (`eyes`) reaction from the
    account `gh` is authenticated as does not emit that comment. A reaction added or removed after
    a fetch is seen by the next firing and not by that one. Step 9's skip bullet can add that reaction;
-   what the loop does with a comment and what a mark can cost is ruled by that bullet, the marked-`cid=`
+   what the loop does with a comment and what adding that 👀 can cost is ruled by that bullet, the marked-`cid=`
    bullet, step 7's condition (d), step 11's gate and step 12, which act on a 👀 from any account
    through the active-marks read.
 
@@ -858,21 +858,23 @@ report with its reason.
      it names.
    - `rate-limit-retake`: say in the report that a rate-limit re-take opened the round, naming the
      `cid=`, and append one line to `.revloop/field-notes.md`.
-   - A marked `cid=` that comes back is one the active-marks read lists. It has no retry: abort
-     with `reason=interim-loop` at once and print the comment's URL and full body. Nothing here
-     asks who made the mark or in which run, so a resumed run meets it as an earlier one did.
+   - A marked `cid=` that comes back is one the active-marks read lists, so it carries a 👀 from
+     some account, the authenticated one or another. It has no retry: abort with
+     `reason=interim-loop` at once and print the comment's URL and full body. Nothing here asks
+     whose 👀 it is or in which run, so a resumed run meets it as an earlier one did.
    - Skip: the body matches neither `cleanPatterns` nor `rateLimitPatterns`, and the active-marks
      read does not list its `cid=`. Run that read first. The loop proceeds on at most three
-     marks, whoever made them and in whichever run: when the read already returns three rows,
-     abort with `reason=interim-loop` and print each row's URL and body in full rather than
-     marking a fourth. Otherwise mark the comment with the call below this list, then run the
-     read again and require the `cid=` to be a row and the read to return at most three rows: a
-     mark added meanwhile counts. A mark that exits non-zero, one the second read does not list
-     and a fourth standing mark abort with `reason=interim-loop` and print the body in full: the
-     wait would otherwise return the same comment again with nothing spent. The three is what the
-     loop proceeds on, not what can stand: a race can leave the mark just added as a fourth, which
-     the loop cannot remove, so the abort names it and the report lists it for removal. When the row is
-     there, keep its full body for the report and re-fire step 8 only. The firing that returned it
+     rows, whichever accounts' 👀 they carry and in whichever run: when the read already returns
+     three rows, abort with `reason=interim-loop` and print each row's URL and body in full
+     rather than adding a fourth. Otherwise add the authenticated account's 👀 to the comment with
+     the call below this list, then run the read again and require the `cid=` to be a row and the
+     read to return at most three rows: a 👀 from any account added meanwhile counts. A call that
+     exits non-zero, a `cid=` the second read does not list and a fourth standing row abort with
+     `reason=interim-loop` and print the body in full: the wait would otherwise return the same
+     comment again with nothing spent. The three is what the loop proceeds on, not what can
+     stand: a race can leave the 👀 just added as a fourth row, which the loop cannot remove, so
+     the abort names it and the report lists it for removal. When the row is there, keep its
+     full body for the report and re-fire step 8 only. The firing that returned it
      is not a chunk: it costs nothing against `--timeout` and never counts toward step 7's floor.
      The other rules that act on a 👀 from any account are the marked-`cid=` bullet, step 7's
      condition (d), step 11's gate and step 12.
@@ -892,7 +894,7 @@ report with its reason.
      from any account are this skip bullet and the marked-`cid=` bullet, step 7's condition (d),
      step 11's gate and step 12, and each of them acts on what the read below returns.
 
-   The mark, for the skip row. `<cid>` is the `cid=` on the fence's line. Decide failure from the
+   The authenticated account's 👀, for the skip row. `<cid>` is the `cid=` on the fence's line. Decide failure from the
    exit code:
 
    ```bash
@@ -902,7 +904,7 @@ report with its reason.
 
    The active marks. `<since>` is the `opened=` that step 1's pull-request read prints, and the read
    fails if it is left unfilled. The pull request's own creation time cannot move, so it is the
-   same value on every use, a mark from an earlier round or before the first marker is in the range of every
+   same value on every use, a 👀 from an earlier round or before the first marker is in the range of every
    later read, and a hand-typed trigger followed by a marker cannot shift it. A row is a bot
    comment created at or after it, so one made in the opening second counts, carrying any 👀. The
    fence drops only the one from the account `gh` is authenticated as, so a row can be
@@ -1132,10 +1134,12 @@ report with its reason.
       sufficiency test in [`rigor-levels.md`](rigor-levels.md), and then, last, run step 9's
       active-marks read. Go to step 12 only when both pass and the read returns no row.
     - If that read returns a row, or fails, do not converge: abort with
-      `reason=unclassified-comment`, print each row and the comment's body in full, and say to
-      remove that 👀 and run the command again. This is pull-request state, so it holds for a
-      mark from an interrupted run, an earlier run, an earlier round or a person alike, and a run
-      stops here for as long as the read observes one. The reviewer may have edited the comment into its
+      `reason=unclassified-comment`, print each row and the comment's body in full, and say that
+      each row's 👀 has to be removed before the command runs again, by the account that added
+      it: the read does not say whose it is, and the authenticated account can remove only its
+      own. This is pull-request state, so it holds for a 👀 from an interrupted run, an earlier
+      run, an earlier round or a person alike, and a run stops here for as long as the read
+      observes one. The reviewer may have edited the comment into its
       verdict. A firing of the fence skips the comment only while the 👀 on it is the
       authenticated account's, so reading it again takes that one removed before the firing's
       fetch, while this read stops the run on anyone's 👀.
@@ -1247,10 +1251,10 @@ report with its reason.
       were not read and do not call the report clean of them. A row (a bot comment carrying a 👀 from
       any account), or a failed read, on a run that was about to report a convergence withdraws it:
       report `reason=unclassified-comment` instead, and merge nothing. For each row it returns,
-      list the comment's id and URL, and say that its 👀 stays until you remove it and, when it
-      is the authenticated account's, that a firing whose fetch shows it drops the comment, even
-      one the reviewer has since edited into its verdict. Remove it before running the command
-      again.
+      list the comment's id and URL, and say that its 👀 stays until the account that added it
+      removes it (the read does not say whose it is) and, when it is the authenticated
+      account's, that a firing whose fetch shows it drops the comment, even one the reviewer
+      has since edited into its verdict. It has to be removed before the command runs again.
       If the read fails, say so and do not call the report clean of marks.
     - Say everything an earlier step told you to say in the report, including every accepted
       finding with its reason, a reviewer `status` that is not `verified`, and each unexercised
@@ -1482,11 +1486,11 @@ second, and the one-runner rule.
   marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, none restated here, and no
   run has taken any of them. Does not fail closed: a firing returns the newest comment after the
   trigger, so an older one is classified only when it is the newest the firing's fetch leaves, which
-  a mark can bring about in that same firing, a firing whose fetch shows the authenticated account's
-  mark drops the comment whatever it later says,
+  the loop's own 👀 can bring about in that same firing, a firing whose fetch shows the authenticated
+  account's 👀 drops the comment whatever it later says,
   and the active-marks read counts anyone's 👀 on a bot comment since the pull request was opened,
   including one the fence ignores and an earlier round's. The read is measured at `gh 2.4.0` on a
-  pull request with no mark; no run has read a marked one.
+  pull request with no 👀 on a bot comment; no run has read one that carries one.
 - Step 12's last read of the marks before a merge sits outside the merge fence, so none of the five
   rules reads a 👀, from any account, added in the seconds between that read and the fence's PUT. Putting it inside is
   a fence edit and a re-approval for every user. Does not fail closed.

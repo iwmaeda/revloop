@@ -23,7 +23,7 @@ Fences: `wait-verdict` changed (one re-approval).
   what it asked for.
 - A pull-request loop no longer aborts at once on every reviewer comment it cannot classify. A
   firing of the wait fence skips a bot comment whose fetch shows a 👀 reaction from your account.
-  What the loop does with such a comment and what a mark can cost is ruled by step 9's skip bullet
+  What the loop does with such a comment and what adding that 👀 can cost is ruled by step 9's skip bullet
   and marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, which this entry
   does not restate and which count a 👀 from any account, not only yours.
 
