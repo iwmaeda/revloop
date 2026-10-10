@@ -22,14 +22,14 @@ Fences: `wait-verdict` changed (one re-approval).
 - When a subprocess reviewer ends by asking a question, the `unparsed-review-output` report says
   what it asked for.
 - A pull-request loop no longer aborts on a reviewer comment it cannot classify. It adds a 👀
-  reaction to the comment from your account, the wait fence skips a comment that carries one, and
-  the wait continues. A round whose pull request carries such a 👀 on a bot comment, from any
+  reaction to the comment from your account, a firing of the wait fence skips a comment whose fetch
+  shows one, and the wait continues. A round whose pull request carries such a 👀 on a bot comment, from any
   earlier round or run, as far as the loop's reads observe, and then has nothing to fix stops
   with `reason=unclassified-comment`; remove the 👀 and run the command again to accept the
   verdict. Such a round does not re-post its trigger while the loop's read observes a mark, and a
   `--merge` run reads the marks again just before the merge. A marked comment that the reviewer
-  later edits into its verdict is read only once you remove the 👀, and every report
-  lists the marks the loop's last read observed, whichever run made them.
+  later edits into its verdict is read only by a firing that fetches after you remove the 👀, and
+  every report lists the marks the loop's last read observed, whichever run made them.
 
 ### Fixed
 

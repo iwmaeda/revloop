@@ -86,13 +86,14 @@ Some reviewers acknowledge the trigger before doing the work. Gemini posts `## S
 and Codex posts a status card that it edits while the review runs. The wait fence drops the ones it
 knows.
 
-One it does not know is skipped. Step 9 adds a 👀 reaction to the comment from your account, the
-fence ignores a comment that carries it, and the wait goes on. A round whose pull request
+One it does not know is skipped. Step 9 adds a 👀 reaction to the comment from your account, a
+firing of the fence that fetches it ignores that comment, and the wait goes on. A round whose pull request
 carries a bot comment with a 👀 on it since the pull request was opened, whoever put it there and
 in whichever run or round, as far as the loop's reads observe, and then has nothing to fix stops
 with `reason=unclassified-comment` and prints the comment. Remove the 👀 and run the command again
-to accept the verdict. The fence ignores a marked comment whatever it says later, so a reviewer that
-edits that comment into its verdict is read only after the 👀 is removed. Every report lists the
+to accept the verdict. A firing that fetches the 👀 ignores the comment whatever it says later, so a
+reviewer that edits that comment into its verdict is read only by a firing that fetches after the
+👀 is removed. Every report lists the
 marks the loop's last read observed on the pull request.
 
 To remove that stop, add the preamble to the fence's list. That is a fence edit, which follows the
