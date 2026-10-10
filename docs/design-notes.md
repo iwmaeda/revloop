@@ -18,7 +18,8 @@ round may re-post its trigger once, and why a later run may re-take a rate-limit
 
 A review drawn by a hand-typed trigger is read only when it is by the configured reviewer and
 GitHub's `commit_id` for it equals HEAD. Such a round never converges or merges; the loop then opens
-an ordinary round.
+an ordinary round. If no review by the configured reviewer stands at HEAD or at an ancestor of it,
+the run aborts instead, and a later run opens that round.
 
 ## Why the loop marks its own triggers
 
@@ -27,13 +28,13 @@ The wait has to recognise a trigger, and matching by name also matches ordinary 
 matches that:
 
 ```text
-<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=1a2b3c4d round=3 -->
+<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=1a2b3c4d oid=<full commit sha> round=3 -->
 ```
 
 - `bot=` filters out every other bot before classification, so a deploy-preview or coverage comment
   cannot end the wait.
-- `head=`, `round=` and `attempt=` keep the run's state on the pull request, so an interrupted run
-  resumes without local state.
+- `oid=`, `round=` and `attempt=` keep the run's state on the pull request, so an interrupted run
+  resumes without local state. `head=` is the short form of `oid=`, for display.
 - Reviewer identity reaches the wait through this comment and never through a configuration file.
 - A hand-typed `@codex review` still anchors a baseline, but it carries no `head=` and no `bot=`, so
   the bot filter admits any bot and a verdict behind it is not bound to a commit.

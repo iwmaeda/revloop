@@ -100,11 +100,11 @@ the loop closes it before pushing; a red CI costs a review round.
 A flag overrides its default. The order is the flag, then this block, then the built-in, which for
 the round caps is the `--rigor` level's.
 
-| Key              | Meaning                                                | Built-in             |
-| ---------------- | ------------------------------------------------------ | -------------------- |
-| `maxRounds`      | Round cap for the `remote-*` commands                  | From the rigor level |
-| `localMaxRounds` | Round cap for the `local-*` commands                   | From the rigor level |
-| `timeout`        | Cap on waiting for one trigger's verdict, e.g. `"45m"` | `30m`                |
+| Key              | Meaning                                                                            | Built-in             |
+| ---------------- | ---------------------------------------------------------------------------------- | -------------------- |
+| `maxRounds`      | Round cap for the `remote-*` commands                                              | From the rigor level |
+| `localMaxRounds` | Round cap for the `local-*` commands                                               | From the rigor level |
+| `timeout`        | Cumulative cap on waiting for one trigger's verdict, e.g. `"45m"`; `remote-*` only | `30m`                |
 
 A round that re-posts its trigger waits about twice `timeout`, each attempt rounded up to whole 8-minute chunks.
 
@@ -116,9 +116,10 @@ lower the review bar or choose the reviewer. `--model` has no key because its va
 into a command line, and `--no-publish` has none because a key that only turns publishing off grants
 nothing and nobody has asked for one. The reviewer is chosen by the command you type.
 
-Also fixed: the merge method (a merge commit), the CI check before a merge, which endpoints the wait
-reads, the interim-comment patterns inside the wait fence, the round number (counted from the trigger
-markers on the pull request) and the retry budget (one re-post per round).
+Also fixed in the `remote-*` commands: the merge method (a merge commit), the CI check before a
+merge, which endpoints the wait reads, the interim-comment patterns inside the wait fence, the round
+number (counted from the trigger markers on the pull request) and the retry budget (one re-post per
+round).
 
 ## The rigor level
 
@@ -190,12 +191,12 @@ Reviewers are not configured in this file. Each is a JSON document validated aga
 Both kinds take `displayName`, `severityLevels`, `severityMap`, `expectedLatency` and `status`. A key
 that belongs to the other kind is rejected.
 
-| Key                 | Meaning                                                                                                                                  |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `invoke`            | `subprocess` runs `command` in a shell and reads its stdout. `skill` invokes it in this session                                          |
-| `command`           | The command line, or the skill name. Printed in step 1; a command line is never pre-approved, and a skill stops for confirmation instead |
-| `requiresPr`        | True when the command reads an open pull request and cannot run without one                                                              |
-| `rateLimitPatterns` | What the reviewer says when it is out of quota. A match aborts the round and this run does not retry it; a later run does                |
+| Key                 | Meaning                                                                                                                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `invoke`            | `subprocess` runs `command` in a shell and reads its stdout. `skill` invokes it in this session                                                                            |
+| `command`           | The command line, or the skill name. Printed in step 1; a command line is never pre-approved, and a skill stops for confirmation instead, which `--auto` does not suppress |
+| `requiresPr`        | True when the command reads an open pull request and cannot run without one                                                                                                |
+| `rateLimitPatterns` | What the reviewer says when it is out of quota. A match aborts the round and this run does not retry it; a later run does                                                  |
 
 - Prefer `subprocess`. The reviewer then runs in its own context, and it is the only way to choose
   its model.
@@ -218,14 +219,14 @@ The placeholder expands to the value of `--model` if you typed it, and to `sonne
 command spells its own flag. There is no configuration key for it.
 A repository that wants a fixed model writes it literally in `command`.
 
-| Situation                                         | Behaviour                                                        |
-| ------------------------------------------------- | ---------------------------------------------------------------- |
-| `command` has the placeholder                     | Expanded before the command is shown or run                      |
-| No placeholder, no `--model`                      | The model is not pinned, and step 1 says so                      |
-| No placeholder, `--model` given                   | Abort (`no-model-boundary`)                                      |
-| `invoke: skill`, `--model` given                  | Abort (`no-model-boundary`): a skill runs on the session's model |
-| A name with a space, quote or shell metacharacter | Abort (`unsafe-model-name`)                                      |
-| `command` begins with the placeholder             | Rejected by the schema                                           |
+| Situation                                                                                   | Behaviour                                                        |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `command` has the placeholder                                                               | Expanded before the command is shown or run                      |
+| No placeholder, no `--model`                                                                | The model is not pinned, and step 1 says so                      |
+| No placeholder, `--model` given                                                             | Abort (`no-model-boundary`)                                      |
+| `invoke: skill`, `--model` given                                                            | Abort (`no-model-boundary`): a skill runs on the session's model |
+| A name outside `[A-Za-z0-9][A-Za-z0-9._:-]*`, such as one with `/`, `@`, a space or a quote | Abort (`unsafe-model-name`)                                      |
+| `command` begins with the placeholder                                                       | Rejected by the schema                                           |
 
 Reviewing on a different model from the one doing the fixing also makes the review more independent;
 see [design notes](design-notes.md#what-a-local-run-does-not-establish).

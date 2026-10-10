@@ -66,13 +66,14 @@ To grant subcommands individually instead, use `Bash(git status:*)`, `Bash(git d
 ## What is not pre-approved
 
 The rules above cover the fences and the procedures' own `git` and `gh` calls. These strings are kept
-out of `allowed-tools`, so Claude Code prompts for them unless you have granted the string yourself,
-and step 1 prints each one before anything runs.
+out of `allowed-tools`, so Claude Code prompts for them unless you have granted the string yourself.
+Step 1 prints the verify commands, a subprocess reviewer's `command` and, on a graded run, the
+grader's command line before anything runs.
 
 | String                            | Prompts                              | Comes from                           |
 | --------------------------------- | ------------------------------------ | ------------------------------------ |
 | A fence                           | Once, at its first approval          | The procedure. Its text never varies |
-| A verify command                  | Every round                          | `.revloop.json`                      |
+| A verify command                  | Every round                          | The configuration file, or detected  |
 | A subprocess reviewer's `command` | Every round                          | The reviewer definition              |
 | The grader, on a graded run       | Every round                          | The procedure. Only the model varies |
 | A worktree creation, in step 3    | Every time, including under `--auto` | The procedure. It carries a path     |

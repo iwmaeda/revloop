@@ -35,8 +35,9 @@ including one you just cloned. Both are read under the same rules.
   built-in `sonnet`, and must match `^[A-Za-z0-9][A-Za-z0-9._:-]*$`.
 - A reviewer invoked as a skill has no command string for a permission rule to match. Step 1 shows
   the resolved command and asks for confirmation instead, and `--auto` does not skip that.
-- A reviewer definition's `severityMap` decides which findings block. Step 1 prints the rungs that
-  block and the rungs that are acceptable before the first round.
+- At `minimal` and `standard`, a reviewer definition's `severityMap` decides which findings block; at
+  `thorough` and `exhaustive` every finding does. Step 1 prints the rungs that block and the rungs
+  that are acceptable before the first round.
 - The schema constrains the remaining fields: `botLogin` by pattern, `trigger` by length and
   character set.
 
@@ -49,8 +50,8 @@ output is treated the same way.
 
 ### Permissions
 
-- The remote commands ask for `gh api` rules scoped to `repos/{owner}/{repo}/`, which cannot address
-  another repository.
+- The remote commands' `gh api repos/{owner}/{repo}/` rules cannot address another repository;
+  `gh api graphql`, `gh pr` and `gh repo view` are not scoped to one.
 - The local commands grant `Bash(git:*)` and four `gh` rules: `gh pr create`, `gh pr list`,
   `gh repo view` and `gh api -X PATCH repos/{owner}/{repo}/`. They do not grant `Bash(gh pr:*)`,
   which would cover `gh pr merge`. With `--no-publish` no `gh` call is made.

@@ -74,7 +74,7 @@ revloop appends an HTML comment to the trigger:
 ```text
 @acme review
 
-<!-- revloop:trigger v=1 reviewer=acme bot=acme-reviewer head=1a2b3c4d round=1 -->
+<!-- revloop:trigger v=1 reviewer=acme bot=acme-reviewer head=1a2b3c4d oid=<full commit sha> round=1 -->
 ```
 
 Most bots ignore it. If yours does not answer with the marker attached, set `markerTolerated: "no"`

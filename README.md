@@ -71,7 +71,9 @@ A run usually takes tens of minutes, most of it spent waiting for the reviewer.
 | **Finish**  | 12    | Report. With `--merge`, wait for green CI and then merge (second stop point) |
 
 If a finding was fixed, the loop goes back to step 3 for the next round. `--auto` runs through both
-stop points. A run that aborts, for example on a rate limit, resumes when you run the same command
+stop points. At a level with an acceptable band (`minimal` and the default `standard`), `--merge --auto`
+is refused, and `--merge` alone stops once to confirm the accepted findings; use `--rigor thorough` to
+merge unattended. A run that aborts, for example on a rate limit, resumes when you run the same command
 again once the cause has cleared.
 
 ### The local loop
@@ -83,7 +85,7 @@ again once the cause has cleared.
 | **Publish** | 5 or 10 | Push, and open a pull request if the branch has none                   |
 | **Review**  | 6       | Run the review command and read its output                             |
 | **Decide**  | 7–8     | Decide what happens next                                               |
-| **Fix**     | 9       | Fix the findings, and answer the ones that are wrong                   |
+| **Fix**     | 9       | Fix the findings; record the ones declined or accepted in the report   |
 | **Finish**  | 11      | Report, and write it into the pull-request body unless `--no-publish`  |
 
 A reviewer that cannot run without a pull request is published to before every round (step 5). Every other
@@ -102,8 +104,9 @@ The details are in [`docs/install.md`](docs/install.md).
 
 The commands need an authenticated `gh`, except a local run with `--no-publish`.
 
-Grant the permissions the loop needs by adding the following to `.claude/settings.local.json`. The
-details are in [`docs/permissions.md`](docs/permissions.md).
+Grant the permissions the remote commands need by adding the following to `.claude/settings.local.json`.
+The local commands need only the subset listed in [`docs/permissions.md`](docs/permissions.md), which
+also has the details.
 
 ```json
 {
@@ -156,7 +159,8 @@ commitStyle      conventional (en)                  detected
 maxRounds        5                                  rigor
 ```
 
-To change a value that has a key, write `.revloop.json`. The flags that have no key are listed in
+To change a value that has a key, write `.revloop.json`, or `.revloop/config.json`, which is read
+instead of it when present. The flags that have no key are listed in
 [`docs/configuration.md`](docs/configuration.md); see
 [`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md) for a reviewer of your own.
 

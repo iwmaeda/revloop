@@ -46,7 +46,8 @@ ln -s /path/to/your/clone ~/.revloop
 ```
 
 `REVLOOP_PROCEDURE` overrides that path, but only in a session whose launcher passes the variable on.
-A team can commit the same copy under the project's own `.agents/skills/` instead.
+A team can commit the same copy under the project's own `.agents/skills/`; each user still needs
+`~/.revloop` or `REVLOOP_PROCEDURE`.
 
 Only the pull-request loop is available on Codex, and it has not been run end to end there. Codex has
 no allowlist; see [Codex: approval policy and sandbox](permissions.md#codex-approval-policy-and-sandbox).

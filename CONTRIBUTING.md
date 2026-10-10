@@ -49,7 +49,8 @@ CI fails if a fence changes without step 4.
 
 ## Adding a reviewer preset
 
-Drive the reviewer end to end on a real pull request first; see
+Drive a comment-triggered reviewer end to end on a real pull request first, or a local command through
+the loop to convergence; see
 [`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md). A preset is two files:
 `reviewers/<name>.json`, the definition, validated against
 [`schema/reviewer.schema.json`](schema/reviewer.schema.json), and `reviewers/<name>.md`, the card. A
