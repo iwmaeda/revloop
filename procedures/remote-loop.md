@@ -101,12 +101,13 @@ report with its reason.
    gh api "repos/{owner}/{repo}/branches/$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)/protection" \
      --jq '.required_status_checks.contexts' 2>/dev/null || echo 'protection=none (404)'
    gh pr list --head "$(git branch --show-current)" --state open --json number,url
-   gh api "repos/{owner}/{repo}/pulls/<n>" --jq '"pr_head=\(.head.sha)"'   # full OID: this is the one compared
+   gh api "repos/{owner}/{repo}/pulls/<n>" --jq '"pr_head=\(.head.sha) opened=\(.created_at)"'   # full OID: this is the one compared
    ```
 
    `pr_head=` is the pull request's own head as GitHub gives it. Step 3 compares it with
    `git rev-parse HEAD` as full object ids; the upstream is no substitute, and the short form is for
-   the printed line only. A mismatch is no abort here: step 3 then runs in full. Never drop
+   the printed line only. A mismatch is no abort here: step 3 then runs in full. `opened=` is the
+   pull request's creation time and is the `<since>` of step 9's active-marks read. Never drop
    `--state open`: merged PRs would answer.
 
    Print one line of local state, which step 3 reads, with the heads as a comparison:
@@ -527,7 +528,8 @@ report with its reason.
    `head=`, and compare the column's whole value (`round=1` is not `round=10`). A row whose
    `round=` is not a number counts as a match and withholds the re-post.
    (d) The round produced no classified verdict at all, and step 9's active-marks read returns no
-   row. A rate-limit reply is a classified
+   row. Run that read again immediately before posting the re-post, after the body is read back
+   and composed, and post nothing on a row or a failed read. A rate-limit reply is a classified
    verdict: its recovery is a later run's re-take, never this re-post. A marked comment is an
    answer the fence hides from the wait whoever marked it and whenever: never re-post over it.
    (e) `git rev-parse HEAD` still equals the `oid=` you are about to write, compared in full.
@@ -851,8 +853,9 @@ report with its reason.
      marks at once, whoever made them and in whichever run: when the read already returns three
      rows, abort with `reason=interim-loop` and print each row's URL and body in full rather than
      marking a fourth. Otherwise mark the comment with the call below this list, then run the
-     read again and require the `cid=` to be a row. A mark that exits non-zero, or one the
-     second read does not list, aborts with `reason=interim-loop` and prints the body in full:
+     read again and require the `cid=` to be a row and the read to return at most three rows: a
+     mark added meanwhile counts. A mark that exits non-zero, one the second read does not list
+     and a fourth standing mark abort with `reason=interim-loop` and prints the body in full:
      the wait would otherwise return the same comment again with nothing spent. When the row is
      there, keep its full body for the report and re-fire step 8 only. The firing that returned it
      is not a chunk: it costs nothing against `--timeout` and never counts toward step 7's floor.
@@ -865,8 +868,8 @@ report with its reason.
    - `pending` abort: name the condition that failed: `no-verdict attempts=2`,
      `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is
      silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical. A pull
-     request with an active mark never re-posts: its abort is plain `no-verdict`, with every marked body
-     printed in full.
+     request with an active mark never re-posts: its abort is plain `no-verdict` (`max-rounds`
+     at the cap), with every marked body printed in full.
    - The marks are read off the pull request and never kept in the session. The 👀 outlives the
      run and the round that made it, and the fence drops a marked comment whatever its body is now,
      so a reviewer that edited it in place into its verdict stays unread, and a run that waits on
@@ -881,12 +884,12 @@ report with its reason.
      --jq '"MARKED=\(.id) content=\(.content)"'
    ```
 
-   The active marks. `<since>` is the `created_at` of the oldest `revloop:trigger` marker step 7's
-   read returns, whichever round it opened (the verdict line's `trigger=` when the pull request
-   carries none), and the read fails if it is left unfilled. It is the same value every time, so
-   a mark from an earlier round stays in every later check. A row is a bot comment after that
-   trigger carrying any 👀. The fence drops only the one from the account `gh` is authenticated as, so a
-   row can be over-inclusive and never under-inclusive:
+   The active marks. `<since>` is the `opened=` that step 1's pull-request read prints, and the read
+   fails if it is left unfilled. The pull request's own creation time cannot move, so it is the
+   same value on every use, a mark from an earlier round or before the first marker stays in every
+   later check, and a hand-typed trigger followed by a marker cannot shift it. A row is a bot
+   comment created after it carrying any 👀. The fence drops only the one from the account `gh` is
+   authenticated as, so a row can be over-inclusive and never under-inclusive:
 
    <!-- revloop:read id=active-marks -->
 
@@ -1107,15 +1110,15 @@ report with its reason.
     `comment` and `reaction` rows, which arrive with no findings to answer.
 
     - If even one item needs fixing, go back to step 3.
-    - If nothing needs fixing and step 9's active-marks read returns a row, do not converge: abort
-      with `reason=unclassified-comment`, print each row and the comment's body in full, and say
-      to remove that 👀 and run the command again. This is pull-request state, so it holds for a
-      mark from an interrupted run, an earlier run, an earlier round or a person alike, and a run
-      stops here until the reaction is gone. The reviewer may have edited the comment into its verdict,
-      and the fence reads it again only once its 👀 is removed.
     - If every item is fixed, declined, or accepted, re-read step 1's `pr_head=`, run the
-      sufficiency test in [`rigor-levels.md`](rigor-levels.md), and go to step 12 only when both
-      pass.
+      sufficiency test in [`rigor-levels.md`](rigor-levels.md), and then, last, run step 9's
+      active-marks read. Go to step 12 only when both pass and the read returns no row.
+    - If that read returns a row, or fails, do not converge: abort with
+      `reason=unclassified-comment`, print each row and the comment's body in full, and say to
+      remove that 👀 and run the command again. This is pull-request state, so it holds for a
+      mark from an interrupted run, an earlier run, an earlier round or a person alike, and a run
+      stops here until the reaction is gone. The reviewer may have edited the comment into its
+      verdict, and the fence reads it again only once its 👀 is removed.
     - If `pr_head=` is no longer `git rev-parse HEAD`, abort with `reason=pr-head-advanced`. Name
       both object ids, and say in the report that the pull request advanced during the round and
       what was reviewed is not its head. Never answer it by opening another round.
@@ -1218,11 +1221,12 @@ report with its reason.
     - Carry the `Sufficiency:` block the test wrote, in the shape
       [`rigor-levels.md`](rigor-levels.md) gives, into the report and into the pull-request body.
     - Run step 9's active-marks read on any ending at all (a convergence, a merge, any `reason=`
-      abort, a round that went on to fix findings). For each row it returns, list the comment's id
-      and URL, and say that its 👀 stays until you remove it and that the fence drops the comment,
-      even one the reviewer has since edited into its verdict, while it stands. Remove it before
-      running the command again. If the read fails, say so and do not call the report clean of
-      marks.
+      abort, a round that went on to fix findings). A row, or a failed read, on a run that was
+      about to report a convergence withdraws it: report `reason=unclassified-comment` instead,
+      and merge nothing. For each row it returns, list the comment's id and URL, and say that its
+      👀 stays until you remove it and that the fence drops the comment, even one the reviewer has
+      since edited into its verdict, while it stands. Remove it before running the command again.
+      If the read fails, say so and do not call the report clean of marks.
     - Say everything an earlier step told you to say in the report, including every accepted
       finding with its reason, a reviewer `status` that is not `verified`, and each unexercised
       path the run took.
@@ -1452,8 +1456,8 @@ second, and the one-runner rule.
   `reason=unclassified-comment`.
   Does not fail closed: a comment older than the one the fence returned is never classified, a
   marked comment the reviewer edits into its verdict stays dropped until the reaction is removed,
-  and the active-marks read counts anyone's 👀 on a bot comment since the loop's first trigger, so
-  it can stop a run over a reaction the fence ignores or over an earlier round's mark. The read is
+  and the active-marks read counts anyone's 👀 on a bot comment since the pull request was opened,
+  so it can stop a run over a reaction the fence ignores or over an earlier round's mark. The read is
   measured at `gh 2.4.0` on a pull request with no mark; no run has read a marked one.
 - Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor: the round caps, the
   per-level sweep obligations, the rising-ceiling re-open, the sufficiency test (it cannot fail
