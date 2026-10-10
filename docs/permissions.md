@@ -69,13 +69,13 @@ The rules above cover the fences and the procedures' own `git` and `gh` calls. T
 out of `allowed-tools`, so Claude Code prompts for them unless you have granted the string yourself,
 and step 1 prints each one before anything runs.
 
-| String                         | Prompts                              | Comes from                           |
-| ------------------------------ | ------------------------------------ | ------------------------------------ |
-| A fence                        | Once, at its first approval          | The procedure. Its text never varies |
-| A verify command               | Every round                          | `.revloop.json`                      |
-| A local reviewer's `command`   | Every round                          | The reviewer definition              |
-| The grader, on a graded run    | Every round                          | The procedure. Only the model varies |
-| A worktree creation, in step 3 | Every time, including under `--auto` | The procedure. It carries a path     |
+| String                            | Prompts                              | Comes from                           |
+| --------------------------------- | ------------------------------------ | ------------------------------------ |
+| A fence                           | Once, at its first approval          | The procedure. Its text never varies |
+| A verify command                  | Every round                          | `.revloop.json`                      |
+| A subprocess reviewer's `command` | Every round                          | The reviewer definition              |
+| The grader, on a graded run       | Every round                          | The procedure. Only the model varies |
+| A worktree creation, in step 3    | Every time, including under `--auto` | The procedure. It carries a path     |
 
 - A reviewer with `invoke: "skill"` has no command string to match, so there is no prompt. Step 1
   stops and shows the resolved command instead, and `--auto` does not skip that stop. Configure the
@@ -85,9 +85,9 @@ and step 1 prints each one before anything runs.
   `--rigor thorough` avoids the grader.
 - Findings reach the grader through `.revloop/grading-input.txt` on standard input, never on its
   command line.
-- A local reviewer's `command` may not begin with `git`, `gh` or `{reviewModel}`. The match is on the
-  string, so `gitlint` and `gh-review` are refused too: configure such a reviewer as a skill, or
-  rename it. See [`SECURITY.md`](../SECURITY.md#repository-supplied-configuration-is-untrusted).
+- A subprocess reviewer's `command` may not begin with `git`, `gh` or `{reviewModel}`. The match is on
+  the string, so `gitlint` and `gh-review` are refused too: configure such a reviewer as a skill, or
+  rename it. A skill's name is not matched against a permission rule and is not restricted this way. See [`SECURITY.md`](../SECURITY.md#repository-supplied-configuration-is-untrusted).
 - The value of `--model` is the only value interpolated into a command line. It must match
   `^[A-Za-z0-9][A-Za-z0-9._:-]*$`.
 

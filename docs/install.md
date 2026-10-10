@@ -60,7 +60,7 @@ no allowlist; see [Codex: approval policy and sandbox](permissions.md#codex-appr
 
 On a clean tree with no changes, each should print its resolved configuration table and stop. In the local table, read the
 **review command** row before a real run: that string is what will be executed, and it is never
-pre-approved. If the remote loop prompts at every step, work through [`permissions.md`](permissions.md).
+pre-approved (a skill reviewer stops for confirmation instead). If the remote loop prompts at every step, work through [`permissions.md`](permissions.md).
 
 ## What a run leaves in your repository
 

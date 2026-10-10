@@ -188,12 +188,12 @@ Reviewers are not configured in this file. Each is a JSON document validated aga
 Both kinds take `displayName`, `severityLevels`, `severityMap`, `expectedLatency` and `status`. A key
 that belongs to the other kind is rejected.
 
-| Key                 | Meaning                                                                                         |
-| ------------------- | ----------------------------------------------------------------------------------------------- |
-| `invoke`            | `subprocess` runs `command` in a shell and reads its stdout. `skill` invokes it in this session |
-| `command`           | The command line, or the skill name. Printed in step 1 and never pre-approved                   |
-| `requiresPr`        | True when the command reads an open pull request                                                |
-| `rateLimitPatterns` | What the reviewer says when it is out of quota. A match aborts the round                        |
+| Key                 | Meaning                                                                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `invoke`            | `subprocess` runs `command` in a shell and reads its stdout. `skill` invokes it in this session                                          |
+| `command`           | The command line, or the skill name. Printed in step 1; a command line is never pre-approved, and a skill stops for confirmation instead |
+| `requiresPr`        | True when the command reads an open pull request                                                                                         |
+| `rateLimitPatterns` | What the reviewer says when it is out of quota. A match aborts the round                                                                 |
 
 - Prefer `subprocess`. The reviewer then runs in its own context, and it is the only way to choose
   its model.

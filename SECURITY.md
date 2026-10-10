@@ -22,10 +22,11 @@ including one you just cloned. Both are read under the same rules.
 - `--merge`, `--auto`, `--rigor`, `--config`, `--model` and `--no-publish` are flags only. A
   repository cannot turn on merging, remove a confirmation, lower the review bar, or choose the
   reviewer.
-- Verify commands and a local reviewer's `command` are never pre-approved. Step 1 prints them before
-  anything runs, and they are kept out of `allowed-tools`, so your permission system prompts for
-  each unless you have granted that string yourself.
-- A local reviewer's `command` may not begin with `git`, `gh` or the `{reviewModel}` placeholder.
+- Verify commands and a subprocess reviewer's `command` are never pre-approved. Step 1 prints them
+  before anything runs, and they are kept out of `allowed-tools`, so your permission system prompts
+  for each unless you have granted that string yourself. A skill reviewer has no command string to
+  match, so step 1 stops and shows it instead, and `--auto` does not skip that stop.
+- A subprocess reviewer's `command` may not begin with `git`, `gh` or the `{reviewModel}` placeholder.
   Permission rules match a string prefix, and the local commands grant `Bash(git:*)` and four `gh`
   rules, so such a command would run without a prompt. The schema rejects it, and the procedure
   checks the expanded string again before running it.
