@@ -6,10 +6,10 @@ Why the loops work the way they do. The rules themselves are in [`procedures/`](
 
 The wait takes the newest trigger as its baseline and accepts a verdict that arrives after it.
 
-| Baseline | Consequence                                                        | Class                                                                  |
-| -------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| Too new  | A verdict that already arrived is dropped, and the round times out | Liveness; safety when the dropped comment should have stopped the loop |
-| Too old  | A previous round's "no issues" is accepted as this round's         | Safety                                                                 |
+| Baseline | Consequence                                                                                                                          | Class                             |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
+| Too new  | A verdict that already arrived is dropped: the round times out, or finishes clean over a dropped comment that should have stopped it | Liveness; safety for that comment |
+| Too old  | A previous round's "no issues" is accepted as this round's                                                                           | Safety                            |
 
 Findings that arrive as a review are also bound to a commit. A terminal comment is bound only by
 time, so the baseline never moves backwards: walking back to an older trigger when no verdict is
@@ -117,7 +117,8 @@ When a round takes an unexercised path, aborts, or sees unexpected latency, the 
 line to `.revloop/field-notes.md`. The notes are for people: the loop never reads them as input,
 never stages them, and caps the file at 500 lines.
 
-`.revloop/` ignores itself. The first write into it is `.revloop/.gitignore` containing `*`, so the
+`.revloop/` ignores itself. Unless git tracks anything under `.revloop/`, in which case nothing is
+written there, the first write into it is `.revloop/.gitignore` containing `*`, so the
 notes, the grader's input and `.revloop/config.json` stay out of `git status` without a rule in your
 own `.gitignore`. A tool that reads only the top-level `.gitignore`, such as prettier, still sees the
 files unless you add a rule there.

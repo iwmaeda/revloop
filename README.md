@@ -70,7 +70,7 @@ A run usually takes tens of minutes, most of it spent waiting for the reviewer.
 
 If a finding was fixed, the loop goes back to step 3 for the next round. `--auto` runs through both
 stop points. A run that aborts, for example on a rate limit, resumes when you run the same command
-again.
+again once the cause has cleared.
 
 ### The local loop
 

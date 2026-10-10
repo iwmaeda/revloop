@@ -66,8 +66,8 @@ To grant subcommands individually instead, use `Bash(git status:*)`, `Bash(git d
 ## What is not pre-approved
 
 The rules above cover the fences and the procedures' own `git` and `gh` calls. These strings are kept
-out of `allowed-tools`, so Claude Code prompts for them, and step 1 prints each one before anything
-runs.
+out of `allowed-tools`, so Claude Code prompts for them unless you have granted the string yourself,
+and step 1 prints each one before anything runs.
 
 | String                         | Prompts                              | Comes from                           |
 | ------------------------------ | ------------------------------------ | ------------------------------------ |

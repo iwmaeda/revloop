@@ -3,10 +3,11 @@
 A reviewer is one of two kinds. A bot that reviews a pull request when a comment asks it to is a
 `github-comment` reviewer. A review command that runs on your machine is a
 [local command reviewer](#local-command-reviewers). Both are described by a JSON definition and need
-no change to the procedures.
+no change to the procedures, except that a preamble the wait fence does not know needs a fence edit
+([below](#if-it-posts-a-preamble-first)).
 
 A reviewer summoned by a reviewer request instead of a comment (GitHub Copilot, for example) is not
-supported: there is no trigger comment to bind a round to, and step 1 aborts with
+supported by the pull-request loops: there is no trigger comment to bind a round to, and step 1 aborts with
 `reason=no-comment-trigger`.
 
 ## Measure it once, by hand
@@ -99,7 +100,7 @@ A reviewer with `kind: "local-command"` is driven by `/revloop:local-review-loop
 | ------------------------------------------- | ------------------------------------------------------- |
 | Can the model start it, or only a person?   | `invoke`: `skill` for the first, `subprocess` otherwise |
 | What is the command line or skill name?     | `command`                                               |
-| Where does it take a model?                 | `{reviewModel}` at that spot in `command`               |
+| Where does it take a model?                 | `{reviewModel}` at that spot in `command`, if it does   |
 | Does it need an open pull request?          | `requiresPr`                                            |
 | What does it say when it is out of quota?   | `rateLimitPatterns`                                     |
 | What severity words appear in its output?   | `severityLevels`, most severe first                     |
@@ -121,7 +122,7 @@ artifact, its exact version and the month (`ecc 2.2.0, 2026-09`), the third prov
   finds nothing, which looks like a clean review.
 - A command that diffs against the branch's upstream returns nothing once the branch is pushed. Set
   `requiresPr` correctly: the local loop publishes after convergence when it is `false` and before
-  every round when it is `true`.
+  every round when it is `true`, and never under `--no-publish`.
 - An out-of-quota reply can exit 0 in one line, like a clean review. Record the message exactly and
   match only its fixed start in `rateLimitPatterns`.
 - A headless reviewer that is refused a tool call may end by asking for permission, and that

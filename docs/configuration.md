@@ -1,8 +1,8 @@
 # Configuration
 
-Every field is optional. With no file, revloop detects what it needs, and step 1 prints each value
-with its source. The [schema](../schema/revloop.schema.json) is machine-readable, and the
-[examples](../examples/) are a quick start.
+Every field is optional. With no file, revloop detects what it can; the rest is built in or comes from
+`--rigor`, and step 1 prints each value with its source. The [schema](../schema/revloop.schema.json)
+is machine-readable, and the [examples](../examples/) are a quick start.
 
 ```json
 {
@@ -20,10 +20,10 @@ with its source. The [schema](../schema/revloop.schema.json) is machine-readable
 
 ## Where the file lives
 
-| File                   | Whose                   | In git                                                       |
-| ---------------------- | ----------------------- | ------------------------------------------------------------ |
-| `.revloop.json`        | The team's              | Committed                                                    |
-| `.revloop/config.json` | Yours, in this checkout | Ignored by `.revloop/.gitignore`, which the first run writes |
+| File                   | Whose                   | In git                                                                                                    |
+| ---------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| `.revloop.json`        | The team's              | Committed                                                                                                 |
+| `.revloop/config.json` | Yours, in this checkout | Ignored by `.revloop/.gitignore`, which the first run writes unless git tracks anything under `.revloop/` |
 
 Exactly one file is read. When `.revloop/config.json` exists, `.revloop.json` is not read and nothing
 is merged from it. Step 1 prints a `config:` line naming the file it read.
@@ -94,7 +94,8 @@ the loop closes it before pushing; a red CI costs a review round.
 
 ## `defaults`
 
-A flag overrides its default. The order is the flag, then this block, then the built-in.
+A flag overrides its default. The order is the flag, then this block, then the built-in, which for
+the round caps is the `--rigor` level's.
 
 | Key              | Meaning                                                | Built-in             |
 | ---------------- | ------------------------------------------------------ | -------------------- |
@@ -102,7 +103,7 @@ A flag overrides its default. The order is the flag, then this block, then the b
 | `localMaxRounds` | Round cap for the `local-*` commands                   | From the rigor level |
 | `timeout`        | Cap on waiting for one trigger's verdict, e.g. `"45m"` | `30m`                |
 
-A round that re-posts its trigger can wait up to twice `timeout`.
+A round that re-posts its trigger waits about twice `timeout`, each attempt rounded up to whole 8-minute chunks.
 
 ## What is deliberately not configurable
 
@@ -131,14 +132,14 @@ Severity is measured on one ladder, `critical > high > medium > low`. A reviewer
 mapped onto it by `severityMap`, which is required whenever `severityLevels` is present. Step 1 prints
 which of the reviewer's rungs block and which are acceptable before the first round.
 
-| Situation                                                         | Behaviour                                                           |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `<level>` is not one of the four                                  | Abort (`unknown-rigor-level`)                                       |
-| `severityMap` is partial, out of order, or maps every rung to one | Abort (`bad-severity-map`), at `minimal` and `standard` only        |
-| No `severityLevels`, at `minimal` or `standard`                   | Findings are graded; see below                                      |
-| No `severityLevels`, at `thorough` or `exhaustive`                | Nothing is graded                                                   |
-| `minimal` or `standard` with `--merge --auto`                     | Abort (`unreviewed-accept-merge`)                                   |
-| `minimal` or `standard` with `--merge`, after accepting a finding | Stop for confirmation before the CI wait, listing what was accepted |
+| Situation                                                                                  | Behaviour                                                           |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `<level>` is not one of the four                                                           | Abort (`unknown-rigor-level`)                                       |
+| `severityMap` is partial, out of order, or maps a ladder of two or more rungs to one value | Abort (`bad-severity-map`), at `minimal` and `standard` only        |
+| No `severityLevels`, at `minimal` or `standard`                                            | Findings are graded; see below                                      |
+| No `severityLevels`, at `thorough` or `exhaustive`                                         | Nothing is graded                                                   |
+| `minimal` or `standard` with `--merge --auto`                                              | Abort (`unreviewed-accept-merge`)                                   |
+| `minimal` or `standard` with `--merge`, after accepting a finding                          | Stop for confirmation before the CI wait, listing what was accepted |
 
 The level also sets:
 
@@ -195,7 +196,7 @@ that belongs to the other kind is rejected.
 - Prefer `subprocess`. The reviewer then runs in its own context, and it is the only way to choose
   its model.
 - With `requiresPr: true` the local loop publishes before every round. Otherwise it publishes once,
-  after convergence.
+  after convergence. Under `--no-publish` it never publishes.
 - There is no `effort` key. Put any depth argument inside `command`.
 - In `rateLimitPatterns`, match the fixed part of the message, never a reset time or a count.
 

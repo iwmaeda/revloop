@@ -4,11 +4,11 @@ Permission rules are in [`permissions.md`](permissions.md).
 
 ## Requirements
 
-| Tool  | Minimum | Note                                                          |
-| ----- | ------- | ------------------------------------------------------------- |
-| `gh`  | 2.4.0   | Authenticated. Not needed for a local run with `--no-publish` |
-| `git` | 2.22    |                                                               |
-| `jq`  | none    | `gh` embeds its own                                           |
+| Tool  | Minimum          | Note                                                          |
+| ----- | ---------------- | ------------------------------------------------------------- |
+| `gh`  | 2.4.0 (verified) | Authenticated. Not needed for a local run with `--no-publish` |
+| `git` | 2.22 (derived)   | The release that added `git branch --show-current`            |
+| `jq`  | none             | `gh` embeds its own                                           |
 
 The remote commands need a reviewer that already answers. Its GitHub App must be installed on the
 repository and must reply to its trigger comment; revloop installs nothing on GitHub. To check, post
@@ -66,7 +66,8 @@ pre-approved. If the remote loop prompts at every step, work through [`permissio
 
 A run may create `.revloop/` at the top of the checkout, for field notes and the grader's input. It
 writes `.revloop/.gitignore` containing `*` first, so nothing there appears in `git status` and you
-add nothing to your own `.gitignore`.
+add nothing to your own `.gitignore`. If git already tracks anything under `.revloop/`, nothing is
+written there and the run reports instead.
 
 A configuration only you use goes in the same directory, as `.revloop/config.json`. See
 [Where the file lives](configuration.md#where-the-file-lives).
