@@ -24,7 +24,7 @@ The remote commands need a reviewer whose GitHub integration is already installe
 and answers comments.
 
 The local commands post no comments and never merge. They push the branch and open a pull request
-for it, before each round for a reviewer that reads the pull request and after convergence for the
+for it, before each round for a reviewer that cannot run without a pull request and after convergence for the
 rest; `--no-publish` stops at the commit. A subprocess reviewer whose `command` carries `{reviewModel}`
 reviews on `sonnet` by default, and `--model` changes that; a skill reviewer runs on the session's
 model.
@@ -67,7 +67,7 @@ A run usually takes tens of minutes, most of it spent waiting for the reviewer.
 | **Trigger** | 7     | Post the review request                                                      |
 | **Wait**    | 8     | Poll GitHub until the verdict for this trigger arrives                       |
 | **Decide**  | 9     | Continue, finish or abort                                                    |
-| **Fix**     | 10–11 | Read the findings, fix them, reply to each one                               |
+| **Fix**     | 10–11 | Read the findings, fix them, reply under each inline finding                 |
 | **Finish**  | 12    | Report. With `--merge`, wait for green CI and then merge (second stop point) |
 
 If a finding was fixed, the loop goes back to step 3 for the next round. `--auto` runs through both
@@ -86,7 +86,7 @@ again once the cause has cleared.
 | **Fix**     | 9       | Fix the findings, and answer the ones that are wrong                   |
 | **Finish**  | 11      | Report, and write it into the pull-request body unless `--no-publish`  |
 
-A reviewer that reads the pull request is published to before every round (step 5). Every other
+A reviewer that cannot run without a pull request is published to before every round (step 5). Every other
 reviewer is published to once, after the loop converges (step 10). `--no-publish` skips both.
 
 ## Install

@@ -149,14 +149,14 @@
       "items": {
         "type": "string"
       },
-      "description": "github-comment only. Anchor each pattern at the start: a reviewer's clean phrase often ends with text that varies between rounds. The local loop has no clean phrase; a local round is clean when no finding is parsed."
+      "description": "github-comment only. Anchor each pattern at the start: a reviewer's clean phrase often ends with text that varies between rounds. The local loop has no clean phrase; a local round is clean when the output parses, none of the abort rows applies and no finding is found."
     },
     "rateLimitPatterns": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "description": "Both kinds. The pull-request loop matches these against a bot comment's body, and the local loop against the review's output. A match aborts the round and the run does not retry; run the command again later. Match the fixed part of the message, never a reset time or a count."
+      "description": "Both kinds. The pull-request loop matches these against a bot comment's body, and the local loop against the review's output. A match aborts the round and the run does not retry; run the command again later, which re-takes a pull-request round. A bot comment that starts with a clean phrase is not read as a rate limit. Match the fixed part of the message, never a reset time or a count."
     },
     "severityLevels": {
       "type": "array",

@@ -107,7 +107,7 @@ publishes depends on the reviewer's `requiresPr`.
 
 | `requiresPr` | Publishes               | Why                                                                                                 |
 | ------------ | ----------------------- | --------------------------------------------------------------------------------------------------- |
-| `true`       | Before every round      | The reviewer reads the pull request, which must exist and match HEAD                                |
+| `true`       | Before every round      | The reviewer cannot run without a pull request, which must exist and match HEAD                     |
 | `false`      | Once, after convergence | A reviewer that resolves its own target may resolve a different one once the branch has an upstream |
 
 On a fork, without an `origin`, or with a remote that is not GitHub, the run aborts and names

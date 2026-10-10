@@ -29,9 +29,10 @@ Exactly one file is read. When `.revloop/config.json` exists, `.revloop.json` is
 is merged from it. Step 1 prints a `config:` line naming the file it read.
 
 `.revloop/config.json` must be tracked or ignored by git; otherwise the run aborts with
-`config-not-ignored`. An existing `.revloop/.gitignore` is left as it is: a file it does not hide is
-not written, so field notes go into the report and the grader's input is skipped, which leaves every
-finding `ungraded` and blocking. To create the ignore file before the first run:
+`config-not-ignored`. An existing `.revloop/.gitignore` is left as it is, and each file is checked on
+its own: a field note it does not hide goes into the report, and a grader's input it does not hide is
+skipped, which leaves every finding `ungraded` and blocking. To create the ignore file before the
+first run:
 
 ```console
 mkdir -p .revloop && printf '*\n' > .revloop/.gitignore
@@ -91,7 +92,7 @@ the loop closes it before pushing; a red CI costs a review round.
 | `trailers`        | Trailers to append. `{model}` expands to the running model's name   |
 | `onePerRound`     | One commit per round instead of a split                             |
 
-`{model}` is the model running the loop. The model that reviews is `{reviewModel}`; see
+`{model}` is the model running the loop. A subprocess reviewer's model is set with `{reviewModel}`; see
 [Choosing the review model](#choosing-the-review-model).
 
 ## `defaults`
@@ -193,8 +194,8 @@ that belongs to the other kind is rejected.
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `invoke`            | `subprocess` runs `command` in a shell and reads its stdout. `skill` invokes it in this session                                          |
 | `command`           | The command line, or the skill name. Printed in step 1; a command line is never pre-approved, and a skill stops for confirmation instead |
-| `requiresPr`        | True when the command reads an open pull request                                                                                         |
-| `rateLimitPatterns` | What the reviewer says when it is out of quota. A match aborts the round                                                                 |
+| `requiresPr`        | True when the command reads an open pull request and cannot run without one                                                              |
+| `rateLimitPatterns` | What the reviewer says when it is out of quota. A match aborts the round and this run does not retry it; a later run does                |
 
 - Prefer `subprocess`. The reviewer then runs in its own context, and it is the only way to choose
   its model.
