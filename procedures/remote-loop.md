@@ -884,9 +884,10 @@ report with its reason.
      `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is
      silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical.
    - The marks are read off the pull request and never kept in the session. The 👀 outlives the
-     run and the round that made it, and a firing whose fetch shows the mark drops the comment
-     whatever its body is now, an edit into a verdict included. Removing the reaction before a
-     later firing's fetch is what lets that firing read the comment. The rules that act on a mark
+     run and the round that made it, and a firing whose fetch shows the authenticated account's
+     mark drops the comment whatever its body is now, an edit into a verdict included. Removing
+     that reaction before a later firing's fetch is what lets that firing read the comment, and
+     another account's 👀 never hides it from the fence. The rules that act on a mark
      are this skip bullet and the marked-`cid=` bullet, step 7's condition (d), step 11's gate and
      step 12, and each of them acts on what the read below returns.
 
@@ -1134,8 +1135,9 @@ report with its reason.
       remove that 👀 and run the command again. This is pull-request state, so it holds for a
       mark from an interrupted run, an earlier run, an earlier round or a person alike, and a run
       stops here for as long as the read observes one. The reviewer may have edited the comment into its
-      verdict, and a firing of the fence reads it again only if the 👀 was removed before that
-      firing's fetch.
+      verdict. A firing of the fence skips the comment only while the 👀 on it is the
+      authenticated account's, so reading it again takes that one removed before the firing's
+      fetch, while this read stops the run on anyone's 👀.
     - If `pr_head=` is no longer `git rev-parse HEAD`, abort with `reason=pr-head-advanced`. Name
       both object ids, and say in the report that the pull request advanced during the round and
       what was reviewed is not its head. Never answer it by opening another round.
@@ -1244,8 +1246,9 @@ report with its reason.
       were not read and do not call the report clean of them. A row, or a failed read, on a run that was
       about to report a convergence withdraws it: report `reason=unclassified-comment` instead,
       and merge nothing. For each row it returns, list the comment's id and URL, and say that its
-      👀 stays until you remove it and that a firing whose fetch shows it drops the comment, even
-      one the reviewer has since edited into its verdict. Remove it before running the command again.
+      👀 stays until you remove it and, when it is the authenticated account's, that a firing
+      whose fetch shows it drops the comment, even one the reviewer has since edited into its
+      verdict. Remove it before running the command again.
       If the read fails, say so and do not call the report clean of marks.
     - Say everything an earlier step told you to say in the report, including every accepted
       finding with its reason, a reviewer `status` that is not `verified`, and each unexercised
@@ -1368,8 +1371,9 @@ These are load-bearing. Each rule here holds across steps, or is stated by no si
 - Add the 👀 mark only as step 9's skip bullet says; what it can cost is ruled by that bullet, the
   marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12. The fence counts only the
   authenticated account's reaction as one, while the active-marks read counts anyone's. A firing
-  whose fetch shows the mark leaves the comment unread whatever it later says, an edit into a
-  verdict included. To make a later firing read it, remove the reaction before that firing's fetch.
+  whose fetch shows the authenticated account's mark leaves the comment unread whatever it later
+  says, an edit into a verdict included. To make a later firing read it, remove that reaction
+  before that firing's fetch.
 - Discard the findings of a stale review; never salvage them. Step 9 allows one re-fire per round
   and aborts on the second.
 - Before trusting a `pending` row in step 9, enumerate the `pending`: within `--timeout` or past
@@ -1476,8 +1480,8 @@ second, and the one-runner rule.
   marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, none restated here, and no
   run has taken any of them. Does not fail closed: a firing returns the newest comment after the
   trigger, so an older one is classified only when it is the newest the firing's fetch leaves, which
-  a mark can bring about in that same firing, a firing whose fetch shows a mark drops the comment
-  whatever it later says,
+  a mark can bring about in that same firing, a firing whose fetch shows the authenticated account's
+  mark drops the comment whatever it later says,
   and the active-marks read counts anyone's 👀 on a bot comment since the pull request was opened,
   including one the fence ignores and an earlier round's. The read is measured at `gh 2.4.0` on a
   pull request with no mark; no run has read a marked one.
