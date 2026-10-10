@@ -871,8 +871,8 @@ report with its reason.
      the loop cannot remove, so the abort names it and the report lists it for removal. When the row is
      there, keep its full body for the report and re-fire step 8 only. The firing that returned it
      is not a chunk: it costs nothing against `--timeout` and never counts toward step 7's floor.
-     Whether a run converges over a mark is ruled by step 11's gate and step 12, whose own reads
-     decide at that moment, and not by this bullet.
+     The other rules that act on a mark are the marked-`cid=` bullet, step 7's condition (d),
+     step 11's gate and step 12.
    - `reaction`: an unexercised path; say so in the report.
    - `trigger=` not your `SINCE`: step 8's reconciliation gives the rules.
    - `re-post (once)`: silence is not proof that nothing was sent, so the report says a signal may
@@ -885,12 +885,10 @@ report with its reason.
      `no-verdict` (`max-rounds` at the cap), with every marked body printed in full.
    - The marks are read off the pull request and never kept in the session. The 👀 outlives the
      run and the round that made it, and a firing whose fetch shows the mark drops the comment
-     whatever its body is now, so a reviewer that edited it in place into its verdict stays
-     unread by those firings. A run whose every poll fetches the mark ends in `pending`, which
-     step 9's `pending` rows rule, and one that removes the reaction before a later poll's fetch can
-     read the edited verdict. The rules
-     that act on a mark are this skip bullet and the marked-`cid=` bullet, step 7's condition (d),
-     step 11's gate and step 12, and each of them acts on what the read below returns.
+     whatever its body is now, an edit into a verdict included. Removing the reaction before a
+     later firing's fetch is what lets that firing read the comment. The rules that act on a mark
+     are this skip bullet and the marked-`cid=` bullet, step 7's condition (d), step 11's gate and
+     step 12, and each of them acts on what the read below returns.
 
    The mark, for the skip row. `<cid>` is the `cid=` on the fence's line. Decide failure from the
    exit code:
@@ -1476,13 +1474,11 @@ second, and the one-runner rule.
   clean comment can finish the round over it. Does not fail closed.
 - Step 9's skip row, from a run. What a mark leads to is ruled by step 9's skip bullet and
   marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, none restated here, and no
-  run has taken any of them. All are read off the pull request, so a resumed run meets a mark it
-  finds. Does not fail closed: a comment older than the one the fence returned is never classified, a
-  marked comment the reviewer edits into its verdict stays dropped by each firing whose fetch shows
-  the mark, until a firing fetches after the reaction is removed,
+  run has taken any of them. Does not fail closed: a comment older than the one the fence returned
+  is never classified, a firing whose fetch shows a mark drops the comment whatever it later says,
   and the active-marks read counts anyone's 👀 on a bot comment since the pull request was opened,
-  so it can stop a run over a reaction the fence ignores or over an earlier round's mark. The read is
-  measured at `gh 2.4.0` on a pull request with no mark; no run has read a marked one.
+  including one the fence ignores and an earlier round's. The read is measured at `gh 2.4.0` on a
+  pull request with no mark; no run has read a marked one.
 - The marks' last read before a merge sits outside the merge fence, so a 👀 added in the seconds
   between that read and the fence's PUT is merged over. Putting it inside is a fence edit and a
   re-approval for every user. Does not fail closed.

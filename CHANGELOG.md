@@ -25,10 +25,7 @@ Fences: `wait-verdict` changed (one re-approval).
   once. It adds a 👀 reaction to the comment from your account, a firing of the wait fence skips a
   comment whose fetch shows one, and the wait continues. What a mark can cost is ruled by step 9's
   skip bullet and marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, which
-  this entry does not restate; the gate's stop is `reason=unclassified-comment`: remove the 👀 and
-  run the command again to accept the verdict. A marked comment that the reviewer later edits into
-  its verdict is read only by a firing that fetches after you remove the 👀, and every report lists
-  the marks the loop's last read observed, whichever run made them.
+  this entry does not restate.
 
 ### Fixed
 
