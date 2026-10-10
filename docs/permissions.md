@@ -88,7 +88,7 @@ runs.
 - A local reviewer's `command` may not begin with `git`, `gh` or `{reviewModel}`. The match is on the
   string, so `gitlint` and `gh-review` are refused too: configure such a reviewer as a skill, or
   rename it. See [`SECURITY.md`](../SECURITY.md#repository-supplied-configuration-is-untrusted).
-- `--model` is the only value interpolated into a command line. It must match
+- The value of `--model` is the only value interpolated into a command line. It must match
   `^[A-Za-z0-9][A-Za-z0-9._:-]*$`.
 
 There are four fences: `wait-verdict`, `worktree-teardown`, `wait-ci` and `merge`. Editing one costs

@@ -207,7 +207,8 @@ The local commands expand `{reviewModel}` in a reviewer's `command`:
 "command": "claude --model {reviewModel} -p \"/code-review medium\""
 ```
 
-The value is `--model` if you typed it, and `sonnet` otherwise. There is no configuration key for it.
+The placeholder expands to the value of `--model` if you typed it, and to `sonnet` otherwise. The
+command spells its own flag. There is no configuration key for it.
 A repository that wants a fixed model writes it literally in `command`.
 
 | Situation                                         | Behaviour                                                        |

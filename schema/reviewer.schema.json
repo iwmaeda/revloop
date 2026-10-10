@@ -123,7 +123,7 @@
       "minLength": 1,
       "maxLength": 400,
       "pattern": "^[^\\u0000-\\u001f]*[^\\u0000-\\u001f ][^\\u0000-\\u001f]*$",
-      "description": "local-command only. With invoke=skill, a skill name matching ^[a-z0-9][a-z0-9-]*(:[a-z0-9][a-z0-9-]*)?$. With invoke=subprocess, a command line: it is printed in the step 1 table before it runs and is never pre-approved. Put any effort or focus argument in this string. Write {reviewModel} where the command takes its model; the local loop expands it to --model, or to sonnet. A command with no placeholder is not pinned to a model."
+      "description": "local-command only. With invoke=skill, a skill name matching ^[a-z0-9][a-z0-9-]*(:[a-z0-9][a-z0-9-]*)?$. With invoke=subprocess, a command line: it is printed in the step 1 table before it runs and is never pre-approved. Put any effort or focus argument in this string. Write {reviewModel} where the command takes its model; the local loop expands it to the value of --model, or to sonnet. The command supplies its own flag, as in `claude --model {reviewModel}`. A command with no placeholder is not pinned to a model."
     },
     "requiresPr": {
       "type": "boolean",
