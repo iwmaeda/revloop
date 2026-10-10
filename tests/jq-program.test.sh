@@ -74,7 +74,8 @@ o=$(run verdict/marked-comment-over-rate-limit)
 expect "an older comment is emitted under a mark"  "$o" "comment 2026-10-10T00:00:09Z chatgpt-codex-connector 400 You have reached"
 refute "  and the marked one is not"               "$o" " 500 "
 
-# Another account's eyes, and the viewer's thumbs-up, are not the mark.
+# Another account's eyes, and the viewer's thumbs-up, are not what the fence
+# filters on. The active-marks read in step 9 does count anyone's eyes.
 o=$(run verdict/unmarked-reactions)
 expect "only the viewer's eyes drop a comment"     "$o" "comment 2026-10-10T00:00:20Z chatgpt-codex-connector 500 Review started."
 

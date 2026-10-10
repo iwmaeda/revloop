@@ -447,7 +447,8 @@ expect "  a row names the comment's URL"             "$o" "https://github.com/o/
 expect "  and how many eyes it carries"              "$o" "eyes=2"
 same "a comment in the bound's own second is a row: the opening second counts" \
   "$(printf '%s\n' "$o" | grep -c ' 702 ')" "1"
-same "a person's eyes is not a mark"                 "$(printf '%s\n' "$o" | grep -c ' 705 ')" "0"
+same "a person's comment with an eyes on it is no row (bot comments only)" \
+  "$(printf '%s\n' "$o" | grep -c ' 705 ')" "0"
 same "a bot comment with no reactions object is no row" "$(printf '%s\n' "$o" | grep -c ' 706 ')" "0"
 same "an earlier bound adds the earlier comments" \
   "$(marks 2025-12-31T00:00:00Z "$MFORMS" | cut -d' ' -f2 | tr '\n' ' ')" "701 702 703 707 "

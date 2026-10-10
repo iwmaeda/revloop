@@ -152,7 +152,8 @@ refute "  not the card's"                       "$o" "cid=500"
 expect "  with the clean phrase as the body"    "$o" "body=Codex Review: Didn't find any major issues. Chef's kiss."
 
 # A comment that carries the viewer's own eyes reaction is skipped too, whatever
-# its body: step 9 marks one it cannot classify, and the wait goes on past it.
+# its body: step 9 marks one it cannot classify when its mark reads allow, and
+# the wait goes on past it; otherwise step 9 aborts with interim-loop.
 # As above, the drop itself is asserted in tests/jq-program.test.sh.
 o=$(r marked-comment)
 expect "a marked comment alone -> still waiting" "$o" "VERDICT=pending"
@@ -169,7 +170,8 @@ expect "the mark uncovers the older rate limit" "$o" "cid=400"
 expect "  with its body"                        "$o" "body=You have reached your Codex usage limits"
 refute "  not the marked comment"               "$o" "cid=500"
 
-# Another account's eyes, and the viewer's thumbs-up, are not the mark.
+# Another account's eyes, and the viewer's thumbs-up, are not what the fence
+# filters on. The active-marks read in step 9 does count anyone's eyes.
 o=$(r unmarked-reactions)
 expect "only the viewer's eyes hide a comment"  "$o" "VERDICT=comment"
 expect "  this one is still the verdict line"   "$o" "cid=500"

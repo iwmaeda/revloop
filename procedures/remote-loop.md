@@ -809,7 +809,7 @@ report with its reason.
    | `comment` matching the rate-limit pattern + your own trigger      | abort (`reviewer-rate-limited`)     | `reason=reviewer-rate-limited`; no retry            |
    | `comment` matching the rate-limit pattern + a standing trigger    | re-take (`rate-limit-retake`)       | step 7                                              |
    | `comment` whose `cid=` the active-marks read lists                | abort (`interim-loop`)              | see the marked-`cid=` bullet below                  |
-   | `comment` with any other bot body                                 | skip                                | mark and confirm it, re-fire step 8 only            |
+   | `comment` with any other bot body                                 | skip                                | mark, confirm, re-fire step 8; else `interim-loop`  |
    | `reaction`                                                        | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `pending` (within `--timeout`)                                    | continue                            | re-fire step 8 only, never step 7                   |
    | any output whose `trigger=` is not your `SINCE`                   | continue (twice)                    | re-fire; third: `reason=foreign-baseline`           |
