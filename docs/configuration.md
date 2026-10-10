@@ -147,7 +147,8 @@ The level also sets:
   fixed, `standard` adds the corpus sweep, `thorough` runs every sweep that applies, and `exhaustive`
   also enumerates the input space;
 - the sufficiency test: before finishing, the run records whether the change is sufficiently reviewed
-  for the level, as a `Sufficiency:` block in the report and in the pull-request body.
+  for the level, as a `Sufficiency:` block in the report and, unless `--no-publish`, in the
+  pull-request body.
 
 An accepted finding is still read, answered and listed in the report. The level decides when the loop
 may stop, never what it reads.

@@ -20,7 +20,9 @@ touches git, so every line costs context on every run.
 - English only.
 - State each rule once, in the imperative: condition, action, `reason=`. Keep a reason only when it
   changes what the reader does in an edge case, and keep it to one clause.
-- No history, citations, dates or measurements. Those belong in the commit message.
+- No history, citations, dates or measurements. Those belong in the commit message. The one exception
+  is a reviewer card's `## Measured` bullets, which cite their provenance in the form
+  [`reviewers/README.md`](reviewers/README.md) gives.
 - `## Unexercised paths` lists each path that has never run against live data, one line per path.
   Remove an entry when the path has been observed.
 - Do not restate a procedure step in a command, a card or a doc. A command states what differs for

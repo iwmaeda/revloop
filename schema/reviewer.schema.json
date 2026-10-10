@@ -137,7 +137,7 @@
       "type": "string",
       "maxLength": 200,
       "pattern": "^(?!.*revloop:trigger)[^\\u0000-\\u001f]*$",
-      "description": "Posted verbatim to GitHub. Control characters are rejected, and so is a value that already contains 'revloop:trigger'. A reviewer with no comment trigger cannot be driven."
+      "description": "Posted verbatim to GitHub. Control characters are rejected, and so is a value that already contains 'revloop:trigger'. A github-comment reviewer with no comment trigger cannot be driven; a local-command reviewer carries none."
     },
     "botLogin": {
       "type": "string",

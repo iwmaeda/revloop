@@ -138,6 +138,6 @@ artifact, its exact version and the month (`ecc 2.2.0, 2026-09`), the third prov
 
 ## Contributing the card
 
-Once you have driven the reviewer end to end, set `status: "verified"` and consider contributing the
-definition and its card to [`reviewers/`](../reviewers/). The card format is in
-[`reviewers/README.md`](../reviewers/README.md).
+Once you have driven the reviewer end to end, set `status: "reported"` and consider contributing the
+definition and its card to [`reviewers/`](../reviewers/). The maintainers set `verified` after they
+reproduce it. The card format is in [`reviewers/README.md`](../reviewers/README.md).

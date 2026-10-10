@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/iwmaeda/revloop/main/schema/revloop.schema.json",
   "title": ".revloop.json",
-  "description": "Project configuration for revloop. It is read from .revloop/config.json when that file exists, and otherwise from .revloop.json at the repository root; the two are never merged. Every field is optional, and anything absent is detected and shown in the step 1 table with source=detected. Reviewers are not defined here; see schema/reviewer.schema.json.",
+  "description": "Project configuration for revloop. It is read from .revloop/config.json when that file exists, and otherwise from .revloop.json at the repository root; the two are never merged. Every field is optional, and anything absent is detected or takes a built-in default, and the step 1 table shows which in its source column. Reviewers are not defined here; see schema/reviewer.schema.json.",
   "type": "object",
   "additionalProperties": false,
   "properties": {

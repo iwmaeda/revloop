@@ -82,7 +82,7 @@ again.
 | **Review**  | 6       | Run the review command and read its output                             |
 | **Decide**  | 7–8     | Decide what happens next                                               |
 | **Fix**     | 9       | Fix the findings, and answer the ones that are wrong                   |
-| **Finish**  | 11      | Report, and write the report into the pull-request body                |
+| **Finish**  | 11      | Report, and write it into the pull-request body unless `--no-publish`  |
 
 A reviewer that reads the pull request is published to before every round (step 5). Every other
 reviewer is published to once, after the loop converges (step 10). `--no-publish` skips both.
@@ -154,7 +154,8 @@ commitStyle      conventional (en)                  detected
 maxRounds        5                                  rigor
 ```
 
-To change a value, write `.revloop.json`. See [`docs/configuration.md`](docs/configuration.md), and
+To change a value that has a key, write `.revloop.json`. The flags that have no key are listed in
+[`docs/configuration.md`](docs/configuration.md); see
 [`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md) for a reviewer of your own.
 
 ```json
@@ -198,19 +199,20 @@ Each built-in is a definition (`reviewers/<name>.json`) and a card (`reviewers/<
 | `code-review`   | `/code-review`   | none         | unverified |
 | `ecc-review-pr` | `/ecc:review-pr` | none         | unverified |
 
-`verified` means the reviewer has been driven end to end on real pull requests. To add your own, see
+`verified` means the maintainers drove the reviewer end to end on real pull requests; `reported` means
+someone reported it working and it has not been reproduced. To add your own, see
 [`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md).
 
 ## Limitations
 
-| Limitation                          | Detail                                                                             |
-| ----------------------------------- | ---------------------------------------------------------------------------------- |
-| Forks                               | Not supported; both loops abort in step 1. A local run with `--no-publish` works   |
-| Branches                            | Same-repository topic branches, with one open pull request per branch              |
-| Merge method                        | Merge commits only. Squash and rebase are not available                            |
-| Reviewers without a comment trigger | Not supported, for example GitHub Copilot, which is summoned by a reviewer request |
-| The local loop                      | Never merges. Merge the pull request separately                                    |
-| Codex as a host                     | Preview: one skill, the pull-request loop only, not run end to end                 |
+| Limitation                          | Detail                                                                                        |
+| ----------------------------------- | --------------------------------------------------------------------------------------------- |
+| Forks                               | Not supported; both loops abort in step 1. A local run with `--no-publish` works              |
+| Branches                            | Same-repository topic branches, with one open pull request per branch                         |
+| Merge method                        | Merge commits only. Squash and rebase are not available                                       |
+| Reviewers without a comment trigger | Not supported by the pull-request loops, for example GitHub Copilot; local commands need none |
+| The local loop                      | Never merges. Merge the pull request separately                                               |
+| Codex as a host                     | Preview: one skill, the pull-request loop only, not run end to end                            |
 
 ## Documentation
 
