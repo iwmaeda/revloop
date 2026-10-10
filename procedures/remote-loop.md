@@ -720,9 +720,9 @@ report with its reason.
 
    - `--max-rounds` is not decided here and no row carries it. The cap belongs to step 7, where a
      round is opened.
-   - A two-trigger round, and a round a same-run re-take opened, may not finish clean until step
-     10's review sweep has run: the clean `comment` and `reaction` rows route through it. Every
-     other single-trigger round is unaffected.
+   - A two-trigger round, and a round a same-run lost-baseline re-take opened, may not finish clean
+     until step 10's review sweep has run: the clean `comment` and `reaction` rows route through it.
+     Every other single-trigger round is unaffected.
    - A trigger is your own when step 7 of this run returned a `TRIGGER=` id for the round the fence
      is watching. Any other is a standing trigger, including one a resumed session finds.
    - A re-take goes back to step 7, which opens a new round with an ordinary trigger: no `attempt=`,
@@ -740,7 +740,8 @@ report with its reason.
    the line. Run step 10's review-list read with `<since>` set to that `trigger=`, and keep the
    reviews for which all of these hold:
 
-   - `after` is `true`: submitted strictly after the trigger, never at or after it.
+   - `after` is `true`: submitted strictly after the trigger. The bound is strict here and
+     inclusive in step 10's own sweep.
    - `login` equals the reviewer's configured login (`botLogin`), with a trailing `[bot]` stripped
      from both sides.
    - `state` is not `DISMISSED`. Any other state is step 10's to rule on.
@@ -777,32 +778,32 @@ report with its reason.
 
    The decision table is ordered, and the first row whose signal matches decides.
 
-   | Signal                                                            | Verdict                             | Next                                        |
-   | ----------------------------------------------------------------- | ----------------------------------- | ------------------------------------------- |
-   | `marker_head=none` + the selection is non-empty                   | adopt (`foreign-baseline-adopt`)    | step 10, then step 7's ordinary re-take     |
-   | `marker_head=none` + the ancestor-relaxed selection is non-empty  | re-take (`foreign-baseline-retake`) | step 7; read nothing                        |
-   | `marker_head=none` (a hand-typed trigger won the baseline)        | abort                               | report and finish                           |
-   | `login=` not the configured reviewer                              | abort                               | report the login                            |
-   | `review` + `commit` equals HEAD                                   | continue                            | step 10                                     |
-   | `review` + `commit` is an ancestor of HEAD                        | continue (once)                     | discard the findings, re-fire step 8 only   |
-   | `review` + `commit` absent locally (`128`)                        | abort                               | `git fetch`; if still absent, stop          |
-   | `review` + `commit` not an ancestor (`1`)                         | abort                               | history diverged (reset / force push)       |
-   | `review` with zero inline comments                                | not clean by itself                 | decide in step 10, after reading the body   |
-   | `comment` whose body starts with the reviewer's clean phrase      | clean — pending the gate            | step 11's gate, after any sweep owed        |
-   | `comment` matching the rate-limit pattern + your own trigger      | abort (`reviewer-rate-limited`)     | `reason=reviewer-rate-limited`; no retry    |
-   | `comment` matching the rate-limit pattern + a standing trigger    | re-take (`rate-limit-retake`)       | step 7                                      |
-   | `comment` whose `cid=` you already classified as non-terminal     | abort (`interim-loop`)              | report `cid=` and the body                  |
-   | `comment` with any other bot body                                 | abort                               | print the full body; hand it to a human     |
-   | `reaction`                                                        | clean — pending the gate            | step 11's gate, after any sweep owed        |
-   | `pending` (within `--timeout`)                                    | continue                            | re-fire step 8 only, never step 7           |
-   | any output whose `trigger=` is not your `SINCE`                   | continue (twice)                    | re-fire; third: `reason=foreign-baseline`   |
-   | `pending` (exceeding `--timeout`) + step 7's five conditions hold | re-post (once)                      | step 7 with `attempt=2`, then step 8        |
-   | `pending` (exceeding `--timeout`) + anything else                 | abort                               | name the failed condition                   |
-   | `error reason=untriggered-verdict`                                | abort                               | a verdict but no trigger; read `bot=`       |
-   | `error reason=no-pr` / `no-trigger`                               | abort                               | report verbatim; suspect step 6, or no PR   |
-   | `error reason=no-branch`                                          | abort                               | detached HEAD; re-run from the topic branch |
-   | `error reason=api` (no `stage=setup`)                             | abort                               | five fetch failures; suspect `gh`           |
-   | `error reason=api stage=setup`                                    | abort                               | suspect auth or network, not a missing PR   |
+   | Signal                                                            | Verdict                             | Next                                                |
+   | ----------------------------------------------------------------- | ----------------------------------- | --------------------------------------------------- |
+   | `marker_head=none` + the selection is non-empty                   | adopt (`foreign-baseline-adopt`)    | step 10, then step 7's ordinary re-take             |
+   | `marker_head=none` + the ancestor-relaxed selection is non-empty  | re-take (`foreign-baseline-retake`) | step 7; read nothing                                |
+   | `marker_head=none` (a hand-typed trigger won the baseline)        | abort                               | report and finish                                   |
+   | `login=` not the configured reviewer                              | abort                               | report the login                                    |
+   | `review` + `commit` equals HEAD                                   | continue                            | step 10                                             |
+   | `review` + `commit` is an ancestor of HEAD                        | continue (once)                     | discard the findings, re-fire step 8 only           |
+   | `review` + `commit` absent locally (`128`)                        | abort                               | `git fetch`; still absent: someone else pushed      |
+   | `review` + `commit` not an ancestor (`1`)                         | abort                               | history diverged (reset / force push)               |
+   | `review` with zero inline comments                                | not clean by itself                 | decide in step 10, after reading the body           |
+   | `comment` whose body starts with the reviewer's clean phrase      | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
+   | `comment` matching the rate-limit pattern + your own trigger      | abort (`reviewer-rate-limited`)     | `reason=reviewer-rate-limited`; no retry            |
+   | `comment` matching the rate-limit pattern + a standing trigger    | re-take (`rate-limit-retake`)       | step 7                                              |
+   | `comment` whose `cid=` you already classified as non-terminal     | abort (`interim-loop`)              | report `cid=` and the body                          |
+   | `comment` with any other bot body                                 | abort                               | print the full body; hand it to a human             |
+   | `reaction`                                                        | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
+   | `pending` (within `--timeout`)                                    | continue                            | re-fire step 8 only, never step 7                   |
+   | any output whose `trigger=` is not your `SINCE`                   | continue (twice)                    | re-fire; third: `reason=foreign-baseline`           |
+   | `pending` (exceeding `--timeout`) + step 7's five conditions hold | re-post (once)                      | step 7 with `attempt=2`, then step 8                |
+   | `pending` (exceeding `--timeout`) + anything else                 | abort                               | name the failed condition                           |
+   | `error reason=untriggered-verdict`                                | abort                               | a verdict but no trigger; read `bot=`               |
+   | `error reason=no-pr` / `no-trigger`                               | abort                               | report verbatim; suspect step 6, or no PR           |
+   | `error reason=no-branch`                                          | abort                               | detached HEAD; re-run from the topic branch         |
+   | `error reason=api` (no `stage=setup`)                             | abort                               | five fetch failures; suspect `gh`                   |
+   | `error reason=api stage=setup`                                    | abort                               | suspect auth or network, not a missing PR           |
 
    What each row adds to its cell:
 
@@ -827,6 +828,9 @@ report with its reason.
    - `review` + ancestor: a second one in the same round aborts.
    - `review` with zero inline comments: step 8 does not count them, and the body can carry the
      whole finding.
+   - Clean `comment`, and `reaction`: the review sweep is owed on a two-trigger round and on a round
+     a same-run lost-baseline re-take opened. Run step 10's sweep first; a review it selects is
+     read as findings. Otherwise go straight to step 11's gate.
    - `reviewer-rate-limited`: a second trigger draws the same reply, so the recovery is a later
      invocation, which reaches `rate-limit-retake`. Print the body in full, including any reset time
      it names.
@@ -932,7 +936,8 @@ report with its reason.
 
     - will fix — right, and fixed this round.
     - already fixed — an earlier commit answers it; step 11 cites the sha.
-    - declining the suggestion — you judge it wrong; step 11 cites the evidence.
+    - declining the suggestion — you judge it wrong, or something other than a commit already
+      answers it; step 11 cites the evidence.
     - accepted — right, and left unfixed. A decline says the finding is wrong; an acceptance
       concedes it. Only at a level with an acceptable band, for a rung at or below the floor. Read
       the rung off the finding, never off how hard the fix looks.
@@ -1063,7 +1068,8 @@ report with its reason.
     - An adopted round replies here and never reaches the gate or step 12; the sufficiency test
       does not run on it. With fixes it returns to step 3. With none it goes straight to step 7 at
       the unchanged HEAD for the ordinary lost-baseline re-take, charged to `--max-rounds`.
-    - A `foreign-baseline-retake` round never reaches this step.
+    - The round in which step 9 took the `foreign-baseline-retake` row never reaches this step.
+      The round its re-take opens is an ordinary one.
 
 12. Sweep before you report. Every way this procedure ends prints a report: a convergence, a
     merge, and every `reason=` abort from any step. Run the fence below first, every time. It
@@ -1120,7 +1126,7 @@ report with its reason.
     - `WORKTREE=stuck path=…`: a worktree the ledger claims, still on disk. It keeps its ledger
       line, so the next run in this checkout retries it.
     - `WORKTREE=other path=…`: a `revloop-wt-` worktree this checkout's ledger does not claim. It
-      may be another run's, in use. The fence leaves it. **Never remove it by hand.**
+      may be another run's, in use, so the fence leaves it.
     - `WORKTREE=swept removed=N other=K ledger=S`: the only success. Nothing of this run's was
       left behind; it claims nothing about the `other=` worktrees.
     - `WORKTREE=partial removed=N stuck=M other=K ledger=S`: something of this run's was left.
@@ -1325,7 +1331,8 @@ These branches have never been reached against live data. Most fail closed (towa
 `timeout` or an abort, never toward a wrong merge), but nothing guarantees they classify correctly.
 A round that takes one says so in the report and appends a field note. These do not fail closed:
 severity resolution and grading, step 7's trigger re-post, step 11's read-before-post, the marker
-read's `<oid>`, step 3's ledger line, and the one-runner rule.
+read's `<oid>`, step 3's ledger line, a review in its trigger's own second, and the one-runner
+rule.
 
 - `VERDICT=reaction`.
 - The `--is-ancestor` `1` (diverged) and `128` (absent locally) aborts, with a bot review arriving
@@ -1364,9 +1371,12 @@ read's `<oid>`, step 3's ledger line, and the one-runner rule.
   marker opens it. `foreign-baseline-retake` discards an unread ancestor review and cannot fail
   toward a merge.
 - Step 7's same-run lost-baseline re-take and its single-trigger review sweep. Fails toward a spent
-  round. A run re-invoked after the re-take does not sweep.
+  round. A run re-invoked after the re-take does not sweep, so a second answer at that commit can
+  stay unread.
 - The `reviews(last:15)` window filled by reviews the fence drops, and the `pending` it returns
   when there is also no bot comment and no reaction.
+- A review submitted in the same second as its trigger. The fence does not select it, so a later
+  clean comment can finish the round over it. Does not fail closed.
 - Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor: the round caps, the
   per-level sweep obligations, the rising-ceiling re-open, the sufficiency test (it cannot fail
   open), and the default level `standard`.

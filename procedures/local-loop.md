@@ -276,9 +276,10 @@ entry point.
    before its final turn reaches stdout. A command that fails or returns nothing is step 8's
    `review-command-failed`.
 
-7. Read the findings and classify them. Parse the output using the shapes listed under
-   `## Output shape` on the reviewer's card, and nothing looser: never a shape inferred from what
-   came back. For each finding, take its path, its location, its claim, and its rung.
+7. Read the findings and classify them. Parse the output using the shapes the reviewer's card
+   records for the command as configured, which a card lists under `## Output shape`, and nothing
+   looser: never a shape inferred from what came back. For each finding, take its path, its
+   location, its claim, and its rung.
 
    A rung comes only from the reviewer or from the grader. **Never rank a finding yourself.**
 
@@ -331,7 +332,7 @@ entry point.
    | -------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------- |
    | The output matches the reviewer's `rateLimitPatterns`          | abort (`reviewer-rate-limited`)    | The review did not happen. Print the output in full. **Do not retry**   |
    | The command failed, or returned nothing at all                 | abort (`review-command-failed`)    | Print the exit status and the output. Suspect the step-1 command string |
-   | The output matches no shape under the card's `## Output shape` | abort (`unparsed-review-output`)   | **Never read this as clean.** Print what came back                      |
+   | The output matches no shape the reviewer's card records        | abort (`unparsed-review-output`)   | **Never read this as clean.** Print what came back                      |
    | Zero findings, `requiresPr` reviewer, pull request unconfirmed | abort (`unconfirmed-empty-review`) | Not a clean round. Confirm the pull request still exists, then re-run   |
    | No findings at all                                             | finish (clean)                     | Run the sufficiency test, then go to 10                                 |
    | Findings, but none above the level's floor                     | continue                           | Go to 9 to bucket them as `accepted`. Never straight to 10              |
@@ -410,7 +411,8 @@ entry point.
       canonical ladder. With neither, lead with every unfixed finding in the reviewer's order.
     - On a graded run, say once at the top that the rungs were assigned by `<model>` and not
       reported by the reviewer, which emits no severity of its own. Mark each graded rung where it
-      appears, and list every finding the grader did not rank as `ungraded`.
+      appears, and list every finding the grader did not rank as `ungraded`, saying it was
+      treated as blocking.
     - Give the round count, the commit each round produced, every finding with its rung and its
       bucket, the checks that ran, and which model reviewed.
     - List every finding a crossing rung or a rising ceiling re-opened: the rung and the round it
@@ -465,7 +467,8 @@ entry point.
 
 None of these has run against live data; each fails closed unless marked. A run that takes one says
 so in the report and appends a line to `.revloop/field-notes.md` under the Field notes rules of
-[`remote-loop.md`](remote-loop.md)'s `## Unexercised paths`, writing `.revloop/.gitignore` first.
+[`remote-loop.md`](remote-loop.md)'s `## Unexercised paths`. Those rules decide whether the note may
+be written, and when `.revloop/.gitignore` is created first.
 
 - **Steps 10 and 11, and every step under the abort path.** No run has converged after a fix.
 - **Step 9's buckets other than `will fix`.** Reached by hand only, never with a rung attached.

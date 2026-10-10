@@ -78,9 +78,9 @@ In this order:
 - If the output does not parse at all, abort with `reason=unparsed-grading-output` and print what
   came back. Empty output is this case. Never read it as clean.
 - Attach every rung by the number on its line, never by the line's position. Then abort with
-  `reason=unparsed-grading-output`, printing the offending line, on any of: a rung that is not one
-  of the four canonical words, a number that was not in the batch, or a number given twice. Never
-  match a rung loosely to its neighbour.
+  `reason=unparsed-grading-output`, printing the offending line, on any of: a line that does not
+  carry a number, a rung and a reason; a rung that is not one of the four canonical words; a number
+  that was not in the batch; or a number given twice. Never match a rung loosely to its neighbour.
 - A finding missing from an otherwise-readable result is `ungraded`: it is above every floor, so it
   blocks, and the report lists it as `ungraded`. Do not drop it and do not re-ask for it alone.
 - From here on the rung's source is `graded`. It stays attached to the finding through the buckets,
