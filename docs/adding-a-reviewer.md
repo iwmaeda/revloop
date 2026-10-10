@@ -92,7 +92,7 @@ comment from your account and a firing of the fence that fetches it ignores that
 What a mark can cost is ruled by step 9's skip bullet and marked-`cid=` bullet, step 7's condition
 (d), step 11's gate and step 12, and none is restated here.
 
-To remove that stop, add the preamble to the fence's list. That is a fence edit, which follows the
+To remove what a mark can cost, add the preamble to the fence's list. That is a fence edit, which follows the
 protocol in [`CONTRIBUTING.md`](../CONTRIBUTING.md#editing-or-adding-a-shell-fence).
 
 ## Local command reviewers

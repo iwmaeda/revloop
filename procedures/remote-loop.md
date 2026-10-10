@@ -538,7 +538,9 @@ report with its reason.
    verdict: its recovery is a later run's re-take, never this re-post. A comment carrying the
    authenticated account's 👀 is an answer the fence's firings hide from the wait, while this read
    counts anyone's 👀, so it withholds the re-post more often than the fence hides a comment. A
-   reaction added after the read is not covered: do not re-post over a mark this read observed.
+   reaction added after the read is not covered: do not re-post over a mark this read observed. The
+   abort is then plain `no-verdict` (`max-rounds` at the cap), with every marked body printed in
+   full.
    (e) `git rev-parse HEAD` still equals the `oid=` you are about to write, compared in full.
 
    The re-post is the first trigger's body verbatim, trigger text and focus included, with `head=`
@@ -659,8 +661,8 @@ report with its reason.
    A firing of the fence whose fetch shows a bot comment carrying a 👀 (`eyes`) reaction from the
    account `gh` is authenticated as does not emit that comment. A reaction added or removed after
    a fetch is seen by the next firing and not by that one. Step 9's skip bullet marks a comment that
-   way to wait past it; what a mark can cost is ruled by that bullet, the marked-`cid=` bullet, step
-   7's condition (d), step 11's gate and step 12.
+   way; what the loop does next and what a mark can cost is ruled by that bullet, the marked-`cid=`
+   bullet, step 7's condition (d), step 11's gate and step 12.
 
    Reconcile `trigger=` with the `SINCE` you recorded in step 7 on `review`, `comment`, `reaction`
    and `pending`. No `VERDICT=error` form emits `trigger=`: an absent one is not a mismatch, and an
@@ -880,9 +882,7 @@ report with its reason.
      `attempt=2`, then re-fire step 8. Record it in the report and in the field notes.
    - `pending` abort: name the condition that failed: `no-verdict attempts=2`,
      `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is
-     silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical. A pull
-     request on which condition (d)'s read observes a mark does not re-post: its abort is plain
-     `no-verdict` (`max-rounds` at the cap), with every marked body printed in full.
+     silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical.
    - The marks are read off the pull request and never kept in the session. The 👀 outlives the
      run and the round that made it, and a firing whose fetch shows the mark drops the comment
      whatever its body is now, an edit into a verdict included. Removing the reaction before a
@@ -1474,14 +1474,15 @@ second, and the one-runner rule.
   clean comment can finish the round over it. Does not fail closed.
 - Step 9's skip row, from a run. What a mark leads to is ruled by step 9's skip bullet and
   marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, none restated here, and no
-  run has taken any of them. Does not fail closed: a comment older than the one the fence returned
-  is never classified, a firing whose fetch shows a mark drops the comment whatever it later says,
+  run has taken any of them. Does not fail closed: a firing returns the newest comment after the
+  trigger, so an older one is classified only when a later firing exposes it, a firing whose fetch
+  shows a mark drops the comment whatever it later says,
   and the active-marks read counts anyone's 👀 on a bot comment since the pull request was opened,
   including one the fence ignores and an earlier round's. The read is measured at `gh 2.4.0` on a
   pull request with no mark; no run has read a marked one.
-- The marks' last read before a merge sits outside the merge fence, so a 👀 added in the seconds
-  between that read and the fence's PUT is merged over. Putting it inside is a fence edit and a
-  re-approval for every user. Does not fail closed.
+- Step 12's last read of the marks before a merge sits outside the merge fence, so none of the five
+  rules reads a 👀 added in the seconds between that read and the fence's PUT. Putting it inside is
+  a fence edit and a re-approval for every user. Does not fail closed.
 - Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor: the round caps, the
   per-level sweep obligations, the rising-ceiling re-open, the sufficiency test (it cannot fail
   open), and the default level `standard`.
