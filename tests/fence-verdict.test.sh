@@ -172,7 +172,7 @@ refute "  not the marked comment"               "$o" "cid=500"
 
 # Another account's eyes, and the viewer's thumbs-up, are not what the fence
 # filters on. The active-marks read in step 9 does count anyone's eyes.
-o=$(r unmarked-reactions)
+o=$(r not-the-viewers-reactions)
 expect "only the viewer's eyes hide a comment"  "$o" "VERDICT=comment"
 expect "  this one is still the verdict line"   "$o" "cid=500"
 

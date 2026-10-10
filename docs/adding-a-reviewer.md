@@ -88,16 +88,17 @@ and Codex posts a status card that it edits while the review runs. The wait fenc
 knows.
 
 One it does not know is skipped. Step 9 adds a 👀 reaction to the comment from your account when
-fewer than three marks stand and a second read lists the new one, a firing of the fence that
-fetches it ignores that comment, and the wait goes on with the next firing's fetch deciding.
-Three marks already standing, a reaction that cannot be added or a second read that does not list
-it abort with `reason=interim-loop` instead. A round whose pull request carries a bot comment with a 👀 on it since
-the pull request was opened, whoever put it there and in whichever run or round, as far as the
-loop's reads observe, and then has nothing to fix stops with `reason=unclassified-comment` and
-prints the comment. Remove the 👀 and run the command again to accept the verdict. A firing that
-fetches the 👀 ignores the comment whatever it says later, so a reviewer that edits that comment
-into its verdict is read only by a firing that fetches after the 👀 is removed. Every report lists
-the marks the loop's last read observed on the pull request.
+fewer than three marks stand and a second read lists the new one among at most three, a firing of
+the fence that fetches it ignores that comment, and the wait goes on with the next firing's fetch
+deciding. Three marks already standing, a reaction that cannot be added, a second read that does not
+list it or one that returns more than three rows abort with `reason=interim-loop` instead. A round
+whose pull request carries a bot comment with a 👀 on it since the pull request was opened, whoever
+put it there and in whichever run or round, as far as the loop's reads observe, and then has nothing
+to fix stops with `reason=unclassified-comment` and prints the comment. Remove the 👀 and run the
+command again to accept the verdict. A firing that fetches the 👀 ignores the comment whatever it
+says later, so a reviewer that edits that comment into its verdict is read only by a firing that
+fetches after the 👀 is removed. Every report lists the marks the loop's last read observed on the
+pull request.
 
 To remove that stop, add the preamble to the fence's list. That is a fence edit, which follows the
 protocol in [`CONTRIBUTING.md`](../CONTRIBUTING.md#editing-or-adding-a-shell-fence).
