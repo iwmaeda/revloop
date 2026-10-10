@@ -21,6 +21,11 @@ Fences: `wait-verdict` changed (one re-approval).
   allow" given for the old string is asked for once more.
 - When a subprocess reviewer ends by asking a question, the `unparsed-review-output` report says
   what it asked for.
+- A pull-request loop no longer aborts on a reviewer comment it cannot classify. It adds a 👀
+  reaction to the comment from your account, the wait fence skips a comment that carries one, and
+  the wait continues. A round that skipped a comment and then has nothing to fix stops once with
+  `reason=unclassified-comment`; running the command again accepts the verdict. Such a round never
+  re-posts its trigger.
 
 ### Fixed
 

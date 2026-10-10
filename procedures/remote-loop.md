@@ -433,8 +433,9 @@ report with its reason.
      `reason=max-rounds` at once: no re-fire, no re-post, no charge against `--timeout`, no count
      toward condition (a). At the cap there is no second trigger of any kind.
    - Step 9's rows that send a verdict back to step 8 still run, on step 9's own counters: the
-     mismatched-`trigger=` row (two re-fires, then `reason=foreign-baseline`) and the ancestor row
-     (one, then abort). A re-fire that returns `pending` aborts as above.
+     mismatched-`trigger=` row (two re-fires, then `reason=foreign-baseline`), the ancestor row
+     (one, then abort) and the skip row (three, then `reason=interim-loop`). A re-fire that returns
+     `pending` aborts as above.
    - With the abort, print the cap, its `source`, the marker count it was measured against and the
      remedy; when the `source` is `rigor`, name `defaults.maxRounds` as the key that pins it. Say
      what this run did before it met the cap: a verdict read, findings answered, a fix pushed.
@@ -524,8 +525,10 @@ report with its reason.
    key: no row has this round's number in `round=` and `opens=0`. Scope it to the round, not to
    `head=`, and compare the column's whole value (`round=1` is not `round=10`). A row whose
    `round=` is not a number counts as a match and withholds the re-post.
-   (d) The round produced no classified verdict at all. A rate-limit reply is a classified verdict:
-   its recovery is a later run's re-take, never this re-post.
+   (d) The round produced no classified verdict at all, and this run skipped no comment in it
+   (step 9's skip row). A rate-limit reply is a classified verdict: its recovery is a later run's
+   re-take, never this re-post. A skipped comment is an answer this run could not classify: never
+   re-post over it.
    (e) `git rev-parse HEAD` still equals the `oid=` you are about to write, compared in full.
 
    The re-post is the first trigger's body verbatim, trigger text and focus included, with `head=`
@@ -594,9 +597,9 @@ report with its reason.
    case "${PR:-}" in ''|*[!0-9]*) echo "VERDICT=error reason=no-pr"; exit 0;; esac
    H=$(git rev-parse --short=8 HEAD 2>/dev/null) || H=unknown
    Q='query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){
-   comments(last:40){nodes{createdAt databaseId body author{login __typename} reactionGroups{content users{totalCount}}}}
+   comments(last:40){nodes{createdAt databaseId body author{login __typename} reactionGroups{content viewerHasReacted users{totalCount}}}}
    reviews(last:15){nodes{submittedAt databaseId state author{login __typename} commit{oid}}}}}}'
-   J='.data.repository.pullRequest as $p|[($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger "))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) \(.body|split("revloop:trigger ")[1]|split(" -->")[0]|gsub("[^A-Za-z0-9=._ -]";""))"),($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger ")|not)|select(.body|test("^[@/](codex|gemini|claude|copilot) review([[:space:]]|$)"))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) compat=1"),($p.reviews.nodes[]|select(.author.__typename=="Bot")|select(.state!="DISMISSED")|"review \(.submittedAt) \(.author.login) \(.databaseId) \(.commit.oid[0:8])"),($p.comments.nodes[]|select(.author.__typename=="Bot")|select(.body|test("^(## Summary of Changes|Copilot is reviewing|Copilot wasn|<!-- codex-pull-request-review-summary)")|not)|"comment \(.createdAt) \(.author.login) \(.databaseId) \(.body|split("\n")[0]|gsub("=";"-")|.[0:110])")]|.[]'
+   J='.data.repository.pullRequest as $p|[($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger "))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) \(.body|split("revloop:trigger ")[1]|split(" -->")[0]|gsub("[^A-Za-z0-9=._ -]";""))"),($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger ")|not)|select(.body|test("^[@/](codex|gemini|claude|copilot) review([[:space:]]|$)"))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) compat=1"),($p.reviews.nodes[]|select(.author.__typename=="Bot")|select(.state!="DISMISSED")|"review \(.submittedAt) \(.author.login) \(.databaseId) \(.commit.oid[0:8])"),($p.comments.nodes[]|select(.author.__typename=="Bot")|select(.body|test("^(## Summary of Changes|Copilot is reviewing|Copilot wasn|<!-- codex-pull-request-review-summary)")|not)|select([.reactionGroups[]?|select(.content=="EYES" and .viewerHasReacted)]|length==0)|"comment \(.createdAt) \(.author.login) \(.databaseId) \(.body|split("\n")[0]|gsub("=";"-")|.[0:110])")]|.[]'
    F=0; TS=""; END=$((SECONDS + 480))
    while [ "$SECONDS" -lt "$END" ]; do
      O=$(timeout 25 gh api graphql -F o="${S%%/*}" -F n="${S##*/}" -F p="$PR" -f query="$Q" --jq "$J" 2>/dev/null); r=$?
@@ -642,6 +645,9 @@ report with its reason.
    characters each. `at=` and `login=` are the signal's time and author, `review_id=` and `cid=`
    its id, `body=` a preview of a comment, `id=` the trigger a reaction sits on, `bot=` the newest
    bot line. The form table in step 9 says which form carries which.
+
+   The fence never emits a bot comment that carries a 👀 (`eyes`) reaction from the account `gh` is
+   authenticated as. Step 9's skip row marks a comment that way to wait past it.
 
    Reconcile `trigger=` with the `SINCE` you recorded in step 7 on `review`, `comment`, `reaction`
    and `pending`. No `VERDICT=error` form emits `trigger=`: an absent one is not a mismatch, and an
@@ -792,8 +798,8 @@ report with its reason.
    | `comment` whose body starts with the reviewer's clean phrase      | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `comment` matching the rate-limit pattern + your own trigger      | abort (`reviewer-rate-limited`)     | `reason=reviewer-rate-limited`; no retry            |
    | `comment` matching the rate-limit pattern + a standing trigger    | re-take (`rate-limit-retake`)       | step 7                                              |
-   | `comment` whose `cid=` you already classified as non-terminal     | abort (`interim-loop`)              | report `cid=` and the body                          |
-   | `comment` with any other bot body                                 | abort                               | print the full body; hand it to a human             |
+   | `comment` whose `cid=` this run already marked                    | continue (once)                     | re-fire step 8; second: `reason=interim-loop`       |
+   | `comment` with any other bot body                                 | skip                                | mark it, re-fire step 8 only                        |
    | `reaction`                                                        | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `pending` (within `--timeout`)                                    | continue                            | re-fire step 8 only, never step 7                   |
    | any output whose `trigger=` is not your `SINCE`                   | continue (twice)                    | re-fire; third: `reason=foreign-baseline`           |
@@ -836,8 +842,14 @@ report with its reason.
      it names.
    - `rate-limit-retake`: say in the report that a rate-limit re-take opened the round, naming the
      `cid=`, and append one line to `.revloop/field-notes.md`.
-   - `interim-loop`: the fence does not know this interim comment. Recovering means adding its
-     pattern to the fence's drop list, a fence edit that every user re-approves.
+   - A marked `cid=` that comes back: the fence has not seen the mark. Re-fire step 8 once; a
+     second consecutive return aborts with `reason=interim-loop`.
+   - Skip: the body matches neither `cleanPatterns` nor `rateLimitPatterns`. Mark the comment with
+     the call below this list, keep its `cid=` and full body for the report, and re-fire step 8
+     only. The firing that returned it is not a chunk: it costs nothing against `--timeout` and
+     never counts toward step 7's floor. A round skips at most three comments. A fourth, or a mark
+     that exits non-zero, aborts with `reason=interim-loop`: print every skipped body in full. A
+     round that skipped a comment stops at step 11's gate instead of converging.
    - `reaction`: an unexercised path; say so in the report.
    - `trigger=` not your `SINCE`: step 8's reconciliation gives the rules.
    - `re-post (once)`: silence is not proof that nothing was sent, so the report says a signal may
@@ -845,7 +857,17 @@ report with its reason.
      `attempt=2`, then re-fire step 8. Record it in the report and in the field notes.
    - `pending` abort: name the condition that failed: `no-verdict attempts=2`,
      `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is
-     silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical.
+     silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical. A round
+     that skipped a comment never re-posts: its abort is plain `no-verdict`, with every skipped
+     body printed in full.
+
+   The mark, for the skip row. `<cid>` is the `cid=` on the fence's line. Decide failure from the
+   exit code:
+
+   ```bash
+   gh api -X POST "repos/{owner}/{repo}/issues/comments/<cid>/reactions" -f content=eyes \
+     --jq '"MARKED=\(.id) content=\(.content)"'
+   ```
 
 10. Read the findings from the inline comments and from the review body; either can carry them.
     Severity is the badge at the head of each body, and a review body carrying one is a finding.
@@ -1057,6 +1079,10 @@ report with its reason.
     `comment` and `reaction` rows, which arrive with no findings to answer.
 
     - If even one item needs fixing, go back to step 3.
+    - If nothing needs fixing and this run skipped a comment in this round (step 9's skip row), do
+      not converge: abort with `reason=unclassified-comment`, print each skipped `cid=` and body in
+      full, and say that running the command again accepts the verdict. A later run reads the same
+      verdict with nothing skipped. This is within-run state.
     - If every item is fixed, declined, or accepted, re-read step 1's `pr_head=`, run the
       sufficiency test in [`rigor-levels.md`](rigor-levels.md), and go to step 12 only when both
       pass.
@@ -1275,6 +1301,8 @@ These are load-bearing. Each rule here holds across steps, or is stated by no si
 
 - **Arm one wait at a time.** If an earlier wait may still be running, wait for its verdict instead
   of firing again.
+- Add the 👀 mark that step 8's fence reads only in step 9's skip row. Nobody else's reaction
+  counts as one. To make a later run read a marked comment, remove the reaction.
 - Discard the findings of a stale review; never salvage them. Step 9 allows one re-fire per round
   and aborts on the second.
 - Before trusting a `pending` row in step 9, enumerate the `pending`: within `--timeout` or past
@@ -1330,9 +1358,9 @@ These are load-bearing. Each rule here holds across steps, or is stated by no si
 These branches have never been reached against live data. Most fail closed (toward `retry`,
 `timeout` or an abort, never toward a wrong merge), but nothing guarantees they classify correctly.
 A round that takes one says so in the report and appends a field note. These do not fail closed:
-severity resolution and grading, step 7's trigger re-post, step 11's read-before-post, the marker
-read's `<oid>`, step 3's ledger line, a review in its trigger's own second, and the one-runner
-rule.
+severity resolution and grading, step 7's trigger re-post, step 9's skip row, step 11's
+read-before-post, the marker read's `<oid>`, step 3's ledger line, a review in its trigger's own
+second, and the one-runner rule.
 
 - `VERDICT=reaction`.
 - The `--is-ancestor` `1` (diverged) and `128` (absent locally) aborts, with a bot review arriving
@@ -1377,6 +1405,10 @@ rule.
   when there is also no bot comment and no reaction.
 - A review submitted in the same second as its trigger. The fence does not select it, so a later
   clean comment can finish the round over it. Does not fail closed.
+- Step 9's skip row, from a run: the mark, a marked comment dropped by the fence, the
+  three-comment bound, a marked `cid=` coming back, and step 11's `reason=unclassified-comment`.
+  Does not fail closed: the stop is within-run state, so a run resumed after the skip converges
+  without it, and a comment older than the one the fence returned is never classified.
 - Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor: the round caps, the
   per-level sweep obligations, the rising-ceiling re-open, the sufficiency test (it cannot fail
   open), and the default level `standard`.

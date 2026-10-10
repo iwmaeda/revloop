@@ -151,6 +151,29 @@ expect "  by the clean comment's own id"        "$o" "cid=600"
 refute "  not the card's"                       "$o" "cid=500"
 expect "  with the clean phrase as the body"    "$o" "body=Codex Review: Didn't find any major issues. Chef's kiss."
 
+# A comment that carries the viewer's own eyes reaction is skipped too, whatever
+# its body: step 9 marks one it cannot classify, and the wait goes on past it.
+# As above, the drop itself is asserted in tests/jq-program.test.sh.
+o=$(r marked-comment)
+expect "a marked comment alone -> still waiting" "$o" "VERDICT=pending"
+refute "  the marked comment is not a verdict"  "$o" "cid=500"
+
+o=$(r marked-comment-then-clean)
+expect "a verdict newer than the mark wins"     "$o" "VERDICT=comment"
+expect "  by its own id"                        "$o" "cid=600"
+refute "  not the marked comment's"             "$o" "cid=500"
+
+# Dropping the newest comment uncovers an older signal of the same round.
+o=$(r marked-comment-over-rate-limit)
+expect "the mark uncovers the older rate limit" "$o" "cid=400"
+expect "  with its body"                        "$o" "body=You have reached your Codex usage limits"
+refute "  not the marked comment"               "$o" "cid=500"
+
+# Another account's eyes, and the viewer's thumbs-up, are not the mark.
+o=$(r unmarked-reactions)
+expect "only the viewer's eyes hide a comment"  "$o" "VERDICT=comment"
+expect "  this one is still the verdict line"   "$o" "cid=500"
+
 # The marker's bot= drops every other bot at fetch time.
 o=$(r foreign-bot)
 expect "foreign bots filtered -> pending"       "$o" "VERDICT=pending"
