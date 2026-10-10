@@ -1,34 +1,22 @@
 # Permissions
 
-The two hosts grant differently. Claude Code matches a command-string prefix against an allowlist, so
-the unit of permission is a rule you write down. Codex decides with an approval policy and a sandbox,
-so the unit is a mode plus the holes you open in it.
+Claude Code matches each command string against an allowlist of prefixes. Codex uses an approval
+policy and a sandbox. Why the rules have this shape is in
+[design notes](design-notes.md#permission-rules-and-fence-bytes).
 
-This page is what to grant. Why the rules are shaped this way is in
-[`design-notes.md`](design-notes.md#permission-rules-and-fence-bytes).
+| Run                               | What it needs                                                                                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Any `remote-*`                    | The whole list below                                                                                                                 |
+| Any `local-*`                     | `Bash(git:*)`, `Bash(gh pr list:*)`, `Bash(gh pr create:*)`, `Bash(gh repo view:*)`, `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` |
+| Any `local-*` with `--no-publish` | `Bash(git:*)` only                                                                                                                   |
 
-**Which rules you need depends on which family of command you run, and on how you run it.** The list
-is per family rather than per command because the grant is a property of the procedure, and every
-command in a family runs the same one — `tests/commands.test.sh` asserts that the four `remote-*`
-commands carry a byte-identical `allowed-tools` line, and that the three `local-*` ones do.
-
-The `remote-*` commands talk to GitHub and need the whole list below. The `local-*` commands need a
-strict subset — including four `gh` rules, since they push and open a pull request by default.
-
-| Run                               | What it needs                                                                                                                             |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Any `local-*`                     | `Bash(git:*)`, plus `Bash(gh pr list:*)`, `Bash(gh pr create:*)`, `Bash(gh repo view:*)`, `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` |
-| Any `local-*` with `--no-publish` | `Bash(git:*)`. **No step calls `gh`** — it ends at a commit                                                                               |
-| Any `remote-*`                    | The whole list                                                                                                                            |
-
-**A reviewer you point either family at may reach GitHub on its own account**: the shipped
-`ecc-review-pr` preset resolves a pull request, and a `skill`-invoked reviewer does that inside this
-session under the grants this session already has.
+A reviewer you configure may call GitHub itself. The shipped `ecc-review-pr` preset reads a pull
+request, and a reviewer invoked as a skill runs inside your session with the session's grants.
 
 ## Claude Code: the rules to grant
 
-Put these in `.claude/settings.local.json` (per-developer, git-ignored) or `.claude/settings.json`
-(shared):
+Put these in `.claude/settings.local.json` (yours, git-ignored) or `.claude/settings.json` (shared).
+A plugin cannot grant itself permissions, so this is a copy-and-paste list.
 
 ```json
 {
@@ -50,247 +38,72 @@ Put these in `.claude/settings.local.json` (per-developer, git-ignored) or `.cla
 }
 ```
 
-**`gh pr create` and `gh pr list` are listed separately because the `local-*` commands hold those two
-rather than the broad `Bash(gh pr:*)`**, which would pre-approve `gh pr merge` for a command that
-never merges.
-
-A plugin cannot grant itself permissions. No install-time hook merges anything into your settings,
-which is why this is a copy-and-paste list.
-
-`gh api` expands `{owner}` and `{repo}` from the current remote, so the scoped rules reach only the
-repository you are in. The flag variants are separate rules because a rule matches a prefix and the
-flag precedes the path — `-X POST` for the reply, `-X PUT` for the merge, `-X PATCH` for step 6's
-body update, and `--paginate` for the two reads. Prefer them over `Bash(gh api *)`, which reaches
-**every repository your token can touch**. `tests/permissions.test.sh` holds the list to the
-procedure's fenced blocks, so a verb used without a rule fails the suite rather than a user's run.
+- `gh api` expands `{owner}` and `{repo}` from the current remote, so the scoped rules reach only
+  the repository you are in. Prefer them to `Bash(gh api *)`, which reaches every repository your
+  token can.
+- Each flag variant is its own rule, because a rule matches a prefix and the flag comes before the
+  path.
+- `gh pr create` and `gh pr list` are listed separately because the local commands hold those two
+  and leave out `Bash(gh pr:*)`, which would also cover `gh pr merge`.
 
 ### What `Bash(git:*)` still allows
 
-The narrowness argument above is about `gh api`; it does not extend to the `git` rule.
+`Bash(git:*)` matches every git subcommand, including `git push --force` and `git reset --hard`. The
+procedures never force-push and they abort on a fork unless `--no-publish`, but the permission system does not enforce
+either.
 
-`Bash(git:*)` matches every git subcommand, including `git push --force`, `git reset --hard`, and
-`git remote add`. The procedures forbid force-pushing — a rebase re-anchors every inline comment and
-makes the `commit_id` comparison meaningless — but that is a rule the model follows, not one the
-permission system enforces. The blast radius is your working tree and the branches your token can
-write. Two things bound it: neither procedure ever constructs a `--force` push, and step 1 aborts on
-a fork, so the branches are your own.
+The one `--force` a procedure runs is `git worktree remove --force`, in the `worktree-teardown`
+fence. It removes only worktrees that the run recorded in `revloop/worktrees.txt` under the
+checkout's git directory and whose directory name begins with `revloop-wt-`. Any other worktree of
+that name is reported as `WORKTREE=other` and left alone.
 
-**One `--force` is constructed by a procedure, and it is not a push.** Step 12's
-`worktree-teardown` fence runs `git worktree remove --force`, so the sentence above — that neither
-procedure ever constructs a `--force` — is about pushes and about nothing else. What bounds the
-removal is not the permission system either: **two conditions have to hold together, and the first is
-spent when it is used.** The path must be a line in `revloop/worktrees.txt` inside your checkout's own
-git directory, which is where step 3 records every worktree it creates; and its last component must
-begin with `revloop-wt-`, the name step 3 requires. **The sweep then rewrites that record to the
-paths it could not remove**, so a line authorizes one removal rather than that path forever — without
-which a worktree you later create where one of the loop's used to be would be inside the match, since
-it carries the same name. The ledger is what says the worktree is this run's — `git worktree list` answers for the
-whole repository, so a loop running beside yours would otherwise be inside the same match, and it
-writes its own file in its own checkout instead. The name is the second bound, held back for the
-ledger's bad day. Anything of that name the ledger does not claim is reported as `WORKTREE=other` and
-left alone. The fence passes nothing else to that command either — no `git worktree prune`, which
-takes no path and would reach every stale registration in the repository including yours.
-**It writes one file, and this is the page that has to say so**: `revloop/worktrees.txt` inside your
-checkout's own git directory, replaced through a sibling temp file in that same directory. Nothing it
-writes is ever in your working tree, so `git status`, `git ls-files -o`, `git add -A` and
-`git clean -xdf` all return exactly what they returned before — measured at `git 2.34.1`.
-**And it writes both paths only where it controls what is standing there.** A record replaced by a
-symbolic link would be read as the list of paths this `--force` may take, and a link left at the temp
-path would have the write follow it — truncating a file elsewhere and then leaving the record itself
-pointing at it. So a record that is not a regular file is refused outright
-(`WORKTREE=error reason=ledger-not-regular`, and nothing is removed), and the temp path is unlinked
-before it is written and opened `O_EXCL` when it is. **That refusal asks the file's type and not
-only whether it is a link**, because the two are different sets and the gap between them was not a
-wrong answer but a **hang**: a named pipe is not a link, so it reached the read, and opening a FIFO
-with no writer blocks forever — measured, the fence printed no line at all and the step never
-finished. Anyone who can plant a link there can run `mkfifo`, which needs no privilege.
-**The same question is asked of the directory the record sits in, one path component higher**, and
-that one arrived from a review rather than from this argument: a `revloop` that is itself a symbolic
-link passes every test made on the leaf — `[ -L ]` is false because the leaf is not the link, and
-`[ -f ]` is true because it follows the parent — so the read adopted a substituted file and the
-`--force` took the worktree named in it. It is refused as
-`WORKTREE=error reason=ledger-dir-not-regular`, on the link itself rather than on what it resolves
-to, and **step 3 refuses to record through one too**, before it creates a worktree — otherwise the
-run would keep writing its paths into the substituted file while the sweep declined to read it.
-**A second review round widened that writing test from the link to both path components**, because a
-link-only check let two other shapes through: a `revloop` that is a regular file or a named pipe made
-`mkdir -p` fail _after_ the worktree existed, leaving it created and unrecorded, and a `worktrees.txt`
-that is a named pipe made the append **block** — `[ -s ]` is false on a FIFO, so the size clause
-short-circuits and `>>` waits on a reader that never comes. Both were measured. The reader had
-already refused that shape; the writer walked into it, which is what a rule enforced on one side only
-produces.
-
-**A third round moved both sides to validate before they change anything**, which is an ordering
-rather than a new question. Step 3 now prepares and proves the ledger — real directory, regular
-leaf, readable, writable, created if absent, and no newline in the worktree path — **before** `git
-worktree add`, so a ledger it cannot use costs no worktree; and the fence proves the rewrite
-possible **before** the removal loop, under `WORKTREE=error reason=ledger-unwritable`, by
-performing its three operations — clearing the temp path, creating it, and renaming it over the
-record — rather than testing a permission that stands next to them. Two later rounds moved it
-there: a permission test passes a **directory** standing at the temp path, and a clear-and-create
-passes a sticky directory whose record belongs to another user, each failing only after the
-`--force` had run. The probe is byte- and mode-preserving, so a checkout it accepts is left as it
-was found; **step 3 runs the same probe**, so the class of states that probe decides is decided
-the same way on both sides. **It does not make their accepted states one set, and it is worth not
-overstating**: a mode-0444 record in a writable directory is refused by step 3 and swept by the
-fence, and an empty record makes the fence skip the probe altogether. What is closed is the leak
-direction — recording a worktree the sweep cannot take. **Step 3 does not accept a worktree path at
-all**, because `git worktree add` records what the path resolves to rather than the path it was
-given: it takes a **name**, checks it is a single component from a fixed character set, and builds
-the path from a parent it canonicalises itself. Three rounds of refusing one spelling and meeting the
-next — a newline, a symlinked parent, a symlinked leaf, then that leaf test itself defeated by a
-trailing slash — are why it is built rather than checked.
-Both failures were measured: a worktree created and unrecorded on one side, a worktree removed
-with its ledger line intact on the other. **The two sides prove different things because they do
-different things** — step 3 appends and so needs the file writable, the fence renames and so needs
-the directory writable — and step 3 proves **both**, since recording a worktree the fence cannot
-sweep is itself a leak.
-
-**None of these tests is atomic, and that limit is stated rather than left to be discovered.** They
-are pathname checks, so a process writing inside `$GIT_DIR` could swap the object between the check
-and the use. That is declined on the threat model: such a process already runs your code through
-`.git/config`'s `core.fsmonitor` and `core.sshCommand` and through `.git/hooks/*`, so no shell-level
-check is the boundary there — and `O_NOFOLLOW`, `flock` and inode revalidation are not portably
-reachable from a shell fence whose permission story depends on one byte-stable string. **What they
-are for is the ledger that is visibly not this run's** — a stale link, a hand-made directory, a FIFO
-left by an experiment — where the alternative is an unconditional `--force` against a path the run
-never recorded.
-**Neither is a permission the system enforces
-for you**, which is the same sentence as the one above it: the bound is in the fence's bytes and in
-`tests/fence-worktree.test.sh`, which plants a link at each of the two paths and asserts the file it
-pointed at keeps its bytes.
-**And if it cannot read that file, it removes nothing**: a record that exists and cannot be read is
-not an empty one, so the fence reports `WORKTREE=error reason=ledger-unreadable` and the sweep does
-not run, rather than reading the failure as "this run owns nothing" and printing a clean sweep over a
-record it never opened.
-**The bound is a test rather than a grant.**
-`tests/fence-worktree.test.sh` plants a worktree of another name **and a second checkout's own** beside
-one the fence must remove, and asserts both survive — with their directories, not only their
-registrations — which is the strongest form this can take while `Bash(git:*)` covers every subcommand
-equally.
-
-**The `local-*` commands hold this rule too, and push with it unless `--no-publish`.** The same shape
-applies to its four `gh` rules: the grants are present on every run, and it is the procedure rather
-than the permission system that keeps them within their purpose. That is why they are the narrow
-ones.
-
-If that is not enough, grant subcommands individually — `Bash(git status:*)`, `Bash(git diff:*)`,
+To grant subcommands individually instead, use `Bash(git status:*)`, `Bash(git diff:*)`,
 `Bash(git log:*)`, `Bash(git add:*)`, `Bash(git commit:*)`, `Bash(git checkout:*)`,
 `Bash(git branch:*)`, `Bash(git push:*)`, `Bash(git rev-parse:*)`, `Bash(git merge-base:*)`,
 `Bash(git fetch:*)`, `Bash(git switch:*)`, `Bash(git ls-files:*)`, `Bash(git pull:*)`,
-`Bash(git worktree:*)`, `Bash(git check-ignore:*)` — and accept that the list will need
-extending the first time a step reaches for something not on it. Nobody has measured which
-repositories need which subset.
+`Bash(git worktree:*)` and `Bash(git check-ignore:*)`.
 
-**`tests/permissions.test.sh` keeps this list in step with the procedures, in both directions**: every
-git subcommand and every `gh api` prefix appearing in a fenced `bash` block must be granted here, and
-every rule granted here must be used by one. So a drifted list fails the suite rather than a user's
-run — and an unused grant fails too, because it is a permission nobody needs. The `gh api` half
-compares the **whole** prefix, scoped path included; matching only the verb would let an off-scope
-call reduce to a rule that was never meant to authorize it.
+## What is not pre-approved
 
-**It also holds both `allowed-tools` lines, and this list, to the schema's ban list**: a procedure may
-pre-approve only a binary that a repository-supplied review command is forbidden to begin with. That
-is what keeps the review command and the grader — both of which start with a model CLI — outside
-every grant, where the permission system sees them. **The check is one-way**: the schema's `gh` ban is
-deliberately wider than the grants that motivate it, so a ban with no grant is the design rather than
-a defect.
+The rules above cover the fences and the procedures' own `git` and `gh` calls. These strings are kept
+out of `allowed-tools`, so Claude Code prompts for them unless you have granted the string yourself.
+Step 1 prints the verify commands, a subprocess reviewer's `command` and, on a graded run, the
+grader's command line before anything runs.
 
-### Verify commands are not pre-approved
+| String                            | Prompts                              | Comes from                           |
+| --------------------------------- | ------------------------------------ | ------------------------------------ |
+| A fence                           | Once, at its first approval          | The procedure. Its text never varies |
+| A verify command                  | Every round                          | The configuration file, or detected  |
+| A subprocess reviewer's `command` | Every round                          | The reviewer definition              |
+| The grader, on a graded run       | Every round                          | The procedure. Only the model varies |
+| A worktree creation, in step 3    | Every time, including under `--auto` | The procedure. It carries a path     |
 
-`.revloop.json` supplies the verify commands, so they are repository-supplied strings. Listing them in
-`allowed-tools` would pre-approve whatever a cloned repository puts there. They are excluded so the
-permission system always sees them, and step 1 prints them before anything runs.
+- A reviewer with `invoke: "skill"` has no command string to match, so there is no prompt. Step 1
+  stops and shows the resolved command instead, and `--auto` does not skip that stop. Configure the
+  reviewer as a subprocess if you want the prompt.
+- A run is graded when the level is `minimal` or `standard` and the reviewer declares no
+  `severityLevels`. Among the built-ins that is `claude`, `code-review` and `ecc-review-pr`.
+  `--rigor thorough` avoids the grader.
+- Findings reach the grader through `.revloop/grading-input.txt` on standard input, never on its
+  command line.
+- A subprocess reviewer's `command` may not begin with `git`, `gh` or `{reviewModel}`. The match is on
+  the string, so `gitlint` and `gh-review` are refused too: configure such a reviewer as a skill, or
+  rename it. A skill's name is not matched against a permission rule and is not restricted this way.
+  See [`SECURITY.md`](../SECURITY.md#repository-supplied-configuration-is-untrusted).
+- The model name, the value of `--model` or the built-in `sonnet`, is the only value interpolated
+  into a command line. It must match `^[A-Za-z0-9][A-Za-z0-9._:-]*$`.
 
-### Nor is a local reviewer's command
-
-The same rule for the string a `local-command` reviewer runs: it comes out of `.revloop.json`, it is
-absent from the local command's `allowed-tools`, and step 1 prints it before the first round. **It is
-deliberately not a fence** — a fence's "always allow" holds because its text never changes, and a
-review invocation varies by reviewer and by depth. The cost is a prompt per round, which is the
-correct price for the one string a local run is most about.
-
-**With `invoke: "skill"` there is no prompt, because there is no command string to match.** The
-`allowed-tools` line grants the `Skill` tool as a whole, and **granting a tool is not granting one
-argument to it**. Step 1 therefore stops and shows the resolved command before the first round on that
-path, and **`--auto` does not suppress that stop** — a substitute for a permission prompt that a flag
-can delete is not a substitute. If you would rather have the prompt, configure the reviewer as a
-subprocess.
-
-### Nor is the grader's command, and it is procedure-owned rather than repository-supplied
-
-**A graded run starts a grader subprocess per round** — on **the local family's** resolved review
-model, and on the builtin `sonnet` in the pull-request family, which has no `--model` to move it. A
-run is graded when the resolved `--rigor` level has an acceptable band — `minimal` or `standard` —
-and the reviewer's definition declares no `severityLevels`, which is three of the five shipped
-reviewers: `claude`, `code-review` and `ecc-review-pr`. **The default level is `standard`, which has
-a band, so against those three the grader is part of the ordinary run** — one extra prompt per round
-on a command that typed nothing. `--rigor thorough` is what removes it. The grader
-is treated like the review command in every way but one: **its command line comes from the
-procedure and never from `.revloop.json`.** A review command is what the operator chose to run and
-the step-1 table shows it before it runs; a grader the repository could choose would be a shell
-string nobody asked for, started in the one place whose purpose is to let findings go unfixed.
-Only the model is interpolated into it, through the same `{reviewModel}` resolution and the same
-`^[A-Za-z0-9][A-Za-z0-9._:-]*$` refusal — **in the local loop. The pull-request loop interpolates
-nothing**, because its model is the builtin, so that refusal has no input there and cannot fire.
-
-**The findings are the other thing that could reach that command line, and deliberately do not.**
-They are written to `.revloop/grading-input.txt` and redirected in, never concatenated into the `-p`
-argument. A finding's claim is reviewer output quoting repository content, so it carries whatever
-characters the repository carries — building an argv out of it is the same hole `--body-file` closes
-on the pull-request body and the pattern above closes on the model name, reached through the one
-string this page had not yet accounted for. The instruction stays fixed in the argument, the
-untrusted half arrives on standard input, and **the string you are prompted with therefore does not
-grow with the findings**, which is what keeps the prompt readable enough to be a real decision.
-
-**It is deliberately not a fence, for the reason the review command is not one**: a fence's "always
-allow" holds because its bytes never change, and this string carries a model. So it is absent from
-`allowed-tools`, the permission system sees it every round, and step 1 prints it in full and expanded
-— beside the review command in the local loop, and on its own in the pull-request loop, which has no
-review command to print it beside and where the grader is the only subprocess the run starts at all.
-**What that costs differs by family, and the figure belongs to the procedure
-rather than to a flag.** A graded local run costs **two** prompts a round where it costs one — the
-review command and the grader. A graded pull-request run costs **one** where it costs none from a
-process it started, because its reviewer is a GitHub app; grading is the only thing that puts a model
-subprocess in that procedure at all. Both are the correct price for the string a graded run is
-most about.
-
-**A `subprocess` command may not begin with `git`, with `gh`, or with the `{reviewModel}`
-placeholder**, and the schema rejects all three. The local command grants `Bash(git:*)` for its own
-probe and four `gh` rules for publishing, and a rule matches a prefix, so such a command would run
-with no prompt at all — see
-[`../SECURITY.md`](../SECURITY.md#repository-supplied-configuration-is-untrusted).
-
-**That covers a longer name too**, because the rule above is the one being applied: the matcher
-compares strings, so `gitlint`, `git-review`, `git.exe`, `ghreview` and `gh.exe` each start with a
-granted prefix however different a binary the shell would run. A review command named that way has to
-be configured as a `skill`, which no `Bash` rule matches, or renamed.
-
-**The `gh` ban is wider than the four rules that motivate it**, which is deliberate: banning the four
-granted spellings instead would be four rules that have to track a grant list every future step can
-extend, and a ban that lags its grants by one release is the hole itself.
-
-**The placeholder ban exists because expansion happens after the prefix is checked.** `{reviewModel}`
-is substituted before the command runs, so `{reviewModel} push --force` under `--model git`
-becomes a string beginning with `git` — the first two bans defeated by a value that arrived after
-them. The schema removes the shape, and the procedure re-checks the expanded string before running it.
-
-### The review model is the one interpolated value
-
-`--model <name>` is **expanded into a command line** at the `{reviewModel}` placeholder — the
-only value either procedure splices into a shell command. It comes from the flag or from the builtin
-`sonnet`, never from `.revloop.json`, and is refused unless it matches
-`^[A-Za-z0-9][A-Za-z0-9._:-]*$`.
+There are four fences: `wait-verdict`, `worktree-teardown`, `wait-ci` and `merge`. Editing one costs
+every user a re-approval; the protocol is in
+[`CONTRIBUTING.md`](../CONTRIBUTING.md#editing-or-adding-a-shell-fence). A prompt for a fence you
+already allowed is a bug: report it with the prompt text and the rule you granted.
 
 ## Codex: approval policy and sandbox
 
-Codex has no allowlist. It gates two things separately — when it asks before running a command
-(`approval_policy`) and what a command can reach once it runs (`sandbox_mode`). The second stops this
-loop.
-
-**The load-bearing fact:** every `gh` call needs the network. A `workspace-write` sandbox commonly runs
-with `network_access = false`, and under it every step that talks to GitHub fails — trigger, waits,
-reply, merge. None of it looks like a permission problem from inside the loop.
+Codex has no allowlist. It decides separately when to ask before running a command
+(`approval_policy`) and what a command can reach (`sandbox_mode`). Every `gh` call needs the network,
+and a `workspace-write` sandbox usually runs without it, so the trigger, the waits, the reply and the
+merge all fail until you open it.
 
 Put this in `~/.codex/config.toml`:
 
@@ -302,7 +115,7 @@ sandbox_mode = "workspace-write"
 network_access = true
 ```
 
-The same values work as flags for a single run, and as `-c` overrides:
+The same values work as flags for a single run:
 
 | Setting                                  | Flag                     | Values                                               |
 | ---------------------------------------- | ------------------------ | ---------------------------------------------------- |
@@ -310,90 +123,15 @@ The same values work as flags for a single run, and as `-c` overrides:
 | `sandbox_mode`                           | `-s, --sandbox`          | `read-only`, `workspace-write`, `danger-full-access` |
 | `sandbox_workspace_write.network_access` | `-c <key>=<value>`       | `true`, `false`                                      |
 
-`-c` takes a dotted path and parses the value as TOML, so
-`-c sandbox_workspace_write.network_access=true` opens the network for one invocation. To be asked
-once per repository rather than once per command, mark it trusted:
+To be asked once per repository instead of once per command, mark the repository trusted:
 
 ```toml
 [projects."/absolute/path/to/your/repo"]
 trust_level = "trusted"
 ```
 
-**Do not reach for `--dangerously-bypass-approvals-and-sandbox`.** It disables approvals _and_
-sandboxing for the whole session, far wider than "let `gh` reach GitHub"; `danger-full-access` is the
-same trade in a different shape. To widen the writable set without removing the sandbox, use
-`--add-dir <DIR>`.
+Do not use `--dangerously-bypass-approvals-and-sandbox` or `danger-full-access`: both remove far more
+than network access. To widen the writable set, use `--add-dir <DIR>`.
 
-### What was measured, and what was not
-
-The flag names, config keys and accepted values above were read out of an installed Codex build rather
-than from vendor documentation. **What nobody has done is drive the loop end to end under this
-configuration** — it is the shape of the problem and a starting point, not a recipe. If you drive it
-successfully, this section is worth a pull request. `codex --help` outranks this file whenever the two
-disagree.
-
-## Counting the prompts
-
-**Count them by string class rather than by loop, because a string class is what the permission
-system matches on.** Four exist, and only the first is covered by the rules above:
-
-| String                                             | Prompts                           | Why                                                              |
-| -------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------- |
-| A fence                                            | Once, at the first approval       | It takes no arguments, so its command string never varies        |
-| A verify command, or a `subprocess` review command | Every round it runs               | Repository-supplied. Pre-approving it is the hole                |
-| The grader, on a graded run                        | Every round, in **both** families | Procedure-owned, but it carries a model, so it is not a fence    |
-| A worktree creation, in step 3                     | Every time one is created         | Procedure-owned, but it carries a path and a commit, so likewise |
-
-**"Zero prompts per round" was never a property of the pull-request loop; it is a property of the
-fences.** A remote round runs the repository's verify commands exactly as a local round does — step
-11 returns to step 3 — and those are excluded from `allowed-tools` on purpose. This page used to say
-that loop reached zero, two sentences above saying the review command is prompted for "as `verify`
-is"; both cannot be true.
-
-**Grading adds one prompt per round to whichever family is running.** On a local run that is a second
-prompt beside the review command. On a pull-request run it is the first and only model subprocess that
-procedure has ever started, because its reviewer is a GitHub app rather than a process. **It needs no
-flag of its own**: a relaxed level against a reviewer with no ladder is what reaches it, so the prompt
-count follows the reviewer as much as the invocation — which is why step 1 prints `severity source`
-before the first round rather than at the first prompt. **The string you are prompted with is the
-expanded one** — `{reviewModel}` already substituted in the local family, or the builtin `sonnet` in
-the pull-request family, which has no `--model` and interpolates nothing — because that is the string
-that will run, and being shown a template while a different string executes is the failure the whole
-not-pre-approved rule is about.
-
-**The fourth row is the reason step 3 tells you to prefer a read over a worktree.** `git show`,
-`git diff` and `git log` answer most questions about another commit, and a worktree is for what they
-cannot do — build the project, or run its tests, at another commit. The command that creates one
-carries a path and a commit-ish, so it is a different string every time and cannot be a fence.
-**On an `--auto` run that prompt is a stop the flag does not suppress**, which is a cost of the
-feature rather than a defect in it: the alternative is pre-approving `git worktree add`, and a rule
-that pre-approves a path is a rule that pre-approves any path.
-
-**There are four fences, and the fourth arrived with the worktree teardown.** Step 12 runs it once
-per run — at a convergence, at a merge, and before every abort's report — so like the other three it
-is one prompt the first time and none afterwards. It takes no arguments for exactly the reason the
-wait scripts take none: a fence handed the path it should remove would be a different command string
-every session, and "always allow" would never apply to it. **The path it needs is on disk rather than
-in its bytes** — step 3 wrote it to `revloop/worktrees.txt` inside the checkout's own git directory,
-and the fence resolves that file from `git rev-parse --absolute-git-dir`, so it scopes itself to the
-checkout it is running in and its text still never varies. **That directory rather than the working
-tree**, because revloop runs against your repository and a ledger in your tree would be an untracked
-file in it — measured at `git 2.34.1`, one that both `git status --porcelain -uall` and
-`git ls-files -o --exclude-standard` return, and that `git add -A` would stage. Under the git
-directory all three return nothing.
-
-**Adding one costs every user one approval the first time the new string runs, which is not the same
-event as a re-approval** — nothing they granted has been invalidated. This release is the first time
-the distinction has mattered. Editing a fence costs every user one re-approval; the protocol is in
-[`../CONTRIBUTING.md`](../CONTRIBUTING.md#editing-or-adding-a-shell-fence).
-
-**A prompt for a fence is the bug worth reporting** — include the prompt text and the rule you
-granted. A prompt for a verify, review, or grader command is not one: those are the three strings
-this page keeps out of `allowed-tools` deliberately.
-
-## Related docs
-
-- [Design notes](design-notes.md#permission-rules-and-fence-bytes) — why prefix matching shapes all of
-  the above
-- [Install](install.md) — getting revloop in place first
-- [`../SECURITY.md`](../SECURITY.md) — the threat model these grants sit inside
+These settings were read from an installed Codex build and have not been used to run the loop end to
+end. `codex --help` wins where the two disagree.
