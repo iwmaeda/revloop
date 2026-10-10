@@ -158,7 +158,8 @@ When the level is `minimal` or `standard` and the reviewer declares no `severity
 subprocess estimates each finding's rung. Among the built-ins this applies to `claude`, `code-review`
 and `ecc-review-pr`. It costs one more permission prompt per round; `--rigor thorough` avoids it.
 
-- The grader runs on the review model: `--model` on the local commands, `sonnet` on the remote ones.
+- The grader runs on the review model: on the local commands the value of `--model`, or `sonnet`
+  when it is omitted; on the remote commands always `sonnet`.
 - It is not told the acceptance floor, does not see the loop's session, and fixes nothing.
 - Step 1 prints `severity source` as `grader (<model>)`, and the grader's full command.
 - Every rung it assigns is marked `graded` in replies, commits and reports.
