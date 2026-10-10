@@ -108,6 +108,10 @@ A reviewer with `kind: "local-command"` is driven by `/revloop:local-review-loop
 | How does it choose what to review?          | The card                                                |
 | Does it cap findings, write files, or post? | The card                                                |
 
+Read the command's own definition and record the version you read. The card cites it as the
+artifact, its exact version and the month (`ecc 2.2.0, 2026-09`), the third provenance form in
+[`../reviewers/README.md`](../reviewers/README.md).
+
 ### Local traps
 
 - `severityLevels` is what the command prints, which is not always what it documents. A ladder taken

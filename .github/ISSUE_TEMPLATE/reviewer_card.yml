@@ -100,7 +100,8 @@ body:
     attributes:
       label: Where this was measured
       description: >-
-        A link to a public pull request, if there is one. It is used to check the report and is
-        not copied into the card.
+        The card cites this for every observation. A public pull request: `owner/repo#8`. A private
+        repository: `repo B` and the month, as in "repo B, 2026-08". An installed command: its exact
+        version and the month, as in "ecc 2.2.0, 2026-09".
     validations:
       required: true
