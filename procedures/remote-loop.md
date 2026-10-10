@@ -439,9 +439,10 @@ report with its reason.
    - Step 9's rows that send a verdict back to step 8 still run, on step 9's own bounds: the
      mismatched-`trigger=` row (two re-fires, then `reason=foreign-baseline`) and the ancestor row
      (one, then abort) on counters, and the skip row on the marks its active-marks reads observe.
-     The skip row re-fires step 8 only on the conditions in step 9's skip bullet and its
-     marked-`cid=` bullet, which together are the one list of what aborts it with
-     `reason=interim-loop`: none is restated here. A re-fire that returns `pending` aborts as above.
+     The skip row re-fires step 8 only on the conditions in step 9's skip bullet. That bullet
+     and the marked-`cid=` bullet, which allows no re-fire, together are the one list of what
+     aborts it with `reason=interim-loop`: none is restated here. A re-fire that returns `pending`
+     aborts as above.
    - With the abort, print the cap, its `source`, the marker count it was measured against and the
      remedy; when the `source` is `rigor`, name `defaults.maxRounds` as the key that pins it. Say
      what this run did before it met the cap: a verdict read, findings answered, a fix pushed.

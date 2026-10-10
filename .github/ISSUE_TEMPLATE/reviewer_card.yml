@@ -94,8 +94,8 @@ body:
       label: Does it post anything before the real review?
       description: >-
         Quote the first line exactly. The loop skips a preamble the wait fence does not know by
-        marking it, under the rule in step 9's skip bullet of the procedure; a fence edit removes
-        the stops that rule can cause.
+        marking it, under the rules in step 9's skip bullet and marked-`cid=` bullet of the
+        procedure; a fence edit removes the stops those rules can cause.
       placeholder: "## Summary of Changes"
 
   - type: textarea
