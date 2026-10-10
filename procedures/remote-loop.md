@@ -438,7 +438,7 @@ report with its reason.
      toward condition (a). At the cap there is no second trigger of any kind.
    - Step 9's rows that send a verdict back to step 8 still run, on step 9's own bounds: the
      mismatched-`trigger=` row (two re-fires, then `reason=foreign-baseline`) and the ancestor row
-     (one, then abort) on counters, and the skip row on the marks standing on the pull request
+     (one, then abort) on counters, and the skip row on the marks its active-marks read observes
      (a marked `cid=` aborts with `reason=interim-loop` at once, and so does a fourth mark). A
      re-fire that returns `pending` aborts as above.
    - With the abort, print the cap, its `source`, the marker count it was measured against and the
