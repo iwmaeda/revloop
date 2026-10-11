@@ -3,8 +3,10 @@
 A reviewer is one of two kinds. A bot that reviews a pull request when a comment asks it to is a
 `github-comment` reviewer. A review command that runs on your machine is a
 [local command reviewer](#local-command-reviewers). Both are described by a JSON definition and need
-no change to the procedures, except that a preamble the wait fence does not know needs a fence edit
-([below](#if-it-posts-a-preamble-first)).
+no change to the procedures. What the loop does with a preamble the wait fence does not know, and
+what that can cost, is ruled by step 9's skip bullet and marked-`cid=` bullet, step 7's condition
+(d), step 11's gate and step 12 ([below](#if-it-posts-a-preamble-first)), which count a 👀 from any
+account.
 
 A reviewer summoned by a reviewer request instead of a comment (GitHub Copilot, for example) is not
 supported by the pull-request loops: there is no trigger comment to bind a round to, and step 1 aborts with
@@ -86,10 +88,13 @@ Some reviewers acknowledge the trigger before doing the work. Gemini posts `## S
 and Codex posts a status card that it edits while the review runs. The wait fence drops the ones it
 knows.
 
-A new preamble needs a fence edit, which follows the protocol in
-[`CONTRIBUTING.md`](../CONTRIBUTING.md#editing-or-adding-a-shell-fence). Until then the loop does not
-hang: step 9 aborts on the comment and prints its `cid=` and body, which is what the edit needs. That
-abort carries no `reason=`.
+A firing of the fence ignores a bot comment whose fetch shows a 👀 reaction from your account. What
+the loop does with one it does not know, and what that can cost, is ruled by step 9's skip bullet
+and marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, and none is restated
+here. Those rules count a 👀 from any account, where the fence ignores only the one from yours.
+
+To remove what that can cost, add the preamble to the fence's list. That is a fence edit, which follows the
+protocol in [`CONTRIBUTING.md`](../CONTRIBUTING.md#editing-or-adding-a-shell-fence).
 
 ## Local command reviewers
 

@@ -58,8 +58,10 @@ flag nor the key sets it, the level does.
 - The reviewer needs the permission block from the README in the checkout's
   `.claude/settings.local.json` to reach `gh`. Without it the review returns no findings in a shape
   the card lists, and the round aborts with `unparsed-review-output`.
-- The command carries an instruction telling the reviewer that the run is non-interactive. A round
-  can still end on a question, which aborts with `unparsed-review-output`.
+- The command carries an instruction telling the reviewer that the run is non-interactive, and to
+  read the pull request with `gh pr view --json` and `gh pr diff`: a plain `gh pr view` fails on
+  `gh` 2.4.0. A round can still end on a question, or without naming the pull request, and either
+  aborts with `unparsed-review-output`.
 
 ## Run the procedure
 

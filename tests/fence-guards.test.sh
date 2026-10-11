@@ -60,6 +60,15 @@ for id in $IDS; do
   expect "$id disables globbing" "$gl" "1"
 done
 
+# The gh stub ignores the query, so no fixture shows that the query fetches the
+# reaction the jq program filters on. Without the field the viewer's mark hides nothing.
+if grep -q '\.viewerHasReacted' "$TMP/wait-verdict.sh"; then
+  q=$(grep -c 'reactionGroups{content viewerHasReacted ' "$TMP/wait-verdict.sh" || true)
+  expect "wait-verdict queries the reaction its program filters on" "$q" "1"
+else
+  FAIL=$((FAIL + 1)); printf '  FAIL wait-verdict no longer filters on viewerHasReacted; the guard above checked nothing\n'
+fi
+
 # A failure token containing the success token makes `grep -q ALL_PASS` true on
 # failure. Fences only: the Notes section names the bad token on purpose.
 bad=$(cat "$TMP"/*.sh | grep -oE '[A-Za-z_]+ALL_PASS|ALL_PASS[A-Za-z_]+' | sort -u || true)

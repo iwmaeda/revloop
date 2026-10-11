@@ -61,6 +61,24 @@ o=$(run verdict/codex-status-card-clean)
 refute "the card is dropped beside a verdict too"  "$o" "codex-pull-request-review-summary"
 expect "  and the clean comment is still emitted"  "$o" "comment 2026-10-06T00:06:20Z chatgpt-codex-connector 600 Codex Review: Didn't find any major issues. Chef's kiss."
 
+# A bot comment carrying the viewer's own eyes reaction is dropped, whatever its body.
+o=$(run verdict/viewer-marked-comment)
+refute "a viewer-marked comment is not emitted"    "$o" "comment "
+expect "  the trigger is the only row left"        "$(printf '%s\n' "$o" | grep -c .)" "1"
+
+o=$(run verdict/viewer-marked-comment-then-clean)
+expect "a comment newer than the viewer's mark is emitted" "$o" "comment 2026-10-10T00:03:10Z chatgpt-codex-connector 600 Codex Review"
+refute "  and the viewer-marked one is not"        "$o" " 500 "
+
+o=$(run verdict/viewer-marked-comment-over-rate-limit)
+expect "an older comment is emitted under the viewer's mark" "$o" "comment 2026-10-10T00:00:09Z chatgpt-codex-connector 400 You have reached"
+refute "  and the viewer-marked one is not"        "$o" " 500 "
+
+# Two other accounts' eyes, and the viewer's thumbs-up, are not what the fence
+# filters on. The active-marks read in step 9 does count anyone's eyes.
+o=$(run verdict/other-accounts-eyes-viewer-thumbs-up)
+expect "other accounts' eyes drop nothing"          "$o" "comment 2026-10-10T00:00:20Z chatgpt-codex-connector 500 Review started."
+
 # A focus holding the literal `revloop:trigger` wins the split, so the marker
 # keys are never reached. Pinned: one TRIG row with no head= and no bot=.
 o=$(run jq/focus-carrying-marker)

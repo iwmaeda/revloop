@@ -101,12 +101,13 @@ report with its reason.
    gh api "repos/{owner}/{repo}/branches/$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)/protection" \
      --jq '.required_status_checks.contexts' 2>/dev/null || echo 'protection=none (404)'
    gh pr list --head "$(git branch --show-current)" --state open --json number,url
-   gh api "repos/{owner}/{repo}/pulls/<n>" --jq '"pr_head=\(.head.sha)"'   # full OID: this is the one compared
+   gh api "repos/{owner}/{repo}/pulls/<n>" --jq '"pr_head=\(.head.sha) opened=\(.created_at)"'   # full OID: this is the one compared
    ```
 
    `pr_head=` is the pull request's own head as GitHub gives it. Step 3 compares it with
    `git rev-parse HEAD` as full object ids; the upstream is no substitute, and the short form is for
-   the printed line only. A mismatch is no abort here: step 3 then runs in full. Never drop
+   the printed line only. A mismatch is no abort here: step 3 then runs in full. `opened=` is the
+   pull request's creation time and is the `<since>` of step 9's active-marks read. Never drop
    `--state open`: merged PRs would answer.
 
    Print one line of local state, which step 3 reads, with the heads as a comparison:
@@ -343,12 +344,15 @@ report with its reason.
 
    ```bash
    gh pr create --base <base> --title '<title>' --body-file <scratch>/body.md
+   gh api "repos/{owner}/{repo}/pulls/<n>" --jq '"pr_head=\(.head.sha) opened=\(.created_at)"'   # after creating
    gh api -X PATCH "repos/{owner}/{repo}/pulls/<n>" -F body=@<scratch>/body.md \
      --jq '"pr=\(.number) body_chars=\(.body|length)"'   # updates go here
    ```
 
-   The update prints one line; `body_chars` is the length of the body GitHub now holds. Decide
-   failure from the exit code: a failed call can still print `pr=null body_chars=0`.
+   After creating, run the second line for the new number: it is step 1's read, and its `opened=` is
+   the `<since>` of step 9's active-marks read, which nothing else supplies on a run that created
+   the pull request. The update prints one line; `body_chars` is the length of the body GitHub now
+   holds. Decide failure from the exit code: a failed call can still print `pr=null body_chars=0`.
 
    Write the title and body in the languages from the resolved configuration (`pr.titleLanguage`,
    `commit.bodyLanguage`).
@@ -432,9 +436,13 @@ report with its reason.
    - A `pending` in any flavour (matched or mismatched, inside `--timeout` or past it) aborts with
      `reason=max-rounds` at once: no re-fire, no re-post, no charge against `--timeout`, no count
      toward condition (a). At the cap there is no second trigger of any kind.
-   - Step 9's rows that send a verdict back to step 8 still run, on step 9's own counters: the
+   - Step 9's rows that send a verdict back to step 8 still run, on step 9's own bounds: the
      mismatched-`trigger=` row (two re-fires, then `reason=foreign-baseline`) and the ancestor row
-     (one, then abort). A re-fire that returns `pending` aborts as above.
+     (one, then abort) on counters, and the skip row on the 👀 from any account that its
+     active-marks reads observe. The skip row re-fires step 8 only on the conditions in step 9's
+     skip bullet. That bullet and the marked-`cid=` bullet, which allows no re-fire, together are
+     the one list of what aborts it with `reason=interim-loop`: none is restated here. A re-fire
+     that returns `pending` aborts as above.
    - With the abort, print the cap, its `source`, the marker count it was measured against and the
      remedy; when the `source` is `rigor`, name `defaults.maxRounds` as the key that pins it. Say
      what this run did before it met the cap: a verdict read, findings answered, a fix pushed.
@@ -524,8 +532,15 @@ report with its reason.
    key: no row has this round's number in `round=` and `opens=0`. Scope it to the round, not to
    `head=`, and compare the column's whole value (`round=1` is not `round=10`). A row whose
    `round=` is not a number counts as a match and withholds the re-post.
-   (d) The round produced no classified verdict at all. A rate-limit reply is a classified verdict:
-   its recovery is a later run's re-take, never this re-post.
+   (d) The round produced no classified verdict at all, and step 9's active-marks read returns no
+   row. Run that read again immediately before posting the re-post, after the body is read back
+   and composed, and post nothing on a row or a failed read. A rate-limit reply is a classified
+   verdict: its recovery is a later run's re-take, never this re-post. A comment carrying the
+   authenticated account's 👀 is an answer the fence's firings hide from the wait, while this read
+   counts anyone's 👀, so it withholds the re-post more often than the fence hides a comment. A
+   reaction added after the read is not covered: do not re-post over a 👀 this read observed. The
+   abort is then plain `no-verdict` (`max-rounds` at the cap), with the body of every comment the
+   read listed printed in full.
    (e) `git rev-parse HEAD` still equals the `oid=` you are about to write, compared in full.
 
    The re-post is the first trigger's body verbatim, trigger text and focus included, with `head=`
@@ -594,9 +609,9 @@ report with its reason.
    case "${PR:-}" in ''|*[!0-9]*) echo "VERDICT=error reason=no-pr"; exit 0;; esac
    H=$(git rev-parse --short=8 HEAD 2>/dev/null) || H=unknown
    Q='query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){
-   comments(last:40){nodes{createdAt databaseId body author{login __typename} reactionGroups{content users{totalCount}}}}
+   comments(last:40){nodes{createdAt databaseId body author{login __typename} reactionGroups{content viewerHasReacted users{totalCount}}}}
    reviews(last:15){nodes{submittedAt databaseId state author{login __typename} commit{oid}}}}}}'
-   J='.data.repository.pullRequest as $p|[($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger "))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) \(.body|split("revloop:trigger ")[1]|split(" -->")[0]|gsub("[^A-Za-z0-9=._ -]";""))"),($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger ")|not)|select(.body|test("^[@/](codex|gemini|claude|copilot) review([[:space:]]|$)"))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) compat=1"),($p.reviews.nodes[]|select(.author.__typename=="Bot")|select(.state!="DISMISSED")|"review \(.submittedAt) \(.author.login) \(.databaseId) \(.commit.oid[0:8])"),($p.comments.nodes[]|select(.author.__typename=="Bot")|select(.body|test("^(## Summary of Changes|Copilot is reviewing|Copilot wasn|<!-- codex-pull-request-review-summary)")|not)|"comment \(.createdAt) \(.author.login) \(.databaseId) \(.body|split("\n")[0]|gsub("=";"-")|.[0:110])")]|.[]'
+   J='.data.repository.pullRequest as $p|[($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger "))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) \(.body|split("revloop:trigger ")[1]|split(" -->")[0]|gsub("[^A-Za-z0-9=._ -]";""))"),($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger ")|not)|select(.body|test("^[@/](codex|gemini|claude|copilot) review([[:space:]]|$)"))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) compat=1"),($p.reviews.nodes[]|select(.author.__typename=="Bot")|select(.state!="DISMISSED")|"review \(.submittedAt) \(.author.login) \(.databaseId) \(.commit.oid[0:8])"),($p.comments.nodes[]|select(.author.__typename=="Bot")|select(.body|test("^(## Summary of Changes|Copilot is reviewing|Copilot wasn|<!-- codex-pull-request-review-summary)")|not)|select([.reactionGroups[]?|select(.content=="EYES" and .viewerHasReacted)]|length==0)|"comment \(.createdAt) \(.author.login) \(.databaseId) \(.body|split("\n")[0]|gsub("=";"-")|.[0:110])")]|.[]'
    F=0; TS=""; END=$((SECONDS + 480))
    while [ "$SECONDS" -lt "$END" ]; do
      O=$(timeout 25 gh api graphql -F o="${S%%/*}" -F n="${S##*/}" -F p="$PR" -f query="$Q" --jq "$J" 2>/dev/null); r=$?
@@ -642,6 +657,13 @@ report with its reason.
    characters each. `at=` and `login=` are the signal's time and author, `review_id=` and `cid=`
    its id, `body=` a preview of a comment, `id=` the trigger a reaction sits on, `bot=` the newest
    bot line. The form table in step 9 says which form carries which.
+
+   A firing of the fence whose fetch shows a bot comment carrying a 👀 (`eyes`) reaction from the
+   account `gh` is authenticated as does not emit that comment. A reaction added or removed after
+   a fetch is seen by the next firing and not by that one. Step 9's skip bullet can add that reaction;
+   what the loop does with a comment and what adding that 👀 can cost is ruled by that bullet, the marked-`cid=`
+   bullet, step 7's condition (d), step 11's gate and step 12, which act on a 👀 from any account
+   through the active-marks read.
 
    Reconcile `trigger=` with the `SINCE` you recorded in step 7 on `review`, `comment`, `reaction`
    and `pending`. No `VERDICT=error` form emits `trigger=`: an absent one is not a mismatch, and an
@@ -792,8 +814,8 @@ report with its reason.
    | `comment` whose body starts with the reviewer's clean phrase      | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `comment` matching the rate-limit pattern + your own trigger      | abort (`reviewer-rate-limited`)     | `reason=reviewer-rate-limited`; no retry            |
    | `comment` matching the rate-limit pattern + a standing trigger    | re-take (`rate-limit-retake`)       | step 7                                              |
-   | `comment` whose `cid=` you already classified as non-terminal     | abort (`interim-loop`)              | report `cid=` and the body                          |
-   | `comment` with any other bot body                                 | abort                               | print the full body; hand it to a human             |
+   | `comment` whose `cid=` the active-marks read lists (anyone's 👀)  | abort (`interim-loop`)              | see the marked-`cid=` bullet below                  |
+   | `comment` with any other bot body                                 | skip                                | per step 9's skip bullet below                      |
    | `reaction`                                                        | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `pending` (within `--timeout`)                                    | continue                            | re-fire step 8 only, never step 7                   |
    | any output whose `trigger=` is not your `SINCE`                   | continue (twice)                    | re-fire; third: `reason=foreign-baseline`           |
@@ -836,8 +858,26 @@ report with its reason.
      it names.
    - `rate-limit-retake`: say in the report that a rate-limit re-take opened the round, naming the
      `cid=`, and append one line to `.revloop/field-notes.md`.
-   - `interim-loop`: the fence does not know this interim comment. Recovering means adding its
-     pattern to the fence's drop list, a fence edit that every user re-approves.
+   - A marked `cid=` that comes back is one the active-marks read lists, so it carries a 👀 from
+     some account, the authenticated one or another. It has no retry: abort with
+     `reason=interim-loop` at once and print the comment's URL and full body. Nothing here asks
+     whose 👀 it is or in which run, so a resumed run meets it as an earlier one did.
+   - Skip: the body matches neither `cleanPatterns` nor `rateLimitPatterns`, and the active-marks
+     read does not list its `cid=`. Run that read first. The loop proceeds on at most three
+     rows, whichever accounts' 👀 they carry and in whichever run: when the read already returns
+     three rows, abort with `reason=interim-loop` and print each row's URL and body in full
+     rather than adding a fourth. Otherwise add the authenticated account's 👀 to the comment with
+     the call below this list, then run the read again and require the `cid=` to be a row and the
+     read to return at most three rows: a 👀 from any account added meanwhile counts. A call that
+     exits non-zero, a `cid=` the second read does not list and a fourth standing row abort with
+     `reason=interim-loop` and print the body in full: the wait would otherwise return the same
+     comment again with nothing spent. The three is what the loop proceeds on, not what can
+     stand: a race can leave the 👀 just added as a fourth row, which the loop cannot remove, so
+     the abort names it and the report lists it for removal. When the row is there, keep its
+     full body for the report and re-fire step 8 only. The firing that returned it
+     is not a chunk: it costs nothing against `--timeout` and never counts toward step 7's floor.
+     The other rules that act on a 👀 from any account are the marked-`cid=` bullet, step 7's
+     condition (d), step 11's gate and step 12.
    - `reaction`: an unexercised path; say so in the report.
    - `trigger=` not your `SINCE`: step 8's reconciliation gives the rules.
    - `re-post (once)`: silence is not proof that nothing was sent, so the report says a signal may
@@ -846,6 +886,39 @@ report with its reason.
    - `pending` abort: name the condition that failed: `no-verdict attempts=2`,
      `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is
      silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical.
+   - The marks are read off the pull request and never kept in the session. The 👀 outlives the
+     run and the round that made it, and a firing whose fetch shows the authenticated account's
+     mark drops the comment whatever its body is now, an edit into a verdict included. Removing
+     that reaction before a later firing's fetch is what lets that firing read the comment, and
+     another account's 👀 never hides it from the fence. The rules that act on a 👀
+     from any account are this skip bullet and the marked-`cid=` bullet, step 7's condition (d),
+     step 11's gate and step 12, and each of them acts on what the read below returns.
+
+   The authenticated account's 👀, for the skip row. `<cid>` is the `cid=` on the fence's line. Decide failure from the
+   exit code:
+
+   ```bash
+   gh api -X POST "repos/{owner}/{repo}/issues/comments/<cid>/reactions" -f content=eyes \
+     --jq '"MARKED=\(.id) content=\(.content)"'
+   ```
+
+   The active marks. `<since>` is the `opened=` that step 1's pull-request read prints, and the read
+   fails if it is left unfilled. The pull request's own creation time cannot move, so it is the
+   same value on every use, a 👀 from an earlier round or before the first marker is in the range of every
+   later read, and a hand-typed trigger followed by a marker cannot shift it. A row is a bot
+   comment created at or after it, so one made in the opening second counts, carrying any 👀. The
+   fence drops only the one from the account `gh` is authenticated as, so a row can be
+   over-inclusive. A row is what the read observed when it ran and is no guarantee about the
+   instant after:
+
+   <!-- revloop:read id=active-marks -->
+
+   ```bash
+   gh api --paginate "repos/{owner}/{repo}/issues/<n>/comments?per_page=100" \
+     --jq '(if ("<since>"|test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")) then . else error("since is not filled in") end)|.[]|select(.user.type=="Bot" and ((.reactions.eyes // 0)>0) and (.created_at>="<since>"))|"\(.created_at) \(.id) \(.user.login) eyes=\(.reactions.eyes) \(.html_url)"'
+   ```
+
+   A non-zero exit is a failed read, never an empty one.
 
 10. Read the findings from the inline comments and from the review body; either can carry them.
     Severity is the badge at the head of each body, and a review body carrying one is a finding.
@@ -1058,8 +1131,18 @@ report with its reason.
 
     - If even one item needs fixing, go back to step 3.
     - If every item is fixed, declined, or accepted, re-read step 1's `pr_head=`, run the
-      sufficiency test in [`rigor-levels.md`](rigor-levels.md), and go to step 12 only when both
-      pass.
+      sufficiency test in [`rigor-levels.md`](rigor-levels.md), and then, last, run step 9's
+      active-marks read. Go to step 12 only when both pass and the read returns no row.
+    - If that read returns a row, or fails, do not converge: abort with
+      `reason=unclassified-comment`, print each row and the comment's body in full, and say that
+      each row's 👀 has to be removed before the command runs again, by the account that added
+      it: the read does not say whose it is, and the authenticated account can remove only its
+      own. This is pull-request state, so it holds for a 👀 from an interrupted run, an earlier
+      run, an earlier round or a person alike, and a run stops here for as long as the read
+      observes one. The reviewer may have edited the comment into its
+      verdict. A firing of the fence skips the comment only while the 👀 on it is the
+      authenticated account's, so reading it again takes that one removed before the firing's
+      fetch, while this read stops the run on anyone's 👀.
     - If `pr_head=` is no longer `git rev-parse HEAD`, abort with `reason=pr-head-advanced`. Name
       both object ids, and say in the report that the pull request advanced during the round and
       what was reviewed is not its head. Never answer it by opening another round.
@@ -1161,6 +1244,18 @@ report with its reason.
       so nothing was graded), lead with every finding you did not fix.
     - Carry the `Sufficiency:` block the test wrote, in the shape
       [`rigor-levels.md`](rigor-levels.md) gives, into the report and into the pull-request body.
+    - Run step 9's active-marks read on any ending at all (a convergence, a merge, any `reason=`
+      abort, a round that went on to fix findings). It needs `<n>` and `opened=`: take them again
+      with step 1's `pulls/<n>` read when the pull request exists. When it does not, because step 1
+      ended before it or the branch has no pull request, or when that read fails, say that the marks
+      were not read and do not call the report clean of them. A row (a bot comment carrying a 👀 from
+      any account), or a failed read, on a run that was about to report a convergence withdraws it:
+      report `reason=unclassified-comment` instead, and merge nothing. For each row it returns,
+      list the comment's id and URL, and say that its 👀 stays until the account that added it
+      removes it (the read does not say whose it is) and, when it is the authenticated
+      account's, that a firing whose fetch shows it drops the comment, even one the reviewer
+      has since edited into its verdict. It has to be removed before the command runs again.
+      If the read fails, say so and do not call the report clean of marks.
     - Say everything an earlier step told you to say in the report, including every accepted
       finding with its reason, a reviewer `status` that is not `verified`, and each unexercised
       path the run took.
@@ -1210,9 +1305,13 @@ report with its reason.
     - `CI_WAIT=error reason=no-pr`: the branch has no open PR. Suspect step 6, not the merge.
     - `CI_WAIT=error reason=no-branch`: HEAD is detached. Check a branch out; do not look at CI.
 
-    Unless `--auto` was passed, stop for confirmation just before merging. Then merge with the
-    fence below. It re-runs the CI check itself and pins `sha=`, so it fails closed when CI is no
-    longer green or HEAD moved since the check.
+    Unless `--auto` was passed, stop for confirmation just before merging. Then run step 9's
+    active-marks read once more, immediately before the fence below: the CI wait can last about
+    18 minutes, and a pull request on which the read observes a 👀 from any account does not merge.
+    A row, or a failed read, stops here with `reason=unclassified-comment`; print the rows and do not fire the fence. Then
+    merge with the fence. It re-runs the CI check itself and pins `sha=`, so it fails closed when
+    CI is no longer green or HEAD moved since the check. It does not read marks, so this read is
+    the only guard between a 👀, from any account, added during the wait and the merge.
 
     <!-- revloop:fence id=merge -->
 
@@ -1275,6 +1374,12 @@ These are load-bearing. Each rule here holds across steps, or is stated by no si
 
 - **Arm one wait at a time.** If an earlier wait may still be running, wait for its verdict instead
   of firing again.
+- Add the 👀 mark only as step 9's skip bullet says; what it can cost is ruled by that bullet, the
+  marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12. The fence counts only the
+  authenticated account's reaction as one, while the active-marks read counts anyone's. A firing
+  whose fetch shows the authenticated account's mark leaves the comment unread whatever it later
+  says, an edit into a verdict included. To make a later firing read it, remove that reaction
+  before that firing's fetch.
 - Discard the findings of a stale review; never salvage them. Step 9 allows one re-fire per round
   and aborts on the second.
 - Before trusting a `pending` row in step 9, enumerate the `pending`: within `--timeout` or past
@@ -1330,9 +1435,9 @@ These are load-bearing. Each rule here holds across steps, or is stated by no si
 These branches have never been reached against live data. Most fail closed (toward `retry`,
 `timeout` or an abort, never toward a wrong merge), but nothing guarantees they classify correctly.
 A round that takes one says so in the report and appends a field note. These do not fail closed:
-severity resolution and grading, step 7's trigger re-post, step 11's read-before-post, the marker
-read's `<oid>`, step 3's ledger line, a review in its trigger's own second, and the one-runner
-rule.
+severity resolution and grading, step 7's trigger re-post, step 9's skip row, step 11's
+read-before-post, the marker read's `<oid>`, step 3's ledger line, a review in its trigger's own
+second, and the one-runner rule.
 
 - `VERDICT=reaction`.
 - The `--is-ancestor` `1` (diverged) and `128` (absent locally) aborts, with a bot review arriving
@@ -1377,6 +1482,18 @@ rule.
   when there is also no bot comment and no reaction.
 - A review submitted in the same second as its trigger. The fence does not select it, so a later
   clean comment can finish the round over it. Does not fail closed.
+- Step 9's skip row, from a run. What a 👀 from any account leads to is ruled by step 9's skip bullet and
+  marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, none restated here, and no
+  run has taken any of them. Does not fail closed: a firing returns the newest comment after the
+  trigger, so an older one is classified only when it is the newest the firing's fetch leaves, which
+  the loop's own 👀 can bring about in that same firing, a firing whose fetch shows the authenticated
+  account's 👀 drops the comment whatever it later says,
+  and the active-marks read counts anyone's 👀 on a bot comment since the pull request was opened,
+  including one the fence ignores and an earlier round's. The read is measured at `gh 2.4.0` on a
+  pull request with no 👀 on a bot comment; no run has read one that carries one.
+- Step 12's last read of the marks before a merge sits outside the merge fence, so none of the five
+  rules reads a 👀, from any account, added in the seconds between that read and the fence's PUT. Putting it inside is
+  a fence edit and a re-approval for every user. Does not fail closed.
 - Everything [`rigor-levels.md`](rigor-levels.md) adds beyond the floor: the round caps, the
   per-level sweep obligations, the rising-ceiling re-open, the sufficiency test (it cannot fail
   open), and the default level `standard`.

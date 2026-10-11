@@ -74,21 +74,24 @@ REVIEW_PROGS=$(progs per-review)
 REPLY_PROGS=$(progs replies)
 MARKER_PROGS=$(progs round-markers)
 LIST_PROGS=$(progs review-list)
+MARKS_PROGS=$(progs active-marks)
 
 HEADER=$(printf '%s\n' "$REVIEW_PROGS" | sed -n 1p)
 FINDINGS=$(printf '%s\n' "$REVIEW_PROGS" | sed -n 2p)
 REPLIES=$(printf '%s\n' "$REPLY_PROGS" | sed -n 1p)
 MARKERS=$(printf '%s\n' "$MARKER_PROGS" | sed -n 1p)
 LIST=$(printf '%s\n' "$LIST_PROGS" | sed -n 1p)
+MARKS=$(printf '%s\n' "$MARKS_PROGS" | sed -n 1p)
 
 if [ -z "$HEADER" ] || [ -z "$FINDINGS" ] || [ -z "$REPLIES" ] || [ -z "$COMMIT_PROGS" ] \
-  || [ -z "$MARKERS" ] || [ -z "$LIST" ]; then
+  || [ -z "$MARKERS" ] || [ -z "$LIST" ] || [ -z "$MARKS" ]; then
   echo "  FAIL could not lift the read programs out of the procedure"
   echo "       review-commit: ${COMMIT_PROGS:-<none>}"
   echo "       per-review:    ${REVIEW_PROGS:-<none>}"
   echo "       replies:       ${REPLY_PROGS:-<none>}"
   echo "       round-markers: ${MARKER_PROGS:-<none>}"
   echo "       review-list:   ${LIST_PROGS:-<none>}"
+  echo "       active-marks:  ${MARKS_PROGS:-<none>}"
   exit 1
 fi
 
@@ -97,11 +100,12 @@ same "the per-review block holds two"     "$(printf '%s\n' "$REVIEW_PROGS" | gre
 same "step 11's block holds one"          "$(printf '%s\n' "$REPLY_PROGS" | grep -c .)" "1"
 same "step 7's marker block holds one"    "$(printf '%s\n' "$MARKER_PROGS" | grep -c .)" "1"
 same "the review-list block holds one"    "$(printf '%s\n' "$LIST_PROGS" | grep -c .)" "1"
+same "the active-marks block holds one"   "$(printf '%s\n' "$MARKS_PROGS" | grep -c .)" "1"
 
 same "step 9 and step 10 spell the header read alike" "$COMMIT_PROGS" "$HEADER"
 
 # A single quote would end the shell word the procedure wraps a program in.
-for p in "$HEADER" "$FINDINGS" "$REPLIES" "$MARKERS" "$LIST"; do
+for p in "$HEADER" "$FINDINGS" "$REPLIES" "$MARKERS" "$LIST" "$MARKS"; do
   refute "a program holds no single quote" "$p" "'"
 done
 
@@ -111,6 +115,7 @@ same "the findings read takes the review ids only" "$(placeholders "$FINDINGS")"
 same "the replies read takes the finding ids only" "$(placeholders "$REPLIES")"  "<commentIds> "
 same "the marker read takes HEAD's oid only"       "$(placeholders "$MARKERS")"  "<oid> "
 same "the list read takes HEAD's oid and a bound"  "$(placeholders "$LIST")"     "<oid> <since> "
+same "the active-marks read takes a bound only"    "$(placeholders "$MARKS")"    "<since> "
 
 expect "the marker block prints HEAD the way the marker spells it" \
   "$(block round-markers)" "git log -1 --abbrev=8 --format='head=%h oid=%H'"
@@ -423,5 +428,33 @@ reviews '<oid>' 2026-01-01T01:00:00Z "$RFORMS" >/dev/null 2>&1
 same "  and so does a forgotten <oid>"         "$?" "1"
 reviews "$HEAD_OID" 2026-01-01 "$RFORMS" >/dev/null 2>&1
 same "  and a bound that is a date and not a timestamp" "$?" "1"
+
+# --- active marks (an eyes from any account): hand-written --------------------
+#
+# Bot comments at or after the bound that carry any eyes, whoever put it there. The
+# fence drops only the viewer's own, so on one snapshot the read lists every comment the
+# fence drops and may list more. Step 9 says what a row guarantees about the next instant.
+marks() { # marks <since> <file>...
+  local since=$1
+  shift
+  run "${MARKS//<since>/$since}" "$@"
+}
+EFORMS="$FX/forms/eyes-comments.json"
+o=$(marks 2026-01-01T01:00:00Z "$EFORMS")
+same "only bot comments with an eyes from any account at or after the bound are rows" \
+  "$(printf '%s\n' "$o" | cut -d' ' -f2 | tr '\n' ' ')" "702 703 707 "
+expect "  a row names the comment's URL"             "$o" "https://github.com/o/r/pull/1#issuecomment-703"
+expect "  and how many eyes it carries, whoever added them" "$o" "eyes=2"
+same "a comment in the bound's own second is a row: the opening second counts" \
+  "$(printf '%s\n' "$o" | grep -c ' 702 ')" "1"
+same "a person's comment with an eyes on it is no row (bot comments only)" \
+  "$(printf '%s\n' "$o" | grep -c ' 705 ')" "0"
+same "a bot comment with no reactions object is no row" "$(printf '%s\n' "$o" | grep -c ' 706 ')" "0"
+same "an earlier bound adds the earlier comments" \
+  "$(marks 2025-12-31T00:00:00Z "$EFORMS" | cut -d' ' -f2 | tr '\n' ' ')" "701 702 703 707 "
+marks '<since>' "$EFORMS" >/dev/null 2>&1
+same "a forgotten <since> fails the read"            "$?" "1"
+marks 2026-01-01 "$EFORMS" >/dev/null 2>&1
+same "  and so does a bound that is a date"          "$?" "1"
 
 summary "findings-read"

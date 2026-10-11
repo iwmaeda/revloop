@@ -55,7 +55,11 @@ A Claude Code permission rule matches the start of a command string. Three decis
 The fences are inline in the procedure instead of shipped as script files. Behind a path, a plugin
 update could change what runs under a grant given once. Inline, an edit changes the command string
 and asks every user to approve it again. For the same reason no configuration value reaches a fence,
-and the list of interim comments the wait ignores lives inside the fence.
+and the list of interim comments the wait ignores lives inside the fence. A comment that list does
+not name is ruled by step 9's skip bullet instead, which can add a reaction from your account to it,
+and a firing of the fence whose fetch shows one drops that comment. What the loop does with it and
+what adding that 👀 can cost is ruled by that bullet, the marked-`cid=` bullet, step 7's condition (d),
+step 11's gate and step 12, which count a 👀 from any account where the fence drops only yours.
 
 ## Two procedures, seven commands
 

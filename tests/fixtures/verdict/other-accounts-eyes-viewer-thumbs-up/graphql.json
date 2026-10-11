@@ -1,0 +1,149 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "comments": {
+          "nodes": [
+            {
+              "createdAt": "2026-10-10T00:00:00Z",
+              "databaseId": 111,
+              "body": "@codex review\n\n<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=1a2b3c4d oid=1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d round=1 -->",
+              "author": {
+                "login": "iwmaeda",
+                "__typename": "User"
+              },
+              "reactionGroups": [
+                {
+                  "content": "THUMBS_UP",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "THUMBS_DOWN",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "LAUGH",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HOORAY",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "CONFUSED",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HEART",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "ROCKET",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "EYES",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                }
+              ]
+            },
+            {
+              "createdAt": "2026-10-10T00:00:20Z",
+              "databaseId": 500,
+              "body": "Review started. This comment is updated when the review finishes.",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "reactionGroups": [
+                {
+                  "content": "THUMBS_UP",
+                  "viewerHasReacted": true,
+                  "users": {
+                    "totalCount": 1
+                  }
+                },
+                {
+                  "content": "THUMBS_DOWN",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "LAUGH",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HOORAY",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "CONFUSED",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HEART",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "ROCKET",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "EYES",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 2
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "reviews": {
+          "nodes": []
+        }
+      }
+    }
+  }
+}

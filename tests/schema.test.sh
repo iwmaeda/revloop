@@ -128,6 +128,15 @@ else
   FAIL=$((FAIL + 1)); printf '  FAIL no definition carries --append-system-prompt; the pin above checked nothing\n'
 fi
 
+# A plain `gh pr view` fails on gh 2.4.0, so the ECC reviewer's instruction
+# names the form that works there.
+arg=$(sed -n 's/.*--append-system-prompt \\"\([^"\\]*\)\\".*/\1/p' "$ROOT/reviewers/ecc-review-pr.json")
+if printf '%s' "$arg" | grep -qF -- 'gh pr view --json'; then
+  PASS=$((PASS + 1)); printf '  ok   ecc-review-pr is told to read the pull request with gh pr view --json\n'
+else
+  FAIL=$((FAIL + 1)); printf '  FAIL the ecc-review-pr instruction does not name gh pr view --json\n'
+fi
+
 # --- reject cases -----------------------------------------------------------
 reject() { # reject <label> <json>
   printf '%s' "$2" > "$TMP/bad.json"
@@ -320,7 +329,7 @@ raccept "a skill named after gh" '{"kind":"local-command","invoke":"skill","comm
 # The two shipped presets, in the form they ship.
 raccept "the shipped code-review preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} -p \"/code-review medium\""}'
 # The longest shipped command. This pins that it fits the schema's length cap.
-raccept "the shipped ecc-review-pr preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} --effort medium --append-system-prompt \"Non-interactive run: nobody can answer a question or approve a tool call. If a call is denied, never ask and never retry it. If the pull request cannot be read, say so and stop. Otherwise finish without that call, list what you could not run, and open the report with its number, title and changed files.\" -p \"/ecc:review-pr\"","requiresPr":true,"rateLimitPatterns":["You'"'"'ve hit your session limit"]}'
+raccept "the shipped ecc-review-pr preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} --effort medium --append-system-prompt \"Non-interactive run: never ask and never retry a denied call. Finish without it and list what did not run. Read the pull request with gh pr view --json number,title,files and gh pr diff, never plain gh pr view. If it cannot be read, say so and stop. Open the report with its number, title and changed files.\" -p \"/ecc:review-pr\"","requiresPr":true,"rateLimitPatterns":["You'"'"'ve hit your session limit"]}'
 # A command without {reviewModel} is valid.
 raccept "a subprocess command, unpinned" '{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review medium\""}'
 
