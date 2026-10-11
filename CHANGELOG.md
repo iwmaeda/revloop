@@ -26,6 +26,8 @@ Fences: `wait-verdict` changed (one re-approval).
   What the loop does with such a comment and what adding that 👀 can cost is ruled by step 9's skip bullet
   and marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, which this entry
   does not restate and which count a 👀 from any account, not only yours.
+- Development: `package.json` overrides `katex` to `^0.18.2` and `smol-toml` to `^1.9.0` for two
+  advisories in dev-only packages.
 
 ### Fixed
 
