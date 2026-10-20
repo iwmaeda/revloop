@@ -55,9 +55,10 @@ flag nor the key sets it, the level does.
   one exists, and zero findings are not read as clean (`unconfirmed-empty-review`).
 - The definition pins `--effort medium`. To review at another level, copy the definition, change
   that token, and run the copy with `/revloop:local-custom-loop`.
-- The reviewer needs the permission block from the README in the checkout's
-  `.claude/settings.local.json` to reach `gh`. Without it the review returns no findings in a shape
-  the card lists, and the round aborts with `unparsed-review-output`.
+- The subprocess inherits neither this session's permission mode nor its grants. The definition's
+  command grants it `gh pr view` and `gh pr diff` with `--allowedTools`, so the checkout's settings
+  need no rule for them. A deny rule there still wins: the review then returns no findings in a
+  shape the card lists, and the round aborts with `unparsed-review-output`.
 - The command carries an instruction telling the reviewer that the run is non-interactive, and to
   read the pull request with `gh pr view --json` and `gh pr diff`: a plain `gh pr view` fails on
   `gh` 2.4.0. A round can still end on a question, or without naming the pull request, and either

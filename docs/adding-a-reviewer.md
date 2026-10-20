@@ -134,6 +134,9 @@ artifact, its exact version and the month (`ecc 2.2.0, 2026-09`), the third prov
 - A headless reviewer that is refused a tool call may end by asking for permission, and that
   question is all it prints. Say in `command` that the run is non-interactive, the way the built-in
   `ecc-review-pr` definition does.
+- A `claude -p` reviewer inherits neither the session's permission mode nor its grants, and denies
+  every call that no rule allows. Grant the reads it needs in `command` with `--allowedTools`, after
+  the prompt, since the flag takes a list. Keep the rules read-only, as `ecc-review-pr` does.
 - `invoke: skill` runs on the loop's own model. Use `subprocess` with `{reviewModel}` unless the host
   forbids it.
 - A reviewer that emits no severity is normal. Leave out both `severityLevels` and `severityMap`;

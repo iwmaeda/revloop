@@ -3,7 +3,7 @@
   "displayName": "ECC /ecc:review-pr",
   "kind": "local-command",
   "invoke": "subprocess",
-  "command": "claude --model {reviewModel} --effort medium --append-system-prompt \"Non-interactive run: never ask and never retry a denied call. Finish without it and list what did not run. Read the pull request with gh pr view --json number,title,files and gh pr diff, never plain gh pr view. If it cannot be read, say so and stop. Open the report with its number, title and changed files.\" -p \"/ecc:review-pr\"",
+  "command": "claude --model {reviewModel} --effort medium --append-system-prompt \"Non-interactive run: never ask and never retry a denied call. Finish without it and list what did not run. Read the pull request with gh pr view --json number,title,files and gh pr diff, never plain gh pr view. If it cannot be read, say so and stop. Open the report with its number, title and changed files.\" -p \"/ecc:review-pr\" --allowedTools \"Bash(gh pr view:*),Bash(gh pr diff:*)\"",
   "requiresPr": true,
   "rateLimitPatterns": ["You've hit your session limit"],
   "status": "unverified"

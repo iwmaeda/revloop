@@ -2,26 +2,29 @@
 
 The `review-pr` command from the ECC plugin, run as a subprocess.
 
-| Field               | Value                                                                                         |
-| ------------------- | --------------------------------------------------------------------------------------------- |
-| `kind`              | `local-command`                                                                               |
-| `invoke`            | `subprocess`                                                                                  |
-| `command`           | `claude --model {reviewModel} --effort medium --append-system-prompt "…" -p "/ecc:review-pr"` |
-| `severityLevels`    | none                                                                                          |
-| `requiresPr`        | `true`                                                                                        |
-| `rateLimitPatterns` | `["You've hit your session limit"]`                                                           |
-| verdict on          | the command's stdout                                                                          |
-| `status`            | `unverified`                                                                                  |
-| `lastChecked`       | 2026-10                                                                                       |
+| Field               | Value                                                                                                            |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `kind`              | `local-command`                                                                                                  |
+| `invoke`            | `subprocess`                                                                                                     |
+| `command`           | `claude --model {reviewModel} --effort medium --append-system-prompt "…" -p "/ecc:review-pr" --allowedTools "…"` |
+| `severityLevels`    | none                                                                                                             |
+| `requiresPr`        | `true`                                                                                                           |
+| `rateLimitPatterns` | `["You've hit your session limit"]`                                                                              |
+| verdict on          | the command's stdout                                                                                             |
+| `status`            | `unverified`                                                                                                     |
+| `lastChecked`       | 2026-10                                                                                                          |
 
 Definition: [`ecc-review-pr.json`](ecc-review-pr.json). Driven by `/revloop:local-ecc-loop`.
 
-The `"…"` in the command row is the argument to `--append-system-prompt`. It must match the
+The first `"…"` in the command row is the argument to `--append-system-prompt`. It must match the
 definition:
 
 ```text
 Non-interactive run: never ask and never retry a denied call. Finish without it and list what did not run. Read the pull request with gh pr view --json number,title,files and gh pr diff, never plain gh pr view. If it cannot be read, say so and stop. Open the report with its number, title and changed files.
 ```
+
+The second `"…"` is `Bash(gh pr view:*),Bash(gh pr diff:*)`: the two reads the instruction names, and
+nothing wider. `--allowedTools` takes a list, so it comes after the prompt.
 
 ## Output shape
 
@@ -37,7 +40,8 @@ Non-interactive run: never ask and never retry a denied call. Finish without it 
 A result that does not name the pull request it reviewed is `unparsed-review-output`, never a clean
 round. Four such results are known, all with exit 0:
 
-- No permission block: prose saying that `gh` was blocked or its calls denied.
+- A denied `gh` call: prose saying that `gh` was blocked or its calls denied. A deny rule in the
+  checkout's settings wins over the command's grant.
 - Out of quota: one line starting `You've hit your session limit`, followed by a reset time.
   `rateLimitPatterns` matches it.
 - A refused tool call: one line asking for permission.
@@ -60,8 +64,13 @@ round. Four such results are known, all with exit 0:
 - The agents run in the background, and the reviewer ends a turn each time it waits for one. At
   Claude Code 2.1.296, stdout carries the last message of every turn, so progress lines precede the
   report. At 2.1.233 and 2.1.283 it carried the last turn's message alone.
-- It resolves the pull request of the current branch through `gh`. For that, the checkout's
-  `.claude/settings.local.json` needs the permission block from the README.
+- It resolves the pull request of the current branch through `gh`.
+- The subprocess inherits neither the caller's permission mode nor its grants. At Claude Code
+  2.1.304, with no grant in the command and `"allow": []` in the checkout's settings, both `gh`
+  calls were denied and the reviewer stopped without reviewing.
+- With the command's `--allowedTools` and no settings file in the checkout, one round read the pull
+  request and opened with its number, title and changed files. Calls outside the grant were still
+  denied, and the reviewer listed them as not run.
 - On `gh` 2.4.0, `gh pr view` without `--json` fails with a GraphQL error about Projects (classic).
   `gh pr view --json` and `gh pr diff` work there, and the instruction names them.
 - Without being told how, the reviewer opened with `gh pr view --json` in all 221 rounds at Claude
@@ -85,8 +94,8 @@ round. Four such results are known, all with exit 0:
 ## Not measured
 
 - A convergence: findings fixed, and a later round returning none.
-- Whether the instruction reaches the agents the command dispatches. No round under it has
-  dispatched one.
+- Whether the instruction or the `--allowedTools` grant reaches the agents the command dispatches.
+  No round under either has dispatched one.
 - The report shape under a model other than `sonnet`.
 - Which Claude Code release began printing every turn's last message.
 - Whether `--model` and `--effort` reach the dispatched agents.
