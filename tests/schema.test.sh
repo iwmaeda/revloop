@@ -137,6 +137,16 @@ else
   FAIL=$((FAIL + 1)); printf '  FAIL the ecc-review-pr instruction does not name gh pr view --json\n'
 fi
 
+# A `claude -p` subprocess inherits none of this session's grants, so the ECC
+# reviewer grants itself the two reads its instruction names, and nothing
+# wider. --allowedTools is variadic, so it is the last token, after the prompt.
+grant=$(sed -n 's/.*--allowedTools \\"\([^"\\]*\)\\"",$/\1/p' "$ROOT/reviewers/ecc-review-pr.json")
+if [ "$grant" = 'Bash(gh pr view:*),Bash(gh pr diff:*)' ]; then
+  PASS=$((PASS + 1)); printf '  ok   ecc-review-pr ends by granting gh pr view and gh pr diff alone\n'
+else
+  FAIL=$((FAIL + 1)); printf '  FAIL the ecc-review-pr command does not end with --allowedTools granting gh pr view and gh pr diff alone\n'
+fi
+
 # --- reject cases -----------------------------------------------------------
 reject() { # reject <label> <json>
   printf '%s' "$2" > "$TMP/bad.json"
@@ -227,6 +237,7 @@ rreject "an empty subprocess command" '{"kind":"local-command","invoke":"subproc
 rreject "an empty skill name" '{"kind":"local-command","invoke":"skill","command":""}'
 # So does a command of spaces.
 rreject "a whitespace-only command" '{"kind":"local-command","invoke":"subprocess","command":"   "}'
+rreject "a command over 600 characters" "{\"kind\":\"local-command\",\"invoke\":\"subprocess\",\"command\":\"claude -p $(printf '%0591d' 0)\"}"
 # The local command grants Bash(git:*) and a permission rule matches a string
 # prefix, so a command may not begin with git, however the word ends.
 rreject "a subprocess command that is git" '{"kind":"local-command","invoke":"subprocess","command":"git push --force"}'
@@ -329,7 +340,7 @@ raccept "a skill named after gh" '{"kind":"local-command","invoke":"skill","comm
 # The two shipped presets, in the form they ship.
 raccept "the shipped code-review preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} -p \"/code-review medium\""}'
 # The longest shipped command. This pins that it fits the schema's length cap.
-raccept "the shipped ecc-review-pr preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} --effort medium --append-system-prompt \"Non-interactive run: never ask and never retry a denied call. Finish without it and list what did not run. Read the pull request with gh pr view --json number,title,files and gh pr diff, never plain gh pr view. If it cannot be read, say so and stop. Open the report with its number, title and changed files.\" -p \"/ecc:review-pr\"","requiresPr":true,"rateLimitPatterns":["You'"'"'ve hit your session limit"]}'
+raccept "the shipped ecc-review-pr preset" '{"kind":"local-command","invoke":"subprocess","command":"claude --model {reviewModel} --effort medium --append-system-prompt \"Non-interactive run: never ask and never retry a denied call. Finish without it and list what did not run. Read the pull request with gh pr view --json number,title,files and gh pr diff, never plain gh pr view. If it cannot be read, say so and stop. Open the report with its number, title and changed files.\" -p \"/ecc:review-pr\" --allowedTools \"Bash(gh pr view:*),Bash(gh pr diff:*)\"","requiresPr":true,"rateLimitPatterns":["You'"'"'ve hit your session limit"]}'
 # A command without {reviewModel} is valid.
 raccept "a subprocess command, unpinned" '{"kind":"local-command","invoke":"subprocess","command":"claude -p \"/code-review medium\""}'
 

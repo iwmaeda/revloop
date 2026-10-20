@@ -10,8 +10,12 @@ policy and a sandbox. Why the rules have this shape is in
 | Any `local-*`                     | `Bash(git:*)`, `Bash(gh pr list:*)`, `Bash(gh pr create:*)`, `Bash(gh repo view:*)`, `Bash(gh api -X PATCH repos/{owner}/{repo}/:*)` |
 | Any `local-*` with `--no-publish` | `Bash(git:*)` only                                                                                                                   |
 
-A reviewer you configure may call GitHub itself. The shipped `ecc-review-pr` preset reads a pull
-request, and a reviewer invoked as a skill runs inside your session with the session's grants.
+A reviewer you configure may call GitHub itself. A reviewer invoked as a skill runs inside your
+session with the session's grants. A `claude -p` subprocess inherits neither those grants nor the
+session's permission mode, and denies every call that no rule allows. The shipped `ecc-review-pr`
+preset reads a pull request, so its command grants the subprocess `Bash(gh pr view:*)` and
+`Bash(gh pr diff:*)` with `--allowedTools`, and `local-ecc-loop` needs no rule beyond the `local-*`
+row. A deny rule in your settings still wins over that grant.
 
 ## Claude Code: the rules to grant
 

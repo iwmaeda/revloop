@@ -8,6 +8,16 @@ so a changed fence asks every user for one re-approval. See
 
 ## [Unreleased]
 
+Fences: none changed.
+
+### Fixed
+
+- `/revloop:local-ecc-loop` no longer aborts with `unparsed-review-output` in a checkout whose
+  settings allow no `gh` call. The `ecc-review-pr` `command` ends with `--allowedTools` granting its
+  subprocess `gh pr view` and `gh pr diff`. Because the string changed, an "always allow" given for
+  the old one is asked for once more.
+- A reviewer definition's `command` may be up to 600 characters, up from 400.
+
 ## [0.17.0] - 2026-10-11
 
 Fences: `wait-verdict` changed (one re-approval).
