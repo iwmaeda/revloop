@@ -68,8 +68,9 @@ round. Four such results are known, all with exit 0:
 - The subprocess inherits neither the caller's permission mode nor its grants. At Claude Code
   2.1.304, with no grant in the command and `"allow": []` in the checkout's settings, both `gh`
   calls were denied and the reviewer stopped without reviewing.
-- With the command's `--allowedTools` and no rule in the checkout's settings, a headless session
-  ran `gh pr view --json` and `gh pr diff`.
+- With the command's `--allowedTools` and no settings file in the checkout, one round read the pull
+  request and opened with its number, title and changed files. Calls outside the grant were still
+  denied, and the reviewer listed them as not run.
 - On `gh` 2.4.0, `gh pr view` without `--json` fails with a GraphQL error about Projects (classic).
   `gh pr view --json` and `gh pr diff` work there, and the instruction names them.
 - Without being told how, the reviewer opened with `gh pr view --json` in all 221 rounds at Claude
@@ -93,8 +94,8 @@ round. Four such results are known, all with exit 0:
 ## Not measured
 
 - A convergence: findings fixed, and a later round returning none.
-- Whether the instruction reaches the agents the command dispatches. No round under it has
-  dispatched one.
+- Whether the instruction or the `--allowedTools` grant reaches the agents the command dispatches.
+  No round under either has dispatched one.
 - The report shape under a model other than `sonnet`.
 - Which Claude Code release began printing every turn's last message.
 - Whether `--model` and `--effort` reach the dispatched agents.
