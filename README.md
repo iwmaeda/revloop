@@ -5,10 +5,8 @@
 
 English ・ [日本語](README.ja.md)
 
-A Claude Code plugin that repeats an AI review-and-fix loop until the review converges. Its guards
-keep a run from spending more rounds, time and tokens than the review needs.
-
-There is one command per reviewer:
+A Claude Code plugin that repeats an AI review-and-fix loop until the review converges, with guards
+against spending more rounds, time and tokens than the review needs.
 
 | Command                       | Reviewer                        | Where it runs                |
 | ----------------------------- | ------------------------------- | ---------------------------- |
@@ -20,14 +18,8 @@ There is one command per reviewer:
 | `/revloop:local-ecc-loop`     | ECC's `/ecc:review-pr`          | A subprocess on your machine |
 | `/revloop:local-custom-loop`  | one you define, with `--config` | A subprocess on your machine |
 
-The remote commands need a reviewer whose GitHub integration is already installed on the repository
-and answers comments.
-
-The local commands post no comments and never merge. They push the branch and open a pull request
-for it, before each round for a reviewer that cannot run without a pull request and after convergence for the
-rest; `--no-publish` stops at the commit. A subprocess reviewer whose `command` carries `{reviewModel}`
-reviews on `sonnet` by default, and `--model` changes that; a skill reviewer runs on the session's
-model.
+The remote commands need the reviewer's GitHub integration installed on the repository and answering
+comments. The local commands post no comments and never merge.
 
 ```console
 /revloop:remote-codex-loop
@@ -42,23 +34,22 @@ model.
 /revloop:local-custom-loop --config ./my-reviewer.json
 ```
 
-| Flag               | Commands        | Default    | What it does                                                        |
-| ------------------ | --------------- | ---------- | ------------------------------------------------------------------- |
-| `--rigor <level>`  | all             | `standard` | How strictly the run must finish (see below)                        |
-| `--max-rounds <n>` | all             | 5 / 3      | Abort if the loop has not converged by then                         |
-| `--auto`           | all             | off        | Run through the stop points, except a local reviewer's confirmation |
-| `--merge`          | `remote-*`      | off        | After convergence, wait for green CI and merge                      |
-| `--timeout <dur>`  | `remote-*`      | `30m`      | Cap on waiting for one trigger's verdict                            |
-| `--model <name>`   | `local-*`       | `sonnet`   | The model a subprocess review with `{reviewModel}` runs on          |
-| `--no-publish`     | `local-*`       | off        | End at the commit: no push, no pull request                         |
-| `--config <path>`  | `*-custom-loop` | required   | The reviewer definition this run drives                             |
-
-A default written as two numbers is remote / local. The default of `--max-rounds` comes from
-`--rigor`.
+| Flag               | Commands        | Default      | What it does                                                        |
+| ------------------ | --------------- | ------------ | ------------------------------------------------------------------- |
+| `--rigor <level>`  | all             | `standard`   | How strictly the run must finish (see below)                        |
+| `--max-rounds <n>` | all             | by `--rigor` | Abort if the loop has not converged by then                         |
+| `--auto`           | all             | off          | Run through the stop points, except a local reviewer's confirmation |
+| `--merge`          | `remote-*`      | off          | After convergence, wait for green CI and merge                      |
+| `--timeout <dur>`  | `remote-*`      | `30m`        | Cap on waiting for one trigger's verdict                            |
+| `--model <name>`   | `local-*`       | `sonnet`     | The model a subprocess review with `{reviewModel}` runs on          |
+| `--no-publish`     | `local-*`       | off          | End at the commit: no push, no pull request                         |
+| `--config <path>`  | `*-custom-loop` | required     | The reviewer definition this run drives                             |
 
 ## How it works
 
-A run usually takes tens of minutes, most of it spent waiting for the reviewer.
+A run usually takes tens of minutes, most of it waiting for the reviewer.
+
+### The remote loop
 
 | Phase       | Steps | What happens                                                                 |
 | ----------- | ----- | ---------------------------------------------------------------------------- |
@@ -70,11 +61,10 @@ A run usually takes tens of minutes, most of it spent waiting for the reviewer.
 | **Fix**     | 10–11 | Read the findings, fix them, reply under each inline finding                 |
 | **Finish**  | 12    | Report. With `--merge`, wait for green CI and then merge (second stop point) |
 
-If a finding was fixed, the loop goes back to step 3 for the next round. `--auto` runs through both
-stop points. At a level with an acceptable band (`minimal` and the default `standard`), `--merge --auto`
-is refused, and `--merge` alone stops once to confirm the accepted findings; use `--rigor thorough` to
-merge unattended. A run that aborts, for example on a rate limit, resumes when you run the same command
-again once the cause has cleared.
+After a round that fixed a finding, the loop goes back to step 3. At `minimal` and `standard`, which
+accept some findings, `--merge --auto` is refused and `--merge` stops once to confirm the accepted
+findings; use `--rigor thorough` to merge unattended. To resume an aborted run, for example after a
+rate limit, run the same command again.
 
 ### The local loop
 
@@ -88,12 +78,12 @@ again once the cause has cleared.
 | **Fix**     | 9       | Fix the findings; record the ones declined or accepted in the report   |
 | **Finish**  | 11      | Report, and write it into the pull-request body unless `--no-publish`  |
 
-A reviewer that cannot run without a pull request is published to before every round (step 5). Every other
-reviewer is published to once, after the loop converges (step 10). `--no-publish` skips both.
+A reviewer that needs a pull request is published to before every round (step 5); any other, once
+after convergence (step 10).
 
 ## Install
 
-The details are in [`docs/install.md`](docs/install.md).
+Requirements and troubleshooting are in [`docs/install.md`](docs/install.md).
 
 ### Claude Code
 
@@ -102,11 +92,9 @@ The details are in [`docs/install.md`](docs/install.md).
 /plugin install revloop@revloop
 ```
 
-The commands need an authenticated `gh`, except a local run with `--no-publish`.
-
-Grant the permissions the remote commands need by adding the following to `.claude/settings.local.json`.
-The local commands need only the subset listed in [`docs/permissions.md`](docs/permissions.md), which
-also has the details.
+The commands need an authenticated `gh`, except a local run with `--no-publish`. Add the permissions
+the remote commands need to `.claude/settings.local.json`; the local commands need only the subset in
+[`docs/permissions.md`](docs/permissions.md).
 
 ```json
 {
@@ -130,7 +118,10 @@ also has the details.
 
 ### Codex (preview)
 
-`codex plugin install` does not exist yet, so place the skill by hand:
+After placing the skill, give the sandbox network access as in
+[`docs/permissions.md`](docs/permissions.md#codex-approval-policy-and-sandbox).
+
+#### Linux
 
 ```console
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
@@ -138,15 +129,23 @@ mkdir -p ~/.agents/skills
 cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/
 ```
 
-On Codex you get one skill, and only the pull-request loop. It has not been run end to end there.
-The skill reads the procedure from `~/.revloop`; link a clone kept elsewhere with
-`ln -s /path/to/your/clone ~/.revloop`. Codex uses a sandbox instead of an allowlist, which
-[`docs/permissions.md`](docs/permissions.md) covers.
+To use an existing clone, replace the `git clone` line with `ln -s /path/to/clone ~/.revloop`.
+
+#### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/iwmaeda/revloop.git "$HOME\.revloop"
+New-Item -ItemType Directory -Force "$HOME\.agents\skills"
+Copy-Item -Recurse -Force "$HOME\.revloop\.agents\skills\revloop" "$HOME\.agents\skills"
+```
+
+To use an existing clone, replace the `git clone` line with
+`New-Item -ItemType Junction -Path "$HOME\.revloop" -Target C:\path\to\clone`.
 
 ## Configure
 
-By default revloop detects the base branch, the verify commands, the branch prefixes and the commit
-conventions from the repository, and prints them with their source:
+revloop detects the base branch, the verify commands, the branch prefixes and the commit conventions
+from the repository, and prints each value with its source:
 
 ```text
 key              value                              source
@@ -159,10 +158,8 @@ commitStyle      conventional (en)                  detected
 maxRounds        5                                  rigor
 ```
 
-To change a value that has a key, write `.revloop.json`, or `.revloop/config.json`, which is read
-instead of it when present. The flags that have no key are listed in
-[`docs/configuration.md`](docs/configuration.md); see
-[`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md) for a reviewer of your own.
+To change a value, write `.revloop.json`, or `.revloop/config.json`, which is read in its place when
+present. [`docs/configuration.md`](docs/configuration.md) lists the keys, and the flags that have none.
 
 ```json
 {
@@ -174,8 +171,7 @@ instead of it when present. The flags that have no key are listed in
 
 ## Keeping the loop from running away
 
-An AI reviewer tends to keep producing small findings. `--rigor <level>` sets how strictly a run
-must finish, and so when the loop may stop.
+`--rigor <level>` sets which findings must be fixed and how many rounds a run may take.
 
 | Level                    | Blocking           | Acceptable       | Round cap (remote / local) |
 | ------------------------ | ------------------ | ---------------- | -------------------------- |
@@ -184,19 +180,11 @@ must finish, and so when the loop may stop.
 | `thorough`               | every finding      | none             | 10 / 5                     |
 | `exhaustive`             | every finding      | none             | 15 / 8                     |
 
-```console
-/revloop:remote-codex-loop --rigor minimal
-/revloop:local-ecc-loop --rigor thorough
-```
-
-Severity is handled on one ladder for every reviewer, `critical > high > medium > low`. For a
-reviewer that reports no severity, at `minimal` and `standard` a grading model in a separate process
-estimates it. When the loop
-converges, the run records whether the change is sufficiently reviewed for its level.
+Every reviewer's severity is mapped to `critical > high > medium > low`. For a reviewer that reports
+none, a grading model in a separate process estimates it at `minimal` and `standard`. On convergence,
+the run records whether the change is sufficiently reviewed for its level.
 
 ## Built-in reviewers
-
-Each built-in is a definition (`reviewers/<name>.json`) and a card (`reviewers/<name>.md`).
 
 | Preset          | Reviewer         | Severity     | Status     |
 | --------------- | ---------------- | ------------ | ---------- |
@@ -206,20 +194,18 @@ Each built-in is a definition (`reviewers/<name>.json`) and a card (`reviewers/<
 | `code-review`   | `/code-review`   | none         | unverified |
 | `ecc-review-pr` | `/ecc:review-pr` | none         | unverified |
 
-`verified` means the maintainers drove the reviewer end to end on real pull requests; `reported` means
-someone reported it working and it has not been reproduced. To add your own, see
-[`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md).
+`verified` means the maintainers drove the reviewer end to end on real pull requests. To add your
+own, see [`docs/adding-a-reviewer.md`](docs/adding-a-reviewer.md).
 
 ## Limitations
 
-| Limitation                          | Detail                                                                                        |
-| ----------------------------------- | --------------------------------------------------------------------------------------------- |
-| Forks                               | Not supported; both loops abort in step 1. A local run with `--no-publish` works              |
-| Branches                            | Same-repository topic branches, with one open pull request per branch                         |
-| Merge method                        | Merge commits only. Squash and rebase are not available                                       |
-| Reviewers without a comment trigger | Not supported by the pull-request loops, for example GitHub Copilot; local commands need none |
-| The local loop                      | Never merges. Merge the pull request separately                                               |
-| Codex as a host                     | Preview: one skill, the pull-request loop only, not run end to end                            |
+| Limitation                          | Detail                                                           |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| Forks                               | Not supported, except a local run with `--no-publish`            |
+| Branches                            | Same-repository topic branches, one open pull request per branch |
+| Merge method                        | Merge commits only                                               |
+| Reviewers without a comment trigger | The remote commands cannot drive one, for example GitHub Copilot |
+| Codex as a host                     | Preview: one skill, the remote loop only, not run end to end     |
 
 ## Documentation
 
@@ -233,7 +219,6 @@ someone reported it working and it has not been reproduced. To add your own, see
 | [Contributing](CONTRIBUTING.md)                | Running the checks, and how to edit a fence                       |
 | [Code of conduct](CODE_OF_CONDUCT.md)          | Contributor Covenant                                              |
 | [Security](SECURITY.md)                        | The threat model                                                  |
-| [日本語版 README](README.ja.md)                | This README in Japanese                                           |
 
 ## License
 

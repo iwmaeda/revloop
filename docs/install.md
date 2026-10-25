@@ -30,7 +30,15 @@ cannot start one.
 
 ## Codex (preview)
 
-`codex plugin install` does not exist yet, so place the skill by hand:
+The skill is a router that reads `procedures/remote-loop.md` from `~/.revloop`.
+`REVLOOP_PROCEDURE` overrides that path, but only in a session whose launcher passes the variable on.
+A team can commit the same copy under the project's own `.agents/skills/`; each user still needs
+`~/.revloop` or `REVLOOP_PROCEDURE`.
+
+Only the pull-request loop is available on Codex, and it has not been run end to end there. Codex has
+no allowlist; see [Codex: approval policy and sandbox](permissions.md#codex-approval-policy-and-sandbox).
+
+### Linux
 
 ```console
 git clone https://github.com/iwmaeda/revloop.git ~/.revloop
@@ -38,19 +46,26 @@ mkdir -p ~/.agents/skills
 cp -r ~/.revloop/.agents/skills/revloop ~/.agents/skills/
 ```
 
-The skill is a router that reads `procedures/remote-loop.md` from `~/.revloop`. If the clone lives
-somewhere else, link it:
+To use an existing clone, replace the `git clone` line with:
 
 ```console
 ln -s /path/to/your/clone ~/.revloop
 ```
 
-`REVLOOP_PROCEDURE` overrides that path, but only in a session whose launcher passes the variable on.
-A team can commit the same copy under the project's own `.agents/skills/`; each user still needs
-`~/.revloop` or `REVLOOP_PROCEDURE`.
+### Windows (PowerShell)
 
-Only the pull-request loop is available on Codex, and it has not been run end to end there. Codex has
-no allowlist; see [Codex: approval policy and sandbox](permissions.md#codex-approval-policy-and-sandbox).
+```powershell
+git clone https://github.com/iwmaeda/revloop.git "$HOME\.revloop"
+New-Item -ItemType Directory -Force "$HOME\.agents\skills"
+Copy-Item -Recurse -Force "$HOME\.revloop\.agents\skills\revloop" "$HOME\.agents\skills"
+```
+
+To use an existing clone, replace the `git clone` line with a junction, which needs no administrator
+rights:
+
+```powershell
+New-Item -ItemType Junction -Path "$HOME\.revloop" -Target C:\path\to\your\clone
+```
 
 ## Verify the install
 
