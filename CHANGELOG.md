@@ -8,6 +8,10 @@ so a changed fence asks every user for one re-approval. See
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-10-25
+
+Fences: none changed.
+
 ### Added
 
 - Windows (PowerShell) steps for installing the Codex skill, in their own section beside Linux, in
@@ -16,6 +20,7 @@ so a changed fence asks every user for one re-approval. See
 ### Changed
 
 - Both READMEs were condensed. What they no longer repeat is in `docs/`.
+- Development: `fast-uri` and `markdown-it` move to patched versions for `npm audit`.
 
 ## [0.18.0] - 2026-10-20
 
@@ -461,6 +466,7 @@ Fences: initial release.
 - Development: tool versions are pinned in `mise.toml`. Run `mise install` before
   `npm run check:all`, or the `shellcheck` and `jq` checks are skipped.
 
+[0.18.1]: https://github.com/iwmaeda/revloop/releases/tag/v0.18.1
 [0.18.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.18.0
 [0.17.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.17.0
 [0.16.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.16.0
