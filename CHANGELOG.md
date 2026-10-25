@@ -8,6 +8,15 @@ so a changed fence asks every user for one re-approval. See
 
 ## [Unreleased]
 
+### Added
+
+- Windows (PowerShell) steps for installing the Codex skill, in their own section beside Linux, in
+  both READMEs and `docs/install.md`.
+
+### Changed
+
+- Both READMEs were condensed. What they no longer repeat is in `docs/`.
+
 ## [0.18.0] - 2026-10-20
 
 Fences: none changed.
