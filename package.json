@@ -1,6 +1,6 @@
 {
   "name": "revloop",
-  "version": "0.18.1",
+  "version": "0.19.0",
   "private": true,
   "description": "Branch to merge review automation for Claude Code, with Codex as a host in preview",
   "license": "MIT",
