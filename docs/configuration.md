@@ -44,7 +44,7 @@ first run:
 mkdir -p .revloop && printf '*\n' > .revloop/.gitignore
 ```
 
-Both files follow the same schema and the same rules. A reviewer definition only you use can live in
+All three names follow the same schema and the same rules. A reviewer definition only you use can live in
 `.revloop/` too, passed with `--config`. Name it `.txt`, as `.revloop/reviewer.txt`, for the same
 reason.
 

@@ -86,8 +86,8 @@ add nothing to your own `.gitignore`. If git already tracks anything under `.rev
 existing `.revloop/.gitignore` does not hide the file, nothing is written there and the run reports
 instead.
 
-Everything revloop keeps there ends in `.txt`, so a project's Markdown and JSON linters do not reach
-it and you add no rule to their configuration.
+Every file revloop writes there other than `.gitignore` ends in `.txt`, so a project's Markdown
+and JSON linters do not reach it and you add no rule to their configuration.
 
 A configuration only you use goes in the same directory, as `.revloop/config.txt`. See
 [Where the file lives](configuration.md#where-the-file-lives).

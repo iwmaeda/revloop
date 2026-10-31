@@ -130,13 +130,14 @@ write into it is `.revloop/.gitignore` containing `*`, so the
 notes, the grader's input and `.revloop/config.txt` stay out of `git status` without a rule in your
 own `.gitignore`.
 
-Everything revloop keeps in `.revloop/` ends in `.txt`, including the configuration, which holds
-JSON. A tool that reads only the top-level `.gitignore`, such as prettier, does not see that rule,
-and whether JSON passes a formatter depends on the project's settings. The directory stays in the
-checkout because Claude Code's allow rules do not pre-approve a write under `.git`.
+Every file revloop writes in `.revloop/` other than `.gitignore` ends in `.txt`, including the
+configuration, which holds JSON. A tool that reads only the top-level `.gitignore`, such as
+prettier, does not see that rule, and whether JSON passes a formatter depends on the project's
+settings. The directory stays in the checkout because Claude Code's allow rules do not pre-approve a write under `.git`.
 
-Step 1 moves `.revloop/field-notes.md` and `.revloop/config.json` to these names. A
-`.revloop/config.json` git tracks stays where it is and is read.
+Step 1 moves `.revloop/field-notes.md` and `.revloop/config.json` to these names. When git tracks
+anything under `.revloop/`, it moves neither: a `.revloop/config.json` git tracks stays where it is
+and is read.
 
 The worktree ledger is not in that directory. It lives under the checkout's git directory, where no
 git command reports it.
