@@ -158,8 +158,8 @@ commitStyle      conventional (en)                  detected
 maxRounds        5                                  rigor
 ```
 
-To change a value, write `.revloop.json`, or `.revloop/config.json`, which is read in its place when
-present. [`docs/configuration.md`](docs/configuration.md) lists the keys, and the flags that have none.
+To change a value, create `.revloop.json` or `.revloop/config.txt`. See
+[`docs/configuration.md`](docs/configuration.md) for details.
 
 ```json
 {

@@ -121,15 +121,22 @@ On a fork, without an `origin`, or with a remote that is not GitHub, the run abo
 ## Field notes
 
 When a round takes an unexercised path, aborts, or sees unexpected latency, the procedure appends one
-line to `.revloop/field-notes.md`. The notes are for people: the loop never reads them as input,
+line to `.revloop/field-notes.txt`. The notes are for people: the loop never reads them as input,
 never stages them, and caps the file at 500 lines.
 
 `.revloop/` ignores itself. Unless git tracks anything under `.revloop/` or an existing
 `.revloop/.gitignore` does not hide the file, in which case nothing is written there, the first
 write into it is `.revloop/.gitignore` containing `*`, so the
-notes, the grader's input and `.revloop/config.json` stay out of `git status` without a rule in your
-own `.gitignore`. A tool that reads only the top-level `.gitignore`, such as prettier, still sees the
-files unless you add a rule there.
+notes, the grader's input and `.revloop/config.txt` stay out of `git status` without a rule in your
+own `.gitignore`.
+
+Everything revloop keeps in `.revloop/` ends in `.txt`, including the configuration, which holds
+JSON. A tool that reads only the top-level `.gitignore`, such as prettier, does not see that rule,
+and whether JSON passes a formatter depends on the project's settings. The directory stays in the
+checkout because Claude Code's allow rules do not pre-approve a write under `.git`.
+
+Step 1 moves `.revloop/field-notes.md` and `.revloop/config.json` to these names. A
+`.revloop/config.json` git tracks stays where it is and is read.
 
 The worktree ledger is not in that directory. It lives under the checkout's git directory, where no
 git command reports it.

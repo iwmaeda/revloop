@@ -67,8 +67,9 @@ entry point.
 
    First resolve the configuration file exactly as the Config file paragraph of
    [`remote-loop.md`](remote-loop.md) step 1 says, on every run including `--no-publish`: one of
-   `.revloop/config.json` and `.revloop.json` is read, the `config:` line names it, and a
-   `.revloop/config.json` git would show aborts with `reason=config-not-ignored`. After that read,
+   `.revloop/config.txt`, `.revloop/config.json` and `.revloop.json` is read, the `config:` line
+   names it, old local names are moved, and a local file git would show, `.revloop/config.txt` or
+   `.revloop/config.json`, aborts with `reason=config-not-ignored`. After that read,
    the blocks below are this step's whole probe.
 
    ```bash
@@ -466,7 +467,7 @@ entry point.
 ## Unexercised paths
 
 None of these has run against live data; each fails closed unless marked. A run that takes one says
-so in the report and appends a line to `.revloop/field-notes.md` under the Field notes rules of
+so in the report and appends a line to `.revloop/field-notes.txt` under the Field notes rules of
 [`remote-loop.md`](remote-loop.md)'s `## Unexercised paths`. Those rules decide whether the note may
 be written, and when `.revloop/.gitignore` is created first.
 

@@ -20,15 +20,21 @@ is machine-readable, and the [examples](../examples/) are a quick start.
 
 ## Where the file lives
 
-| File                   | Whose                   | In git                                                                                                    |
-| ---------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------- |
-| `.revloop.json`        | The team's              | Committed                                                                                                 |
-| `.revloop/config.json` | Yours, in this checkout | Ignored by `.revloop/.gitignore`, which the first run writes unless git tracks anything under `.revloop/` |
+| File                  | Whose                   | In git                                                                                                    |
+| --------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| `.revloop.json`       | The team's              | Committed                                                                                                 |
+| `.revloop/config.txt` | Yours, in this checkout | Ignored by `.revloop/.gitignore`, which the first run writes unless git tracks anything under `.revloop/` |
 
-Exactly one file is read. When `.revloop/config.json` exists, `.revloop.json` is not read and nothing
+Exactly one file is read. When `.revloop/config.txt` exists, `.revloop.json` is not read and nothing
 is merged from it. Step 1 prints a `config:` line naming the file it read.
 
-`.revloop/config.json` must be tracked or ignored by git; otherwise the run aborts with
+`.revloop/config.txt` holds JSON. Its name keeps it out of reach of a project's formatters and
+linters, so a project needs no rule for it, and editors do not apply `$schema` to it.
+
+`.revloop/config.json`, the earlier name, is still read when `.revloop/config.txt` does not exist.
+Step 1 moves it to the new name unless git tracks anything under `.revloop/`.
+
+`.revloop/config.txt` must be tracked or ignored by git; otherwise the run aborts with
 `config-not-ignored`. An existing `.revloop/.gitignore` is left as it is, and each file is checked on
 its own: a field note it does not hide goes into the report, and a grader's input it does not hide is
 skipped, which leaves every finding `ungraded` and blocking. To create the ignore file before the
@@ -39,7 +45,8 @@ mkdir -p .revloop && printf '*\n' > .revloop/.gitignore
 ```
 
 Both files follow the same schema and the same rules. A reviewer definition only you use can live in
-`.revloop/` too, passed with `--config`.
+`.revloop/` too, passed with `--config`. Name it `.txt`, as `.revloop/reviewer.txt`, for the same
+reason.
 
 ## What is detected
 
@@ -58,9 +65,9 @@ The `source` column of the step 1 table is `flag`, `config`, `detected`, `rigor`
 | Situation                                           | Behaviour                                                           |
 | --------------------------------------------------- | ------------------------------------------------------------------- |
 | Neither file                                        | Detect what can be detected; the rest is built in or from `--rigor` |
-| Both files                                          | Read `.revloop/config.json` only                                    |
-| `.revloop/config.json` untracked and not ignored    | Abort (`config-not-ignored`)                                        |
-| `.revloop.json` untracked and shown by git          | Read it. Step 1 suggests moving it to `.revloop/config.json`        |
+| Both files                                          | Read `.revloop/config.txt` only                                     |
+| `.revloop/config.txt` untracked and not ignored     | Abort (`config-not-ignored`)                                        |
+| `.revloop.json` untracked and shown by git          | Read it. Step 1 suggests moving it to `.revloop/config.txt`         |
 | Malformed JSON, or an unknown `version`             | Abort                                                               |
 | Unknown key                                         | Ignored at runtime                                                  |
 | `--config` names no readable file                   | Abort (`config-not-found`)                                          |

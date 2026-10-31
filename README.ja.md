@@ -158,8 +158,8 @@ commitStyle      conventional (en)                  detected
 maxRounds        5                                  rigor
 ```
 
-値を変えるには `.revloop.json` を作成します。`.revloop/config.json` があれば、そちらが代わりに
-読まれます。キーの一覧とキーのないフラグは [`docs/configuration.md`](docs/configuration.md) にあります。
+設定を変更する場合、 `.revloop.json` を作成するか、 `.revloop/config.txt` を整備してください。
+詳細は [`docs/configuration.md`](docs/configuration.md) を参照してください。
 
 ```json
 {
