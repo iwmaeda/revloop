@@ -8,6 +8,8 @@ so a changed fence asks every user for one re-approval. See
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-31
+
 Fences: none changed.
 
 ### Changed
@@ -23,6 +25,9 @@ Fences: none changed.
 - `.revloop/config.json` is still read when `.revloop/config.txt` does not exist, so a file git tracks
   keeps working where it is.
 - Editors do not apply `$schema` to `.revloop/config.txt`.
+- Update every host together. A version older than this one does not read `.revloop/config.txt` and
+  falls back to `.revloop.json` or the defaults without saying so. It also writes a new
+  `.revloop/field-notes.md`, which the next run of this version appends.
 - Development: `mise run <task>` is the entry point for every project command, in CI and in
   `.revloop.json`. The npm scripts stay as the implementation. `mise tasks ls` lists the tasks.
 
@@ -488,6 +493,7 @@ Fences: initial release.
 - Development: tool versions are pinned in `mise.toml`. Run `mise install` before
   `npm run check:all`, or the `shellcheck` and `jq` checks are skipped.
 
+[0.19.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.19.0
 [0.18.1]: https://github.com/iwmaeda/revloop/releases/tag/v0.18.1
 [0.18.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.18.0
 [0.17.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.17.0
