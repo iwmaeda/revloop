@@ -81,6 +81,7 @@ grader's command line before anything runs.
 | A subprocess reviewer's `command` | Every round                          | The reviewer definition              |
 | The grader, on a graded run       | Every round                          | The procedure. Only the model varies |
 | A worktree creation, in step 3    | Every time, including under `--auto` | The procedure. It carries a path     |
+| A move of an old name, in step 1  | Once in a checkout                   | The procedure. `mv`, `cat` and `rm`  |
 
 - A reviewer with `invoke: "skill"` has no command string to match, so there is no prompt. Step 1
   stops and shows the resolved command instead, and `--auto` does not skip that stop. Configure the

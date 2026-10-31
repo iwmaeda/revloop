@@ -52,40 +52,55 @@ report with its reason.
    from memory. The table this step prints shows the verify commands before they execute.
 
    **Config file.** Before the probe, decide which configuration file this run reads. Exactly one is
-   read: `.revloop/config.json` when it exists, otherwise `.revloop.json` at the repository root.
-   Neither is required.
+   read: `.revloop/config.txt` when it exists, then `.revloop/config.json`, otherwise
+   `.revloop.json` at the repository root. None is required. `.revloop/config.txt` holds JSON.
 
    ```bash
    git ls-files -- .revloop.json                 # prints the name when the repository tracks the shared file
-   git check-ignore -q -- .revloop/config.json   # asked when the local file exists and is untracked — 0 means ignored
+   git check-ignore -q -- .revloop/config.txt    # asked when the local file exists and is untracked — 0 means ignored
+   git check-ignore -q -- .revloop/config.json   # the same, for the old name
    git check-ignore -q -- .revloop.json          # asked when the shared file exists and is untracked — 0 means ignored
    ```
 
    1. If `.revloop/` exists as a directory, run `git ls-files -- .revloop`. If it prints nothing,
       create `.revloop/.gitignore` if it is missing, with the content rule 2 of the Field notes
-      paragraph in `## Unexercised paths` gives. If it prints anything, write nothing; that is no
-      abort here.
-   2. If `.revloop/config.json` exists, read it and do not read `.revloop.json`. Read it only if git
-      tracks it, which is asked first (`git ls-files -- .revloop` printed `.revloop/config.json`
-      itself), or its `check-ignore` exits `0`. Anything else aborts with
-      `reason=config-not-ignored`: print what `git ls-files -- .revloop` printed and quote
-      `.revloop/.gitignore` if there is one.
-   3. Otherwise read `.revloop.json` if it exists. If its `ls-files` prints nothing and its
+      paragraph in `## Unexercised paths` gives, then move the old names below. If it prints
+      anything, write nothing; that is no abort here.
+   2. Move `.revloop/config.json` and `.revloop/field-notes.md` to their `.txt` names, so a project's
+      linters reach neither. Move nothing when `git ls-files -- .revloop` printed anything, so a file
+      git tracks is never renamed. Otherwise move a file only if `git check-ignore -q` exits `0` for
+      its new name:
+
+      ```bash
+      mv -n .revloop/config.json .revloop/config.txt            # only the old name exists
+      mv -n .revloop/field-notes.md .revloop/field-notes.txt    # only the old name exists
+      cat .revloop/field-notes.md >> .revloop/field-notes.txt && rm .revloop/field-notes.md   # both exist
+      ```
+
+      When both config names exist, move neither. A refused or failed move is no abort: report it
+      and go on.
+
+   3. If `.revloop/config.txt` exists, read it and read neither other file. Otherwise, if
+      `.revloop/config.json` exists, read it and do not read `.revloop.json`. Read either only if git
+      tracks it, which is asked first (`git ls-files -- .revloop` printed its name itself), or its
+      `check-ignore` exits `0`. Anything else aborts with `reason=config-not-ignored`: print what
+      `git ls-files -- .revloop` printed and quote `.revloop/.gitignore` if there is one.
+   4. Otherwise read `.revloop.json` if it exists. If its `ls-files` prints nothing and its
       `check-ignore` exits anything but `0`, read it anyway and print the hint below.
 
    On every run, print the `config:` line before the table. It names the file read, what git does
-   with it, and the file not read when both exist:
+   with it, and each file not read when more than one exists:
 
    ```text
-   config: .revloop/config.json (ignored); .revloop.json present and not read
+   config: .revloop/config.txt (ignored); .revloop.json present and not read
    ```
 
    ```text
-   .revloop.json is untracked: git shows it and step 4 leaves it unstaged. Move it to .revloop/config.json to keep it out of git.
+   .revloop.json is untracked: git shows it and step 4 leaves it unstaged. Move it to .revloop/config.txt to keep it out of git.
    ```
 
-   Both names carry the same schema, keys and limits: `--merge`, `--auto`, `--rigor`, `--config`,
-   `--model` and `--no-publish` stay flags.
+   All three names carry the same schema, keys and limits: `--merge`, `--auto`, `--rigor`,
+   `--config`, `--model` and `--no-publish` stay flags.
 
    ```bash
    git branch --show-current
@@ -556,7 +571,7 @@ report with its reason.
      request and never kept in the session. The chunk count restarts with the session, so a resumed
      round waits `--timeout` again before it may re-post.
    - Say in the report that the round took two triggers, say it in the round's first reply too when
-     the round produced findings, and append one line to `.revloop/field-notes.md`.
+     the round produced findings, and append one line to `.revloop/field-notes.txt`.
    - A rate-limit reply to the second trigger takes step 9's abort row
      (`reason=reviewer-rate-limited`, not `no-verdict`) and never its re-take row: this run posted
      that trigger.
@@ -833,7 +848,7 @@ report with its reason.
      `--max-rounds`. Go to 10 and read every review in the selection; step 11 says what the replies
      are scoped by. Then go back to step 7 for the re-take. **An adopted round never converges the
      loop and never merges.** Say which state it fired from, in the report and in one line appended
-     to `.revloop/field-notes.md`, using step 7's spellings, which are not interchangeable:
+     to `.revloop/field-notes.txt`, using step 7's spellings, which are not interchangeable:
      "adopted under a foreign baseline" (a hand-typed trigger took the baseline) or "adopted over a
      garbled marker" (your own trigger, with a marker the fence could not read). Also report the
      ownership line, every adopted `review_id=`, and the review the fence's line named when it was
@@ -842,7 +857,7 @@ report with its reason.
      are discarded unread. In the report, name the discarded `review_id=`, say its findings were
      not read, and print two values that decide nothing: whether this loop's `revloop:reply`
      markers already sit under it, and the ownership line tested against its `commit_id`. Append
-     one line to `.revloop/field-notes.md`.
+     one line to `.revloop/field-notes.txt`.
    - `marker_head=none` abort: both selections came back empty. Never re-post; a later run re-takes
      the baseline with an ordinary trigger in step 7.
    - `login=` not the configured reviewer: never read another bot's verdict as this round's. Check
@@ -857,7 +872,7 @@ report with its reason.
      invocation, which reaches `rate-limit-retake`. Print the body in full, including any reset time
      it names.
    - `rate-limit-retake`: say in the report that a rate-limit re-take opened the round, naming the
-     `cid=`, and append one line to `.revloop/field-notes.md`.
+     `cid=`, and append one line to `.revloop/field-notes.txt`.
    - A marked `cid=` that comes back is one the active-marks read lists, so it carries a 👀 from
      some account, the authenticated one or another. It has no retry: abort with
      `reason=interim-loop` at once and print the comment's URL and full body. Nothing here asks
@@ -1512,22 +1527,24 @@ second, and the one-runner rule.
   (too old reaches `WORKTREE=stuck`; an unresolved recorded path reads `WORKTREE=other`).
 - Rule 2 of the Field notes paragraph below, asked by a run: `.revloop/.gitignore` created, a note
   moved into the report, a round left ungraded. Both refusals fail closed.
-- Step 1's Config file paragraph: `.revloop/config.json` read, `.revloop/.gitignore` written from
+- Step 1's Config file paragraph: `.revloop/config.txt` read, `.revloop/.gitignore` written from
   step 1, and the `config:` line, the hint or `config-not-ignored` printed. The abort fails closed.
+- Step 1's move of the old names. A refused or failed move leaves the old file in place, read as
+  before, and a project's linters still reach it.
 - **The preamble's one-runner rule, and step 10's hand-off.** Unobserved, including the return
   check's two-runner branch; a session that posts without committing passes that check. **None of
   this fails closed.** A started session walks the loop under the run's own `--auto` and `--merge`.
 
 **Field notes.** When a round takes one of these paths, aborts, or sees a latency outside the range
-on the reviewer's card, append one line to `.revloop/field-notes.md` in the project, holding date,
+on the reviewer's card, append one line to `.revloop/field-notes.txt` in the project, holding date,
 PR, reviewer, path and outcome. Three rules apply:
 
 1. **Never read field notes as input to a classification.**
 2. **Never stage them.** Before every write into `.revloop/` (this file, its rotation, or the
    grading input [`severity-grading.md`](severity-grading.md) writes there), ask three questions in
    this order and stop at the first that refuses. A refusal writes nothing into `.revloop/`. Step 1
-   asks only the first two, whenever `.revloop/` already exists, and judges the file it reads by
-   its own test.
+   asks the first two whenever `.revloop/` already exists, asks the third of each new name it moves
+   a file to, and judges the file it reads by its own test.
 
    First, ask git whether it tracks anything at or under `.revloop`. Go on only if it prints
    nothing:
@@ -1551,7 +1568,7 @@ PR, reviewer, path and outcome. Three rules apply:
    Third, ask git whether the path you are about to write is ignored, and write it only if it is:
 
    ```bash
-   git check-ignore -q -- .revloop/field-notes.md    # or .revloop/grading-input.txt — 0 means ignored
+   git check-ignore -q -- .revloop/field-notes.txt   # or .revloop/grading-input.txt — 0 means ignored
    ```
 
    Exit `0` is the only answer that permits the write. `1` means git would show the file, and

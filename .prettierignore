@@ -3,6 +3,3 @@ package-lock.json
 
 # Recorded API responses: byte-exact, never reformat.
 tests/fixtures/
-
-# Also covered by .gitignore; listed so it stays ignored if that rule goes.
-.revloop/field-notes.md

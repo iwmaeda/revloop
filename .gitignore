@@ -7,7 +7,3 @@ node_modules/
 
 # Per-developer toolchain overrides
 mise.local.toml
-
-# Runtime files. Git is covered by .revloop/.gitignore; this rule is for
-# prettier, which reads only this file.
-.revloop/

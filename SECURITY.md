@@ -11,8 +11,8 @@ local commands never merge, but they run one more supplied string: the review co
 
 ### Repository-supplied configuration is untrusted
 
-`.revloop.json` and `.revloop/config.json` come from whatever repository you are working in,
-including one you just cloned. Both are read under the same rules.
+`.revloop.json`, `.revloop/config.txt` and `.revloop/config.json` come from whatever repository
+you are working in, including one you just cloned. All are read under the same rules.
 
 - The procedure is never read from the repository. Each command reads it from
   `${CLAUDE_PLUGIN_ROOT}` and otherwise aborts with `reason=procedure-unresolved`. The Codex router

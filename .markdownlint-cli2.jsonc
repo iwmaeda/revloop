@@ -1,5 +1,4 @@
 // Read by the VS Code extension only. Keep `ignores` in sync with .markdownlintignore.
-// field-notes.md holds one long line per event, which fails MD013.
 {
-  "ignores": ["node_modules/**", ".git/**", "tests/fixtures/**", ".revloop/field-notes.md"]
+  "ignores": ["node_modules/**", ".git/**", "tests/fixtures/**"]
 }

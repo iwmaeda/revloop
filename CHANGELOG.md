@@ -8,6 +8,22 @@ so a changed fence asks every user for one re-approval. See
 
 ## [Unreleased]
 
+Fences: none changed.
+
+### Changed
+
+- `.revloop/field-notes.md` is now `.revloop/field-notes.txt`, and `.revloop/config.json` is now
+  `.revloop/config.txt`, which still holds JSON. Prettier does not read the nested
+  `.revloop/.gitignore`, so the old names failed a project's local format and Markdown checks unless
+  the project added a rule for them. No project rule is needed now, and any rule added for this can
+  be removed.
+- Step 1 moves both old names on the first run, before verify. Notes are appended when both names
+  exist. When both configuration names exist, neither is moved and `.revloop/config.txt` is read. The
+  move prompts once in a checkout, and a refused or failed move is reported without an abort.
+- `.revloop/config.json` is still read when `.revloop/config.txt` does not exist, so a file git tracks
+  keeps working where it is.
+- Editors do not apply `$schema` to `.revloop/config.txt`.
+
 ## [0.18.1] - 2026-10-25
 
 Fences: none changed.
