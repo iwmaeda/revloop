@@ -67,7 +67,9 @@ report with its reason.
       paragraph in `## Unexercised paths` gives, then move the old names below. If it prints
       anything, write nothing; that is no abort here.
    2. Move `.revloop/config.json` and `.revloop/field-notes.md` to their `.txt` names, so a project's
-      linters reach neither. Move a file only if `git check-ignore -q` exits `0` for its new name:
+      linters reach neither. Move nothing when `git ls-files -- .revloop` printed anything, so a file
+      git tracks is never renamed. Otherwise move a file only if `git check-ignore -q` exits `0` for
+      its new name:
 
       ```bash
       mv -n .revloop/config.json .revloop/config.txt            # only the old name exists
