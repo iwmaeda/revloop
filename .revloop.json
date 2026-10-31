@@ -3,8 +3,8 @@
   "version": 1,
   "project": {
     "baseBranch": "main",
-    "verify": ["npm run check:all"],
-    "verifyNotes": "check:all does not run npm audit; CI runs it as its own job. Run `npm run audit` before pushing.",
+    "verify": ["mise run check"],
+    "verifyNotes": "`mise run check` does not run npm audit; CI runs it as its own job. Run `mise run audit` before pushing. A new worktree needs `mise trust` first.",
     "branchPrefixes": ["feat", "fix", "docs", "chore", "ci", "test"],
     "commit": {
       "style": "conventional",

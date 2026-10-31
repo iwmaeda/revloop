@@ -1,3 +1,6 @@
+# `mise run <task>` is the public task API; npm scripts implement the tasks.
+# `mise tasks ls` lists them all.
+#
 # CI and local development both install from this file.
 # node: 24.15 is the lowest 24.x that markdownlint-cli's dependency ini@7 accepts.
 # jq, shellcheck: pinned exactly, because a new version changes test and lint results.
@@ -5,3 +8,71 @@
 node = "24.15"
 jq = "1.7.1"
 shellcheck = "0.9.0"
+
+# --- Setup --------------------------------------------------------------------
+
+[tasks.install]
+description = "Install npm dependencies from the lockfile"
+run = "npm ci"
+
+[tasks.lock]
+description = "Bring package-lock.json in line with package.json"
+run = "npm install --package-lock-only"
+
+# --- Quality ------------------------------------------------------------------
+
+[tasks.format]
+description = "Rewrite files with Prettier"
+run = "npm run format"
+
+[tasks."format:check"]
+description = "Check formatting with Prettier"
+run = "npm run format:check"
+
+[tasks."lint:md"]
+description = "markdownlint"
+run = "npm run lint:md"
+
+[tasks."lint:md:fix"]
+description = "markdownlint with automatic fixes"
+run = "npm run lint:md:fix"
+
+[tasks."lint:sh"]
+description = "shellcheck over the extracted fences and the test harness"
+run = "npm run lint:sh"
+
+[tasks.test]
+description = "Fence and schema tests"
+run = "npm test"
+
+[tasks.audit]
+description = "npm audit; needs the network, so check does not run it"
+run = "npm run audit"
+
+[tasks."check:docs"]
+description = "format:check + lint:md"
+run = "npm run check:docs"
+
+[tasks.check]
+description = "format:check + lint:md + lint:sh + test"
+run = "npm run check:all"
+
+[tasks.fix]
+description = "Prettier and markdownlint automatic fixes"
+run = "npm run fix:all"
+
+# --- Maintenance --------------------------------------------------------------
+
+[tasks."fence:hashes"]
+description = "Record the current fence bytes; pair it with a CHANGELOG entry"
+run = "tests/update-fence-hashes.sh"
+
+# --- CI -----------------------------------------------------------------------
+
+[tasks.ci]
+description = "Everything CI runs: install, check, audit"
+run = [
+  { task = "install" },
+  { task = "check" },
+  { task = "audit" },
+]

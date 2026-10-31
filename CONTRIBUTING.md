@@ -3,14 +3,16 @@
 ## Run the checks
 
 ```console
+mise trust         # once per checkout or worktree; mise refuses an untrusted mise.toml
 mise install
-npm ci
-npm run check:all   # prettier, markdownlint, shellcheck, tests
-npm run audit       # needs the network; CI runs it as a separate job
+mise run install   # npm ci
+mise run check     # prettier, markdownlint, shellcheck, tests
+mise run audit     # needs the network; CI runs it as a separate job
 ```
 
-Run `mise install` first. The shellcheck and jq tests skip themselves and exit 0 when their binary is
-missing, so `check:all` can pass without having run them.
+`mise tasks ls` lists every task. Run checks through `mise run`, not through `npm`: the shellcheck and
+jq tests skip themselves and exit 0 when their binary is missing, so a direct `npm run` can pass
+without having run them.
 
 ## Writing procedures and docs
 
@@ -42,8 +44,8 @@ Users grant permission to a fence's exact text, so any edit makes every user app
 2. Re-run the affected branches against real data, and add a fixture for what you learned.
 3. Add a `CHANGELOG.md` entry naming the fence and saying whether it changed (one re-approval) or
    was added (one first approval).
-4. Run `tests/update-fence-hashes.sh`.
-5. Run `npm test`.
+4. Run `mise run fence:hashes`.
+5. Run `mise run test`.
 
 CI fails if a fence changes without step 4.
 

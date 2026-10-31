@@ -9,7 +9,7 @@ shopt -s extglob
 echo "schema:"
 
 if [ ! -d "$ROOT/node_modules/ajv" ]; then
-  echo "  note ajv not installed; run npm ci. Skipping."
+  echo "  note ajv not installed; run mise run install. Skipping."
   exit 0
 fi
 

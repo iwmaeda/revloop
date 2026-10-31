@@ -40,7 +40,7 @@ MANIFESTS=(
   ".claude-plugin/marketplace.json|plugins.0.version|edit this file"
   ".codex-plugin/plugin.json|version|edit this file"
   ".agents/plugins/marketplace.json|plugins.0.version|edit this file"
-  "package-lock.json|version|run npm install --package-lock-only; do not edit it"
+  "package-lock.json|version|run mise run lock; do not edit it"
 )
 
 parse_row() { # parse_row <entry> ; sets ROW_FILE ROW_PATH ROW_REMEDY
@@ -160,7 +160,7 @@ classify "an agreeing version is classified as agreement" ok \
   'this package.json' "$ROOT/package.json" version 'edit this file' "$REF"
 
 # The lockfile's remedy is asserted as a literal copy, so a typo in the row fails.
-LOCK_REMEDY='run npm install --package-lock-only; do not edit it'
+LOCK_REMEDY='run mise run lock; do not edit it'
 expect "the lockfile row still carries the remedy that forbids a hand edit" \
   "${MANIFESTS[*]}" "$LOCK_REMEDY"
 classify "and a disagreeing lockfile is classified as a failure" fail \

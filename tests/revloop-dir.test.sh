@@ -255,7 +255,7 @@ same "a tracked old config prints itself" "$(lf "$QL")" ".revloop/config.json"
 PRETTIER="$ROOT/node_modules/.bin/prettier"
 MARKDOWNLINT="$ROOT/node_modules/.bin/markdownlint"
 if [ ! -x "$PRETTIER" ] || [ ! -x "$MARKDOWNLINT" ]; then
-  echo "  note prettier or markdownlint not installed; run npm ci. Skipping the linter checks."
+  echo "  note prettier or markdownlint not installed; run mise run install. Skipping the linter checks."
 else
   reaches() { # reaches <checkout> <name> <command...> -> yes when the command's output names the file
     local d="$1" name="$2" out; shift 2

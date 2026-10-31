@@ -117,12 +117,12 @@ if [ -f "$HASHES" ]; then
     else
       FAIL=$((FAIL + 1))
       printf '  FAIL %s changed.\n       Recording a new hash costs every user one re-approval.\n' "$id"
-      printf '       Add a CHANGELOG entry, then run: tests/update-fence-hashes.sh\n'
+      printf '       Add a CHANGELOG entry, then run: mise run fence:hashes\n'
       printf '       want %s\n       got  %s\n' "${want:-<none>}" "$got"
     fi
   done
 else
-  printf '  note tests/fence-hashes.txt is absent; run tests/update-fence-hashes.sh\n'
+  printf '  note tests/fence-hashes.txt is absent; run mise run fence:hashes\n'
 fi
 
 # Every marker $SRC prints must carry the four keys the wait fence reads.

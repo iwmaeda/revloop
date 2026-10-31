@@ -1,4 +1,4 @@
-# Read by `npm run lint:md`. Keep in sync with `ignores` in .markdownlint-cli2.jsonc.
+# Read by `mise run lint:md`. Keep in sync with `ignores` in .markdownlint-cli2.jsonc.
 node_modules/**
 .git/**
 tests/fixtures/**
