@@ -23,6 +23,12 @@ Fences: none changed.
 - `.revloop/config.json` is still read when `.revloop/config.txt` does not exist, so a file git tracks
   keeps working where it is.
 - Editors do not apply `$schema` to `.revloop/config.txt`.
+- Development: `mise run <task>` is the entry point for every project command, in CI and in
+  `.revloop.json`. The npm scripts stay as the implementation. `mise tasks ls` lists the tasks.
+
+### Removed
+
+- Development: Dependabot.
 
 ## [0.18.1] - 2026-10-25
 

@@ -13,7 +13,7 @@ concurrency:
 permissions:
   contents: read
 
-# Actions are pinned by sha. Dependabot updates the sha and the version comment together.
+# Actions are pinned by sha.
 
 jobs:
   check:
@@ -21,27 +21,27 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-      - run: npm ci
+      - run: mise run install
       - name: Prettier and markdownlint
-        run: npm run check:docs
+        run: mise run check:docs
       - name: shellcheck the extracted fences
-        run: npm run lint:sh
+        run: mise run lint:sh
 
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-      - run: npm ci
+      - run: mise run install
       - name: Fence and schema tests
-        run: npm test
+        run: mise run test
 
-  # Not part of `check:all`, which has to run offline.
+  # Not part of `mise run check`, which has to run offline.
   audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-      - run: npm ci
+      - run: mise run install
       - name: npm audit
-        run: npm run audit
+        run: mise run audit
