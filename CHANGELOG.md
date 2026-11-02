@@ -8,6 +8,8 @@ so a changed fence asks every user for one re-approval. See
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-11-02
+
 Fences: `wait-verdict` changed (one re-approval).
 
 ### Fixed
@@ -504,6 +506,7 @@ Fences: initial release.
 - Development: tool versions are pinned in `mise.toml`. Run `mise install` before
   `npm run check:all`, or the `shellcheck` and `jq` checks are skipped.
 
+[0.19.1]: https://github.com/iwmaeda/revloop/releases/tag/v0.19.1
 [0.19.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.19.0
 [0.18.1]: https://github.com/iwmaeda/revloop/releases/tag/v0.18.1
 [0.18.0]: https://github.com/iwmaeda/revloop/releases/tag/v0.18.0
