@@ -151,6 +151,26 @@ expect "  by the clean comment's own id"        "$o" "cid=600"
 refute "  not the card's"                       "$o" "cid=500"
 expect "  with the clean phrase as the body"    "$o" "body=Codex Review: Didn't find any major issues. Chef's kiss."
 
+# A failure notice answers nothing, and the reviewer can still answer the same
+# trigger. The fence skips it as it skips the card, so nothing marks the comment.
+# Without jq the stub replays rows that never held the notice, so the drop itself
+# is asserted in tests/jq-program.test.sh.
+o=$(r codex-failure-notice)
+expect "a failure notice alone -> still waiting" "$o" "VERDICT=pending"
+refute "  the notice is not a verdict"          "$o" "VERDICT=comment"
+refute "  and its text is never printed"        "$o" "Something went wrong"
+
+o=$(r codex-failure-notice-then-clean)
+expect "the clean comment after it wins"        "$o" "VERDICT=comment"
+expect "  by the clean comment's own id"        "$o" "cid=6565907617"
+refute "  not the notice's"                     "$o" "cid=6565895778"
+expect "  with its receipt line as the preview" "$o" "body=<!-- codex-review-receipt:v1 -->"
+
+o=$(r codex-failure-notice-then-review)
+expect "a review after it wins"                 "$o" "VERDICT=review"
+expect "  by its own id"                        "$o" "review_id=5600700001"
+refute "  and the notice is not an EXTRA= line" "$o" "EXTRA="
+
 # A comment that carries the viewer's own eyes reaction is skipped too, whatever
 # its body. What the loop does with a comment it does not know, and what adding that 👀 can cost,
 # is ruled by step 9's skip bullet, the marked-`cid=` bullet, step 7's condition (d),

@@ -25,8 +25,14 @@ Definition: [`codex.json`](codex.json). Driven by `/revloop:remote-codex-loop`.
 - Terminal signals arrive as issue comments: the clean phrase and the rate-limit reply.
 - The clean phrase is `Codex Review: Didn't find any major issues.` followed by text that varies
   between rounds. Match it as a prefix.
+- The clean comment can open with `<!-- codex-review-receipt:v1 -->` and a blank line, before the
+  clean phrase.
 - The rate-limit reply starts `You have reached your Codex usage limits` and arrives in about 10
   seconds.
+- A failure notice starts `Codex Review: Something went wrong.` and tells the reader to comment
+  `@codex review` again. One arrived 29 seconds after a trigger, and the same trigger drew a clean
+  comment 62 seconds after it, with the status card edited to `Completed`. It carries no verdict,
+  and the wait fence drops it.
 - A status card arrives 13 to 19 seconds after the first trigger on a pull request: an issue comment
   whose first line is `<!-- codex-pull-request-review-summary -->`. It is created once per pull
   request and edited in place, from `Running` to `Completed`, a few seconds after each verdict. It
@@ -46,3 +52,4 @@ Definition: [`codex.json`](codex.json). Driven by `/revloop:remote-codex-loop`.
 - What the status card shows in a state other than `Running` or `Completed`.
 - Whether a trigger posted after a rate limit, at an unchanged HEAD, draws a review once the quota
   is back.
+- Whether an answer always follows a failure notice, and what other wording a failure takes.

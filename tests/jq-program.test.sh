@@ -61,6 +61,42 @@ o=$(run verdict/codex-status-card-clean)
 refute "the card is dropped beside a verdict too"  "$o" "codex-pull-request-review-summary"
 expect "  and the clean comment is still emitted"  "$o" "comment 2026-10-06T00:06:20Z chatgpt-codex-connector 600 Codex Review: Didn't find any major issues. Chef's kiss."
 
+# A failure notice is dropped on what the body says now, so an edit into a verdict
+# reads on the next poll. The fixtures carry no eyes: the viewer's mark would hide
+# the notice with this drop removed.
+o=$(run verdict/codex-failure-notice)
+refute "a failure notice is not emitted as a comment" "$o" "Something went wrong"
+expect "  the trigger is the only row left"        "$(printf '%s\n' "$o" | grep -c .)" "1"
+
+o=$(run verdict/codex-failure-notice-then-clean)
+refute "the notice is dropped beside a verdict too" "$o" "Something went wrong"
+expect "  and the clean comment is still emitted"  "$o" "comment 2026-11-02T00:06:21Z chatgpt-codex-connector 6565907617 <!-- codex-review-receipt:v1 -->"
+
+o=$(run verdict/codex-failure-notice-then-review)
+refute "the notice is dropped beside a review"     "$o" "comment "
+expect "  and the review is still emitted"         "$o" "review 2026-11-02T00:07:40Z chatgpt-codex-connector 5600700001 52e75e89"
+
+o=$(run jq/failure-notice-forms)
+refute "a notice under a receipt line is dropped"  "$o" " 501 "
+refute "  under a CRLF one too"                    "$o" " 502 "
+refute "  and under two HTML comments"             "$o" " 503 "
+expect "a comment quoting it mid-line is emitted"  "$o" " 504 Quoted mid-line"
+expect "  and one naming it on a later line"       "$o" " 505 Summary first"
+
+# Step 9 matches cleanPatterns by hand against the fetched body, so nothing else
+# runs the shipped pattern.
+CLEAN=$(jq -r '.cleanPatterns[0]' "$ROOT/reviewers/codex.json")
+clean() { jq -rn --arg b "$1" --arg p "$CLEAN" '$b|test($p)'; }
+body() { jq -r --argjson id "$2" '.data.repository.pullRequest.comments.nodes[]|select(.databaseId==$id)|.body' < "$FX/$1/graphql.json"; }
+RECORDED=verdict/codex-failure-notice-then-clean
+PHRASE="Codex Review: Didn't find any major issues."
+expect "cleanPatterns reads the bare clean phrase"    "$(clean "$PHRASE Keep it up!")" "true"
+expect "  the recorded comment under its receipt"     "$(clean "$(body "$RECORDED" 6565907617)")" "true"
+expect "  and one under two HTML comments"            "$(clean "$(printf '<!-- a -->\n<!-- b -->\n%s' "$PHRASE")")" "true"
+expect "it does not read the recorded failure notice" "$(clean "$(body "$RECORDED" 6565895778)")" "false"
+expect "  nor the recorded status card"               "$(clean "$(body "$RECORDED" 6565892353)")" "false"
+expect "  nor the phrase after other text"            "$(clean "$(printf 'One finding below.\n\n%s' "$PHRASE")")" "false"
+
 # A bot comment carrying the viewer's own eyes reaction is dropped, whatever its body.
 o=$(run verdict/viewer-marked-comment)
 refute "a viewer-marked comment is not emitted"    "$o" "comment "
