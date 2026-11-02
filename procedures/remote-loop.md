@@ -626,7 +626,7 @@ report with its reason.
    Q='query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){
    comments(last:40){nodes{createdAt databaseId body author{login __typename} reactionGroups{content viewerHasReacted users{totalCount}}}}
    reviews(last:15){nodes{submittedAt databaseId state author{login __typename} commit{oid}}}}}}'
-   J='.data.repository.pullRequest as $p|[($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger "))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) \(.body|split("revloop:trigger ")[1]|split(" -->")[0]|gsub("[^A-Za-z0-9=._ -]";""))"),($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger ")|not)|select(.body|test("^[@/](codex|gemini|claude|copilot) review([[:space:]]|$)"))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) compat=1"),($p.reviews.nodes[]|select(.author.__typename=="Bot")|select(.state!="DISMISSED")|"review \(.submittedAt) \(.author.login) \(.databaseId) \(.commit.oid[0:8])"),($p.comments.nodes[]|select(.author.__typename=="Bot")|select(.body|test("^(## Summary of Changes|Copilot is reviewing|Copilot wasn|<!-- codex-pull-request-review-summary)")|not)|select([.reactionGroups[]?|select(.content=="EYES" and .viewerHasReacted)]|length==0)|"comment \(.createdAt) \(.author.login) \(.databaseId) \(.body|split("\n")[0]|gsub("=";"-")|.[0:110])")]|.[]'
+   J='.data.repository.pullRequest as $p|[($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger "))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) \(.body|split("revloop:trigger ")[1]|split(" -->")[0]|gsub("[^A-Za-z0-9=._ -]";""))"),($p.comments.nodes[]|select(.author.__typename!="Bot")|select(.body|contains("revloop:trigger ")|not)|select(.body|test("^[@/](codex|gemini|claude|copilot) review([[:space:]]|$)"))|"TRIG \(.createdAt) \(.databaseId) \([.reactionGroups[]|select(.content=="THUMBS_UP")|.users.totalCount]|add // 0) compat=1"),($p.reviews.nodes[]|select(.author.__typename=="Bot")|select(.state!="DISMISSED")|"review \(.submittedAt) \(.author.login) \(.databaseId) \(.commit.oid[0:8])"),($p.comments.nodes[]|select(.author.__typename=="Bot")|select(.body|test("^(## Summary of Changes|Copilot is reviewing|Copilot wasn|<!-- codex-pull-request-review-summary|(<!--[^>]*-->[[:space:]]*)*Codex Review: Something went wrong)")|not)|select([.reactionGroups[]?|select(.content=="EYES" and .viewerHasReacted)]|length==0)|"comment \(.createdAt) \(.author.login) \(.databaseId) \(.body|split("\n")[0]|gsub("=";"-")|.[0:110])")]|.[]'
    F=0; TS=""; END=$((SECONDS + 480))
    while [ "$SECONDS" -lt "$END" ]; do
      O=$(timeout 25 gh api graphql -F o="${S%%/*}" -F n="${S##*/}" -F p="$PR" -f query="$Q" --jq "$J" 2>/dev/null); r=$?
@@ -826,7 +826,7 @@ report with its reason.
    | `review` + `commit` absent locally (`128`)                        | abort                               | `git fetch`; still absent: someone else pushed      |
    | `review` + `commit` not an ancestor (`1`)                         | abort                               | history diverged (reset / force push)               |
    | `review` with zero inline comments                                | not clean by itself                 | decide in step 10, after reading the body           |
-   | `comment` whose body starts with the reviewer's clean phrase      | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
+   | `comment` matching `cleanPatterns`                                | clean — pending the gate            | step 10's review sweep if owed, then step 11's gate |
    | `comment` matching the rate-limit pattern + your own trigger      | abort (`reviewer-rate-limited`)     | `reason=reviewer-rate-limited`; no retry            |
    | `comment` matching the rate-limit pattern + a standing trigger    | re-take (`rate-limit-retake`)       | step 7                                              |
    | `comment` whose `cid=` the active-marks read lists (anyone's 👀)  | abort (`interim-loop`)              | see the marked-`cid=` bullet below                  |
@@ -900,7 +900,8 @@ report with its reason.
      `attempt=2`, then re-fire step 8. Record it in the report and in the field notes.
    - `pending` abort: name the condition that failed: `no-verdict attempts=2`,
      `timeout-before-retry`, `foreign-baseline`, `head-moved`, or plain `no-verdict`. `pending` is
-     silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical.
+     silence from the filtered bot, so read the PR; a wrong `botLogin` looks identical, and so does
+     a failure notice the fence drops. Print any such notice in full in the report.
    - The marks are read off the pull request and never kept in the session. The 👀 outlives the
      run and the round that made it, and a firing whose fetch shows the authenticated account's
      mark drops the comment whatever its body is now, an edit into a verdict included. Removing
@@ -1497,15 +1498,17 @@ second, and the one-runner rule.
   when there is also no bot comment and no reaction.
 - A review submitted in the same second as its trigger. The fence does not select it, so a later
   clean comment can finish the round over it. Does not fail closed.
-- Step 9's skip row, from a run. What a 👀 from any account leads to is ruled by step 9's skip bullet and
-  marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, none restated here, and no
-  run has taken any of them. Does not fail closed: a firing returns the newest comment after the
-  trigger, so an older one is classified only when it is the newest the firing's fetch leaves, which
-  the loop's own 👀 can bring about in that same firing, a firing whose fetch shows the authenticated
-  account's 👀 drops the comment whatever it later says,
+- Step 9's skip row. What a 👀 from any account leads to is ruled by step 9's skip bullet and
+  marked-`cid=` bullet, step 7's condition (d), step 11's gate and step 12, none restated here. A
+  run has taken the skip bullet and step 11's abort; the marked-`cid=` bullet, condition (d) and
+  step 12's read before a merge have not run with a row. Does not fail closed: a firing returns the
+  newest comment after the trigger, so an older one is classified only when it is the newest the
+  firing's fetch leaves, which the loop's own 👀 can bring about in that same firing, a firing whose
+  fetch shows the authenticated account's 👀 drops the comment whatever it later says,
   and the active-marks read counts anyone's 👀 on a bot comment since the pull request was opened,
-  including one the fence ignores and an earlier round's. The read is measured at `gh 2.4.0` on a
-  pull request with no 👀 on a bot comment; no run has read one that carries one.
+  including one the fence ignores and an earlier round's.
+- The fence's drop of a reviewer's failure notice, from a run. A notice with no later answer reads
+  as `pending` and reaches step 7's re-post. Fails toward a second trigger and `no-verdict`.
 - Step 12's last read of the marks before a merge sits outside the merge fence, so none of the five
   rules reads a 👀, from any account, added in the seconds between that read and the fence's PUT. Putting it inside is
   a fence edit and a re-approval for every user. Does not fail closed.

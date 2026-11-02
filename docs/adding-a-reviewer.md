@@ -40,7 +40,8 @@ gh api graphql -F o='{owner}' -F n='{repo}' -F p=<n> -f query='
 ```
 
 - Anchor each `cleanPatterns` entry at the start of the message. Reviewers append text that varies
-  between rounds, so a whole-string match fails.
+  between rounds, so a whole-string match fails. Some prepend an HTML comment, which the pattern has
+  to allow for: `^(<!--[^>]*-->\s*)*`.
 - Write `botLogin` with the `[bot]` suffix. revloop strips it before comparing.
 
 ## Write the definition
@@ -85,8 +86,9 @@ and open an issue. There is no fallback: step 1 aborts with `reason=marker-not-t
 ## If it posts a preamble first
 
 Some reviewers acknowledge the trigger before doing the work. Gemini posts `## Summary of Changes`,
-and Codex posts a status card that it edits while the review runs. The wait fence drops the ones it
-knows.
+and Codex posts a status card that it edits while the review runs. Codex can also post a failure
+notice and then answer the same trigger. The wait fence drops the ones it knows, and a dropped
+notice with no later answer reads as `pending`.
 
 A firing of the fence ignores a bot comment whose fetch shows a 👀 reaction from your account. What
 the loop does with one it does not know, and what that can cost, is ruled by step 9's skip bullet

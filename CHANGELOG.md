@@ -8,6 +8,17 @@ so a changed fence asks every user for one re-approval. See
 
 ## [Unreleased]
 
+Fences: `wait-verdict` changed (one re-approval).
+
+### Fixed
+
+- The wait fence ignores Codex's failure notice, an issue comment that opens with
+  `Codex Review: Something went wrong`. A run used to mark it with a 👀 and read the answer that
+  followed, then stop with `reason=unclassified-comment` at step 11's gate. A notice with no later
+  answer now reads as `pending`, which reaches step 7's one re-post.
+- `reviewers/codex.json` reads a clean comment that opens with an HTML comment, such as
+  `<!-- codex-review-receipt:v1 -->`.
+
 ## [0.19.0] - 2026-10-31
 
 Fences: none changed.

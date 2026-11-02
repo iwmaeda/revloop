@@ -1,0 +1,417 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "comments": {
+          "nodes": [
+            {
+              "createdAt": "2026-11-02T00:04:50Z",
+              "databaseId": 6565890127,
+              "body": "@codex review\n\n<!-- revloop:trigger v=1 reviewer=codex bot=chatgpt-codex-connector head=52e75e89 oid=52e75e890be8e584a4126158d753339b6ccda60e round=1 -->\n",
+              "author": {
+                "login": "iwmaeda",
+                "__typename": "User"
+              },
+              "reactionGroups": [
+                {
+                  "content": "THUMBS_UP",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "THUMBS_DOWN",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "LAUGH",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HOORAY",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "CONFUSED",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HEART",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "ROCKET",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "EYES",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                }
+              ]
+            },
+            {
+              "createdAt": "2026-11-02T00:05:01Z",
+              "databaseId": 501,
+              "body": "<!-- codex-review-receipt:v1 -->\n\nCodex Review: Something went wrong.",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "reactionGroups": [
+                {
+                  "content": "THUMBS_UP",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "THUMBS_DOWN",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "LAUGH",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HOORAY",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "CONFUSED",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HEART",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "ROCKET",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "EYES",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                }
+              ]
+            },
+            {
+              "createdAt": "2026-11-02T00:05:02Z",
+              "databaseId": 502,
+              "body": "<!-- codex-review-receipt:v2 -->\r\n\r\nCodex Review: Something went wrong.",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "reactionGroups": [
+                {
+                  "content": "THUMBS_UP",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "THUMBS_DOWN",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "LAUGH",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HOORAY",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "CONFUSED",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HEART",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "ROCKET",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "EYES",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                }
+              ]
+            },
+            {
+              "createdAt": "2026-11-02T00:05:03Z",
+              "databaseId": 503,
+              "body": "<!-- a -->\n<!-- b -->\nCodex Review: Something went wrong.",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "reactionGroups": [
+                {
+                  "content": "THUMBS_UP",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "THUMBS_DOWN",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "LAUGH",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HOORAY",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "CONFUSED",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HEART",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "ROCKET",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "EYES",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                }
+              ]
+            },
+            {
+              "createdAt": "2026-11-02T00:05:04Z",
+              "databaseId": 504,
+              "body": "Quoted mid-line: Codex Review: Something went wrong.",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "reactionGroups": [
+                {
+                  "content": "THUMBS_UP",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "THUMBS_DOWN",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "LAUGH",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HOORAY",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "CONFUSED",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HEART",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "ROCKET",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "EYES",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                }
+              ]
+            },
+            {
+              "createdAt": "2026-11-02T00:05:05Z",
+              "databaseId": 505,
+              "body": "Summary first\n\nCodex Review: Something went wrong.",
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "reactionGroups": [
+                {
+                  "content": "THUMBS_UP",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "THUMBS_DOWN",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "LAUGH",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HOORAY",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "CONFUSED",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "HEART",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "ROCKET",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                },
+                {
+                  "content": "EYES",
+                  "viewerHasReacted": false,
+                  "users": {
+                    "totalCount": 0
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "reviews": {
+          "nodes": []
+        }
+      }
+    }
+  }
+}
